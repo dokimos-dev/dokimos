@@ -6,11 +6,10 @@
 
     <groupId>io.dokimos</groupId>
     <artifactId>dokimos-parent</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
-        <module>dokimos-core</module>
         <module>dokimos-core</module>
     </modules>
 

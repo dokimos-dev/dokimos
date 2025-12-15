@@ -96,7 +96,7 @@ public class LLMJudgeEvaluator implements Evaluator {
         public Builder judge(JudgeLM judge) { this.judge = judge; return this; }
 
         public LLMJudgeEvaluator build() {
-            if (judge == null) throw new IllegalStateException("JudgeLLM is required");
+            if (judge == null) throw new IllegalStateException("JudgeLM is required");
             return new LLMJudgeEvaluator(this);
         }
     }

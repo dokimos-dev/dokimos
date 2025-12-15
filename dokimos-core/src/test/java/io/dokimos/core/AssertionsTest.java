@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.*;
 
-public class AssertionsTest {
+class AssertionsTest {
 
     @Test
     void shouldPassWhenEvaluatorSucceeds() {

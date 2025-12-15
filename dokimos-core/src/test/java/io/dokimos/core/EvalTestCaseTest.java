@@ -6,7 +6,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
 
-public class EvalTestCaseTest {
+class EvalTestCaseTest {
 
     @Test
     void shouldBuildMinimalTestCase() {

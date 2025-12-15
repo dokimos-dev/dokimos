@@ -17,6 +17,26 @@ public record Dataset(String name, String description, List<Example> examples) i
         this.examples = List.copyOf(examples);
     }
 
+    public String name() {
+        return name;
+    }
+
+    public String description() {
+        return description;
+    }
+
+    public List<Example> examples() {
+        return examples;
+    }
+
+    public int size() {
+        return examples.size();
+    }
+
+    public Example get(int index) {
+        return examples.get(index);
+    }
+
     @NotNull
     @Override
     public Iterator<Example> iterator() {

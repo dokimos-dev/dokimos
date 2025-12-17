@@ -4,5 +4,4 @@ public enum EvalTestCaseParam {
     INPUT,
     ACTUAL_OUTPUT,
     EXPECTED_OUTPUT,
-    RETRIEVAL_CONTEXT
 }

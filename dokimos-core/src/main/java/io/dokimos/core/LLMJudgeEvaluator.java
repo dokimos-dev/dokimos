@@ -33,7 +33,6 @@ public class LLMJudgeEvaluator implements Evaluator {
                 case INPUT -> sb.append("Input: ").append(testCase.input()).append("\n");
                 case ACTUAL_OUTPUT -> sb.append("Actual Output: ").append(testCase.actualOutput()).append("\n");
                 case EXPECTED_OUTPUT -> sb.append("Expected Output: ").append(testCase.expectedOutput()).append("\n");
-                case RETRIEVAL_CONTEXT -> sb.append("Context: ").append(testCase.retrievalContext()).append("\n");
             }
         }
 

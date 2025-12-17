@@ -45,16 +45,7 @@ public record Example(
      * Convert to a {@link EvalTestCase} by given outputs.
      */
     public EvalTestCase toTestCase(Map<String, Object> actualOutputs) {
-        return EvalTestCase.builder()
-                .input(input())
-                .actualOutput(actualOutputs.getOrDefault("output", "").toString())
-                .expectedOutput(expectedOutput())
-                .metadata(mergeMaps(metadata, Map.of(
-                        "_inputs", inputs,
-                        "_expectedOutputs", expectedOutputs,
-                        "_actualOutputs", actualOutputs
-                )))
-                .build();
+        return new EvalTestCase(inputs, actualOutputs, expectedOutputs, metadata);
     }
 
     /**
@@ -62,12 +53,6 @@ public record Example(
      */
     public EvalTestCase toTestCase(String actualOutput) {
         return toTestCase(Map.of("output", actualOutput));
-    }
-
-    private Map<String, Object> mergeMaps(Map<String, Object> a, Map<String, Object> b) {
-        var merged = new HashMap<>(a);
-        merged.putAll(b);
-        return merged;
     }
 
     public static Builder builder() {

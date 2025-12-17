@@ -18,7 +18,7 @@ class AssertionsTest {
 
         Evaluator passingEvaluator = new Evaluator() {
             @Override
-            public EvalResult evaluate(EvalTestCase testCase) {
+            public EvalResult evaluate(EvalTestCase tc) {
                 return EvalResult.success("fake", 1.0, "The answer is mathematically correct.");
             }
             @Override

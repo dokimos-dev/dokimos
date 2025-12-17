@@ -4,7 +4,8 @@ import java.util.List;
 
 public class Assertions {
 
-    private Assertions() {}
+    private Assertions() {
+    }
 
     public static void assertEval(EvalTestCase testCase, List<Evaluator> evaluators) {
         for (var evaluator : evaluators) {

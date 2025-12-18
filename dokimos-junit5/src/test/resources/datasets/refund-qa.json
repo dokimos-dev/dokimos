@@ -1,0 +1,13 @@
+{
+  "name": "refund-qa",
+  "examples": [
+    {
+      "input": "What is the refund policy?",
+      "expectedOutput": "30 day full refund"
+    },
+    {
+      "input": "Can I return after 60 days?",
+      "expectedOutput": "No, only within 30 days"
+    }
+  ]
+}

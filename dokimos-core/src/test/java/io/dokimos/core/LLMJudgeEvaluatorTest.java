@@ -39,8 +39,8 @@ class LLMJudgeEvaluatorTest {
     @Test
     void shouldFailWhenBelowThreshold() {
         JudgeLM mockJudge = prompt -> """
-            {"score": 0.3, "reason": "Outputs are very different"}
-            """;
+                {"score": 0.3, "reason": "Outputs are very different"}
+                """;
 
         var evaluator = LLMJudgeEvaluator.builder()
                 .name("correctness")
@@ -68,8 +68,8 @@ class LLMJudgeEvaluatorTest {
         JudgeLM capturingJudge = prompt -> {
             capturedPrompt[0] = prompt;
             return """
-                {"score": 0.9, "reason": "ok"}
-                """;
+                    {"score": 0.9, "reason": "ok"}
+                    """;
         };
 
         var evaluator = LLMJudgeEvaluator.builder()
@@ -126,4 +126,63 @@ class LLMJudgeEvaluatorTest {
         ).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JudgeLM");
     }
+
+    @Test
+    void shouldCaptureCustomScoreRange() {
+        var capturedPrompt = new String[]{null};
+
+        JudgeLM mockJudge = prompt -> {
+            capturedPrompt[0] = prompt;
+            return """
+                    {"score": 4.2, "reason": "Good response"}
+                    """;
+        };
+
+        var evaluator = LLMJudgeEvaluator.builder()
+                .name("answer-quality")
+                .criteria("Rate the quality")
+                .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT))
+                .scoreRange(1, 5)
+                .threshold(3.5)
+                .judge(mockJudge)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("question")
+                .actualOutput("answer")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(capturedPrompt[0]).contains("between 1.0 and 5.0");
+        assertThat(result.score()).isEqualTo(4.2);
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void shouldFailWhenBelowCustomThreshold() {
+        JudgeLM mockJudge = prompt -> """
+                {"score": 1.5, "reason": "The response was incorrect"}
+                """;
+
+        var evaluator = LLMJudgeEvaluator.builder()
+                .name("quality")
+                .criteria("Rate the quality")
+                .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT))
+                .scoreRange(1, 5)
+                .threshold(3.5)
+                .judge(mockJudge)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("question")
+                .actualOutput("I don't know")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.5);
+        assertThat(result.success()).isFalse();
+    }
+
 }

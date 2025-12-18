@@ -10,15 +10,12 @@ public record EvalResult(
         Map<String, Object> metadata
 ) {
     public EvalResult {
-        if (score < 0.0 || score > 1.0) {
-            throw new IllegalArgumentException("Score must be between 0.0 and 1.0");
-        }
         metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
     }
 
-    public static EvalResult of(String name, double score, String reason) {
-        // TODO: handle success correctly
-        return new EvalResult(name, score, true, reason, Map.of());
+    public static EvalResult of(String name, double score, double threshold, String reason) {
+        boolean success = score >= threshold;
+        return new EvalResult(name, score, success, reason, Map.of());
     }
 
     public static EvalResult success(String name, double score, String reason) {

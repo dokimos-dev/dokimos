@@ -7,6 +7,8 @@ public class LLMJudgeEvaluator implements Evaluator {
     private final String criteria;
     private final List<EvalTestCaseParam> evaluationParams;
     private final double threshold;
+    private final double minScore;
+    private final double maxScore;
     private final JudgeLM judge;
 
     private LLMJudgeEvaluator(Builder builder) {
@@ -14,7 +16,13 @@ public class LLMJudgeEvaluator implements Evaluator {
         this.criteria = builder.criteria;
         this.evaluationParams = List.copyOf(builder.evaluationParams);
         this.threshold = builder.threshold;
+        this.minScore = builder.minScore;
+        this.maxScore = builder.maxScore;
         this.judge = builder.judge;
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     @Override
@@ -36,7 +44,9 @@ public class LLMJudgeEvaluator implements Evaluator {
             }
         }
 
-        sb.append("\nProvide a score between 0.0 and 1.0, and a brief reasoning. ");
+        sb.append("Provide a score between ")
+                .append(minScore).append(" and ").append(maxScore)
+                .append(", and a brief reasoning.");
         // TODO: Structured outputs?
         sb.append("Respond in JSON format: {\"score\": <number>, \"reason\": \"<explanation>\"}");
         return sb.toString();
@@ -48,51 +58,80 @@ public class LLMJudgeEvaluator implements Evaluator {
 
         try {
 
-        var scoreMatcher = java.util.regex.Pattern.compile("\"score\"\\s*:\\s*(\\d+\\.?\\d*)").matcher(response);
-        if (scoreMatcher.find()) {
-            score = Double.parseDouble(scoreMatcher.group(1));
-        }  else {
-            throw new IllegalArgumentException("No score found in LLM response.");
-        }
+            var scoreMatcher = java.util.regex.Pattern.compile("\"score\"\\s*:\\s*(\\d+\\.?\\d*)").matcher(response);
+            if (scoreMatcher.find()) {
+                score = Double.parseDouble(scoreMatcher.group(1));
+            } else {
+                throw new IllegalArgumentException("No score found in LLM response.");
+            }
 
-        var reasonMatcher = java.util.regex.Pattern.compile("\"reason\"\\s*:\\s*\"([^\"]+)\"").matcher(response);
-        if (reasonMatcher.find()) {
-            reason = reasonMatcher.group(1);
-        } else {
-            reason = "No reason provided.";
-        }
+            var reasonMatcher = java.util.regex.Pattern.compile("\"reason\"\\s*:\\s*\"([^\"]+)\"").matcher(response);
+            if (reasonMatcher.find()) {
+                reason = reasonMatcher.group(1);
+            } else {
+                reason = "No reason provided.";
+            }
 
-        return EvalResult.builder()
-                .name(name)
-                .score(score)
-                .threshold(threshold)
-                .reason(reason)
-                .build();
+            return EvalResult.builder()
+                    .name(name)
+                    .score(score)
+                    .threshold(threshold)
+                    .reason(reason)
+                    .build();
         } catch (Exception e) {
             return EvalResult.failure(name, 0.0, "Failed to parse LLM response: " + e.getMessage());
         }
     }
 
     @Override
-    public String name() { return name; }
+    public String name() {
+        return name;
+    }
 
     @Override
-    public double threshold() { return threshold; }
-
-    public static Builder builder() { return new Builder(); }
+    public double threshold() {
+        return threshold;
+    }
 
     public static class Builder {
         private String name;
         private String criteria;
         private List<EvalTestCaseParam> evaluationParams = List.of();
-        private double threshold = 0.5;
+        private double threshold = 0.6;
+        private double minScore = 0.0;
+        private double maxScore = 1.0;
         private JudgeLM judge;
 
-        public Builder name(String name) { this.name = name; return this; }
-        public Builder criteria(String criteria) { this.criteria = criteria; return this; }
-        public Builder evaluationParams(List<EvalTestCaseParam> params) { this.evaluationParams = params; return this; }
-        public Builder threshold(double threshold) { this.threshold = threshold; return this; }
-        public Builder judge(JudgeLM judge) { this.judge = judge; return this; }
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder criteria(String criteria) {
+            this.criteria = criteria;
+            return this;
+        }
+
+        public Builder evaluationParams(List<EvalTestCaseParam> params) {
+            this.evaluationParams = params;
+            return this;
+        }
+
+        public Builder threshold(double threshold) {
+            this.threshold = threshold;
+            return this;
+        }
+
+        public Builder scoreRange(double min, double max) {
+            this.minScore = min;
+            this.maxScore = max;
+            return this;
+        }
+
+        public Builder judge(JudgeLM judge) {
+            this.judge = judge;
+            return this;
+        }
 
         public LLMJudgeEvaluator build() {
             if (judge == null) throw new IllegalStateException("JudgeLM is required");

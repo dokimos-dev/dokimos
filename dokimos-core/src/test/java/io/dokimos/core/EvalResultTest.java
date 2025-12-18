@@ -1,6 +1,7 @@
 package io.dokimos.core;
 
 import org.junit.jupiter.api.Test;
+
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
@@ -9,7 +10,7 @@ class EvalResultTest {
 
     @Test
     void shouldCreateWithStaticFactory() {
-        var result = EvalResult.of("faithfulness", 0.85, "All claims supported");
+        var result = EvalResult.of("faithfulness", 0.85, 0.8, "All claims supported");
 
         assertThat(result.name()).isEqualTo("faithfulness");
         assertThat(result.score()).isEqualTo(0.85);
@@ -58,16 +59,6 @@ class EvalResultTest {
 
         assertThat(result.success()).isTrue();
         assertThat(result.metadata()).containsEntry("claims_verified", 5);
-    }
-
-    @Test
-    void shouldRejectScoreOutOfRange() {
-        assertThatThrownBy(() -> EvalResult.of("test", 1.5, "Invalid"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("between 0.0 and 1.0");
-
-        assertThatThrownBy(() -> EvalResult.of("test", -0.1, "Invalid"))
-                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

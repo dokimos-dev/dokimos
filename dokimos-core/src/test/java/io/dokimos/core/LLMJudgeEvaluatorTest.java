@@ -185,4 +185,41 @@ class LLMJudgeEvaluatorTest {
         assertThat(result.success()).isFalse();
     }
 
+    @Test
+    void shouldThrowExceptionWhenRequiredParamMissing() {
+        JudgeLM mockJudge = prompt -> "{\"score\": 1.0, \"reason\": \"ok\"}";
+
+        var evaluator = LLMJudgeEvaluator.builder()
+                .name("input-check")
+                .criteria("Check if input is relevant")
+                .evaluationParams(List.of(EvalTestCaseParam.INPUT))
+                .judge(mockJudge)
+                .build();
+
+        // Test case has actual/expected, but input is missing and required here
+        var testCase = EvalTestCase.builder()
+                .actualOutput("output")
+                .expectedOutput("output")
+                .build();
+
+        assertThatThrownBy(() -> evaluator.evaluate(testCase))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("INPUT");
+    }
+
+    @Test
+    void shouldRequireAtLeastOneEvalParamOnBuild() {
+        JudgeLM mockJudge = prompt -> "";
+
+        assertThatThrownBy(() ->
+                LLMJudgeEvaluator.builder()
+                        .name("test")
+                        .criteria("Test")
+                        .judge(mockJudge)
+                        .evaluationParams(List.of())
+                        .build()
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least one evaluation param");
+    }
+
 }

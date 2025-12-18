@@ -17,22 +17,6 @@ public record EvalTestCase(
         metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
     }
 
-    // Convenience accessors for common single input/output case
-    public String input() {
-        Object value = inputs.get("input");
-        return value != null ? value.toString() : null;
-    }
-
-    public String actualOutput() {
-        Object value = actualOutputs.get("output");
-        return value != null ? value.toString() : null;
-    }
-
-    public String expectedOutput() {
-        Object value = expectedOutputs.get("output");
-        return value != null ? value.toString() : null;
-    }
-
     /**
      * Simple factory for single input/output case.
      */
@@ -59,6 +43,22 @@ public record EvalTestCase(
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    // Convenience accessors for common single input/output case
+    public String input() {
+        Object value = inputs.get("input");
+        return value != null ? value.toString() : null;
+    }
+
+    public String actualOutput() {
+        Object value = actualOutputs.get("output");
+        return value != null ? value.toString() : null;
+    }
+
+    public String expectedOutput() {
+        Object value = expectedOutputs.get("output");
+        return value != null ? value.toString() : null;
     }
 
     public static class Builder {

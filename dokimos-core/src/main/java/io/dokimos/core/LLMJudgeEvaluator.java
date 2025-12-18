@@ -2,20 +2,15 @@ package io.dokimos.core;
 
 import java.util.List;
 
-public class LLMJudgeEvaluator implements Evaluator {
-    private final String name;
+public class LLMJudgeEvaluator extends BaseEvaluator {
     private final String criteria;
-    private final List<EvalTestCaseParam> evaluationParams;
-    private final double threshold;
     private final double minScore;
     private final double maxScore;
     private final JudgeLM judge;
 
     private LLMJudgeEvaluator(Builder builder) {
-        this.name = builder.name;
+        super(builder.name, builder.threshold, builder.evaluationParams);
         this.criteria = builder.criteria;
-        this.evaluationParams = List.copyOf(builder.evaluationParams);
-        this.threshold = builder.threshold;
         this.minScore = builder.minScore;
         this.maxScore = builder.maxScore;
         this.judge = builder.judge;
@@ -26,7 +21,7 @@ public class LLMJudgeEvaluator implements Evaluator {
     }
 
     @Override
-    public EvalResult evaluate(EvalTestCase testCase) {
+    protected EvalResult runEvaluation(EvalTestCase testCase) {
         String prompt = buildPrompt(testCase);
         String response = judge.generate(prompt);
         return parseResponse(response);
@@ -83,21 +78,11 @@ public class LLMJudgeEvaluator implements Evaluator {
         }
     }
 
-    @Override
-    public String name() {
-        return name;
-    }
-
-    @Override
-    public double threshold() {
-        return threshold;
-    }
-
     public static class Builder {
         private String name;
         private String criteria;
         private List<EvalTestCaseParam> evaluationParams = List.of();
-        private double threshold = 0.6;
+        private double threshold = 0.5;
         private double minScore = 0.0;
         private double maxScore = 1.0;
         private JudgeLM judge;
@@ -134,6 +119,9 @@ public class LLMJudgeEvaluator implements Evaluator {
         }
 
         public LLMJudgeEvaluator build() {
+            if (evaluationParams.isEmpty()) {
+                throw new IllegalStateException("LLM Judge requires at least one evaluation param");
+            }
             if (judge == null) throw new IllegalStateException("JudgeLM is required");
             return new LLMJudgeEvaluator(this);
         }

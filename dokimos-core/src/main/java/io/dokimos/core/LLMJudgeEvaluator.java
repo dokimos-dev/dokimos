@@ -1,8 +1,12 @@
 package io.dokimos.core;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.List;
 
 public class LLMJudgeEvaluator extends BaseEvaluator {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final String criteria;
     private final double minScore;
     private final double maxScore;
@@ -48,24 +52,10 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
     }
 
     private EvalResult parseResponse(String response) {
-        double score;
-        String reason;
-
         try {
-
-            var scoreMatcher = java.util.regex.Pattern.compile("\"score\"\\s*:\\s*(\\d+\\.?\\d*)").matcher(response);
-            if (scoreMatcher.find()) {
-                score = Double.parseDouble(scoreMatcher.group(1));
-            } else {
-                throw new IllegalArgumentException("No score found in LLM response.");
-            }
-
-            var reasonMatcher = java.util.regex.Pattern.compile("\"reason\"\\s*:\\s*\"([^\"]+)\"").matcher(response);
-            if (reasonMatcher.find()) {
-                reason = reasonMatcher.group(1);
-            } else {
-                reason = "No reason provided.";
-            }
+            JsonNode node = OBJECT_MAPPER.readTree(response);
+            double score = node.get("score").asDouble();
+            String reason = node.has("reason") ? node.get("reason").asText() : "No reason provided.";
 
             return EvalResult.builder()
                     .name(name)

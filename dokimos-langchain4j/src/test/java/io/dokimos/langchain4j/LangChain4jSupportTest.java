@@ -39,5 +39,124 @@ class LangChain4jSupportTest {
         assertThat(response).isEqualTo("Judge response");
     }
 
+    @Test
+    void simpleTask_shouldExtractInputAndProduceOutputs() {
+        ChatModel chatModel = new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                return ChatResponse.builder()
+                        .aiMessage(AiMessage.from("The answer is 47"))
+                        .build();
+            }
+        };
+
+        Task task = LangChain4jSupport.simpleTask(chatModel);
+
+        Example example = Example.of("What is the answer of 45+2?", "47");
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsEntry("output", "The answer is 47");
+    }
+
+    @Test
+    void ragTask_shouldExtractContextFromSources() {
+        List<Content> sources = List.of(
+                Content.from(TextSegment.from("90-day money-back guarantee")),
+                Content.from(TextSegment.from("Contact our support for more information about refunds"))
+        );
+
+        Result<String> mockResult = Result.<String>builder()
+                .content("You can get a refund within 90 days after purchase.")
+                .sources(sources)
+                .build();
+
+        Task task = LangChain4jSupport.ragTask(input -> mockResult);
+
+        Example example = Example.of("What is the refund policy?", "90 days");
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsEntry("output", "You can get a refund within 90 days after purchase.");
+        assertThat(outputs).containsKey("context");
+
+        @SuppressWarnings("unchecked")
+        List<String> context = (List<String>) outputs.get("context");
+        assertThat(context).containsExactly(
+                "90-day money-back guarantee",
+                "Contact our support for more information about refunds"
+        );
+    }
+
+    @Test
+    void ragTask_shouldSupportCustomKeys() {
+        List<Content> sources = List.of(Content.from(TextSegment.from("Source document")));
+
+        Result<String> mockResult = Result.<String>builder()
+                .content("The answer")
+                .sources(sources)
+                .build();
+
+        Task task = LangChain4jSupport.ragTask(
+                input -> mockResult,
+                "question",
+                "answer",
+                "documentContext"
+        );
+
+        Example example = Example.builder()
+                .input("question", "What?")
+                .build();
+
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsKey("answer");
+        assertThat(outputs).containsKey("documentContext");
+        assertThat(outputs).doesNotContainKey("output");
+        assertThat(outputs).doesNotContainKey("context");
+        assertThat(outputs).doesNotContainKey("retrievalContext");
+    }
+
+    @Test
+    void extractTexts_shouldHandleNullSources() {
+        List<String> texts = LangChain4jSupport.extractTexts(null);
+        assertThat(texts).isEmpty();
+    }
+
+    @Test
+    void extractTexts_shouldHandleEmptySources() {
+        List<String> texts = LangChain4jSupport.extractTexts(List.of());
+        assertThat(texts).isEmpty();
+    }
+
+    @Test
+    void extractTexts_shouldExtractTextFromContents() {
+        List<Content> contents = List.of(
+                Content.from(TextSegment.from("First segment")),
+                Content.from(TextSegment.from("Second segment"))
+        );
+
+        List<String> texts = LangChain4jSupport.extractTexts(contents);
+
+        assertThat(texts).containsExactly("First segment", "Second segment");
+    }
+
+    @Test
+    void extractTextsWithMetadata_shouldIncludeMetadata() {
+        List<Content> contents = List.of(
+                Content.from(TextSegment.from(
+                        "Document content",
+                        dev.langchain4j.data.document.Metadata.from("source", "G://files/test-file.md")
+                ))
+        );
+
+        List<Map<String, Object>> results = LangChain4jSupport.extractTextsWithMetadata(contents);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0)).containsEntry("text", "Document content");
+        assertThat(results.get(0)).containsKey("metadata");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> metadata = (Map<String, Object>) results.get(0).get("metadata");
+        assertThat(metadata).containsEntry("source", "G://files/test-file.md");
+    }
 
 }

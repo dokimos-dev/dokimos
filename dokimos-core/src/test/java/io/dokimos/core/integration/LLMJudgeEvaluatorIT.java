@@ -35,7 +35,7 @@ class LLMJudgeEvaluatorIT {
                     .build();
 
             ChatCompletion chatCompletion = client.chat().completions().create(params);
-            return chatCompletion.choices().getFirst().message().content().orElse("");
+            return chatCompletion.choices().get(0).message().content().orElse("");
         };
     }
 

@@ -151,11 +151,11 @@ class LangChain4jSupportTest {
         List<Map<String, Object>> results = LangChain4jSupport.extractTextsWithMetadata(contents);
 
         assertThat(results).hasSize(1);
-        assertThat(results.getFirst()).containsEntry("text", "Document content");
-        assertThat(results.getFirst()).containsKey("metadata");
+        assertThat(results.get(0)).containsEntry("text", "Document content");
+        assertThat(results.get(0)).containsKey("metadata");
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = (Map<String, Object>) results.getFirst().get("metadata");
+        Map<String, Object> metadata = (Map<String, Object>) results.get(0).get("metadata");
         assertThat(metadata).containsEntry("source", "G://files/test-file.md");
     }
 

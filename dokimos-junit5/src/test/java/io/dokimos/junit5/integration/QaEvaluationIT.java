@@ -29,7 +29,7 @@ class QaEvaluationIT {
                     .model(ChatModel.GPT_5_NANO)
                     .build();
             return client.chat().completions().create(params)
-                    .choices().getFirst().message().content().orElse("");
+                    .choices().get(0).message().content().orElse("");
         };
 
         evaluators = List.of(

@@ -20,7 +20,7 @@ public class AIAssistant {
                 .build();
 
         return client.chat().completions().create(params)
-                .choices().getFirst().message().content().orElse("");
+                .choices().get(0).message().content().orElse("");
     }
 
 }

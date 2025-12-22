@@ -164,7 +164,7 @@ class LangChain4jIT {
                 .run();
 
         assertThat(result.itemResults()).hasSize(3);
-        assertThat(result.itemResults().getFirst().success()).isTrue();
+        assertThat(result.itemResults().get(0).success()).isTrue();
     }
 
     interface AIAssistant {

@@ -33,7 +33,7 @@ class LangChain4jSupportTest {
             }
         };
 
-        JudgeLM judge = LangChain4jSupport.asJudge(mockModel);
+        var judge = LangChain4jSupport.asJudge(mockModel);
 
         String response = judge.generate("Test prompt");
         assertThat(response).isEqualTo("Judge response");
@@ -50,9 +50,9 @@ class LangChain4jSupportTest {
             }
         };
 
-        Task task = LangChain4jSupport.simpleTask(chatModel);
+        var task = LangChain4jSupport.simpleTask(chatModel);
 
-        Example example = Example.of("What is the answer of 45+2?", "47");
+        var example = Example.of("What is the answer of 45+2?", "47");
         Map<String, Object> outputs = task.run(example);
 
         assertThat(outputs).containsEntry("output", "The answer is 47");
@@ -70,9 +70,9 @@ class LangChain4jSupportTest {
                 .sources(sources)
                 .build();
 
-        Task task = LangChain4jSupport.ragTask(input -> mockResult);
+        var task = LangChain4jSupport.ragTask(input -> mockResult);
 
-        Example example = Example.of("What is the refund policy?", "90 days");
+        var example = Example.of("What is the refund policy?", "90 days");
         Map<String, Object> outputs = task.run(example);
 
         assertThat(outputs).containsEntry("output", "You can get a refund within 90 days after purchase.");
@@ -95,14 +95,14 @@ class LangChain4jSupportTest {
                 .sources(sources)
                 .build();
 
-        Task task = LangChain4jSupport.ragTask(
+        var task = LangChain4jSupport.ragTask(
                 input -> mockResult,
                 "question",
                 "answer",
                 "documentContext"
         );
 
-        Example example = Example.builder()
+        var example = Example.builder()
                 .input("question", "What?")
                 .build();
 
@@ -151,12 +151,50 @@ class LangChain4jSupportTest {
         List<Map<String, Object>> results = LangChain4jSupport.extractTextsWithMetadata(contents);
 
         assertThat(results).hasSize(1);
-        assertThat(results.get(0)).containsEntry("text", "Document content");
-        assertThat(results.get(0)).containsKey("metadata");
+        assertThat(results.getFirst()).containsEntry("text", "Document content");
+        assertThat(results.getFirst()).containsKey("metadata");
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> metadata = (Map<String, Object>) results.get(0).get("metadata");
+        Map<String, Object> metadata = (Map<String, Object>) results.getFirst().get("metadata");
         assertThat(metadata).containsEntry("source", "G://files/test-file.md");
     }
 
+    @Test
+    void customTask_shouldSupportFullControl() {
+        var task = LangChain4jSupport.customTask(example -> {
+            return Map.of(
+                    "output", "The AI generated response",
+                    "context", List.of("doc1", "doc2"),
+                    "latencyMs", 150L,
+                    "customMetric", 0.95
+            );
+        });
+
+        var example = Example.of("What?", "Some answer");
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsEntry("output", "The AI generated response");
+        assertThat(outputs).containsEntry("context", List.of("doc1", "doc2"));
+        assertThat(outputs).containsEntry("latencyMs", 150L);
+        assertThat(outputs).containsEntry("customMetric", 0.95);
+    }
+
+    @Test
+    void ragTask_shouldHandleNullSources() {
+        Result<String> mockResult = Result.<String>builder()
+                .content("The Answer without sources")
+                .sources(null)
+                .build();
+
+        var task = LangChain4jSupport.ragTask(input -> mockResult);
+
+        var example = Example.of("Question?", "Expected answer");
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsEntry("output", "The Answer without sources");
+
+        @SuppressWarnings("unchecked")
+        List<String> context = (List<String>) outputs.get("context");
+        assertThat(context).isEmpty();
+    }
 }

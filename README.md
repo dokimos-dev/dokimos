@@ -1,4 +1,4 @@
-# Dokimos: Evaluation Framework for LLM applications in Java
+# Dokimos: Evaluation for LLM applications in Java
 
 Dokimos is a systematic approach to evaluate LLM outputs using datasets, metrics, and experiments in Java. It integrates
 seamlessly with JUnit 5 for parameterized testing, and libraries, such

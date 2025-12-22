@@ -1,9 +1,7 @@
-# Dokimos
+# Dokimos: Evaluation Framework for LLM applications in Java
 
-**Evaluation framework for LLM applications in Java**
-
-Dokimos provides a systematic approach to evaluate LLM outputs using datasets, metrics, and experiments. It integrates
-seamlessly with JUnit 5 for parameterized testing libraries, such
+Dokimos is a systematic approach to evaluate LLM outputs using datasets, metrics, and experiments in Java. It integrates
+seamlessly with JUnit 5 for parameterized testing, and libraries, such
 as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of sophisticated AI systems and agents.
 
 ## Features
@@ -25,27 +23,32 @@ as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of s
 Add the desired modules to your `pom.xml`:
 
 ```xml
-<!-- Core evaluation framework -->
-<dependency>
-    <groupId>io.dokimos</groupId>
-    <artifactId>dokimos-core</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
-</dependency>
 
-        <!-- JUnit 5 integration -->
-<dependency>
-<groupId>io.dokimos</groupId>
-<artifactId>dokimos-junit5</artifactId>
-<version>0.1.0-SNAPSHOT</version>
-<scope>test</scope>
-</dependency>
+<dependencies>
+    ...
+    <!-- Core evaluation framework -->
+    <dependency>
+        <groupId>io.dokimos</groupId>
+        <artifactId>dokimos-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
 
-        <!-- LangChain4j integration -->
-<dependency>
-<groupId>io.dokimos</groupId>
-<artifactId>dokimos-langchain4j</artifactId>
-<version>0.1.0-SNAPSHOT</version>
-</dependency>
+    <!-- JUnit 5 integration -->
+    <dependency>
+        <groupId>io.dokimos</groupId>
+        <artifactId>dokimos-junit5</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <scope>test</scope>
+    </dependency>
+
+    <!-- LangChain4j integration -->
+    <dependency>
+        <groupId>io.dokimos</groupId>
+        <artifactId>dokimos-langchain4j</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+    ...
+</dependencies>
 ```
 
 ## Modules

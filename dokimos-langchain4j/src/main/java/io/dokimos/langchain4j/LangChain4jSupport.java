@@ -16,7 +16,6 @@ import java.util.function.Function;
  *
  * <p>This class provides factory methods to create {@link Task}s and {@link JudgeLM}s
  * from LangChain4j components.
- * <p>
  *
  * <h2>RAG Evaluation</h2>
  * <pre>{@code
@@ -80,7 +79,7 @@ public final class LangChain4jSupport {
     }
 
     /**
-     * Creates a simple {@link Task} for Q&A evaluation.
+     * Creates a simple {@link Task} for Q&amp;A evaluation.
      *
      * <p>The task reads "input" from the example and returns a Map with "output".
      *

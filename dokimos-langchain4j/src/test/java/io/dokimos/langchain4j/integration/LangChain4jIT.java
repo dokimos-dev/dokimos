@@ -17,10 +17,8 @@ import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.rag.query.transformer.CompressingQueryTransformer;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.Result;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -151,7 +149,7 @@ class LangChain4jIT {
                         EvalTestCaseParam.INPUT,
                         EvalTestCaseParam.ACTUAL_OUTPUT
                 ))
-                .threshold(0.7)
+                .threshold(0.8)
                 .build();
 
         ExperimentResult result = Experiment.builder()

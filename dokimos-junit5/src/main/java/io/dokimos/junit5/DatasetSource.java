@@ -17,8 +17,8 @@ import java.lang.annotation.Target;
  *     <li>{@code path/to/dataset.json} - file path (default)</li>
  *     <li>Inline JSON via {@link #json()}</li>
  * </ul>
- * <p>
- * Example usage:
+ *
+ * <p>Example usage:
  * <pre>{@code
  * @ParameterizedTest
  * @DatasetSource("classpath:datasets/qa.json")
@@ -27,7 +27,6 @@ import java.lang.annotation.Target;
  *     Assertions.assertEval(example.toTestCase(answer), evaluators);
  * }
  * }</pre>
- * </p>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

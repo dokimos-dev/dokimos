@@ -5,6 +5,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * An evaluation experiment that runs a task against a dataset and evaluates the results.
+ * <p>
+ * Experiments coordinate the execution of a task across dataset examples,
+ * apply evaluators to the outputs, and aggregate results.
+ */
 public class Experiment {
 
     private final String name;
@@ -27,6 +33,11 @@ public class Experiment {
         return new Builder();
     }
 
+    /**
+     * Runs the experiment and returns the aggregated results.
+     *
+     * @return the experiment results
+     */
     public ExperimentResult run() {
         List<ItemResult> itemResults = new ArrayList<>();
 
@@ -52,11 +63,16 @@ public class Experiment {
         private Dataset dataset;
         private Task task;
 
+        /**
+         * Sets the experiment name.
+         *
+         * @param name the experiment name
+         * @return this builder
+         */
         public Builder name(String name) {
             this.name = name;
             return this;
         }
-
 
         /**
          * Sets the description.
@@ -136,6 +152,12 @@ public class Experiment {
             return this;
         }
 
+        /**
+         * Builds the experiment.
+         *
+         * @return a new experiment
+         * @throws IllegalStateException if dataset or task is not set
+         */
         public Experiment build() {
             if (dataset == null) {
                 throw new IllegalStateException("Dataset is required");

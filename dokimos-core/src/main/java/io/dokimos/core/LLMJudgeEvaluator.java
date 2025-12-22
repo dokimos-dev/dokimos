@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+/**
+ * Evaluator that uses an LLM to evaluate outputs based on the specified criteria.
+ */
 public class LLMJudgeEvaluator extends BaseEvaluator {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final String criteria;
@@ -77,37 +80,80 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
         private double maxScore = 1.0;
         private JudgeLM judge;
 
+        /**
+         * Sets the evaluator name.
+         *
+         * @param name the evaluator name
+         * @return this builder
+         */
         public Builder name(String name) {
             this.name = name;
             return this;
         }
 
+        /**
+         * Sets the evaluation criteria.
+         *
+         * @param criteria the criteria description
+         * @return this builder
+         */
         public Builder criteria(String criteria) {
             this.criteria = criteria;
             return this;
         }
 
+        /**
+         * Sets which test case parameters to include in the prompt.
+         *
+         * @param params the parameters to evaluate
+         * @return this builder
+         */
         public Builder evaluationParams(List<EvalTestCaseParam> params) {
             this.evaluationParams = params;
             return this;
         }
 
+        /**
+         * Sets the minimum score threshold for success.
+         *
+         * @param threshold the threshold value
+         * @return this builder
+         */
         public Builder threshold(double threshold) {
             this.threshold = threshold;
             return this;
         }
 
+        /**
+         * Sets the expected score range for the LLM response.
+         *
+         * @param min the minimum score value
+         * @param max the maximum score value
+         * @return this builder
+         */
         public Builder scoreRange(double min, double max) {
             this.minScore = min;
             this.maxScore = max;
             return this;
         }
 
+        /**
+         * Sets the model to use for the evaluation.
+         *
+         * @param judge the model
+         * @return this builder
+         */
         public Builder judge(JudgeLM judge) {
             this.judge = judge;
             return this;
         }
 
+        /**
+         * Builds the evaluator.
+         *
+         * @return a new LLM judge evaluator
+         * @throws IllegalStateException if required fields are not set
+         */
         public LLMJudgeEvaluator build() {
             if (evaluationParams.isEmpty()) {
                 throw new IllegalStateException("LLM Judge requires at least one evaluation param");

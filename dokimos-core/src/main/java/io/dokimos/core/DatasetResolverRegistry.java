@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.ServiceLoader;
 
 /**
- * Registry of DatasetResolvers.
- * Resolvers are loaded via SPI and can be added programmatically.
+ * Singleton registry for dataset resolvers.
+ * <p>
+ * Manages the discovery and registration of dataset resolvers, supporting both
+ * service provider interface (SPI) based auto-discovery and programmatic registration.
+ * Resolvers are tried in order until one matches the given URI.
  */
 public class DatasetResolverRegistry {
 
@@ -23,19 +26,35 @@ public class DatasetResolverRegistry {
         resolvers.add(new FileDatasetResolver());
     }
 
+    /**
+     * Returns the singleton registry instance.
+     *
+     * @return the registry instance
+     */
     public static DatasetResolverRegistry getInstance() {
         return INSTANCE;
     }
 
     /**
-     * Register a custom resolver with the highest priority.
+     * Registers a custom resolver with the highest priority.
+     * <p>
+     * The resolver is added at the beginning of the resolver chain and will be
+     * consulted before any previously registered resolvers.
+     *
+     * @param resolver the resolver to register
      */
     public void register(DatasetResolver resolver) {
         resolvers.add(0, resolver);
     }
 
     /**
-     * Resolve a URI to a Dataset using the first matching resolver.
+     * Resolves a URI to a dataset using the first matching resolver.
+     * <p>
+     * Iterates through registered resolvers in order until one supports the given URI.
+     *
+     * @param uri the dataset URI to resolve
+     * @return the resolved dataset
+     * @throws DatasetResolutionException if no resolver supports the URI
      */
     public Dataset resolve(String uri) {
         for (DatasetResolver resolver : resolvers) {

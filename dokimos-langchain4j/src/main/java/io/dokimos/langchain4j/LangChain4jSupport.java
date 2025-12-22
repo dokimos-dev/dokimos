@@ -47,8 +47,19 @@ import java.util.function.Function;
  */
 public final class LangChain4jSupport {
 
+    /**
+     * Default key for the model output in evaluation results.
+     */
     public static final String OUTPUT_KEY = "output";
+
+    /**
+     * Default key for additional context in evaluation results.
+     */
     public static final String CONTEXT_KEY = "context";
+
+    /**
+     * Default key for reading input from dataset examples.
+     */
     public static final String INPUT_KEY = "input";
 
     private LangChain4jSupport() {
@@ -243,5 +254,5 @@ public final class LangChain4jSupport {
                 })
                 .toList();
     }
-    
+
 }

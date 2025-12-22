@@ -2,12 +2,22 @@ package io.dokimos.core;
 
 import java.util.List;
 
+/**
+ * Base class for implementing concrete evaluators.
+ */
 public abstract class BaseEvaluator implements Evaluator {
 
     protected final String name;
     protected final double threshold;
     protected final List<EvalTestCaseParam> evaluationParams;
 
+    /**
+     * Constructs the base evaluator.
+     *
+     * @param name             the evaluator's name
+     * @param threshold        the success threshold
+     * @param evaluationParams the required test case parameters
+     */
     protected BaseEvaluator(String name, double threshold, List<EvalTestCaseParam> evaluationParams) {
         this.name = name;
         this.threshold = threshold;
@@ -35,6 +45,13 @@ public abstract class BaseEvaluator implements Evaluator {
         }
     }
 
+    /**
+     * Performs the evaluation logic.
+     * Subclasses implement this to define specific evaluation behavior.
+     *
+     * @param testCase the test case to evaluate
+     * @return the evaluation result
+     */
     protected abstract EvalResult runEvaluation(EvalTestCase testCase);
 
     @Override

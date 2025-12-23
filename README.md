@@ -28,14 +28,14 @@ Add the desired modules to your `pom.xml`:
     ...
     <!-- Core evaluation framework -->
     <dependency>
-        <groupId>io.dokimos</groupId>
+        <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-core</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </dependency>
 
     <!-- JUnit 5 integration -->
     <dependency>
-        <groupId>io.dokimos</groupId>
+        <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-junit5</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <scope>test</scope>
@@ -43,7 +43,7 @@ Add the desired modules to your `pom.xml`:
 
     <!-- LangChain4j integration -->
     <dependency>
-        <groupId>io.dokimos</groupId>
+        <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-langchain4j</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </dependency>
@@ -62,7 +62,7 @@ Add the desired modules to your `pom.xml`:
 ### dokimos-core: Basic Evaluation
 
 ```java
-import io.dokimos.core.*;
+import dev.dokimos.core.*;
 
 import java.util.List;
 import java.util.Map;
@@ -114,13 +114,13 @@ public class BasicEvaluation {
 ### dokimos-junit5: Parameterized Testing
 
 ```java
-import io.dokimos.core.*;
-import io.dokimos.junit5.DatasetSource;
+import dev.dokimos.core.*;
+import dev.dokimos.junit5.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
 
-import static io.dokimos.core.Assertions.assertEval;
+import static dev.dokimos.core.Assertions.assertEval;
 
 public class QATest {
 
@@ -184,8 +184,8 @@ Dataset file (`src/test/resources/qa-dataset.json`):
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.Result;
-import io.dokimos.core.*;
-import io.dokimos.langchain4j.LangChain4jSupport;
+import dev.dokimos.core.*;
+import dev.dokimos.langchain4j.LangChain4jSupport;
 
 import java.util.List;
 

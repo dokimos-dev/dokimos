@@ -1,6 +1,5 @@
 package dev.dokimos.core;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -32,9 +31,15 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
 
     @Override
     protected EvalResult runEvaluation(EvalTestCase testCase) {
-        List<String> truths = extractTruths(testCase.inputs().get(contextKey).toString());
-        List<String> claims = extractClaims(testCase.actualOutput());
+        Object context = testCase.actualOutputs().get(contextKey);
+        if (context == null) {
+            throw new EvaluationException(
+                    "Faithfulness requires '%s' in actualOutputs".formatted(contextKey)
+            );
+        }
 
+        List<String> truths = extractTruths(testCase.actualOutputs().get(contextKey).toString());
+        List<String> claims = extractClaims(testCase.actualOutput());
         List<ClaimVerdict> verdicts = generateVerdicts(claims, truths);
 
         long supportedClaims = verdicts.stream()
@@ -61,7 +66,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 
                 For each individual claim, provide a verdict (Yes/No/IDK) and a brief reasoning.
                 Respond ONLY as a JSON array in the following format:
-                [{"verdict": "...", "reasoning": "...", ...]
+                [{"verdict": "...", "reasoning": "...", ...}]
                 """.formatted(truths, extractedClaims);
 
         String response = judge.generate(prompt);
@@ -71,7 +76,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {
             });
         } catch (Exception e) {
-            return Collections.emptyList();
+            throw new EvaluationException("Failed to parse verdict response from LLM judge", e);
         }
     }
 
@@ -110,8 +115,8 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
             });
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not parse JSON response to extract truths!");
+        } catch (Exception e) {
+            throw new EvaluationException("Could not parse JSON response to extract truths", e);
         }
     }
 
@@ -133,8 +138,8 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
             });
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Could not parse JSON response to extract statements!");
+        } catch (Exception e) {
+            throw new EvaluationException("Could not parse JSON response to extract statements", e);
         }
     }
 
@@ -170,7 +175,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
          * @return this builder
          */
         public Builder evaluationParams(List<EvalTestCaseParam> params) {
-            this.evaluationParams = params;
+            this.evaluationParams = List.copyOf(params);
             return this;
         }
 

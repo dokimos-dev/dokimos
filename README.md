@@ -13,31 +13,27 @@ as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of s
 - **Experiment tracking**: Aggregate eval results with pass rates and scores
 - **Extensible**: Build Custom evaluators and dataset resolvers via SPI
 
-## Requirements
-
-- Java 17 or higher
-- Maven 3.6 or higher
-
 ## Installation
 
-Add the desired modules to your `pom.xml`:
+### Maven
+
+Simply add the desired modules to your `pom.xml`:
 
 ```xml
 
 <dependencies>
-    ...
     <!-- Core evaluation framework -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-core</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </dependency>
 
     <!-- JUnit 5 integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-junit5</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
         <scope>test</scope>
     </dependency>
 
@@ -45,11 +41,12 @@ Add the desired modules to your `pom.xml`:
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-langchain4j</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.0</version>
     </dependency>
-    ...
 </dependencies>
 ```
+
+No additional repository configuration is needed!
 
 ## Modules
 
@@ -264,7 +261,7 @@ public class RAGEvaluation {
 ## Documentation
 
 Full API documentation is available
-at: [https://dokimos-io.github.io/dokimos/](https://dokimos-io.github.io/dokimos/)
+at: [https://dokimos-dev.github.io/dokimos/](https://dokimos-dev.github.io/dokimos/)
 
 ## Contributing
 

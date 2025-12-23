@@ -33,6 +33,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Create release branch
+        run: |
+          git checkout -b release-${{ inputs.releaseVersion }}
+
       - name: Set release version
         run: |
           mvn versions:set -DnewVersion=${{ inputs.releaseVersion }} -DgenerateBackupPoms=false
@@ -58,5 +62,5 @@ jobs:
 
       - name: Push changes
         run: |
-          git push origin release/${{ inputs.releaseVersion }}
+          git push origin release-${{ inputs.releaseVersion }}
           git push origin v${{ inputs.releaseVersion }}

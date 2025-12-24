@@ -21,6 +21,7 @@
         <maven.deploy.skip>true</maven.deploy.skip>
         <maven.install.skip>true</maven.install.skip>
         <central.publishing.skip>true</central.publishing.skip>
+        <skipPublishing>true</skipPublishing>
     </properties>
 
     <dependencies>
@@ -86,6 +87,14 @@
                 <version>3.5.0</version>
                 <configuration>
                     <mainClass>dev.dokimos.examples.basic.BasicEvaluationExample</mainClass>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <configuration>
+                    <skipPublishing>true</skipPublishing>
                 </configuration>
             </plugin>
         </plugins>

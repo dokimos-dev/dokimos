@@ -109,7 +109,7 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
          * @return this builder
          */
         public Builder evaluationParams(List<EvalTestCaseParam> params) {
-            this.evaluationParams = params;
+            this.evaluationParams = List.copyOf(params);
             return this;
         }
 

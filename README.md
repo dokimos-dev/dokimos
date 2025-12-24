@@ -53,8 +53,17 @@ No additional repository configuration is needed!
 - **dokimos-core**: Core evaluation framework with datasets, evaluators, and experiments
 - **dokimos-junit5**: JUnit 5 integration for dataset-driven parameterized tests
 - **dokimos-langchain4j**: LangChain4j integration for evaluation of production AI assistants and agents
+- **dokimos-examples**: Runnable examples demonstrating evaluation patterns and custom evaluators
 
-## Examples
+## Quick Start Examples
+
+For complete, runnable examples see the [dokimos-examples](./dokimos-examples) module, which includes:
+- Basic evaluation workflows
+- **Custom evaluators** (extending `BaseEvaluator` or using `LLMJudgeEvaluator`)
+- JUnit 5 parameterized testing
+- LangChain4j RAG evaluation
+
+## Code Snippets
 
 ### dokimos-core: Basic Evaluation
 

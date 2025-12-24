@@ -19,11 +19,29 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.basic.BasicEvaluationExample"
 ```
 
-### 2. JUnit 5 Parameterized Testing
+### 2. Custom Evaluators
+
+[dev.dokimos.examples.basic.CustomEvaluatorExample](./src/main/java/dev/dokimos/examples/basic/CustomEvaluatorExample.java)
+
+Demonstrates how to create custom evaluators in two ways:
+
+- **Building a custom keyword evaluator** by extending `BaseEvaluator`
+- **Using LLMJudgeEvaluator** for semantic evaluation with LLM judges
+
+This example is perfect for to implementing domain-specific or any custom evaluation logic.
+
+To run the example:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.basic.CustomEvaluatorExample"
+```
+
+### 3. JUnit 5 Parameterized Testing
 
 **Location**: `dev.dokimos.examples.junit5.QAParameterizedTest`
 
-Shows how to integrate Dokimos with JUnit 5:
+Shows how to integrate `dokimos` with JUnit 5:
 
 - Using `@DatasetSource` annotation to load test cases
 - Running parameterized tests for each dataset example
@@ -31,17 +49,13 @@ Shows how to integrate Dokimos with JUnit 5:
 
 **Run**:
 
-```bash
-mvn test -pl dokimos-examples
-```
-
-Or run the specific test:
+To run the test:
 
 ```bash
 mvn test -pl dokimos-examples -Dtest=QAParameterizedTest
 ```
 
-### 3. LangChain4j RAG Evaluation
+### 4. LangChain4j RAG Evaluation
 
 **Location**: `dev.dokimos.examples.langchain4j.LangChain4jRAGExample`
 
@@ -73,46 +87,6 @@ Build all examples:
 mvn clean install -pl dokimos-examples
 ```
 
-## Project Structure
-
-```
-dokimos-examples/
-├── src/
-│   ├── main/
-│   │   ├── java/dev/dokimos/examples/
-│   │   │   ├── basic/
-│   │   │   │   └── BasicEvaluationExample.java
-│   │   │   ├── junit5/
-│   │   │   │   └── (JUnit tests in test directory)
-│   │   │   └── langchain4j/
-│   │   │       └── LangChain4jRAGExample.java
-│   │   └── resources/
-│   │       └── datasets/
-│   │           └── qa-dataset.json
-│   └── test/
-│       └── java/dev/dokimos/examples/
-│           └── junit5/
-│               └── QAParameterizedTest.java
-└── pom.xml
-```
-
-## Learning Path
-
-We recommend exploring the examples in this order:
-
-1. **Start with BasicEvaluationExample** - Learn the core concepts
-2. **Try QAParameterizedTest** - See JUnit 5 integration
-3. **Explore LangChain4jRAGExample** - Advanced RAG evaluation
-
-## Customizing Examples
-
-Each example is designed to be self-contained and easy to modify:
-
-- Replace the `simulateLLM()` or `callYourLLM()` methods with actual LLM API calls
-- Modify datasets to match your use case
-- Add new evaluators to test different quality metrics
-- Experiment with different LLM models and parameters
-
 ## Common Issues
 
 ### Missing API Key
@@ -138,9 +112,4 @@ mvn clean install
 ## Further Resources
 
 - [Main Dokimos Documentation](../README.md)
-- [API Documentation](https://dokimos-io.github.io/dokimos/)
-- [LangChain4j Documentation](https://docs.langchain4j.dev/)
-
-## Contributing
-
-Found a bug or want to add a new example? Contributions are welcome! Please submit a PR to the main repository.
+- [API Documentation](https://dokimos-dev.github.io/dokimos/)

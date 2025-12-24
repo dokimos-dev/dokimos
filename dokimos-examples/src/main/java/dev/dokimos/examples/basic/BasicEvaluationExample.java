@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Basic evaluation example that demonstrates how to:
+ * This is a basic evaluation example that demonstrates how to:
  * - Create a {@link Dataset} programmatically
  * - Define multiple evaluators that we want to run
  * - Create a simple task with an actual LLM by OpenAI
@@ -36,7 +36,6 @@ public class BasicEvaluationExample {
         System.out.println();
 
         // Define evaluators
-        // ...
         List<Evaluator> evaluators = List.of(
                 ExactMatchEvaluator.builder()
                         .name("Exact Match")
@@ -48,9 +47,9 @@ public class BasicEvaluationExample {
                         .build()
         );
 
-        // Create a task - this simulates your LLM or system under test
+        // Create a task, which simulates your LLM or system under test
         Task task = example -> {
-            String answer = simulateLLM(Objects.requireNonNull(example.input()));
+            String answer = generate(Objects.requireNonNull(example.input()));
             return Map.of("output", answer);
         };
 
@@ -88,12 +87,12 @@ public class BasicEvaluationExample {
     }
 
     /**
-     * Simulates an LLM call. In a real application, this would call
-     * an actual LLM API (OpenAI, Anthropic, local model, etc.)
+     * Simulates an LLM call. In a real-world application, this would call
+     * an actual LLM API (OpenAI, Gemini, Anthropic, etc.)
      */
-    private static String simulateLLM(String input) {
-        // Simple rule-based responses to demonstrate the evaluation
-        return switch (input) {
+    private static String generate(String userQuestion) {
+        // We use simple rule-based responses to showcase the evaluation
+        return switch (userQuestion) {
             case "What is 2+2?" -> "4";
             case "What is the capital of France?" -> "Paris";
             case "What is the capital of Switzerland?" -> "Bern";

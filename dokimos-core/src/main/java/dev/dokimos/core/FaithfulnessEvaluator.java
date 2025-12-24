@@ -60,19 +60,22 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
     private List<ClaimVerdict> generateVerdicts(List<String> extractedClaims, List<String> truths) {
         var prompt = """
                 Compare each CLAIM against the reference TRUTHS.
-                
+
                 TRUTHS: %s
                 CLAIMS: %s
-                
+
                 For each individual claim, provide a verdict (Yes/No/IDK) and a brief reasoning.
+                
                 Respond ONLY as a JSON array in the following format:
+                Do not include any markdown formatting or extra text.
+                
+                Example:
                 [{"verdict": "...", "reasoning": "...", ...}]
                 """.formatted(truths, extractedClaims);
 
-        String response = judge.generate(prompt);
+        String response = stripMarkdown(judge.generate(prompt));
 
         try {
-            // Convert the JSON directly into a List of verdicts
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {
             });
         } catch (Exception e) {
@@ -103,14 +106,14 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 Extract the factual truths from the context below.
                 Return ONLY a JSON array of strings.
                 Do not include any markdown formatting or extra text.
-                
+
                 Example:
                 ["Fact 1", "Fact 2", "Fact 3"]
-                
+
                 Context: %s
                 """.formatted(context);
 
-        String response = judge.generate(prompt);
+        String response = stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
@@ -126,14 +129,14 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 Each claim must represent a discrete piece of information that the AI asserted in its response.
                 Return ONLY a JSON array of strings.
                 Do not include any markdown formatting or extra text.
-                
+
                 Example:
                 ["Statement 1", "Statement 2", "Statement 3"]
-                
+
                 AI Output: %s
                 """.formatted(actualOutput);
 
-        String response = judge.generate(prompt);
+        String response = stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
@@ -141,6 +144,13 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         } catch (Exception e) {
             throw new EvaluationException("Could not parse JSON response to extract statements", e);
         }
+    }
+
+    private static String stripMarkdown(String response) {
+        return response.strip()
+                .replaceAll("^```(?:json)?\\s*", "")
+                .replaceAll("\\s*```$", "")
+                .strip();
     }
 
     private record ClaimVerdict(String verdict, String reasoning) {

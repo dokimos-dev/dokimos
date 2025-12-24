@@ -310,6 +310,42 @@ class FaithfulnessEvaluatorTest {
                 .isInstanceOf(EvaluationException.class);
     }
 
+    @Test
+    void shouldHandleMarkdownWrappedJsonResponses() {
+        JudgeLM judgeWithMarkdown = new MockJudge()
+                .withTruths("""
+                        ```json
+                        ["Paris is the capital"]
+                        ```
+                        """)
+                .withClaims("""
+                        ```
+                        ["Paris is the capital"]
+                        ```
+                        """)
+                .withVerdicts("""
+                        ```json
+                        [{"verdict": "Yes", "reasoning": "Matches"}]
+                        ```
+                        """)
+                .withReason("All claims supported");
+
+        var evaluator = FaithfulnessEvaluator.builder()
+                .judge(judgeWithMarkdown)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Tell me about Paris")
+                .actualOutput("context", "Paris is the capital")
+                .actualOutput("Paris is the capital")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.success()).isTrue();
+    }
+
     private static class MockJudge implements JudgeLM {
         private String truthsResponse;
         private String claimsResponse;

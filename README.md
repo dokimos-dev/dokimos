@@ -88,7 +88,7 @@ at: [https://dokimos-dev.github.io/dokimos/](https://dokimos-dev.github.io/dokim
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue.
+Contributions are welcome! Please see the [Contributing Guide](CONTRIBUTING.md) for details on how to get started.
 
 ## License
 

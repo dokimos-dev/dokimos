@@ -77,12 +77,11 @@ const config: Config = {
           label: "Overview",
           href: "/overview",
         },
-        // {
-        //   to: "/Javadoc",
-        //   label: "Javadoc",
-        //   position: "left",
-        //   href: "https://dokimos-dev.github.io/dokimos/apidocs/index.html/",
-        // },
+        {
+          label: "Javadoc",
+          position: "left",
+          href: "https://dokimos-dev.github.io/dokimos/apidocs/",
+        },
         {
           href: "https://github.com/dokimos-dev/dokimos",
           label: "GitHub",

@@ -52,7 +52,7 @@ jobs:
         run: cd docs && npm run build
 
       - name: Copy Javadocs to docs build outputs
-        run: cp -R target/reports/apidocs/* docs/build/
+        run: cp -R target/reports/apidocs docs/build/apidocs
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

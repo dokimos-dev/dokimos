@@ -4,157 +4,245 @@ sidebar_position: 5
 
 # Data Model
 
-This page describes the core data models, including classes, their attributes, types, and relationships.
+Understanding Dokimos's data model helps you work more effectively with datasets, experiments, and evaluation results. This guide covers the core classes and how they fit together.
+
+## How the Pieces Fit Together
+
+Here's the flow:
+
+1. **Dataset** holds a collection of **Examples** (test cases)
+2. **Experiment** runs a **Task** (your LLM) on each example
+3. **Evaluators** check the outputs and produce **EvalResults**
+4. Everything gets collected into an **ExperimentResult**
+
+```java
+// The flow in code
+var result = Experiment.builder()
+    .dataset(myDataset)              // Examples to test
+    .task(myTask)                     // Your LLM
+    .evaluators(List.of(evaluator))   // How to judge outputs
+    .run();                           // Returns ExperimentResult
+```
 
 ## Core Classes
 
 ### Dataset
 
-A collection of examples for evaluation.
+A collection of test cases you want to evaluate.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | `String` | Yes | Name of the dataset |
-| `description` | `String` | No | Description of the dataset (default: `""`) |
-| `examples` | `List<Example>` | Yes | Collection of examples (immutable) |
+| `description` | `String` | No | Description of the dataset |
+| `examples` | `List<Example>` | Yes | Your test cases |
 
-**Methods:**
-- `size()` → `int`: Number of examples in the dataset
-- `get(int index)` → `Example`: Get example by index
-- `iterator()` → `Iterator<Example>`: Iterate over examples
+**Useful methods:**
+- `size()` → Number of examples
+- `get(int index)` → Get a specific example
+- `iterator()` → Loop through examples
 
-**Relationships:**
-- **1:n** with `Example` (contains many examples)
+```java
+Dataset dataset = Dataset.builder()
+    .name("Support Questions")
+    .examples(List.of(
+        Example.of("How do I reset my password?", "Click 'Forgot Password'..."),
+        Example.of("What's your refund policy?", "We offer 30-day refunds...")
+    ))
+    .build();
+```
+
+**Belongs to:** Nothing (top level)  
+**Contains:** Many Examples
 
 ---
 
 ### Example
 
-A single test case with inputs, expected outputs, and metadata.
+A single test case with input, expected output, and optional metadata.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `inputs` | `Map<String, Object>` | No | Input values |
-| `expectedOutputs` | `Map<String, Object>` | No | Expected output values |
-| `metadata` | `Map<String, Object>` | No | Additional metadata |
+| `expectedOutputs` | `Map<String, Object>` | No | What you expect as output |
+| `metadata` | `Map<String, Object>` | No | Extra info (tags, categories, etc.) |
 
-**Convenience Methods:**
-- `input()` → `String`: Primary input value (from `inputs.get("input")`)
-- `expectedOutput()` → `String`: Primary expected output (from `expectedOutputs.get("output")`)
-- `toTestCase(Map<String, Object>)` → `EvalTestCase`: Convert to test case with actual outputs
-- `toTestCase(String)` → `EvalTestCase`: Convert to test case with single actual output
+**Convenience shortcuts:**
+- `input()` → Gets `inputs.get("input")`
+- `expectedOutput()` → Gets `expectedOutputs.get("output")`
 
-**Relationships:**
-- **n:1** with `Dataset` (belongs to one dataset)
-- **1:1** with `EvalTestCase` (converted to test case)
-- **1:1** with `ItemResult` (included in item result)
+```java
+// Simple example (just input and output)
+Example simple = Example.of(
+    "What's 2+2?", 
+    "4"
+);
+
+// Full example with metadata
+Example detailed = Example.builder()
+    .inputs(Map.of(
+        "input", "What's 2+2?",
+        "language", "en"
+    ))
+    .expectedOutputs(Map.of(
+        "output", "4",
+        "confidence", 1.0
+    ))
+    .metadata(Map.of("category", "math"))
+    .build();
+```
+
+**Belongs to:** Dataset  
+**Becomes:** EvalTestCase (after task runs)
 
 ---
 
 ### Experiment
 
-Orchestrates evaluation by running a task on a dataset with evaluators.
+Runs your task on a dataset and evaluates the results.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | `String` | No | Experiment name (default: `"unnamed"`) |
-| `description` | `String` | No | Experiment description (default: `""`) |
-| `dataset` | `Dataset` | Yes | Dataset to evaluate |
-| `task` | `Task` | Yes | Task that generates outputs |
-| `evaluators` | `List<Evaluator>` | No | Evaluators to apply (default: empty list) |
-| `metadata` | `Map<String, Object>` | No | Custom metadata (default: empty map) |
+| `name` | `String` | No | Experiment name |
+| `description` | `String` | No | What you're testing |
+| `dataset` | `Dataset` | Yes | Test cases to run |
+| `task` | `Task` | Yes | Your LLM or system |
+| `evaluators` | `List<Evaluator>` | No | How to judge outputs |
+| `metadata` | `Map<String, Object>` | No | Custom tracking info |
 
-**Methods:**
-- `run()` → `ExperimentResult`: Execute the experiment and return results
+**What it does:**
+- `run()` → Executes everything and returns ExperimentResult
 
-**Relationships:**
-- **1:1** with `Dataset` (uses one dataset)
-- **1:1** with `Task` (executes one task)
-- **1:n** with `Evaluator` (applies multiple evaluators)
-- **1:1** with `ExperimentResult` (produces one result)
+```java
+ExperimentResult result = Experiment.builder()
+    .name("Test GPT-5.2 on support questions")
+    .dataset(supportDataset)
+    .task(chatbotTask)
+    .evaluators(List.of(
+        new ExactMatchEvaluator(),
+        new FaithfulnessEvaluator(judgeModel)
+    ))
+    .run();
+```
+
+**Uses:** Dataset, Task, Evaluators  
+**Produces:** ExperimentResult
 
 ---
 
 ### ExperimentResult
 
-Aggregated results from an experiment run.
+Summary of how your experiment performed.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | `String` | Yes | Experiment name |
 | `description` | `String` | Yes | Experiment description |
-| `metadata` | `Map<String, Object>` | No | Experiment metadata (default: empty map) |
-| `itemResults` | `List<ItemResult>` | No | Results for each example (default: empty list) |
+| `metadata` | `Map<String, Object>` | No | Custom metadata |
+| `itemResults` | `List<ItemResult>` | No | Results for each example |
 
-**Computed Methods:**
-- `totalCount()` → `int`: Total number of evaluated items
-- `passCount()` → `long`: Number of items that passed all evaluations
-- `failCount()` → `long`: Number of items that failed at least one evaluation
-- `passRate()` → `double`: Proportion of items that passed (0.0 - 1.0)
-- `averageScore(String)` → `double`: Average score for a specific evaluator
+**Key metrics:**
+- `totalCount()` → Total examples evaluated
+- `passCount()` → How many passed all evaluators
+- `failCount()` → How many failed at least one evaluator
+- `passRate()` → Percentage that passed (0.0 to 1.0)
+- `averageScore(String)` → Average score for a specific evaluator
 
-**Relationships:**
-- **1:n** with `ItemResult` (contains results for each example)
+```java
+System.out.println("Pass rate: " + result.passRate());
+System.out.println("Average faithfulness: " + result.averageScore("Faithfulness"));
+
+// Check individual results
+for (ItemResult item : result.itemResults()) {
+    if (!item.success()) {
+        System.out.println("Failed: " + item.example().input());
+    }
+}
+```
+
+**Contains:** Many ItemResults
 
 ---
 
 ### ItemResult
 
-Result for a single example evaluation.
+The result of evaluating one example.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `example` | `Example` | Yes | The original example |
-| `actualOutputs` | `Map<String, Object>` | No | Outputs produced by the task (default: empty map) |
-| `evalResults` | `List<EvalResult>` | No | Evaluation results from each evaluator (default: empty list) |
+| `example` | `Example` | Yes | The original test case |
+| `actualOutputs` | `Map<String, Object>` | No | What your task produced |
+| `evalResults` | `List<EvalResult>` | No | Results from each evaluator |
 
-**Methods:**
-- `success()` → `boolean`: True if all evaluators passed
-- `toTestCase()` → `EvalTestCase`: Convert to test case
+**What you can check:**
+- `success()` → True if all evaluators passed
 
-**Relationships:**
-- **1:1** with `Example` (evaluates one example)
-- **1:n** with `EvalResult` (contains results from multiple evaluators)
+```java
+for (ItemResult item : experimentResult.itemResults()) {
+    System.out.println("Input: " + item.example().input());
+    System.out.println("Expected: " + item.example().expectedOutput());
+    System.out.println("Actual: " + item.actualOutputs().get("output"));
+    System.out.println("Passed: " + item.success());
+    
+    // See why it failed
+    for (EvalResult eval : item.evalResults()) {
+        if (!eval.success()) {
+            System.out.println(eval.name() + ": " + eval.reason());
+        }
+    }
+}
+```
+
+**Contains:** Example, EvalResults  
+**Part of:** ExperimentResult
 
 ---
 
 ### EvalTestCase
 
-A test case for evaluation containing inputs, outputs, and metadata.
+A test case ready for evaluation (combines example with actual output).
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `inputs` | `Map<String, Object>` | No | Inputs provided to the system (default: empty map) |
-| `actualOutputs` | `Map<String, Object>` | No | Outputs produced by the system (default: empty map) |
-| `expectedOutputs` | `Map<String, Object>` | No | Expected outputs for comparison (default: empty map) |
-| `metadata` | `Map<String, Object>` | No | Additional metadata (default: empty map) |
+| `inputs` | `Map<String, Object>` | No | Original inputs |
+| `actualOutputs` | `Map<String, Object>` | No | What the task produced |
+| `expectedOutputs` | `Map<String, Object>` | No | What you expected |
+| `metadata` | `Map<String, Object>` | No | Additional metadata |
 
-**Convenience Methods:**
-- `input()` → `String`: Primary input (from `inputs.get("input")`)
-- `actualOutput()` → `String`: Primary actual output (from `actualOutputs.get("output")`)
-- `expectedOutput()` → `String`: Primary expected output (from `expectedOutputs.get("output")`)
+**Shortcuts:**
+- `input()` → Primary input
+- `actualOutput()` → Primary actual output  
+- `expectedOutput()` → Primary expected output
 
-**Relationships:**
-- Created from `Example` with actual outputs
-- **1:1** with `Evaluator` (passed to evaluator for assessment)
+This is what gets passed to evaluators. Usually you don't create these directly; Dokimos builds them when running experiments.
+
+**Created from:** Example + actual outputs  
+**Passed to:** Evaluators
 
 ---
 
 ### EvalResult
 
-The result of an evaluation.
+The score and feedback from one evaluator.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | `String` | Yes | Name of the evaluator |
-| `score` | `double` | Yes | Numeric score (0.0 - 1.0) |
-| `success` | `boolean` | Yes | Whether evaluation passed (score ≥ threshold) |
-| `reason` | `String` | Yes | Explanation for the score |
-| `metadata` | `Map<String, Object>` | No | Additional result metadata (default: empty map) |
+| `name` | `String` | Yes | Evaluator name |
+| `score` | `double` | Yes | Score (0.0 to 1.0) |
+| `success` | `boolean` | Yes | Whether it passed the threshold |
+| `reason` | `String` | Yes | Why this score was given |
+| `metadata` | `Map<String, Object>` | No | Extra info from evaluator |
 
-**Relationships:**
-- **n:1** with `ItemResult` (multiple eval results per item)
-- Produced by `Evaluator`
+```java
+for (EvalResult eval : itemResult.evalResults()) {
+    System.out.println(eval.name() + ": " + eval.score());
+    if (!eval.success()) {
+        System.out.println("  Failed because: " + eval.reason());
+    }
+}
+```
+
+**Produced by:** Evaluator  
+**Part of:** ItemResult
 
 ---
 
@@ -162,16 +250,32 @@ The result of an evaluation.
 
 ### Task
 
-Functional interface that runs your LLM or system under test.
+The function that runs your LLM or system.
 
-**Method:**
-- `run(Example)` → `Map<String, Object>`: Execute task on an example and return outputs
-
-**Usage:**
 ```java
-Task task = example -> {
-    String response = llm.generate(example.input());
+@FunctionalInterface
+public interface Task {
+    Map<String, Object> run(Example example);
+}
+```
+
+**Implementation examples:**
+
+```java
+// Simple task
+Task simple = example -> {
+    String response = llm.chat(example.input());
     return Map.of("output", response);
+};
+
+// Task with multiple outputs
+Task detailed = example -> {
+    String response = llm.chat(example.input());
+    return Map.of(
+        "output", response,
+        "tokens", 150,
+        "latency_ms", 320
+    );
 };
 ```
 
@@ -179,38 +283,73 @@ Task task = example -> {
 
 ### Evaluator
 
-Interface for evaluating test cases.
+Interface for judging outputs.
 
-**Methods:**
-- `evaluate(EvalTestCase)` → `EvalResult`: Evaluate a test case
-- `name()` → `String`: Name of the evaluator
-- `threshold()` → `double`: Minimum score threshold for success
+```java
+public interface Evaluator {
+    EvalResult evaluate(EvalTestCase testCase);
+    String name();
+    double threshold();
+}
+```
 
-**Implementations:**
-- `ExactMatchEvaluator`
-- `RegexEvaluator`
-- `LLMJudgeEvaluator`
-- `FaithfulnessEvaluator`
-- Custom evaluators
+**Built-in implementations:**
+- `ExactMatchEvaluator` – Checks for exact match
+- `RegexEvaluator` – Pattern matching
+- `LLMJudgeEvaluator` – Uses another LLM to judge
+- `FaithfulnessEvaluator` – Checks if answer is grounded in context
+
+**Custom evaluator example:**
+
+```java
+public class LengthEvaluator implements Evaluator {
+    @Override
+    public EvalResult evaluate(EvalTestCase testCase) {
+        String output = testCase.actualOutput();
+        boolean inRange = output.length() >= 50 && output.length() <= 500;
+        
+        return EvalResult.builder()
+            .name("Length Check")
+            .score(inRange ? 1.0 : 0.0)
+            .success(inRange)
+            .reason(inRange ? "Good length" : "Too short or too long")
+            .build();
+    }
+    
+    @Override
+    public String name() { return "Length Check"; }
+    
+    @Override
+    public double threshold() { return 1.0; }
+}
+```
 
 ---
 
-## Type Conventions
+## Working with Maps
 
-`Map<String, Object>`
+Most attributes use `Map<String, Object>` for flexibility. Here are the common keys:
 
-Used throughout for key-value stores:
+| Key | Used In | Description |
+|-----|---------|-------------|
+| `"input"` | inputs | Primary input text |
+| `"output"` | outputs | Primary output text |
+| `"context"` | outputs | Retrieved documents (for RAG) |
+| `"query"` | inputs | Search query (for RAG) |
 
-**Common keys:**
-- `"input"`: Primary input value
-- `"output"`: Primary output value
-- `"context"`: Retrieved context (for RAG)
+**Example with context:**
 
-**Example:**
 ```java
-Map<String, Object> outputs = Map.of(
-    "output", "Paris",
-    "confidence", 0.95,
-    "context", List.of("Paris is the capital of France")
-);
+Task ragTask = example -> {
+    List<String> docs = retriever.search(example.input());
+    String answer = llm.generate(example.input(), docs);
+    
+    return Map.of(
+        "output", answer,
+        "context", docs,  // Evaluators can check this
+        "num_docs", docs.size()
+    );
+};
 ```
+
+You can add any custom keys you need. Built-in evaluators use standard keys, but custom evaluators can access anything you put in the map.

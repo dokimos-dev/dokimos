@@ -4,18 +4,15 @@ sidebar_position: 2
 
 # LangChain4j Integration
 
-Dokimos provides seamless integration with [LangChain4j](https://github.com/langchain4j/langchain4j), making it easy to evaluate AI Services, RAG pipelines, and chat models built with LangChain4j.
+Dokimos works with [LangChain4j](https://github.com/langchain4j/langchain4j) so you can evaluate your AI Services and RAG pipelines.
 
-## Motivation
+## Why Use This Integration?
 
-### Native RAG Support
-Automatically extract and evaluate retrieved context from LangChain4j's `Result<T>` objects, so no manual context tracking is needed.
+**Automatic context extraction**: LangChain4j's `Result<T>` objects already contain the retrieved documents. Dokimos extracts them automatically so you don't have to track context manually.
 
-### Drop-in Compatibility
-Convert LangChain4j components (`ChatModel`, AI Services) directly into Dokimos [Tasks](../evaluation/experiments#understanding-the-task-interface) and [Evaluators](../evaluation/evaluators).
+**Simple conversion**: Turn a `ChatModel` or AI Service into a Dokimos Task with one line of code.
 
-### Evaluation
-Easily evaluate whether your RAG system's outputs are grounded in the retrieved context using built-in and custom evaluators.
+**RAG evaluation ready**: Use the `FaithfulnessEvaluator` to check if answers are grounded in retrieved documents.
 
 ## Setup
 
@@ -81,11 +78,9 @@ Evaluator correctness = LLMJudgeEvaluator.builder()
     .build();
 ```
 
-## RAG Evaluation of AI Services and Agents
+## Evaluating RAG Systems
 
-The primary use case for LangChain4j integration is evaluating RAG (Retrieval-Augmented Generation) systems.
-
-### Complete RAG Example
+The main reason to use this integration is for evaluating RAG systems. Here's a complete example:
 
 ```java
 import dev.dokimos.langchain4j.LangChain4jSupport;
@@ -150,33 +145,27 @@ System.out.println("Pass rate: " + result.passRate() * 100 + "%");
 System.out.println("Faithfulness: " + result.averageScore("Faithfulness"));
 ```
 
-### How RAG Task Works
+### How It Works
 
-The `ragTask()` method automatically:
+The `ragTask()` method extracts the input, calls your AI Service, and automatically pulls the retrieved context from `Result.sources()`. The output includes both the answer and context:
 
-1. **Extracts the input** from the example
-2. **Calls your AI Service** and gets a `Result<String>`
-3. **Extracts retrieved context** from `result.sources()`
-4. **Returns outputs** with both the answer and context
-
-Output map structure:
 ```java
 {
-    "output": "30-day money-back guarantee",
+    "output": "We offer a 30-day money-back guarantee",
     "context": [
-        "We offer a 30-day money-back guarantee...",
-        "To request a refund, contact our support..."
+        "Refund policy: 30-day guarantee...",
+        "Contact support to process refunds..."
     ]
 }
 ```
 
-This enables [FaithfulnessEvaluator](../evaluation/evaluators#faithfulnessevaluator) to verify the answer is grounded in the retrieved context.
+This lets the `FaithfulnessEvaluator` check if the answer is grounded in what was actually retrieved.
 
-## Advanced Configuration
+## Advanced Usage
 
-### Custom Key Mapping
+### Custom Dataset Keys
 
-If your [dataset](../evaluation/datasets) uses different keys:
+If your dataset uses different key names:
 
 ```java
 // Dataset with custom keys
@@ -196,28 +185,21 @@ Task task = LangChain4jSupport.ragTask(
 );
 ```
 
-### Custom Task with Additional Tracking
+### Tracking Extra Metrics
 
-Track extra metrics like latency or source count:
+Use `customTask()` to track latency, source counts, or other metrics:
 
 ```java
 Task task = LangChain4jSupport.customTask(example -> {
-    String query = example.input();
-    
-    // Track latency
     long start = System.currentTimeMillis();
-    Result<String> result = assistant.chat(query);
-    long duration = System.currentTimeMillis() - start;
-    
-    // Extract context with metadata
-    var contextsWithMetadata = LangChain4jSupport.extractTextsWithMetadata(result.sources());
+    Result<String> result = assistant.chat(example.input());
+    long latency = System.currentTimeMillis() - start;
     
     return Map.of(
         "output", result.content(),
         "context", LangChain4jSupport.extractTexts(result.sources()),
-        "latencyMs", duration,
-        "sourceCount", result.sources().size(),
-        "sourcesWithMetadata", contextsWithMetadata
+        "latencyMs", latency,
+        "numSources", result.sources().size()
     );
 });
 ```
@@ -430,49 +412,22 @@ void ragSystemShouldAnswerCorrectly(Example example) {
 
 ## Best Practices
 
-### 1. Return `Result<String>` from AI Services
-
-Always use `Result<String>` return type to enable context extraction:
+**Always return `Result<String>`**: Your AI Service interface must return `Result<String>`, not just `String`. This is how LangChain4j provides the retrieved context.
 
 ```java
+// ✅ Good
 interface Assistant {
     Result<String> chat(String message);
 }
 
-// Without `Result<String>`, we can't extract the entire context
+// ❌ Won't work (can't extract context)
 interface Assistant {
     String chat(String message);
 }
 ```
 
-## API Reference
+**Use a better model for judging**: Use GPT-5.2 or similar for evaluation, even if your application uses a smaller model for generation.
 
-### LangChain4jSupport Methods
+**Track retrieval quality**: Monitor how many documents are retrieved and whether they're relevant. Use `customTask()` to add metrics.
 
-```java
-// Convert ChatModel to JudgeLM
-JudgeLM asJudge(ChatModel model)
-
-// Simple Q&A task
-Task simpleTask(ChatModel model)
-
-// RAG task with default keys
-Task ragTask(Function<String, Result<String>> assistantCall)
-
-// RAG task with custom keys
-Task ragTask(
-    Function<String, Result<String>> assistantCall,
-    String inputKey,
-    String outputKey,
-    String contextKey
-)
-
-// Custom task builder
-Task customTask(Task taskFunction)
-
-// Extract context text only
-List<String> extractTexts(List<Content> contents)
-
-// Extract context with metadata
-List<Map<String, Object>> extractTextsWithMetadata(List<Content> contents)
-```
+**Test different retrieval settings**: Use experiments to compare different `maxResults`, embedding models, or reranking strategies.

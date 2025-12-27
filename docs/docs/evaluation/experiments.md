@@ -4,21 +4,21 @@ sidebar_position: 3
 
 # Experiments
 
-An **Experiment** is the core orchestration component in Dokimos that runs your LLM application (the **Task**) against a **Dataset**, applies **Evaluators** to assess the outputs, and aggregates the results. Experiments provide a structured, repeatable way to evaluate your LLM applications systematically.
+An experiment runs your LLM application (called a **Task**) against a dataset, applies evaluators to check the outputs, and gives you aggregated results. It's the main way to systematically evaluate how well your application performs.
 
 ## Why Use Experiments?
 
-Experiments solve several key challenges in LLM application development:
+When building LLM applications, you need more than just manual testing with a few prompts. Experiments help you:
 
-- **Systematic Evaluation**: Instead of manually testing your LLM with ad-hoc prompts, experiments provide a structured approach to run your application against a comprehensive dataset and evaluate the results automatically.
+**Get quantitative metrics** - Track pass rates, average scores, and success counts over time. This makes it easier to know if a prompt change or model update actually improved things.
 
-- **Quantitative Metrics**: Experiments generate quantitative metrics (pass rates, average scores, success counts) that help you track improvements over time and make data-driven decisions about your LLM application.
+**Test systematically** - Run your application against a full dataset automatically, rather than manually trying different inputs.
 
-- **Reproducibility**: By defining experiments in code with fixed datasets and evaluators, you can reproduce evaluations consistently across different runs, environments, and team members.
+**Compare configurations** - See how different models, prompts, or retrieval strategies perform against the same test cases.
 
-**Continuous Testing**: Experiments can be integrated into your CI/CD pipelines to automatically validate your LLM application's performance with every code change, preventing regressions.
+**Catch regressions** - Integrate experiments into your CI/CD pipeline to make sure changes don't break existing functionality.
 
-- **Comprehensive Analysis**: Get detailed insights into how your application performs across different scenarios, identify edge cases, and understand which types of inputs cause failures.
+**Find patterns in failures** - When things go wrong, you can analyze which types of inputs consistently fail and why.
 
 ## How Experiments Differ from JUnit Testing
 
@@ -33,18 +33,18 @@ While Dokimos integrates with JUnit 5, **Experiments** serve a different purpose
 | **Flexibility** | Test-driven, one example at a time | Run entire datasets, analyze trends |
 | **Output** | Test reports (JUnit format) | Detailed experiment results with statistics |
 
-**The JUnit Integration** is ideal for:
-- Quality gates in CI/CD pipelines
-- Catching regressions on specific examples
-- Failing fast when test cases don't pass
+**Use JUnit tests when you want to:**
+- Fail your build if critical test cases don't pass
+- Catch regressions quickly during development
+- Get immediate feedback on specific examples
 
-**Experiments** are ideal for:
-- Analyzing performance across entire datasets
-- Generating detailed reports with metrics
-- Comparing different model configurations
-- Understanding application behavior
+**Use experiments when you want to:**
+- Analyze performance across an entire dataset
+- Generate reports with detailed metrics and trends
+- Compare different model configurations or prompt versions
+- Understand overall application behavior
 
-Users can (and probably should) use both approaches together!
+Most projects benefit from using both approaches together.
 
 ## Basic Usage
 
@@ -57,23 +57,34 @@ import dev.dokimos.core.*;
 
 // Define your dataset
 Dataset dataset = Dataset.builder()
-    .name("Simple QA Dataset")
-    .addExample(Example.of("What is 2+2?", "4"))
-    .addExample(Example.of("What is the capital of France?", "Paris"))
-    .addExample(Example.of("What is the capital of Switzerland?", "Bern"))
+    .name("Product Support Questions")
+    .addExample(Example.of(
+        "How do I reset my password?",
+        "Click 'Forgot Password' on the login page and follow the email instructions"
+    ))
+    .addExample(Example.of(
+        "Where can I track my order?",
+        "Go to your account dashboard and click on 'Order History'"
+    ))
+    .addExample(Example.of(
+        "What payment methods do you accept?",
+        "We accept credit cards, PayPal, and bank transfers"
+    ))
     .build();
 
 // Define your task (your LLM application)
 Task task = example -> {
-    String answer = generateAnswer(example.input());
+    String answer = customerSupportBot.generateAnswer(example.input());
     return Map.of("output", answer);
 };
 
 // Define evaluators
 List<Evaluator> evaluators = List.of(
-    ExactMatchEvaluator.builder()
-        .name("Exact Match")
-        .threshold(0.9)
+    LLMJudgeEvaluator.builder()
+        .name("Answer Quality")
+        .criteria("Is the answer helpful and accurate?")
+        .judge(judge)
+        .threshold(0.8)
         .build()
 );
 
@@ -95,7 +106,7 @@ System.out.println("Failed: " + result.failCount());
 
 ### Understanding the Task Interface
 
-The `Task` is a functional interface that represents your LLM application under test:
+A Task is what runs your LLM application for each example in the dataset. It's a simple functional interface:
 
 ```java
 @FunctionalInterface
@@ -104,7 +115,7 @@ public interface Task {
 }
 ```
 
-A task receives an `Example` from the dataset and returns a map of outputs. The simplest implementation:
+Your task takes an example, runs your application, and returns the outputs. Here's the simplest version:
 
 ```java
 Task task = example -> {
@@ -113,17 +124,22 @@ Task task = example -> {
 };
 ```
 
-For more complex scenarios with multiple outputs:
+For RAG systems or other complex scenarios, you can return multiple values:
 
 ```java
-Task task = example -> {
-    String response = myLlmService.generate(example.input());
-    List<String> context = retrieveContext(example.input());
-    double confidence = calculateConfidence(response);
+Task ragTask = example -> {
+    // Retrieve relevant documents
+    List<String> retrievedDocs = vectorStore.search(example.input(), topK = 3);
+    
+    // Generate response using retrieved context
+    String response = ragSystem.generate(example.input(), retrievedDocs);
+    
+    // Calculate confidence score
+    double confidence = ragSystem.getConfidenceScore();
     
     return Map.of(
         "output", response,
-        "retrievedContext", context,
+        "retrievedContext", retrievedDocs,
         "confidence", confidence
     );
 };
@@ -150,9 +166,9 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
-### Iterating Over Results
+### Analyzing Individual Results
 
-After running an experiment, you can iterate over individual results to analyze specific cases:
+After running an experiment, you can dig into specific cases to understand what went wrong:
 
 ```java
 ExperimentResult result = experiment.run();
@@ -173,9 +189,9 @@ for (ItemResult itemResult : result.itemResults()) {
 }
 ```
 
-### Filtering Failed Cases
+### Finding Failures
 
-Focus on failed cases to identify areas for improvement:
+When things don't work as expected, filter for failed cases:
 
 ```java
 ExperimentResult result = experiment.run();
@@ -192,9 +208,9 @@ for (ItemResult failure : failures) {
 }
 ```
 
-## Configuration Options
+## Configuring Experiments
 
-The `Experiment.Builder` provides several configuration options:
+You can customize experiments with names, descriptions, evaluators, and metadata.
 
 ### Name and Description
 
@@ -237,9 +253,9 @@ Experiment.builder()
     .build();
 ```
 
-### Metadata
+### Tracking Experiment Configuration
 
-Attach custom metadata to track experiment parameters:
+Use metadata to record what settings you used for each experiment run. This is helpful when comparing results across different model versions or configurations:
 
 ```java
 Experiment.builder()
@@ -271,28 +287,28 @@ Experiment.builder()
 
 Metadata is included in the `ExperimentResult` and can be used for tracking different experiment configurations.
 
-## Including Evaluators
+## Working with Evaluators
 
-Evaluators assess the quality of your LLM's outputs. Each evaluator produces a score and determines whether the output passes based on a threshold.
+Evaluators check the quality of your outputs. Each evaluator gives a score (0.0 to 1.0) and decides if the output passes based on a threshold you set.
 
-### Common Evaluator Patterns
+Here are some common patterns:
 
 ```java
-// Exact match evaluator
+// For deterministic outputs like calculations
 Evaluator exactMatch = ExactMatchEvaluator.builder()
     .name("Exact Match")
-    .threshold(1.0)  // Must match exactly
-    .build();
-
-// Regex pattern evaluator
-Evaluator regexMatch = RegexEvaluator.builder()
-    .name("Pattern Match")
-    .pattern("\\d{4}")  // Must contain a 4-digit number
     .threshold(1.0)
     .build();
 
-// LLM-based judge
-Evaluator llmJudge = LLMJudgeEvaluator.builder()
+// For checking output format (e.g., dates, phone numbers)
+Evaluator formatCheck = RegexEvaluator.builder()
+    .name("Date Format")
+    .pattern("\\d{4}-\\d{2}-\\d{2}")  // YYYY-MM-DD
+    .threshold(1.0)
+    .build();
+
+// For semantic correctness using an LLM as judge
+Evaluator semanticCorrectness = LLMJudgeEvaluator.builder()
     .name("Answer Correctness")
     .criteria("Is the answer factually correct and complete?")
     .evaluationParams(List.of(
@@ -301,21 +317,21 @@ Evaluator llmJudge = LLMJudgeEvaluator.builder()
         EvalTestCaseParam.ACTUAL_OUTPUT
     ))
     .threshold(0.8)
-    .judge(prompt -> myLlm.generate(prompt))
+    .judge(prompt -> judgeModel.generate(prompt))
     .build();
 
-// Faithfulness evaluator (for RAG systems)
+// For checking if RAG outputs are grounded in retrieved docs
 Evaluator faithfulness = FaithfulnessEvaluator.builder()
     .name("Faithfulness")
     .threshold(0.7)
-    .judge(prompt -> myLlm.generate(prompt))
+    .judge(prompt -> judgeModel.generate(prompt))
     .contextKey("retrievedContext")
     .build();
 ```
 
-### Multiple Evaluators
+### Evaluating Multiple Dimensions
 
-Use multiple evaluators to assess different quality dimensions:
+Most real applications need to be evaluated on several criteria at once:
 
 ```java
 List<Evaluator> evaluators = List.of(
@@ -405,13 +421,13 @@ System.out.println("Model: " + metadata.get("model"));
 System.out.println("Temperature: " + metadata.get("temperature"));
 ```
 
-## Testing in CI/CD Pipelines
+## Running Experiments in CI/CD
 
-Experiments can be integrated into CI/CD pipelines to automatically validate your LLM application:
+You can run experiments automatically in your CI/CD pipeline to catch regressions before they reach production.
 
-### Approach 1: Programmatic Validation
+### Simple Approach: Exit Code
 
-Create a main class that runs experiments and exits with appropriate status codes:
+Create a main class that fails the build if results don't meet your threshold:
 
 ```java
 public class EvaluationPipeline {
@@ -441,9 +457,9 @@ public class EvaluationPipeline {
 }
 ```
 
-### Approach 2: JUnit Integration
+### JUnit Integration
 
-Use JUnit for CI/CD integration with better test reporting:
+For better test reporting and IDE integration, wrap experiments in JUnit tests:
 
 ```java
 import org.junit.jupiter.api.Test;
@@ -508,29 +524,21 @@ jobs:
           path: target/evaluation-results/
 ```
 
-### Best Practices for CI/CD
+### Tips for CI/CD
 
-1. **Use separate datasets for CI vs. full evaluation**: Use a smaller, curated dataset for CI to keep builds fast
-2. **Set appropriate thresholds**: Don't require 100% pass rate initially; set realistic thresholds
-3. **Cache model responses**: Consider caching LLM responses to reduce API costs in CI
-4. **Fail fast**: Run critical evaluations first to catch regressions early
-5. **Generate reports**: Save detailed experiment results as artifacts for later analysis
+**Keep CI datasets small** - Use a subset of your full dataset for CI (maybe 20-50 examples) to keep builds fast. Run comprehensive evaluations nightly or weekly.
 
-## Concurrent Execution
+**Set realistic thresholds** - Don't expect 100% pass rates right away. Start with something achievable (like 80%) and gradually increase it.
 
-:::info Coming Soon
-Concurrent execution support is planned for a future release. This will enable:
-- Parallel processing of dataset examples
-- Faster experiment execution for large datasets
-- Configurable concurrency levels
-- Thread-safe evaluator execution
+**Cache responses when possible** - If you're testing the same examples repeatedly, consider caching LLM responses to save on API costs.
 
-Stay tuned for updates!
-:::
+**Fail early** - Put your most critical evaluators first so you catch obvious problems quickly.
 
-## Usage with LangChain4j
+**Save detailed results** - Upload experiment results as build artifacts so you can review failures later.
 
-The `dokimos-langchain4j` module provides seamless integration with LangChain4j applications:
+## LangChain4j Integration
+
+If you're using LangChain4j, the `dokimos-langchain4j` module makes it easy to evaluate AI Services:
 
 ```java
 import dev.dokimos.langchain4j.LangChain4jSupport;
@@ -558,171 +566,55 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
-The `ragTask` method automatically extracts the retrieved context and includes it in the outputs for faithfulness evaluation.
-
-## Complete Example
-
-Here's a complete example putting it all together:
-
-```java
-import dev.dokimos.core.*;
-import java.util.List;
-import java.util.Map;
-
-public class ComprehensiveEvaluation {
-    
-    public static void main(String[] args) {
-        // 1. Load dataset
-        Dataset dataset = Dataset.builder()
-            .name("Customer Support QA")
-            .addExample(Example.of(
-                "What is the refund policy?",
-                "30-day money-back guarantee"
-            ))
-            .addExample(Example.of(
-                "How long does shipping take?",
-                "5-7 business days"
-            ))
-            .build();
-        
-        // 2. Define task
-        Task task = example -> {
-            String response = generateResponse(example.input());
-            List<String> context = retrieveContext(example.input());
-            
-            return Map.of(
-                "output", response,
-                "retrievedContext", context
-            );
-        };
-        
-        // 3. Define evaluators
-        JudgeLM judge = prompt -> llmJudge.generate(prompt);
-        
-        List<Evaluator> evaluators = List.of(
-            LLMJudgeEvaluator.builder()
-                .name("Answer Correctness")
-                .criteria("Is the answer correct and complete?")
-                .threshold(0.8)
-                .judge(judge)
-                .build(),
-            FaithfulnessEvaluator.builder()
-                .threshold(0.7)
-                .judge(judge)
-                .contextKey("retrievedContext")
-                .build()
-        );
-        
-        // 4. Run experiment
-        ExperimentResult result = Experiment.builder()
-            .name("Customer Support Evaluation")
-            .description("Evaluating RAG-based customer support assistant")
-            .dataset(dataset)
-            .task(task)
-            .evaluators(evaluators)
-            .metadata("model", "gpt-5.2")
-            .metadata("timestamp", System.currentTimeMillis())
-            .build()
-            .run();
-        
-        // 5. Analyze results
-        System.out.println("=== Experiment Results ===");
-        System.out.println("Pass rate: " + 
-            String.format("%.2f%%", result.passRate() * 100));
-        System.out.println("Passed: " + result.passCount());
-        System.out.println("Failed: " + result.failCount());
-        
-        System.out.println("\n=== Evaluator Scores ===");
-        System.out.println("Answer Correctness: " + 
-            String.format("%.2f", result.averageScore("Answer Correctness")));
-        System.out.println("Faithfulness: " + 
-            String.format("%.2f", result.averageScore("Faithfulness")));
-        
-        // 6. Analyze failures
-        List<ItemResult> failures = result.itemResults().stream()
-            .filter(item -> !item.success())
-            .toList();
-        
-        if (!failures.isEmpty()) {
-            System.out.println("\n=== Failed Cases ===");
-            failures.forEach(failure -> {
-                System.out.println("\nInput: " + failure.example().input());
-                System.out.println("Expected: " + failure.example().expectedOutput());
-                System.out.println("Actual: " + failure.actualOutputs().get("output"));
-                failure.evalResults().forEach(eval -> {
-                    if (!eval.success()) {
-                        System.out.println("  Failed: " + eval.name() + 
-                            " (score: " + eval.score() + ")");
-                    }
-                });
-            });
-        }
-    }
-    
-    private static String generateResponse(String input) {
-        // Your LLM call here
-        return "...";
-    }
-    
-    private static List<String> retrieveContext(String input) {
-        // Your RAG retrieval here
-        return List.of();
-    }
-}
-```
+The `ragTask()` method automatically extracts retrieved context from `Result.sources()` and includes it in the outputs for faithfulness evaluation.
 
 ## Best Practices
 
-### 1. Start Small, Scale Up
+### Start small, then grow
 
-Begin with a small, high-quality dataset (10-20 examples) to validate your experiment setup, then scale up to larger datasets.
+Don't try to build a huge dataset upfront. Start with 10-20 high-quality examples that cover your main use cases. Run experiments frequently and add more examples as you discover edge cases.
 
-### 2. Use Descriptive Names
+### Name experiments clearly
 
-Give experiments clear, descriptive names that indicate what's being tested:
+When you're comparing results later, you'll want to know exactly what each experiment tested:
 
 ```java
-.name("gpt-5.2 Customer Support QA - Temperature 0.7")
+.name("gpt-5-nano-customer-support-temp0.7-2025-12-27")
 ```
 
-### 3. Track Configuration with Metadata
+### Track everything with metadata
 
-Always include relevant configuration in metadata for reproducibility:
+Record model settings, versions, and timestamps so you can reproduce results:
 
 ```java
-.metadata("model", "gpt-5.2")
+.metadata("model", "gpt-5-nano")
 .metadata("temperature", 0.7)
-.metadata("maxTokens", 500)
-.metadata("timestamp", Instant.now())
+.metadata("prompt_version", "v3")
+.metadata("timestamp", Instant.now().toString())
 ```
 
-### 4. Choose Appropriate Evaluators
+### Match evaluators to your needs
 
-Select evaluators that match your quality requirements:
-- **Exact match**: For deterministic outputs (calculations, code)
-- **LLM judges**: For creative or open-ended responses
-- **Faithfulness**: For RAG systems to ensure grounding
-- **Custom evaluators**: For domain-specific requirements
+- Use **exact match** for factual answers that should be deterministic (like calculations)
+- Use **LLM judges** when you need semantic understanding (like checking if an explanation makes sense)
+- Use **faithfulness** for RAG systems to ensure answers are grounded in your documents
+- Build **custom evaluators** for domain-specific requirements
 
-### 5. Set Realistic Thresholds
+### Set achievable thresholds
 
-Don't expect 100% pass rates initially. Start with achievable thresholds and improve over time:
+Don't expect perfection right away. Start with realistic thresholds (maybe 70-80%) and increase them as you improve your application.
 
-```java
-.threshold(0.7)  // 70% is often a good starting point
-```
+### Version your datasets
 
-### 6. Version Your Datasets
-
-Keep datasets in version control and update them as you discover new edge cases:
+As you add test cases, keep old versions around so you can track how your application improves over time:
 
 ```
-src/main/resources/datasets/
-  ├── customer-support-v1.json
-  ├── customer-support-v2.json
-  └── customer-support-latest.json
+src/test/resources/datasets/
+  ├── support-v1-initial.json
+  ├── support-v2-edge-cases.json
+  └── support-v3-current.json
 ```
 
-### 7. Automate Regular Evaluations
+### Run experiments regularly
 
-Run experiments regularly (nightly builds, weekly reports) to track performance over time and catch regressions early.
+Set up nightly builds or weekly evaluations to catch performance regressions early. You can also run quick experiments during development with a smaller dataset.

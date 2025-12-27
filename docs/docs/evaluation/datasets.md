@@ -4,72 +4,83 @@ sidebar_position: 2
 
 # Datasets
 
-A **Dataset** is a collection of data points, so called **Examples**, which are used for testing the performance of your LLM application. In Dokimos, datasets can be created in various ways, including programmatically, from files, or through custom sources.
+A dataset is a collection of examples that represent the scenarios you want to test your LLM application against. Each example typically contains an input (like a user question or prompt) and an expected output (the correct or desired response).
 
-Datasets help you to structure and organize the input data that will be fed into your LLM application during evaluation. By using representative datasets, you can ensure that your evaluations are meaningful and reflect real-world scenarios, while having a single source of truth for your evaluation data.
+Datasets let you evaluate your application systematically rather than testing with ad-hoc prompts. You can create them programmatically in your code, load them from JSON or CSV files, or fetch them from external sources.
 
 ## Creating Datasets
 
-To create a dataset in Dokimos, you can either define it programmatically or load it from external files. Below are examples of both approaches.
+### Programmatic Creation
 
-### Programmatic Datasets
+You can build datasets directly in your code using the `Dataset.builder()` API. This is useful when you want to generate test cases dynamically or keep simple datasets close to your test code.
 
-You can create a dataset programmatically using the `Dataset.builder()` API. Here's an example of a simple in-memory dataset:
+Here's a basic example for a customer support chatbot:
 
 ```java
 import dev.dokimos.core.Dataset;
 import dev.dokimos.core.Example;
 
 Dataset dataset = Dataset.builder()
-    .name("Simple QA Dataset")
-    .description("A simple dataset for question-answering tasks")
-    .addExample(Example.of("What is the capital of Switzerland?", "Bern"))
-    .addExample(Example.of("What is the capital of France?", "Paris"))
-    .addExample(Example.of("What is the capital of Germany?", "Berlin"))
+    .name("Customer Support FAQ")
+    .description("Common questions about shipping and returns")
+    .addExample(Example.of(
+        "How long does shipping take?",
+        "Standard shipping takes 5-7 business days"
+    ))
+    .addExample(Example.of(
+        "What's your return policy?",
+        "We accept returns within 30 days of purchase"
+    ))
+    .addExample(Example.of(
+        "Do you ship internationally?",
+        "Yes, we ship to most countries worldwide"
+    ))
     .build();
 ```
 
-The `Example.of()` method is a convenient way to create simple examples with a single input and expected output. For more complex scenarios, you can use the `Example.builder()`:
+The `Example.of()` method is convenient for simple input-output pairs. For more complex scenarios where you need multiple inputs or outputs, use `Example.builder()`:
 
 ```java
 Example example = Example.builder()
-    .input("question", "What is AI?")
-    .input("context", List.of("AI is artificial intelligence"))
-    .expectedOutput("answer", "Artificial intelligence")
-    .expectedOutput("confidence", 0.9)
-    .metadata("source", "wikipedia")
+    .input("query", "Show me a code review for this pull request")
+    .input("prNumber", "1234")
+    .input("repository", "acme/backend")
+    .expectedOutput("summary", "The PR introduces a new authentication middleware...")
+    .expectedOutput("recommendations", List.of("Add unit tests", "Update documentation"))
+    .metadata("category", "code-review")
+    .metadata("difficulty", "medium")
     .build();
 
 Dataset dataset = Dataset.builder()
-    .name("QA Dataset")
+    .name("Code Review Assistant")
     .addExample(example)
     .build();
 ```
 
 ## Loading Datasets from Files
 
-Dokimos supports loading datasets from both JSON and CSV files. This is useful when you have pre-existing datasets or want to version control your evaluation data separately from your code.
+For most real-world use cases, you'll want to store your datasets as JSON or CSV files. This makes it easier to version control your test data, collaborate with team members, and separate test data from code.
 
 ### JSON Format
 
-Datasets can be loaded from JSON files using the `Dataset.fromJson()` method. Dokimos supports two JSON formats:
+Dokimos supports loading datasets from JSON using `Dataset.fromJson()`. There are two formats you can use:
 
 #### Simple Format
 
-The simple format uses `input` and `expectedOutput` as top-level properties:
+For straightforward input-output pairs, use this format:
 
 ```json
 {
-  "name": "refund-qa",
-  "description": "Questions about refunds",
+  "name": "customer-support-refunds",
+  "description": "Questions about our refund policy",
   "examples": [
     {
-      "input": "What is the refund policy?",
-      "expectedOutput": "30-day full refund"
+      "input": "Can I get a refund if I'm not satisfied?",
+      "expectedOutput": "Yes, we offer a 30-day money-back guarantee"
     },
     {
-      "input": "Can I return after 60 days?",
-      "expectedOutput": "No, only within 30 days"
+      "input": "How long does a refund take to process?",
+      "expectedOutput": "Refunds are typically processed within 5-7 business days"
     }
   ]
 }
@@ -77,23 +88,24 @@ The simple format uses `input` and `expectedOutput` as top-level properties:
 
 #### Complex Format
 
-For more advanced scenarios, you can use the complex format with `inputs`, `expectedOutputs`, and `metadata` objects:
+When you need multiple inputs, multiple expected outputs, or metadata, use this format:
 
 ```json
 {
-  "name": "complex-qa",
+  "name": "document-qa-with-sources",
   "examples": [
     {
       "inputs": {
-        "question": "What is AI?",
-        "context": ["AI is artificial intelligence"]
+        "question": "What are the system requirements?",
+        "documentIds": ["doc-123", "doc-456"]
       },
       "expectedOutputs": {
-        "answer": "Artificial intelligence",
-        "confidence": 0.9
+        "answer": "Requires Java 21 or higher and at least 4GB RAM",
+        "confidence": 0.95
       },
       "metadata": {
-        "source": "wikipedia"
+        "category": "technical",
+        "source": "product-docs"
       }
     }
   ]
@@ -120,15 +132,15 @@ Dataset dataset = Dataset.fromJson(json);
 
 ### CSV Format
 
-CSV files are also supported for simpler datasets. The CSV must have at least an `input` column, and optionally an `expectedOutput` (or `expected_output` or `output`) column. Any additional columns are treated as metadata.
+CSV files work well for simpler datasets. You need at least an `input` column, and optionally an `expectedOutput` column (you can also use `expected_output` or `output` as the column name). Any additional columns are automatically treated as metadata.
 
 #### Example CSV
 
 ```csv
-input,expectedOutput,category
-What is 2+2?,4,math
-What is 3*3?,9,math
-Hello how are you?,"I'm fine thanks",conversation
+input,expectedOutput,category,priority
+How do I reset my password?,Click 'Forgot Password' on the login page,account,high
+Where can I find my order history?,Go to Account > Orders,account,medium
+How do I contact support?,Email us at support@example.com or use live chat,support,high
 ```
 
 #### Loading CSV Files
@@ -140,21 +152,19 @@ Dataset dataset = Dataset.fromCsv(Path.of("path/to/dataset.csv"));
 // From a CSV string
 String csv = """
     input,expectedOutput
-    What is 2+2?,4
-    What is 3*3?,9
+    How do I track my package?,Check your email for the tracking number
+    What payment methods do you accept?,"We accept credit cards, PayPal, and bank transfers"
     """;
-Dataset dataset = Dataset.fromCsv(csv, "math-qa");
+Dataset dataset = Dataset.fromCsv(csv, "payment-support");
 ```
 
 ## Dataset Resolution
 
-Dokimos provides a flexible dataset resolution system that supports multiple sources through URI schemes. This is particularly useful in testing environments.
+Dokimos provides a flexible way to load datasets from different sources using URI schemes. This is especially useful in testing environments where you want to load datasets from your test resources or from the file system.
 
-### Supported URI Schemes
+### Classpath Resources
 
-#### Classpath Resources
-
-Load datasets from your classpath (e.g., from `src/main/resources` or `src/test/resources`):
+Load datasets from your classpath (like `src/main/resources` or `src/test/resources`):
 
 ```java
 import dev.dokimos.core.DatasetResolverRegistry;
@@ -163,9 +173,9 @@ Dataset dataset = DatasetResolverRegistry.getInstance()
     .resolve("classpath:datasets/qa-dataset.json");
 ```
 
-#### File System
+### File System
 
-Load datasets from the file system using either the `file:` prefix or a plain file path:
+Load datasets from anywhere on your file system:
 
 ```java
 // With file: prefix
@@ -177,13 +187,11 @@ Dataset dataset = DatasetResolverRegistry.getInstance()
     .resolve("path/to/dataset.json");
 ```
 
-Both JSON and CSV files are automatically detected based on the file extension (`.json` or `.csv`).
+Both JSON and CSV files are automatically detected based on the file extension.
 
 ## Using Datasets with JUnit 5
 
-The `dokimos-junit5` module provides seamless integration with JUnit 5's parameterized tests through the `@DatasetSource` annotation.
-
-### Basic Usage
+The `dokimos-junit5` module makes it easy to use datasets with JUnit 5's parameterized tests through the `@DatasetSource` annotation.
 
 ```java
 import dev.dokimos.junit5.DatasetSource;
@@ -198,8 +206,6 @@ void testQa(Example example) {
     Assertions.assertEval(testCase, evaluators);
 }
 ```
-
-### Inline JSON
 
 You can also provide inline JSON directly in the annotation:
 
@@ -219,21 +225,17 @@ void testWithInlineData(Example example) {
 }
 ```
 
-### Advanced Example with Context
-
-The `@DatasetSource` annotation works well with complex evaluation scenarios:
+For more complex evaluation scenarios with RAG systems:
 
 ```java
 @ParameterizedTest
 @DatasetSource("classpath:datasets/qa-dataset.json")
 void shouldPassEvaluators(Example example) {
-    // Retrieve context (e.g., from a vector store)
-    List<String> retrievedContext = List.of(
-        "Bern is the capital city of Switzerland",
-        "Paris is the capital of France"
-    );
+    // Retrieve relevant documents from your vector store
+    List<String> retrievedContext = vectorStore.search(example.input(), topK = 3);
     
-    String response = aiService.generate(example.input());
+    // Generate response using the retrieved context
+    String response = ragService.generate(example.input(), retrievedContext);
     
     // Provide both the response and context to evaluators
     var testCase = example.toTestCase(Map.of(
@@ -247,28 +249,36 @@ void shouldPassEvaluators(Example example) {
 
 ## Using Datasets with LangChain4j
 
-The `dokimos-langchain4j` module provides special support for LangChain4j applications, making it easy to evaluate RAG (Retrieval-Augmented Generation) pipelines and AI Services.
-
-### Basic Integration
+The `dokimos-langchain4j` module provides utilities for evaluating LangChain4j AI Services and RAG pipelines.
 
 ```java
 import dev.dokimos.core.Dataset;
 import dev.dokimos.langchain4j.LangChain4jSupport;
 
 Dataset dataset = Dataset.builder()
-    .name("customer-qa")
-    .addExample(Example.of("What is the refund policy?", "30-day money-back guarantee"))
-    .addExample(Example.of("How long does shipping take?", "5-7 business days"))
+    .name("customer-support")
+    .addExample(Example.of(
+        "What's your refund policy?",
+        "We offer a 30-day money-back guarantee"
+    ))
+    .addExample(Example.of(
+        "How long does shipping take?",
+        "Standard shipping takes 5-7 business days"
+    ))
     .build();
 
-// Create your LangChain4j AI Service
+// Create your LangChain4j AI Service that returns Result<String>
+interface Assistant {
+    Result<String> chat(String userMessage);
+}
+
 Assistant assistant = AiServices.builder(Assistant.class)
     .chatLanguageModel(chatModel)
     .retrievalAugmentor(retrievalAugmentor)
     .build();
 
-// Use LangChain4jSupport to wrap your AI Service
-Task task = LangChain4jSupport.taskOf(assistant, Assistant::chat);
+// Wrap it as a Task (automatically extracts context from Result.sources())
+Task task = LangChain4jSupport.ragTask(assistant::chat);
 
 // Run the experiment
 ExperimentResult result = Experiment.builder()
@@ -280,28 +290,21 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
-### Custom Key Mapping
-
-By default, LangChain4jSupport expects datasets to use `input` as the input key. If your dataset uses different keys (e.g., `question`), you can specify custom key mappings:
+If your dataset uses custom key names (like `"question"` instead of `"input"`), specify them explicitly:
 
 ```java
 // Dataset uses "question" instead of "input"
-Task task = LangChain4jSupport.taskOf(
-    assistant, 
-    Assistant::chat,
-    "question"  // custom input key
+Task task = LangChain4jSupport.ragTask(
+    assistant::chat,
+    "question",  // custom input key
+    "answer",    // custom output key
+    "context"    // custom context key
 );
 ```
 
 ## Working with Examples
 
-The `Example` class represents a single data point in your dataset. Each example contains:
-
-- **inputs**: A map of input values (e.g., question, context)
-- **expectedOutputs**: A map of expected output values (e.g., answer, confidence)
-- **metadata**: Additional information about the example (e.g., source, category)
-
-### Accessing Example Data
+Each example in a dataset contains inputs, expected outputs, and optional metadata. You can access this data in different ways depending on your needs:
 
 ```java
 Example example = dataset.get(0);
@@ -316,9 +319,9 @@ Map<String, Object> expectedOutputs = example.expectedOutputs();
 Map<String, Object> metadata = example.metadata();
 ```
 
-### Converting to Test Cases
+### Converting Examples to Test Cases
 
-Examples can be easily converted to test cases for evaluation:
+You can easily convert examples to test cases for evaluation:
 
 ```java
 // With a single output
@@ -360,68 +363,60 @@ for (Example example : dataset) {
 
 ## Best Practices
 
-### 1. Version Control Your Datasets
+### Version control your datasets
 
-Store datasets as JSON or CSV files in your repository to track changes over time:
+Keep datasets as files in your repository so you can track changes over time and collaborate with your team:
 
 ```
-src/
-  main/
-    resources/
-      datasets/
-        qa-dataset.json
-        customer-support.csv
-        technical-docs.json
+src/test/resources/
+  datasets/
+    customer-support-v1.json
+    product-qa-v2.csv
+    code-review-examples.json
 ```
 
-### 2. Use Descriptive Names
+This also makes it easier to review changes when someone updates test cases.
 
-Give your datasets meaningful names that describe their purpose:
+### Use meaningful names and descriptions
+
+Help your team understand what each dataset tests:
 
 ```java
 Dataset.builder()
-    .name("customer-support-refund-policy")
-    .description("Questions and answers about refund policies")
+    .name("edge-cases-numeric-inputs")
+    .description("Tests handling of unusual numeric inputs like negative numbers, decimals, and scientific notation")
     // ...
 ```
 
-### 3. Include Metadata
+### Add metadata for filtering and analysis
 
-Use metadata to categorize and filter examples:
+Metadata helps you understand patterns in failures:
 
 ```java
 Example.builder()
-    .input("input", "What is the return policy?")
-    .expectedOutput("output", "30 days")
-    .metadata("category", "refunds")
-    .metadata("difficulty", "easy")
-    .metadata("source", "customer-faq")
+    .input("userMessage", "Cancel my subscription")
+    .expectedOutput("response", "I can help you cancel your subscription...")
+    .metadata("category", "account-management")
+    .metadata("complexity", "medium")
+    .metadata("requires-auth", true)
     .build();
 ```
 
-### 4. Start Small and Iterate
+### Start small, grow organically
 
-Begin with a small, high-quality dataset and expand based on your evaluation results:
+Don't try to build a huge dataset upfront. Start with 10-15 examples covering the most important scenarios, then add edge cases as you discover them through testing.
 
-```java
-// Start with 10-20 representative examples
-Dataset smallDataset = Dataset.builder()
-    .name("initial-qa-test")
-    .addExample(/* ... */)
-    .build();
+### Combine different sources
 
-// Expand as you identify edge cases
-```
-
-### 5. Mix Data Sources
-
-Combine programmatic and file-based approaches as needed:
+Load a base dataset from a file and add programmatic examples for specific test scenarios:
 
 ```java
-Dataset fileDataset = Dataset.fromJson(Path.of("base-dataset.json"));
-Dataset combinedDataset = Dataset.builder()
-    .name("combined-dataset")
-    .addExamples(fileDataset.examples())
-    .addExample(Example.of("New test case", "Expected result"))
+Dataset baseDataset = Dataset.fromJson(Path.of("datasets/base-qa.json"));
+
+Dataset testDataset = Dataset.builder()
+    .name("qa-with-edge-cases")
+    .addExamples(baseDataset.examples())
+    .addExample(Example.of("", "Please provide a question"))  // empty input
+    .addExample(Example.of("a".repeat(1000), "..."))  // very long input
     .build();
 ```

@@ -4,7 +4,9 @@ sidebar_position: 4
 
 # Evaluators
 
-**Evaluators** assess the quality of your LLM's outputs by comparing actual outputs against expected results or quality criteria. Each evaluator produces by default a score (0.0 to 1.0) and determines success based on a configurable threshold.
+Evaluators check the quality of your LLM's outputs. Each one gives a score between 0.0 and 1.0, and decides whether the output passes based on a threshold you set.
+
+You can use built-in evaluators for common checks (exact matches, regex patterns, LLM-based judging) or create custom ones for your specific needs.
 
 ## The Evaluator Interface
 
@@ -19,7 +21,7 @@ public interface Evaluator {
 ```
 
 An `EvalResult` contains:
-- **score**: Numeric score (0.0 - 1.0)
+- **score**: Numeric score (0.0 to 1.0)
 - **success**: Whether score meets threshold
 - **reason**: Explanation of the score
 - **metadata**: Additional evaluation data
@@ -28,7 +30,7 @@ An `EvalResult` contains:
 
 ### ExactMatchEvaluator
 
-Checks if actual and expected outputs match exactly (case-sensitive).
+Checks if the output matches the expected result exactly. Useful for deterministic outputs where there's only one correct answer.
 
 ```java
 Evaluator evaluator = ExactMatchEvaluator.builder()
@@ -37,44 +39,43 @@ Evaluator evaluator = ExactMatchEvaluator.builder()
     .build();
 ```
 
-**Returns:**
-- Score `1.0` if outputs match exactly
-- Score `0.0` otherwise
+Returns score `1.0` if they match, `0.0` otherwise.
 
-**Use cases:** Factual answers, calculations, deterministic outputs.
+**When to use:** Math calculations, code generation, structured data extraction, or any scenario where the output should be exactly as expected.
 
 ### RegexEvaluator
 
-Checks if the actual output matches a regular expression pattern.
+Checks if the output matches a pattern. Useful for validating format without caring about the exact content.
 
 ```java
-Evaluator evaluator = RegexEvaluator.builder()
-    .name("Pattern Match")
-    .pattern("\\d{4}-\\d{2}-\\d{2}")  // Date format: YYYY-MM-DD
-    .ignoreCase(false)
+Evaluator dateFormat = RegexEvaluator.builder()
+    .name("Date Format")
+    .pattern("\\d{4}-\\d{2}-\\d{2}")  // YYYY-MM-DD
+    .threshold(1.0)
+    .build();
+
+Evaluator emailFormat = RegexEvaluator.builder()
+    .name("Email Format")
+    .pattern("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+    .ignoreCase(true)
     .threshold(1.0)
     .build();
 ```
 
-**Configuration:**
-- `pattern`: Regular expression pattern
-- `ignoreCase`: Case-insensitive matching (default: `false`)
-
-**Use cases:** Format validation, pattern matching, structured outputs.
+**When to use:** Validating dates, emails, phone numbers, IDs, URLs, or any structured format where the exact value varies but the pattern should be consistent.
 
 ### LLMJudgeEvaluator
 
-Uses an LLM to evaluate outputs based on custom criteria.
+Uses another LLM to evaluate outputs based on criteria you define in natural language. This is powerful for subjective quality checks that are hard to automate with rules.
 
 ```java
-JudgeLM judge = prompt -> myLlm.generate(prompt);
+JudgeLM judge = prompt -> judgeModel.generate(prompt);
 
-Evaluator evaluator = LLMJudgeEvaluator.builder()
-    .name("Answer Correctness")
-    .criteria("Is the answer factually correct and complete?")
+Evaluator helpfulness = LLMJudgeEvaluator.builder()
+    .name("Helpfulness")
+    .criteria("Is the answer helpful and complete? Does it actually solve the user's problem?")
     .evaluationParams(List.of(
         EvalTestCaseParam.INPUT,
-        EvalTestCaseParam.EXPECTED_OUTPUT,
         EvalTestCaseParam.ACTUAL_OUTPUT
     ))
     .threshold(0.8)
@@ -82,101 +83,86 @@ Evaluator evaluator = LLMJudgeEvaluator.builder()
     .build();
 ```
 
-**Configuration:**
-- `criteria`: Evaluation criteria as natural language
-- `evaluationParams`: Which test case parts to include (input, expected, actual, metadata)
-- `scoreRange`: Expected score range (default: 0.0-1.0)
-- `judge`: LLM function to call
+The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1.
 
-**Use cases:** Semantic similarity, relevance, coherence, custom quality criteria.
+**When to use:** Checking semantic correctness, helpfulness, tone, clarity, or any quality dimension that's easier to describe in words than code.
 
 ### FaithfulnessEvaluator
 
-Evaluates how well the actual output is grounded in provided context (for RAG systems).
+Checks if the output is grounded in the provided context. This is essential for RAG systems where you need to ensure the LLM isn't making things up.
 
 ```java
-JudgeLM judge = prompt -> myLlm.generate(prompt);
+JudgeLM judge = prompt -> judgeModel.generate(prompt);
 
-Evaluator evaluator = FaithfulnessEvaluator.builder()
-    .threshold(0.7)
+Evaluator faithfulness = FaithfulnessEvaluator.builder()
+    .threshold(0.8)
     .judge(judge)
-    .contextKey("retrievedContext")
+    .contextKey("retrievedContext")  // Where to find the context in outputs
     .includeReason(true)
     .build();
 ```
 
-**How it works:**
-1. Extracts claims from the actual output
-2. Extracts facts from the retrieved context
-3. Verifies each claim against the context using an LLM
-4. Score = (supported claims) / (total claims)
+The evaluator:
+1. Breaks down the output into individual claims
+2. Checks each claim against the retrieved context
+3. Calculates score = (supported claims) / (total claims)
 
-**Configuration:**
-- `contextKey`: Key in actualOutputs containing the context (default: `"context"`)
-- `includeReason`: Include detailed claim verdicts (default: `true`)
+**When to use:** Any RAG system where accuracy matters. If your LLM is answering questions based on retrieved documents, you need this to catch hallucinations.
 
-**Use cases:** RAG systems, fact-checking, grounding verification.
+:::note
 
-## Configuration Options
+More built-in evaluators that can be used out-of-the-box will be added soon.
 
-All evaluators support these common configurations:
+:::
 
-### Name
+## Common Configuration
 
-Identify the evaluator in results:
+All evaluators have these settings:
 
+**Name**: How the evaluator shows up in results:
 ```java
-.name("My Custom Evaluator")
+.name("Answer Quality")
 ```
 
-### Threshold
-
-Set the minimum score for success:
-
+**Threshold**: Minimum score needed to pass:
 ```java
-.threshold(0.8)  // 80% required to pass
+.threshold(0.8)  // Needs 80% or higher
 ```
 
-### Evaluation Parameters
-
-Specify which test case components to include:
-
+**Evaluation Parameters**: What information to include for evaluators:
 ```java
 .evaluationParams(List.of(
-    EvalTestCaseParam.INPUT,
-    EvalTestCaseParam.EXPECTED_OUTPUT,
-    EvalTestCaseParam.ACTUAL_OUTPUT
+    EvalTestCaseParam.INPUT,           // The user's question
+    EvalTestCaseParam.EXPECTED_OUTPUT, // What you expect
+    EvalTestCaseParam.ACTUAL_OUTPUT,   // What the LLM actually said
 ))
 ```
 
-Available parameters:
-- `INPUT`: The input to the task
-- `EXPECTED_OUTPUT`: Expected output
-- `ACTUAL_OUTPUT`: Actual output produced
-- `METADATA`: Example metadata
-
 ## Creating Custom Evaluators
 
-Implement the `Evaluator` interface or extend `BaseEvaluator`:
+When the built-in evaluators don't fit your needs, create your own by extending `BaseEvaluator`:
 
 ```java
-public class CustomEvaluator extends BaseEvaluator {
+public class ResponseLengthEvaluator extends BaseEvaluator {
     
-    public CustomEvaluator(String name, double threshold) {
-        super(name, threshold, List.of(
-            EvalTestCaseParam.ACTUAL_OUTPUT,
-            EvalTestCaseParam.EXPECTED_OUTPUT
-        ));
+    private final int minLength;
+    private final int maxLength;
+    
+    public ResponseLengthEvaluator(String name, int minLength, int maxLength) {
+        super(name, 1.0, List.of(EvalTestCaseParam.ACTUAL_OUTPUT));
+        this.minLength = minLength;
+        this.maxLength = maxLength;
     }
     
     @Override
     protected EvalResult runEvaluation(EvalTestCase testCase) {
-        String actual = testCase.actualOutput();
-        String expected = testCase.expectedOutput();
+        String output = testCase.actualOutput();
+        int length = output.length();
         
-        // Your evaluation logic
-        double score = calculateScore(actual, expected);
-        String reason = "Custom evaluation reason";
+        boolean withinBounds = length >= minLength && length <= maxLength;
+        double score = withinBounds ? 1.0 : 0.0;
+        String reason = String.format("Output length %d (expected %d-%d)",
+            length, minLength, maxLength);
         
         return EvalResult.builder()
             .name(name())
@@ -185,178 +171,137 @@ public class CustomEvaluator extends BaseEvaluator {
             .reason(reason)
             .build();
     }
-    
-    private double calculateScore(String actual, String expected) {
-        // Your scoring logic
-        return 0.0;
-    }
 }
+
+// Usage
+Evaluator lengthCheck = new ResponseLengthEvaluator("Length Check", 50, 200);
 ```
 
-### Using Functional Interface
-
-For simple evaluators, use the functional interface directly:
-
-```java
-Evaluator lengthEvaluator = new Evaluator() {
-    @Override
-    public EvalResult evaluate(EvalTestCase testCase) {
-        String output = testCase.actualOutput();
-        double score = output.length() >= 100 ? 1.0 : 0.0;
-        return EvalResult.of("Length Check", score, 1.0, 
-            "Output length: " + output.length());
-    }
-    
-    @Override
-    public String name() {
-        return "Length Check";
-    }
-    
-    @Override
-    public double threshold() {
-        return 1.0;
-    }
-};
+For very simple checks, you can also implement the `Evaluator` interface directly.
 ```
 
-## Using Multiple Evaluators
+## Combining Multiple Evaluators
 
-Combine evaluators to assess different quality dimensions:
+Most applications need to pass multiple quality checks. You can use several evaluators together:
 
 ```java
 List<Evaluator> evaluators = List.of(
-    // Factual correctness
+    // Check if the answer is correct
     LLMJudgeEvaluator.builder()
         .name("Correctness")
         .criteria("Is the answer factually correct?")
-        .threshold(0.8)
+        .threshold(0.85)
         .judge(judge)
         .build(),
     
-    // Grounding in context
+    // Check if it's grounded in retrieved docs (RAG)
     FaithfulnessEvaluator.builder()
-        .threshold(0.7)
+        .threshold(0.80)
         .judge(judge)
+        .contextKey("retrievedContext")
         .build(),
     
-    // Format validation
+    // Check if it follows the required format
     RegexEvaluator.builder()
         .name("Format Check")
-        .pattern("^[A-Z].*\\.$")  // Starts with capital, ends with period
+        .pattern("^[A-Z].*\\.$")  // Must start with capital and end with period
         .threshold(1.0)
         .build()
 );
 ```
 
-An example passes only if **all** evaluators pass their thresholds.
+An output only passes if it meets **all** the thresholds. This lets you enforce multiple quality dimensions at once.
 
 ## Best Practices
 
-### 1. Choose Appropriate Evaluators
+### Pick the right evaluator for the job
 
-Match evaluators to your requirements:
-- **Deterministic outputs** → ExactMatch or Regex
-- **Creative/semantic content** → LLMJudge
-- **RAG systems** → Faithfulness
-- **Domain-specific** → Custom evaluators
+- Use **ExactMatch** when there's only one correct answer (like math or data extraction)
+- Use **Regex** for format validation (dates, emails, IDs)
+- Use **LLMJudge** for semantic quality (helpfulness, clarity, tone)
+- Use **Faithfulness** for RAG systems to prevent hallucinations
+- Build **custom evaluators** for domain-specific requirements
 
-### 2. Set Realistic Thresholds
+### Start with looser thresholds
 
-Start with achievable thresholds and tighten over time:
+Don't aim for perfection right away. Start with thresholds around 0.7-0.8 and tighten them as your system improves. A threshold of 1.0 means any imperfection fails.
 
-```java
-.threshold(0.7)  // 70% is often a good starting point for LLM judges
-```
+### Write specific criteria for LLM judges
 
-### 3. Use Descriptive Names
-
-Make results easy to understand:
+Be clear about what you're evaluating:
 
 ```java
-.name("Answer Correctness - LLM as a Judge")
-```
+// Good (specific and measurable)
+.criteria("Does the answer correctly explain the refund process and mention the 30-day policy?")
 
-### 4. Combine Evaluators
-
-Assess multiple quality aspects:
-
-```java
-List<Evaluator> evaluators = List.of(
-    correctnessEvaluator,
-    relevanceEvaluator,
-    faithfulnessEvaluator
-);
-```
-
-### 5. Optimize LLM Judge Criteria
-
-Write clear, specific criteria:
-
-```java
-// Good
-.criteria("Is the answer factually correct based on the provided context?")
-
-// Too vague
+// Bad (too vague)
 .criteria("Is this good?")
 ```
 
-### 6. Test Your Evaluators
+### Use multiple evaluators for important outputs
 
-Validate evaluators with known examples:
+Check different aspects independently: correctness, format, grounding, tone, etc. This gives you more insight into where things go wrong.
+
+### Test your evaluators
+
+Make sure your evaluators work as expected on known examples before relying on them:
 
 ```java
 @Test
-void evaluatorShouldPassCorrectAnswer() {
+void faithfulnessEvaluatorShouldCatchHallucination() {
     var testCase = EvalTestCase.builder()
-        .actualOutput("Paris")
-        .expectedOutput("Paris")
+        .actualOutput("The product costs $500")  // Made up
+        .metadata(Map.of("context", List.of("The product costs $100")))
         .build();
     
-    var result = evaluator.evaluate(testCase);
+    var result = faithfulnessEvaluator.evaluate(testCase);
     
-    assertTrue(result.success());
-    assertEquals(1.0, result.score());
+    // Should fail because claim isn't in context
+    assertFalse(result.success());
 }
 ```
 
-## Evaluator Results
+## Using Evaluator Results
 
-### Accessing Results
+Evaluators return `EvalResult` objects with score, success status, and explanation:
 
 ```java
 EvalResult result = evaluator.evaluate(testCase);
 
 System.out.println("Score: " + result.score());
-System.out.println("Success: " + result.success());
+System.out.println("Passed: " + result.success());
 System.out.println("Reason: " + result.reason());
 ```
 
-### In Experiments
+In experiments, you can analyze results across all examples:
 
 ```java
-ExperimentResult result = experiment.run();
+ExperimentResult experimentResult = experiment.run();
 
-// Per-evaluator average scores
-result.averageScore("Correctness");
-result.averageScore("Faithfulness");
+// Average scores per evaluator
+double avgCorrectness = experimentResult.averageScore("Correctness");
+double avgFaithfulness = experimentResult.averageScore("Faithfulness");
 
-// Individual item results
-for (ItemResult item : result.itemResults()) {
+// Dig into individual results
+for (ItemResult item : experimentResult.itemResults()) {
     for (EvalResult eval : item.evalResults()) {
-        System.out.println(eval.name() + ": " + eval.score());
+        if (!eval.success()) {
+            System.out.println("Failed: " + eval.name() + " (" + eval.reason() + ")");
+        }
     }
 }
 ```
 
-### In JUnit Tests
+In JUnit tests, evaluators fail the test if they don't pass:
 
 ```java
 @ParameterizedTest
 @DatasetSource("classpath:datasets/qa.json")
-void testEvaluation(Example example) {
+void shouldProduceQualityAnswers(Example example) {
     String answer = aiService.generate(example.input());
     var testCase = example.toTestCase(answer);
     
+    // Fails test if evaluators don't pass
     Assertions.assertEval(testCase, evaluators);
 }
 ```

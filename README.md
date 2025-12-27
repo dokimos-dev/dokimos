@@ -81,15 +81,6 @@ ExperimentResult result = Experiment.builder()
 System.out.println("Pass rate: " + result.passRate());
 ```
 
-## Modules
-
-| Module | Purpose |
-|--------|---------|
-| **dokimos-core** | Core evaluation framework with datasets, evaluators, and experiments |
-| **dokimos-junit5** | JUnit 5 integration for parameterized testing with datasets |
-| **dokimos-langchain4j** | LangChain4j integration for RAG and AI agent evaluation |
-| **dokimos-examples** | Complete examples showing different evaluation patterns |
-
 ## Documentation
 
 The full documentation is available

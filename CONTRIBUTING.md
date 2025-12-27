@@ -66,13 +66,13 @@ mvn test
 To run tests for a specific module, e.g. `dokimos-core`:
 
 ```bash
-mvn test -pl dokimos-core
+mvn test -pl dokimos-core -am
 ```
 
 Run a specific test class:
 
 ```bash
-mvn test -pl dokimos-core -Dtest=ExactMatchEvaluatorTest
+mvn test -pl dokimos-core -Dtest=ExactMatchEvaluatorTest -am
 ```
 
 ### Integration Tests
@@ -83,14 +83,14 @@ external API keys, such as from OpenAI.
 Run integration tests:
 
 ```bash
-mvn test -Dgroups=integration
+mvn verify -Dgroups=integration
 ```
 
 Some integration tests need an OpenAI API key:
 
 ```bash
 export OPENAI_API_KEY='your-api-key-here'
-mvn test -Dgroups=integration
+mvn verify -Dgroups=integration
 ```
 
 ### Testing Strategy

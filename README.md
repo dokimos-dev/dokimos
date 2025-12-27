@@ -26,14 +26,14 @@ Simply add the desired modules to your `pom.xml`:
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-core</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </dependency>
 
     <!-- JUnit 5 integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-junit5</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
         <scope>test</scope>
     </dependency>
 
@@ -41,7 +41,7 @@ Simply add the desired modules to your `pom.xml`:
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-langchain4j</artifactId>
-        <version>0.1.0</version>
+        <version>0.2.0</version>
     </dependency>
 </dependencies>
 ```
@@ -63,213 +63,36 @@ For complete, runnable examples see the [dokimos-examples](./dokimos-examples) m
 - JUnit 5 parameterized testing
 - LangChain4j RAG evaluation
 
-## Code Snippets
-
-### dokimos-core: Basic Evaluation
+Run your first evaluation:
 
 ```java
-import dev.dokimos.core.*;
+Dataset dataset = Dataset.builder()
+    .name("Support Questions")
+    .addExample(Example.of("How do I reset my password?", "Click 'Forgot Password'..."))
+    .addExample(Example.of("What's your refund policy?", "We offer 30-day refunds..."))
+    .build();
 
-import java.util.List;
-import java.util.Map;
+ExperimentResult result = Experiment.builder()
+    .dataset(dataset)
+    .task(example -> Map.of("output", yourLLM.generate(example.input())))
+    .evaluators(List.of(new ExactMatchEvaluator()))
+    .run();
 
-public class BasicEvaluation {
-    public static void main(String[] args) {
-        // Create a dataset
-        Dataset dataset = Dataset.builder()
-                .name("QA Dataset")
-                .addExample(Example.of("What is 2+2?", "4"))
-                .addExample(Example.of("What is the capital of France?", "Paris"))
-                .build();
-
-        // Define evaluators
-        List<Evaluator> evaluators = List.of(
-                ExactMatchEvaluator.builder().build(),
-                RegexEvaluator.builder()
-                        .pattern("\\d+|[A-Z][a-z]+")
-                        .build()
-        );
-
-        // Create a task for your LLM or system under test
-        Task task = example -> {
-            String answer = callYourLLM(example.input());
-            return Map.of("output", answer);
-        };
-
-        // Run experiment
-        ExperimentResult result = Experiment.builder()
-                .name("QA Evaluation")
-                .dataset(dataset)
-                .task(task)
-                .evaluators(evaluators)
-                .build()
-                .run();
-
-        // Check results
-        System.out.println("Pass rate: " + result.passRate());
-        System.out.println("Average score: " + result.averageScore());
-    }
-
-    private static String callYourLLM(String input) {
-        // Your LLM implementation
-        return "Hi, how can I help you today?";
-    }
-}
+System.out.println("Pass rate: " + result.passRate());
 ```
 
-### dokimos-junit5: Parameterized Testing
+## Modules
 
-```java
-import dev.dokimos.core.*;
-import dev.dokimos.junit5.DatasetSource;
-import org.junit.jupiter.params.ParameterizedTest;
-
-import java.util.List;
-
-import static dev.dokimos.core.Assertions.assertEval;
-
-public class QATest {
-
-    @ParameterizedTest
-    @DatasetSource("classpath:qa-dataset.json")
-    void testQA(Example example) {
-        // Get actual output from your system
-        String actualOutput = callYourLLM(example.input());
-
-        // Convert to test case
-        EvalTestCase testCase = example.toTestCase(actualOutput);
-
-        // Define evaluators
-        List<Evaluator> evaluators = List.of(
-                ExactMatchEvaluator.builder()
-                        .threshold(1.0)
-                        .build()
-        );
-
-        // Assert evaluation passes
-        assertEval(testCase, evaluators);
-    }
-
-    private String callYourLLM(String input) {
-        // Your LLM implementation
-        return "answer";
-    }
-}
-```
-
-Dataset file (`src/test/resources/qa-dataset.json`):
-
-```json
-{
-  "name": "QA Dataset",
-  "description": "Question answering test cases",
-  "examples": [
-    {
-      "inputs": {
-        "input": "What is 2+2?"
-      },
-      "expectedOutputs": {
-        "output": "4"
-      }
-    },
-    {
-      "inputs": {
-        "input": "What is the capital of Switzerland?"
-      },
-      "expectedOutputs": {
-        "output": "Bern"
-      }
-    }
-  ]
-}
-```
-
-### dokimos-langchain4j: Evaluation of production-ready AI assistants and agents
-
-```java
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.Result;
-import dev.dokimos.core.*;
-import dev.dokimos.langchain4j.LangChain4jSupport;
-
-import java.util.List;
-
-public class RAGEvaluation {
-
-    interface Assistant {
-        Result<String> chat(String userMessage);
-    }
-
-    public static void main(String[] args) {
-        // Build a RAG assistant
-        ChatModel chatModel = createYourChatModel();
-
-        Assistant assistant = AiServices.builder(Assistant.class)
-                .chatModel(chatModel)
-                .retrievalAugmentor(createYourRetrievalAugmentor())
-                .build();
-
-        // Create a RAG task
-        Task task = LangChain4jSupport.ragTask(assistant::chat);
-
-        // Load the dataset
-        Dataset dataset = Dataset.fromJson("path/to/dataset.json");
-
-        // Define evaluators
-        ChatModel judge = createYourJudgeModel();
-        List<Evaluator> evaluators = List.of(
-                LLMJudgeEvaluator.builder()
-                        .name("Faithfulness")
-                        .judge(LangChain4jSupport.asJudge(judge))
-                        .criteria("Is the answer faithful to the retrieved context?")
-                        .requiredInputs(List.of(
-                                EvalTestCaseParam.ACTUAL_OUTPUT,
-                                EvalTestCaseParam.INPUT
-                        ))
-                        .build(),
-                LLMJudgeEvaluator.builder()
-                        .name("Context Relevancy")
-                        .judge(LangChain4jSupport.asJudge(judge))
-                        .criteria("Is the retrieved context relevant to the question?")
-                        .requiredInputs(List.of(
-                                EvalTestCaseParam.INPUT
-                        ))
-                        .build()
-        );
-
-        // Run experiment
-        ExperimentResult result = Experiment.builder()
-                .name("Evaluation")
-                .dataset(dataset)
-                .task(task)
-                .evaluators(evaluators)
-                .build()
-                .run();
-
-        System.out.println("Pass rate: " + result.passRate());
-    }
-
-    private static ChatModel createYourChatModel() {
-        // Your ChatModel implementation
-        return null;
-    }
-
-    private static ChatModel createYourJudgeModel() {
-        // Your judge model implementation
-        return null;
-    }
-
-    private static Object createYourRetrievalAugmentor() {
-        // Your retrieval augmentor implementation
-        return null;
-    }
-}
-```
+| Module | Purpose |
+|--------|---------|
+| **dokimos-core** | Core evaluation framework with datasets, evaluators, and experiments |
+| **dokimos-junit5** | JUnit 5 integration for parameterized testing with datasets |
+| **dokimos-langchain4j** | LangChain4j integration for RAG and AI agent evaluation |
+| **dokimos-examples** | Complete examples showing different evaluation patterns |
 
 ## Documentation
 
-Full API documentation is available
+The full documentation is available
 at: [https://dokimos-dev.github.io/dokimos/](https://dokimos-dev.github.io/dokimos/)
 
 ## Contributing

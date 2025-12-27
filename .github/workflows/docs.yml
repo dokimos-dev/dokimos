@@ -45,10 +45,14 @@ jobs:
       - name: Generate Javadoc
         run: mvn javadoc:aggregate -DskipTests
 
-      - name: Copy Javadocs to deployment directory
-        run: |
-          mkdir -p deploy
-          cp -R target/reports/apidocs/* deploy/
+      - name: Navigate to docs and install dependencies
+        run: cd docs && npm ci
+
+      - name: Build docs
+        run: cd docs && npm run build
+
+      - name: Copy Javadocs to docs build outputs
+        run: cp -R target/reports/apidocs/* docs/build/
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -56,7 +60,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './deploy'
+          path: './docs/build/.'
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -49,12 +49,6 @@ const config: Config = {
           // Remove this to remove the "edit this page" links.
           editUrl: "https://github.com/dokimos-dev/dokimos/blob/master/docs/",
         },
-        blog: {
-          showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl: "https://github.com/dokimos/blob/master/docs",
-        },
         theme: {
           customCss: "./src/css/custom.css",
         },
@@ -64,7 +58,6 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: "img/docusaurus-social-card.jpg",
     docs: {
       sidebar: {
         hideable: true,
@@ -82,6 +75,7 @@ const config: Config = {
           sidebarId: "tutorialSidebar",
           position: "left",
           label: "Overview",
+          href: "/overview",
         },
         // {
         //   to: "/Javadoc",

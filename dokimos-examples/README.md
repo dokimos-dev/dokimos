@@ -79,6 +79,52 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.langchain4j.LangChain4jRAGExample"
 ```
 
+### 5. Spring AI Evaluation Example
+
+**Location**: `dev.dokimos.examples.springai.SpringAiEvaluationExample`
+
+Shows how to use Spring AI with Dokimos for evaluating AI applications:
+
+- Converting Spring AI `ChatModel` to a `JudgeLM` judge
+- Evaluating customer support responses
+
+**Setup**:
+
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+```
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.springai.SpringAiEvaluationExample"
+```
+
+### 6. Spring AI RAG Evaluation
+
+**Location**: `dev.dokimos.examples.springai.SpringAiRAGExample`
+
+This example showcases the evaluation of a basic RAG system built with Spring AI:
+
+- Building a RAG system with Spring AI's `SimpleVectorStore`
+- Using `SpringAiSupport` for conversion utilities
+- Evaluating faithfulness of responses to retrieved context
+- Tracking retrieval and generation quality
+
+**Setup**:
+
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+```
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.springai.SpringAiRAGExample"
+```
+
 ## Building the Examples
 
 Build all examples:

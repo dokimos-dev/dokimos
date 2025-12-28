@@ -191,6 +191,12 @@ public class SpringAiEvaluation {
 }
 ```
 
+:::tip
+
+Also see the [Datasets](../getting-started/datasets) and [Evaluators](../getting-started/evaluators) documentation for more details on creating and loading datasets, and using evaluators.
+
+:::
+
 ## Bridging Spring AI Evaluators
 
 If you're using Spring AI's built-in evaluators and want to integrate with Dokimos:

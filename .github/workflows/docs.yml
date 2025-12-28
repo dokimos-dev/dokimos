@@ -8,6 +8,8 @@ on:
       - 'dokimos-core/**'
       - 'dokimos-junit5/**'
       - 'dokimos-langchain4j/**'
+      - 'dokimos-spring-ai/**'
+      - 'docs/**'
       - 'pom.xml'
       - '.github/workflows/docs.yml'
   workflow_dispatch:

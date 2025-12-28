@@ -2,6 +2,7 @@ package dev.dokimos.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -148,12 +149,10 @@ class ExperimentTest {
 
     @Test
     void shouldRequireDataset() {
-        assertThatThrownBy(() ->
-                Experiment.builder()
-                        .name("test")
-                        .task(example -> Map.of())
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> Experiment.builder()
+                .name("test")
+                .task(example -> Map.of())
+                .build()).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Dataset");
     }
 
@@ -163,12 +162,225 @@ class ExperimentTest {
                 .addExample(Example.of("q", "a"))
                 .build();
 
-        assertThatThrownBy(() ->
-                Experiment.builder()
-                        .name("test")
-                        .dataset(dataset)
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> Experiment.builder()
+                .name("test")
+                .dataset(dataset)
+                .build()).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Task");
+    }
+
+    @Test
+    void shouldCallReporterMethodsInCorrectOrder() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q1", "a1"))
+                .addExample(Example.of("q2", "a2"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        Experiment.builder()
+                .name("reporter-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", example.expectedOutput()))
+                .reporter(tracker)
+                .build()
+                .run();
+
+        assertThat(tracker.calls).containsExactly(
+                "startRun",
+                "reportItem",
+                "reportItem",
+                "completeRun",
+                "flush");
+    }
+
+    @Test
+    void shouldPassExperimentNameAndMetadataToStartRun() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        Experiment.builder()
+                .name("my-experiment")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .metadata("model", "gpt-5")
+                .metadata("version", "1.0")
+                .reporter(tracker)
+                .build()
+                .run();
+
+        assertThat(tracker.startRunName).isEqualTo("my-experiment");
+        assertThat(tracker.startRunMetadata).containsEntry("model", "gpt-5");
+        assertThat(tracker.startRunMetadata).containsEntry("version", "1.0");
+    }
+
+    @Test
+    void shouldReportEachItemImmediatelyAfterEvaluation() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q1", "a1"))
+                .addExample(Example.of("q2", "a2"))
+                .addExample(Example.of("q3", "a3"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        Experiment.builder()
+                .name("item-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", example.expectedOutput()))
+                .evaluator(new ExactMatchEvaluator.Builder().build())
+                .reporter(tracker)
+                .build()
+                .run();
+
+        assertThat(tracker.reportedItems).hasSize(3);
+        assertThat(tracker.reportedItems.get(0).example().input()).isEqualTo("q1");
+        assertThat(tracker.reportedItems.get(1).example().input()).isEqualTo("q2");
+        assertThat(tracker.reportedItems.get(2).example().input()).isEqualTo("q3");
+    }
+
+    @Test
+    void shouldCompleteRunWithSuccessOnNormalCompletion() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        Experiment.builder()
+                .name("success-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .reporter(tracker)
+                .build()
+                .run();
+
+        assertThat(tracker.completeRunStatus).isEqualTo(RunStatus.SUCCESS);
+    }
+
+    @Test
+    void shouldCompleteRunWithFailedOnException() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        assertThatThrownBy(() -> Experiment.builder()
+                .name("failure-test")
+                .dataset(dataset)
+                .task(example -> {
+                    throw new RuntimeException("Task failed");
+                })
+                .reporter(tracker)
+                .build()
+                .run()).isInstanceOf(RuntimeException.class);
+
+        assertThat(tracker.completeRunStatus).isEqualTo(RunStatus.FAILED);
+        assertThat(tracker.calls).contains("completeRun", "flush");
+    }
+
+    @Test
+    void shouldUseRunHandleForAllReporterCalls() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var tracker = new TrackingReporter();
+
+        Experiment.builder()
+                .name("handle-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .reporter(tracker)
+                .build()
+                .run();
+
+        assertThat(tracker.startRunHandle).isNotNull();
+        assertThat(tracker.reportItemHandles).allMatch(h -> h.equals(tracker.startRunHandle));
+        assertThat(tracker.completeRunHandle).isEqualTo(tracker.startRunHandle);
+    }
+
+    @Test
+    void shouldWorkWithDefaultNoOpReporter() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var result = Experiment.builder()
+                .name("noop-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .build()
+                .run();
+
+        assertThat(result.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldHandleNullReporter() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q", "a"))
+                .build();
+
+        var result = Experiment.builder()
+                .name("null-reporter-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .reporter(null)
+                .build()
+                .run();
+
+        assertThat(result.totalCount()).isEqualTo(1);
+    }
+
+    /**
+     * A test reporter that tracks all method calls and their arguments.
+     */
+    private static class TrackingReporter implements Reporter {
+        final List<String> calls = new ArrayList<>();
+        final List<ItemResult> reportedItems = new ArrayList<>();
+        final List<RunHandle> reportItemHandles = new ArrayList<>();
+        String startRunName;
+        Map<String, Object> startRunMetadata;
+        RunHandle startRunHandle;
+        RunHandle completeRunHandle;
+        RunStatus completeRunStatus;
+
+        @Override
+        public RunHandle startRun(String experimentName, Map<String, Object> metadata) {
+            calls.add("startRun");
+            this.startRunName = experimentName;
+            this.startRunMetadata = metadata;
+            this.startRunHandle = new RunHandle("test-run-id");
+            return startRunHandle;
+        }
+
+        @Override
+        public void reportItem(RunHandle handle, ItemResult result) {
+            calls.add("reportItem");
+            reportedItems.add(result);
+            reportItemHandles.add(handle);
+        }
+
+        @Override
+        public void completeRun(RunHandle handle, RunStatus status) {
+            calls.add("completeRun");
+            this.completeRunHandle = handle;
+            this.completeRunStatus = status;
+        }
+
+        @Override
+        public void flush() {
+            calls.add("flush");
+        }
+
+        @Override
+        public void close() {
+            calls.add("close");
+        }
     }
 }

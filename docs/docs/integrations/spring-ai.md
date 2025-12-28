@@ -4,19 +4,21 @@ sidebar_position: 3
 
 # Spring AI Integration
 
-Dokimos works with [Spring AI](https://spring.io/projects/spring-ai) so you can evaluate your AI applications using Spring AI's ChatClient and ChatModel.
+Dokimos works with [Spring AI](https://spring.io/projects/spring-ai) so you can evaluate your AI applications using Spring AI's `ChatClient` and `ChatModel`.
 
 ## Why Use This Integration?
 
-**Simple conversion**: Turn a Spring AI `ChatClient` or `ChatModel` into a Dokimos JudgeLM with one line of code.
+**Simple conversion**: Turn a Spring AI `ChatClient` or `ChatModel` into a Dokimos-compatible `JudgeLM` for evaluation with one line of code.
 
 **Spring AI compatibility**: Use your existing Spring AI infrastructure for evaluation without additional setup.
 
-**Flexible evaluation**: Bridge between Spring AI's `EvaluationRequest`/`EvaluationResponse` and Dokimos evaluation framework.
+**Flexible evaluation**: Bridge between Spring AI's `EvaluationRequest`/`EvaluationResponse` and the Dokimos evaluation framework.
 
 ## Setup
 
 Add the Spring AI integration dependency:
+
+### Maven
 
 ```xml
 <dependency>
@@ -24,6 +26,12 @@ Add the Spring AI integration dependency:
     <artifactId>dokimos-spring-ai</artifactId>
     <version>${dokimos.version}</version>
 </dependency>
+```
+
+### Gradle (Groovy DSL)
+
+```groovy
+implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
 ```
 
 ## Basic Usage
@@ -60,7 +68,7 @@ import org.springframework.ai.openai.OpenAiChatModel;
 
 ChatModel chatModel = OpenAiChatModel.builder()
     .apiKey(System.getenv("OPENAI_API_KEY"))
-    .modelName("gpt-4o")
+    .model("gpt-5.2")
     .build();
 
 // Convert to JudgeLM
@@ -125,10 +133,10 @@ public class SpringAiEvaluation {
         // 1. Set up ChatModel
         ChatModel chatModel = OpenAiChatModel.builder()
             .apiKey(System.getenv("OPENAI_API_KEY"))
-            .modelName("gpt-4o")
+            .model("gpt-5.2")
             .build();
 
-        // 2. Create dataset
+        // 2. Create a dataset
         Dataset dataset = Dataset.builder()
             .name("customer-qa")
             .addExample(Example.of(
@@ -257,9 +265,9 @@ Task ragTask = example -> {
         .call()
         .content();
 
-    // Extract context text
+    // Extract the context texts
     List<String> context = retrieved.stream()
-        .map(Document::getContent)
+        .map(Document::getText)
         .toList();
 
     return Map.of(
@@ -309,10 +317,6 @@ When converting from Dokimos back to Spring AI:
 
 ## Best Practices
 
-**Use appropriate models for judging**: Consider using GPT-4o or similar capable models for evaluation, even if your application uses smaller models.
-
-**Leverage Spring AI infrastructure**: If you're already using Spring AI, this integration lets you reuse your existing ChatClient configurations and model beans.
-
 **Combine with Spring Boot**: In a Spring Boot application, you can inject your ChatModel beans and use them directly for evaluation:
 
 ```java
@@ -342,8 +346,6 @@ public class AiEvaluationService {
 }
 ```
 
-**Track evaluation costs**: When using Spring AI models as judges, consider the API costs and potentially cache evaluation results.
-
 ## JUnit 5 Integration
 
 Combine with [JUnit 5](./junit5) for testing:
@@ -353,7 +355,7 @@ import dev.dokimos.junit5.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
 
 @ParameterizedTest
-@DatasetSource("classpath:datasets/qa.json")
+@DatasetSource("classpath:datasets/qa-dataset-v1.json")
 void chatResponseShouldBeAccurate(Example example) {
     // Generate response with Spring AI
     String response = chatClient.prompt()

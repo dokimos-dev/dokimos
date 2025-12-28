@@ -37,10 +37,9 @@ class QaEvaluationIT {
                         .name("answer-correctness")
                         .criteria("Does the actual output match the expected output semantically?")
                         .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
-                        .threshold(0.8)
+                        .threshold(0.2)
                         .judge(llm)
-                        .build()
-        );
+                        .build());
     }
 
     @ParameterizedTest

@@ -1,8 +1,8 @@
 # Dokimos: Evaluation for LLM applications in Java
 
 Dokimos is a systematic approach to evaluate LLM outputs using datasets, metrics, and experiments in Java. It integrates
-seamlessly with JUnit 5 for parameterized testing, and libraries, such
-as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of sophisticated AI systems and agents.
+seamlessly with JUnit 5 for parameterized testing, and libraries such
+as [LangChain4j](https://github.com/langchain4j/langchain4j) and [Spring AI](https://spring.io/projects/spring-ai) for evaluation of sophisticated AI systems and agents.
 
 ## Features
 
@@ -10,6 +10,7 @@ as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of s
 - **Built-in evaluators**: Exact match, regex, and LLM-based judges
 - **JUnit 5 integration**: Parameterized tests with dataset sources
 - **LangChain4j integration**: Evaluation of production-ready AI systems and agents
+- **Spring AI integration**: Use Spring AI `ChatClient` and `ChatModel` as evaluation judges
 - **Experiment tracking**: Aggregate eval results with pass rates and scores
 - **Extensible**: Build Custom evaluators and dataset resolvers via SPI
 
@@ -42,6 +43,13 @@ Simply add the desired modules to your `pom.xml`:
         <artifactId>dokimos-langchain4j</artifactId>
         <version>${dokimos-langchain4j.version}</version>
     </dependency>
+
+    <!-- Spring AI integration -->
+    <dependency>
+        <groupId>dev.dokimos</groupId>
+        <artifactId>dokimos-spring-ai</artifactId>
+        <version>${dokimos-spring-ai.version}</version>
+    </dependency>
 </dependencies>
 ```
 
@@ -61,6 +69,8 @@ dependencies {
     testImplementation 'dev.dokimos:dokimos-junit5:${dokimosJunit5Version}'
     // LangChain4j integration
     implementation 'dev.dokimos:dokimos-langchain4j:${dokimosLangchain4jVersion}'
+    // Spring AI integration
+    implementation 'dev.dokimos:dokimos-spring-ai:${dokimosSpringAiVersion}'
 }
 ```
 
@@ -71,6 +81,7 @@ dependencies {
 - **dokimos-core**: Core evaluation framework with datasets, evaluators, and experiments
 - **dokimos-junit5**: JUnit 5 integration for dataset-driven parameterized tests
 - **dokimos-langchain4j**: LangChain4j integration for evaluation of production AI assistants and agents
+- **dokimos-spring-ai**: Spring AI integration for using `ChatClient` and `ChatModel` as evaluation judges
 - **dokimos-examples**: Runnable examples demonstrating evaluation patterns and custom evaluators
 
 ## Quick Start Examples
@@ -80,6 +91,7 @@ For complete, runnable examples see the [dokimos-examples](./dokimos-examples) m
 - **Custom evaluators** (extending `BaseEvaluator` or using `LLMJudgeEvaluator`)
 - JUnit 5 parameterized testing
 - LangChain4j RAG evaluation
+- Spring AI RAG and evaluation
 
 Run your first evaluation:
 

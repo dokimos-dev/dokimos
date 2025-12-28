@@ -41,6 +41,11 @@
             <artifactId>dokimos-langchain4j</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-spring-ai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- LangChain4j dependencies -->
         <dependency>
@@ -62,6 +67,13 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings-bge-small-en-v15-q</artifactId>
             <version>1.9.1-beta17</version>
+        </dependency>
+
+        <!-- Spring AI dependencies -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+            <version>1.0.0-M5</version>
         </dependency>
 
         <!-- Logging -->

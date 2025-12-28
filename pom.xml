@@ -39,6 +39,7 @@
         <module>dokimos-core</module>
         <module>dokimos-junit5</module>
         <module>dokimos-langchain4j</module>
+        <module>dokimos-spring-ai</module>
         <module>dokimos-examples</module>
     </modules>
 

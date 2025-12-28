@@ -300,7 +300,7 @@ ExperimentResult result = Experiment.builder()
 
 ## Field Mappings
 
-### EvaluationRequest → EvalTestCase
+### EvaluationRequest -> EvalTestCase
 
 When converting from Spring AI to Dokimos:
 
@@ -308,9 +308,9 @@ When converting from Spring AI to Dokimos:
 |-----------|---------|
 | `getUserText()` | `inputs["input"]` |
 | `getResponseContent()` | `actualOutputs["output"]` |
-| `getDataList()` | `actualOutputs["context"]` (as List<String>) |
+| `getDataList()` | `actualOutputs["context"]` (as `List<String>`) |
 
-### EvalResult → EvaluationResponse
+### EvalResult -> EvaluationResponse
 
 When converting from Dokimos back to Spring AI:
 

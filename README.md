@@ -15,25 +15,24 @@ as [LangChain4j](https://github.com/langchain4j/langchain4j) for evaluation of s
 
 ## Installation
 
-### Maven
+### Maven (Recommended)
 
 Simply add the desired modules to your `pom.xml`:
 
 ```xml
-
 <dependencies>
     <!-- Core evaluation framework -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-core</artifactId>
-        <version>0.2.0</version>
+        <version>${dokimos-core.version}</version>
     </dependency>
 
     <!-- JUnit 5 integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-junit5</artifactId>
-        <version>0.2.0</version>
+        <version>${dokimos-junit5.version}</version>
         <scope>test</scope>
     </dependency>
 
@@ -41,12 +40,31 @@ Simply add the desired modules to your `pom.xml`:
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-langchain4j</artifactId>
-        <version>0.2.0</version>
+        <version>${dokimos-langchain4j.version}</version>
     </dependency>
 </dependencies>
 ```
 
 No additional repository configuration is needed!
+
+---
+
+### Gradle (Groovy DSL)
+
+Add the desired modules to your `build.gradle`:
+
+```groovy
+dependencies {
+    // Core evaluation framework
+    implementation 'dev.dokimos:dokimos-core:${dokimosCoreVersion}'
+    // JUnit 5 integration
+    testImplementation 'dev.dokimos:dokimos-junit5:${dokimosJunit5Version}'
+    // LangChain4j integration
+    implementation 'dev.dokimos:dokimos-langchain4j:${dokimosLangchain4jVersion}'
+}
+```
+
+---
 
 ## Modules
 

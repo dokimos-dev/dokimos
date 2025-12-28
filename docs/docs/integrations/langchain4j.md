@@ -22,7 +22,7 @@ Add the LangChain4j integration dependency:
 <dependency>
     <groupId>dev.dokimos</groupId>
     <artifactId>dokimos-langchain4j</artifactId>
-    <version>0.2.0</version>
+    <version>${dokimos.version}</version>
 </dependency>
 ```
 

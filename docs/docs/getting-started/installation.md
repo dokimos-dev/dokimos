@@ -16,12 +16,12 @@ For Maven with a `pom.xml` file:
 <dependency>
     <groupId>dev.dokimos</groupId>
     <artifactId>dokimos-core</groupId>
-    <version>0.2.0</versio>
+    <version>${dokimos.version}</version>
 </dependency>
 ```
 
 If you use Gradle with a `build.gradle` file:
 
 ```
-implementation 'dev.dokimos:dokimos-core:0.2.0'
+implementation 'dev.dokimos:dokimos-core:${dokimosVersion}'
 ```

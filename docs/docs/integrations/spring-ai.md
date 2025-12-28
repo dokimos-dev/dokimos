@@ -193,7 +193,7 @@ public class SpringAiEvaluation {
 
 :::tip
 
-Also see the [Datasets](../getting-started/datasets) and [Evaluators](../getting-started/evaluators) documentation for more details on creating and loading datasets, and using evaluators.
+Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluation/evaluators) documentation for more details on creating and loading datasets, and using evaluators.
 
 :::
 

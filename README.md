@@ -114,7 +114,7 @@ System.out.println("Pass rate: " + result.passRate());
 ## Documentation
 
 The full documentation is available
-at: [https://dokimos-dev.github.io/dokimos/](https://dokimos-dev.github.io/dokimos/)
+at: [https://dokimos.dev](https://dokimos.dev)
 
 ## Contributing
 

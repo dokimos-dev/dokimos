@@ -391,10 +391,10 @@ class HallucinationEvaluatorTest {
 
         @Override
         public String generate(String prompt) {
-            if (prompt.contains("determine whether each statement")) {
+            if (prompt.contains("determine whether each statement")) { // verdicts
                 return verdictsResponse;
             }
-            if (prompt.contains("Summarize the hallucination evaluation")) {
+            if (prompt.contains("Summarize the hallucination evaluation")) { // reason
                 return reasonResponse;
             }
             return "{}";

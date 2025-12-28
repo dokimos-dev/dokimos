@@ -83,6 +83,12 @@
             <version>1.5.22</version>
         </dependency>
 
+        <!-- Misc -->
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

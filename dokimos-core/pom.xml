@@ -31,7 +31,6 @@
             <groupId>com.openai</groupId>
             <artifactId>openai-java</artifactId>
             <scope>test</scope>
-            <version>4.11.0</version>
         </dependency>
 
         <dependency>

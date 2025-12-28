@@ -1,7 +1,5 @@
 package dev.dokimos.core;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -125,7 +123,6 @@ public record Dataset(String name, String description, List<Example> examples) i
         return examples.get(index);
     }
 
-    @NotNull
     @Override
     public Iterator<Example> iterator() {
         return examples.iterator();

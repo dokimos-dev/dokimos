@@ -7,6 +7,7 @@ import java.util.List;
 
 /**
  * Evaluator that uses an LLM to detect hallucinations in the actual output.
+ * <p>
  * A hallucination occurs when the actual output contains information that is
  * not supported by the provided context.
  * The score represents the ratio of hallucinated statements to total statements
@@ -181,7 +182,7 @@ public class HallucinationEvaluator extends BaseEvaluator {
          * Sets the maximum score threshold for success.
          * Since the score represents hallucination ratio, lower scores are better.
          *
-         * @param threshold the threshold value (score must be <= threshold to pass)
+         * @param threshold the threshold value
          * @return this builder
          */
         public Builder threshold(double threshold) {

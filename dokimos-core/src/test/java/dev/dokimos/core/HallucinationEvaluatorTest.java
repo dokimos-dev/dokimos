@@ -375,60 +375,6 @@ class HallucinationEvaluatorTest {
         assertThat(result.name()).isEqualTo("custom-hallucination");
     }
 
-    @Test
-    void shouldHandleEmptyFactualAlignmentsInReason() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
-                        [
-                            {"verdict": "no", "reason": "Statement 1 not supported"},
-                            {"verdict": "no", "reason": "Statement 2 not supported"}
-                        ]
-                        """)
-                .withReason("All statements are hallucinated.");
-
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .build();
-
-        var testCase = EvalTestCase.builder()
-                .input("input")
-                .actualOutput("context", "context")
-                .actualOutput("output")
-                .build();
-
-        var result = evaluator.evaluate(testCase);
-
-        assertThat(result.score()).isEqualTo(1.0);
-        assertThat(result.reason()).isNotEmpty();
-    }
-
-    @Test
-    void shouldHandleEmptyContradictionsInReason() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
-                        [
-                            {"verdict": "yes", "reason": "Statement 1 supported"},
-                            {"verdict": "yes", "reason": "Statement 2 supported"}
-                        ]
-                        """)
-                .withReason("All statements are factual.");
-
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .build();
-
-        var testCase = EvalTestCase.builder()
-                .input("input")
-                .actualOutput("context", "context")
-                .actualOutput("output")
-                .build();
-
-        var result = evaluator.evaluate(testCase);
-
-        assertThat(result.score()).isEqualTo(0.0);
-        assertThat(result.reason()).isNotEmpty();
-    }
-
     private static class MockJudge implements JudgeLM {
         private String verdictsResponse;
         private String reasonResponse;

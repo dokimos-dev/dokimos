@@ -97,13 +97,13 @@
 
     <build>
         <plugins>
-            <!-- <plugin>
+            <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
                 <version>1.15.1</version>
                 <configuration>
                     <workingDirectory>frontend</workingDirectory>
-                    <nodeVersion>v20.18.0</nodeVersion>
+                    <nodeVersion>v23.5.0</nodeVersion>
                 </configuration>
                 <executions>
                     <execution>
@@ -134,8 +134,8 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin> -->
-            <!-- <plugin>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <executions>
@@ -155,7 +155,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin> -->
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

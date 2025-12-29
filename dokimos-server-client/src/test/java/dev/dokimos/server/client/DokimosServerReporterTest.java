@@ -18,16 +18,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 class DokimosServerReporterTest {
 
@@ -230,8 +225,7 @@ class DokimosServerReporterTest {
             ItemResult result = new ItemResult(
                     example,
                     Map.of("output", "4"),
-                    List.of(EvalResult.success("exact-match", 1.0, "Correct"))
-            );
+                    List.of(EvalResult.success("exact-match", 1.0, "Correct")));
 
             reporter.reportItem(handle, result);
             reporter.flush();
@@ -264,8 +258,7 @@ class DokimosServerReporterTest {
         return new ItemResult(
                 example,
                 Map.of("output", expectedOutput),
-                List.of(EvalResult.success("test-eval", 1.0, "pass"))
-        );
+                List.of(EvalResult.success("test-eval", 1.0, "pass")));
     }
 
     private class RecordingHandler implements HttpHandler {

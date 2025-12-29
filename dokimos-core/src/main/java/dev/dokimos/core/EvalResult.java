@@ -5,21 +5,30 @@ import java.util.Map;
 /**
  * The result of an evaluation.
  *
- * @param name     the evaluator name
- * @param score    the numeric score
- * @param success  whether the evaluation succeeded or not
- * @param reason   explanation for the returned score
- * @param metadata additional result metadata
+ * @param name      the evaluator name
+ * @param score     the numeric score
+ * @param threshold the threshold used to determine success (may be null if not applicable)
+ * @param success   whether the evaluation succeeded or not
+ * @param reason    explanation for the returned score
+ * @param metadata  additional result metadata
  */
 public record EvalResult(
         String name,
         double score,
+        Double threshold,
         boolean success,
         String reason,
         Map<String, Object> metadata
 ) {
     public EvalResult {
         metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
+    }
+
+    /**
+     * Creates an EvalResult without a threshold (for backwards compatibility).
+     */
+    public EvalResult(String name, double score, boolean success, String reason, Map<String, Object> metadata) {
+        this(name, score, null, success, reason, metadata);
     }
 
     /**
@@ -33,7 +42,7 @@ public record EvalResult(
      */
     public static EvalResult of(String name, double score, double threshold, String reason) {
         boolean success = score >= threshold;
-        return new EvalResult(name, score, success, reason, Map.of());
+        return new EvalResult(name, score, threshold, success, reason, Map.of());
     }
 
     /**
@@ -141,7 +150,7 @@ public record EvalResult(
          */
         public EvalResult build() {
             boolean success = threshold != null ? score >= threshold : score >= 0.5;
-            return new EvalResult(name, score, success, reason, metadata);
+            return new EvalResult(name, score, threshold, success, reason, metadata);
         }
     }
 }

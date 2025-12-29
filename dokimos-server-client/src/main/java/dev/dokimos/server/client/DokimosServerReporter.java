@@ -22,7 +22,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An async HTTP implementation of {@link Reporter} that sends experiment
@@ -35,7 +37,7 @@ import java.util.logging.Logger;
  */
 public class DokimosServerReporter implements Reporter {
 
-    private static final Logger LOGGER = Logger.getLogger(DokimosServerReporter.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(DokimosServerReporter.class);
     private static final int MAX_BATCH_SIZE = 10;
     private static final long BATCH_TIMEOUT_MS = 500;
     private static final int MAX_RETRIES = 3;
@@ -127,17 +129,18 @@ public class DokimosServerReporter implements Reporter {
         if (response == null) {
             // Generate a local run ID if server is unavailable
             String localId = "local-" + System.currentTimeMillis();
-            LOGGER.warning("Failed to start run on server, using local ID: " + localId);
+            LOGGER.warn("Failed to start run on server, using local ID: {}", localId);
             return new RunHandle(localId);
         }
 
         try {
             JsonNode json = objectMapper.readTree(response);
             String runId = json.get("runId").asText();
+            LOGGER.debug("Started run {} for experiment '{}'", runId, experimentName);
             return new RunHandle(runId);
         } catch (JsonProcessingException e) {
             String localId = "local-" + System.currentTimeMillis();
-            LOGGER.warning("Failed to parse run response, using local ID: " + localId);
+            LOGGER.warn("Failed to parse run response, using local ID: {}", localId);
             return new RunHandle(localId);
         }
     }
@@ -156,7 +159,10 @@ public class DokimosServerReporter implements Reporter {
         String url = serverUrl + "/api/runs/" + handle.runId();
         Map<String, Object> body = Map.of("status", status.name());
 
-        executeWithRetry("PATCH", url, body);
+        String response = executeWithRetry("PATCH", url, body);
+        if (response != null) {
+            LOGGER.debug("Completed run {} with status {}", handle.runId(), status);
+        }
     }
 
     @Override
@@ -169,7 +175,7 @@ public class DokimosServerReporter implements Reporter {
                     flushLock.wait(50);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    LOGGER.warning("Flush interrupted");
+                    LOGGER.warn("Flush interrupted");
                     return;
                 }
             }
@@ -268,7 +274,10 @@ public class DokimosServerReporter implements Reporter {
 
             Map<String, Object> body = Map.of("items", itemsPayload);
 
-            executeWithRetry("POST", url, body);
+            String response = executeWithRetry("POST", url, body);
+            if (response != null) {
+                LOGGER.debug("Sent batch of {} items to run {}", items.size(), runId);
+            }
         }
 
         // Decrement pending count and notify flush waiters
@@ -284,19 +293,56 @@ public class DokimosServerReporter implements Reporter {
                 "expectedOutputs", result.example().expectedOutputs(),
                 "actualOutputs", result.actualOutputs(),
                 "evalResults", result.evalResults().stream()
-                        .map(er -> Map.of(
-                                "name", er.name(),
-                                "score", er.score(),
-                                "success", er.success(),
-                                "reason", er.reason() != null ? er.reason() : "",
-                                "metadata", er.metadata()))
+                        .map(this::evalResultToMap)
                         .toList(),
                 "success", result.success());
     }
 
+    private Map<String, Object> evalResultToMap(dev.dokimos.core.EvalResult er) {
+        var map = new java.util.HashMap<String, Object>();
+        map.put("name", er.name());
+        map.put("score", er.score());
+        map.put("success", er.success());
+        map.put("reason", er.reason() != null ? er.reason() : "");
+        map.put("metadata", er.metadata());
+        if (er.threshold() != null) {
+            map.put("threshold", er.threshold());
+        }
+        return map;
+    }
+
     private void flushItemsForRun(RunHandle handle) {
-        // Trigger a flush to ensure all items are sent
-        flush();
+        // Wait until all items for this specific run are processed
+        long deadline = System.currentTimeMillis() + 30000;
+        while (System.currentTimeMillis() < deadline) {
+            boolean hasItemsForRun = queue.stream()
+                    .anyMatch(item -> item.handle().equals(handle));
+            if (!hasItemsForRun) {
+                // Give a short time for any in-flight batch containing this run to complete
+                synchronized (flushLock) {
+                    try {
+                        flushLock.wait(50);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                // Check again after the wait
+                hasItemsForRun = queue.stream()
+                        .anyMatch(item -> item.handle().equals(handle));
+                if (!hasItemsForRun) {
+                    return;
+                }
+            }
+            synchronized (flushLock) {
+                try {
+                    flushLock.wait(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
     }
 
     private String executeWithRetry(String method, String url, Map<String, Object> body) {
@@ -332,15 +378,15 @@ public class DokimosServerReporter implements Reporter {
 
                 if (response.statusCode() >= 400 && response.statusCode() < 500) {
                     // Client error, don't retry
-                    LOGGER.warning("Client error " + response.statusCode() + " for " + method + " " + url);
+                    LOGGER.warn("Client error {} for {} {}", response.statusCode(), method, url);
                     return null;
                 }
 
                 // Server error, retry
-                LOGGER.fine("Server error " + response.statusCode() + ", attempt " + attempt + " of " + MAX_RETRIES);
+                LOGGER.debug("Server error {}, attempt {} of {}", response.statusCode(), attempt, MAX_RETRIES);
 
             } catch (IOException | InterruptedException e) {
-                LOGGER.fine("Request failed, attempt " + attempt + " of " + MAX_RETRIES + ": " + e.getMessage());
+                LOGGER.debug("Request failed, attempt {} of {}: {}", attempt, MAX_RETRIES, e.getMessage());
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                     return null;
@@ -358,7 +404,7 @@ public class DokimosServerReporter implements Reporter {
             }
         }
 
-        LOGGER.warning("Failed after " + MAX_RETRIES + " attempts for " + method + " " + url);
+        LOGGER.warn("Failed after {} attempts for {} {}", MAX_RETRIES, method, url);
         return null;
     }
 

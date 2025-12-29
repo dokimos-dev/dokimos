@@ -1,9 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 
-export type Status = "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
+type Status = "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
 
 interface StatusBadgeProps {
-  status: Status;
+  status: string;
 }
 
 const statusConfig: Record<Status, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -21,10 +21,12 @@ const statusColors: Record<Status, string> = {
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const s = status as Status;
+  const config = statusConfig[s] ?? { label: status, variant: "secondary" as const };
+  const color = statusColors[s] ?? "bg-gray-500 hover:bg-gray-500/90";
 
   return (
-    <Badge className={`${statusColors[status]} text-white`}>
+    <Badge className={`${color} text-white`}>
       {config.label}
     </Badge>
   );

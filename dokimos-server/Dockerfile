@@ -9,6 +9,7 @@ COPY dokimos-junit5/pom.xml ./dokimos-junit5/pom.xml
 COPY dokimos-langchain4j/pom.xml ./dokimos-langchain4j/pom.xml
 COPY dokimos-spring-ai/pom.xml ./dokimos-spring-ai/pom.xml
 COPY dokimos-server-client/pom.xml ./dokimos-server-client/pom.xml
+COPY dokimos-server-client/src ./dokimos-server-client/src
 COPY dokimos-server/pom.xml ./dokimos-server/pom.xml
 COPY dokimos-examples/pom.xml ./dokimos-examples/pom.xml
 

@@ -102,7 +102,7 @@ public class ExperimentService {
         // Reverse to get chronological order
         Collections.reverse(points);
 
-        return new TrendData(experiment.getName(), points);
+        return new TrendData(experiment.getName(), experiment.getProject().getName(), points);
     }
 
     private Double calculatePassRate(ExperimentRun run) {

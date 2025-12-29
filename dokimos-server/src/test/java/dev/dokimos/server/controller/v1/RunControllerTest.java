@@ -59,9 +59,10 @@ class RunControllerTest extends AbstractControllerTest {
 
                 PageRequest pageRequest = PageRequest.of(0, 10);
                 Page<RunDetails.ItemSummary> emptyPage = new PageImpl<>(List.of(), pageRequest, 0);
+                UUID experimentId = UUID.randomUUID();
 
                 RunDetails details = new RunDetails(
-                                runId, "my-experiment", "my-project", RunStatus.SUCCESS,
+                                runId, experimentId, "my-experiment", "my-project", RunStatus.SUCCESS,
                                 Map.of(), 10, 8, 0.8, Instant.now(), Instant.now(), emptyPage);
 
                 when(runService.getRunDetails(eq(runId), any(Pageable.class))).thenReturn(details);

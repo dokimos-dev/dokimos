@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record TrendData(
                 String experimentName,
+                String projectName,
                 List<RunPoint> runs) {
         public record RunPoint(
                         UUID runId,

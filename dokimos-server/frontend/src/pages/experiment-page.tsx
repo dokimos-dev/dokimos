@@ -1,9 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import useSWR from "swr";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis } from "recharts";
-import { fetcher, apiUrl, type ExperimentDetails } from "@/lib/api";
+import { useListRuns, useGetTrends } from "@/lib/api/experiment-controller/experiment-controller";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import {
   ChartContainer,
@@ -23,6 +22,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import StatusBadge from "@/components/shared/status-badge";
 import PassRate from "@/components/shared/pass-rate";
+import Pagination from "@/components/shared/pagination";
+
+const PAGE_SIZE = 20;
 
 const chartConfig = {
   passRate: {
@@ -31,8 +33,8 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function formatDuration(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—";
+function formatDuration(startedAt: string | undefined, completedAt: string | undefined): string {
+  if (!startedAt || !completedAt) return "—";
 
   const start = new Date(startedAt).getTime();
   const end = new Date(completedAt).getTime();
@@ -51,27 +53,38 @@ export default function ExperimentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const [currentPage, setCurrentPage] = useState(0);
 
-  const { data: experiment, error, isLoading } = useSWR<ExperimentDetails>(
-    id ? apiUrl(`/experiments/${id}`) : null,
-    fetcher
+  const { data: runsResponse, error: runsError, isLoading: runsLoading } = useListRuns(id ?? "", {
+    swr: { enabled: !!id },
+  });
+  const runs = runsResponse?.data;
+
+  const { data: trendsResponse, error: trendsError, isLoading: trendsLoading } = useGetTrends(
+    id ?? "",
+    { limit: 20 },
+    { swr: { enabled: !!id } }
   );
+  const trends = trendsResponse?.data;
+
+  const isLoading = runsLoading || trendsLoading;
+  const error = runsError || trendsError;
 
   useEffect(() => {
-    if (experiment) {
+    if (trends?.experimentName && trends?.projectName) {
       setBreadcrumbs([
         { label: "Home", href: "/" },
         {
-          label: experiment.projectName,
-          href: `/projects/${encodeURIComponent(experiment.projectName)}`,
+          label: trends.projectName,
+          href: `/projects/${encodeURIComponent(trends.projectName)}`,
         },
         {
-          label: experiment.name,
-          href: `/experiments/${experiment.id}`,
+          label: trends.experimentName,
+          href: `/experiments/${id}`,
         },
       ]);
     }
-  }, [experiment, setBreadcrumbs]);
+  }, [trends, id, setBreadcrumbs]);
 
   if (isLoading) {
     return (
@@ -120,7 +133,7 @@ export default function ExperimentPage() {
     );
   }
 
-  if (!experiment) {
+  if (!runs) {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-6">Experiment</h1>
@@ -129,12 +142,11 @@ export default function ExperimentPage() {
     );
   }
 
-  // Prepare chart data from last 20 runs
-  const chartData = experiment.runs
-    .slice(-20)
-    .filter((run) => run.passRate !== null)
+  // Prepare chart data from trends
+  const chartData = (trends?.runs ?? [])
+    .filter((run) => run.passRate != null)
     .map((run) => ({
-      date: format(new Date(run.startedAt), "MMM d"),
+      date: run.startedAt ? format(new Date(run.startedAt), "MMM d") : "",
       passRate: Math.round((run.passRate ?? 0) * 100),
     }));
 
@@ -142,7 +154,7 @@ export default function ExperimentPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">{experiment.name}</h1>
+      <h1 className="text-2xl font-bold mb-6">{trends?.experimentName ?? "Experiment"}</h1>
 
       <Card className="mb-6">
         <CardHeader>
@@ -190,45 +202,53 @@ export default function ExperimentPage() {
         </CardContent>
       </Card>
 
-      {experiment.runs.length === 0 ? (
+      {runs.length === 0 ? (
         <p className="text-muted-foreground">
           No runs yet. Run this experiment to see results here.
         </p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Pass Rate</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Duration</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {experiment.runs.map((run) => (
-              <TableRow
-                key={run.id}
-                className="cursor-pointer hover:bg-accent/50"
-                onClick={() => navigate(`/runs/${run.id}`)}
-              >
-                <TableCell>
-                  {format(new Date(run.startedAt), "MMM d, h:mm a")}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={run.status} />
-                </TableCell>
-                <TableCell>
-                  <PassRate rate={run.passRate} />
-                </TableCell>
-                <TableCell>{run.itemCount}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDuration(run.startedAt, run.completedAt)}
-                </TableCell>
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Pass Rate</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>Duration</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {runs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE).map((run) => (
+                <TableRow
+                  key={run.id}
+                  className="cursor-pointer hover:bg-accent/50"
+                  onClick={() => navigate(`/runs/${run.id}`)}
+                >
+                  <TableCell>
+                    {run.startedAt && format(new Date(run.startedAt), "MMM d, h:mm a")}
+                  </TableCell>
+                  <TableCell>
+                    {run.status && <StatusBadge status={run.status} />}
+                  </TableCell>
+                  <TableCell>
+                    <PassRate rate={run.passRate} />
+                  </TableCell>
+                  <TableCell>{run.itemCount}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDuration(run.startedAt, run.completedAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={runs.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
     </div>
   );

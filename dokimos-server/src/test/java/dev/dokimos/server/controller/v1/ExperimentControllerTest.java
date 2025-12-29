@@ -81,7 +81,7 @@ class ExperimentControllerTest {
                 UUID runId = UUID.randomUUID();
                 TrendData.RunPoint point = new TrendData.RunPoint(
                                 runId, Instant.now(), 0.85, 20, 17);
-                TrendData trendData = new TrendData("my-experiment", List.of(point));
+                TrendData trendData = new TrendData("my-experiment", "my-project", List.of(point));
 
                 when(experimentService.getTrends(experimentId, 20)).thenReturn(trendData);
 
@@ -94,7 +94,7 @@ class ExperimentControllerTest {
         @Test
         void getTrends_shouldUseCustomLimit() throws Exception {
                 UUID experimentId = UUID.randomUUID();
-                TrendData trendData = new TrendData("my-experiment", List.of());
+                TrendData trendData = new TrendData("my-experiment", "my-project", List.of());
 
                 when(experimentService.getTrends(experimentId, 50)).thenReturn(trendData);
 

@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 
 interface PassRateProps {
-  rate: number | null;
+  rate?: number | null;
 }
 
 export default function PassRate({ rate }: PassRateProps) {
-  if (rate === null) {
+  if (rate == null) {
     return <span className="text-muted-foreground">—</span>;
   }
 

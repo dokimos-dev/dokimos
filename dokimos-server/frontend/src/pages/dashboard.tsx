@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import useSWR from "swr";
 import { formatDistanceToNow } from "date-fns";
-import { fetcher, apiUrl, type ProjectSummary } from "@/lib/api";
+import { useListProjects } from "@/lib/api/project-controller/project-controller";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,10 +10,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { setBreadcrumbs } = useBreadcrumbs();
 
-  const { data: projects, error, isLoading } = useSWR<ProjectSummary[]>(
-    apiUrl("/projects"),
-    fetcher
-  );
+  const { data: response, error, isLoading } = useListProjects();
+  const projects = response?.data;
 
   useEffect(() => {
     setBreadcrumbs([]);
@@ -69,17 +66,19 @@ export default function Dashboard() {
           <Card
             key={project.id}
             className="cursor-pointer hover:bg-accent/50 transition-colors"
-            onClick={() => navigate(`/projects/${encodeURIComponent(project.name)}`)}
+            onClick={() => navigate(`/projects/${encodeURIComponent(project.name ?? "")}`)}
           >
             <CardHeader>
               <CardTitle>{project.name}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 text-sm text-muted-foreground">
               <p>{project.experimentCount} experiment{project.experimentCount !== 1 ? "s" : ""}</p>
-              <p>
-                Created{" "}
-                {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
-              </p>
+              {project.createdAt && (
+                <p>
+                  Created{" "}
+                  {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}

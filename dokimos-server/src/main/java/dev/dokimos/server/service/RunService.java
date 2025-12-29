@@ -103,6 +103,7 @@ public class RunService {
 
         return new RunDetails(
                 run.getId(),
+                experiment.getId(),
                 experiment.getName(),
                 experiment.getProject().getName(),
                 run.getStatus(),

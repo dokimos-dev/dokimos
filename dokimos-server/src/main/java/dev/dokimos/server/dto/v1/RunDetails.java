@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public record RunDetails(
                 UUID id,
+                UUID experimentId,
                 String experimentName,
                 String projectName,
                 RunStatus status,

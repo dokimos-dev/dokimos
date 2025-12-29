@@ -1,9 +1,9 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams } from "react-router";
-import useSWR from "swr";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { fetcher, apiUrl, type RunDetails, type RunItemDetails } from "@/lib/api";
+import { useGetRunDetails } from "@/lib/api/run-controller/run-controller";
+import type { ItemSummary } from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,15 +14,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PassRate from "@/components/shared/pass-rate";
 import ScoreCell from "@/components/shared/score-cell";
 import TruncatedText from "@/components/shared/truncated-text";
 import JsonDisplay from "@/components/shared/json-display";
+import Pagination from "@/components/shared/pagination";
 
-function formatDuration(startedAt: string, completedAt: string | null): string {
-  if (!completedAt) return "—";
+function formatDuration(
+  startedAt: string | undefined,
+  completedAt: string | undefined
+): string {
+  if (!startedAt || !completedAt) return "—";
 
   const start = new Date(startedAt).getTime();
   const end = new Date(completedAt).getTime();
@@ -37,11 +40,13 @@ function formatDuration(startedAt: string, completedAt: string | null): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function getUniqueEvaluatorNames(items: RunItemDetails[]): string[] {
+function getUniqueEvaluatorNames(items: ItemSummary[]): string[] {
   const names = new Set<string>();
   items.forEach((item) => {
-    item.evaluations.forEach((evalResult) => {
-      names.add(evalResult.evaluatorName);
+    item.evalResults?.forEach((evalResult) => {
+      if (evalResult.evaluatorName) {
+        names.add(evalResult.evaluatorName);
+      }
     });
   });
   return Array.from(names).sort();
@@ -50,35 +55,43 @@ function getUniqueEvaluatorNames(items: RunItemDetails[]): string[] {
 export default function RunPage() {
   const { id } = useParams<{ id: string }>();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
 
-  const { data: run, error, isLoading } = useSWR<RunDetails>(
-    id ? apiUrl(`/runs/${id}?page=${currentPage}`) : null,
-    fetcher
+  const {
+    data: response,
+    error,
+    isLoading,
+  } = useGetRunDetails(
+    id ?? "",
+    { pageable: { page: currentPage, size: 50 } },
+    { swr: { enabled: !!id } }
   );
+  const run = response?.data;
 
   useEffect(() => {
     if (run) {
       setBreadcrumbs([
         { label: "Home", href: "/" },
         {
-          label: run.projectName,
-          href: `/projects/${encodeURIComponent(run.projectName)}`,
+          label: run.projectName ?? "Project",
+          href: `/projects/${encodeURIComponent(run.projectName ?? "")}`,
         },
         {
-          label: run.experimentName,
+          label: run.experimentName ?? "Experiment",
           href: `/experiments/${run.experimentId}`,
         },
         {
-          label: `Run ${format(new Date(run.startedAt), "MMM d")}`,
+          label: run.startedAt
+            ? `Run ${format(new Date(run.startedAt), "MMM d")}`
+            : "Run",
           href: `/runs/${run.id}`,
         },
       ]);
     }
   }, [run, setBreadcrumbs]);
 
-  const toggleRow = (itemId: number) => {
+  const toggleRow = (itemId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
       if (next.has(itemId)) {
@@ -122,11 +135,21 @@ export default function RunPage() {
           <TableBody>
             {[1, 2, 3].map((i) => (
               <TableRow key={i}>
-                <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-4" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-48" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-12" />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -153,13 +176,16 @@ export default function RunPage() {
     );
   }
 
-  const evaluatorNames = getUniqueEvaluatorNames(run.items.items);
-  const { items, page, totalPages } = run.items;
+  const items = run.items?.content ?? [];
+  const evaluatorNames = getUniqueEvaluatorNames(items);
+  const pageNumber = run.items?.number ?? 0;
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">
-        Run {format(new Date(run.startedAt), "MMM d, h:mm a")}
+        {run.startedAt
+          ? `Run ${format(new Date(run.startedAt), "MMM d, h:mm a")}`
+          : "Run"}
       </h1>
 
       {/* Summary Cards */}
@@ -167,13 +193,15 @@ export default function RunPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Total Items</p>
-            <p className="text-2xl font-bold">{run.itemCount}</p>
+            <p className="text-2xl font-bold">{run.totalItems}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Passed</p>
-            <p className="text-2xl font-bold text-green-500">{run.passedCount}</p>
+            <p className="text-2xl font-bold text-green-500">
+              {run.passedItems}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -213,12 +241,13 @@ export default function RunPage() {
             </TableHeader>
             <TableBody>
               {items.map((item) => {
-                const isExpanded = expandedRows.has(item.id);
+                const itemId = item.id ?? "";
+                const isExpanded = expandedRows.has(itemId);
                 return (
-                  <Fragment key={item.id}>
+                  <Fragment key={itemId}>
                     <TableRow
                       className="cursor-pointer hover:bg-accent/50"
-                      onClick={() => toggleRow(item.id)}
+                      onClick={() => toggleRow(itemId)}
                     >
                       <TableCell>
                         {isExpanded ? (
@@ -228,24 +257,33 @@ export default function RunPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <TruncatedText text={item.input} maxLength={100} />
+                        <TruncatedText
+                          text={item.input ?? ""}
+                          maxLength={100}
+                        />
                       </TableCell>
                       <TableCell>
-                        <TruncatedText text={item.expected ?? "—"} maxLength={80} />
+                        <TruncatedText
+                          text={item.expectedOutput ?? "—"}
+                          maxLength={80}
+                        />
                       </TableCell>
                       <TableCell>
-                        <TruncatedText text={item.output} maxLength={80} />
+                        <TruncatedText
+                          text={item.actualOutput ?? ""}
+                          maxLength={80}
+                        />
                       </TableCell>
                       {evaluatorNames.map((name) => {
-                        const evalResult = item.evaluations.find(
+                        const evalResult = item.evalResults?.find(
                           (e) => e.evaluatorName === name
                         );
                         return (
                           <TableCell key={name}>
                             {evalResult ? (
                               <ScoreCell
-                                score={evalResult.score}
-                                success={evalResult.success}
+                                score={evalResult.score ?? 0}
+                                success={evalResult.success ?? false}
                               />
                             ) : (
                               "—"
@@ -262,62 +300,77 @@ export default function RunPage() {
                         >
                           <div className="p-4 space-y-4">
                             <div>
-                              <h4 className="text-sm font-medium mb-2">Input</h4>
-                              <JsonDisplay data={item.input} />
+                              <h4 className="text-sm font-medium mb-2">
+                                Input
+                              </h4>
+                              <JsonDisplay data={item.input ?? ""} />
                             </div>
-                            {item.expected && (
+                            {item.expectedOutput && (
                               <div>
-                                <h4 className="text-sm font-medium mb-2">Expected Output</h4>
-                                <JsonDisplay data={item.expected} />
+                                <h4 className="text-sm font-medium mb-2">
+                                  Expected Output
+                                </h4>
+                                <JsonDisplay data={item.expectedOutput} />
                               </div>
                             )}
                             <div>
-                              <h4 className="text-sm font-medium mb-2">Actual Output</h4>
-                              <JsonDisplay data={item.output} />
+                              <h4 className="text-sm font-medium mb-2">
+                                Actual Output
+                              </h4>
+                              <JsonDisplay data={item.actualOutput ?? ""} />
                             </div>
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">Evaluations</h4>
-                              <div className="space-y-2">
-                                {item.evaluations.map((evalResult, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="bg-background rounded-md p-3 border text-sm"
-                                  >
-                                    <div className="flex items-center gap-4 flex-wrap">
-                                      <span className="font-medium">
-                                        {evalResult.evaluatorName}
-                                      </span>
-                                      <span>
-                                        Score:{" "}
-                                        <ScoreCell
-                                          score={evalResult.score}
-                                          success={evalResult.success}
-                                        />
-                                      </span>
-                                      {evalResult.threshold !== null && (
-                                        <span className="text-muted-foreground">
-                                          Threshold: {evalResult.threshold}
-                                        </span>
-                                      )}
-                                      <span
-                                        className={
-                                          evalResult.success
-                                            ? "text-green-500"
-                                            : "text-red-500"
-                                        }
+                            {item.evalResults &&
+                              item.evalResults.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">
+                                    Evaluations
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {item.evalResults.map((evalResult, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="bg-background rounded-md p-3 border text-sm"
                                       >
-                                        {evalResult.success ? "Passed" : "Failed"}
-                                      </span>
-                                    </div>
-                                    {evalResult.reason && (
-                                      <p className="text-muted-foreground mt-2">
-                                        {evalResult.reason}
-                                      </p>
-                                    )}
+                                        <div className="flex items-center gap-4 flex-wrap">
+                                          <span className="font-medium">
+                                            {evalResult.evaluatorName}
+                                          </span>
+                                          <span>
+                                            Score:{" "}
+                                            <ScoreCell
+                                              score={evalResult.score ?? 0}
+                                              success={
+                                                evalResult.success ?? false
+                                              }
+                                            />
+                                          </span>
+                                          {evalResult.threshold != null && (
+                                            <span className="text-muted-foreground">
+                                              Threshold: {evalResult.threshold}
+                                            </span>
+                                          )}
+                                          <span
+                                            className={
+                                              evalResult.success
+                                                ? "text-green-500"
+                                                : "text-red-500"
+                                            }
+                                          >
+                                            {evalResult.success
+                                              ? "Passed"
+                                              : "Failed"}
+                                          </span>
+                                        </div>
+                                        {evalResult.reason && (
+                                          <p className="text-muted-foreground mt-2">
+                                            {evalResult.reason}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
-                            </div>
+                                </div>
+                              )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -327,33 +380,12 @@ export default function RunPage() {
               })}
             </TableBody>
           </Table>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {page + 1} of {totalPages}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 0}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages - 1}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={pageNumber}
+            totalItems={run.items?.totalElements ?? 0}
+            pageSize={run.items?.size ?? 50}
+            onPageChange={handlePageChange}
+          />
         </>
       )}
     </div>

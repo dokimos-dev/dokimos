@@ -32,21 +32,21 @@ public class RunController {
 
     @GetMapping("/{runId}")
     public RunDetails getRunDetails(@PathVariable UUID runId,
-                                    @PageableDefault(size = 50) Pageable pageable) {
+            @PageableDefault(size = 50) Pageable pageable) {
         return runService.getRunDetails(runId, pageable);
     }
 
     @PostMapping("/{runId}/items")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, String> addItems(@PathVariable UUID runId,
-                                         @Valid @RequestBody AddItemsRequest request) {
+            @Valid @RequestBody AddItemsRequest request) {
         runService.addItems(runId, request);
         return Map.of("status", "ok");
     }
 
     @PatchMapping("/{runId}")
     public Map<String, String> updateRun(@PathVariable UUID runId,
-                                          @Valid @RequestBody UpdateRunRequest request) {
+            @Valid @RequestBody UpdateRunRequest request) {
         runService.updateRun(runId, request);
         return Map.of("status", "updated");
     }

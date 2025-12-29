@@ -1,26 +1,30 @@
+# Dokimos Server - Quick Start
+#
+# This compose file is for end users who want to run dokimos-server
+# without cloning the repository or building locally.
+#
+# Usage:
+#   docker compose up -d
+#
+# For development (building from source), see dokimos-server/docker-compose.dev.yml
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: dokimos-postgres
     environment:
       POSTGRES_DB: dokimos
       POSTGRES_USER: dokimos
       POSTGRES_PASSWORD: dokimos
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dokimos -d dokimos"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
   server:
-    build:
-      context: ..
-      dockerfile: dokimos-server/Dockerfile
-    container_name: dokimos-server
+    image: ghcr.io/dokimos-dev/dokimos-server:latest
     ports:
       - "8080:8080"
     environment:
@@ -29,15 +33,10 @@ services:
       DB_NAME: dokimos
       DB_USERNAME: dokimos
       DB_PASSWORD: dokimos
+      # DOKIMOS_API_KEY: your-secret-key  # Uncomment to enable auth
     depends_on:
       postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 volumes:
   postgres_data:

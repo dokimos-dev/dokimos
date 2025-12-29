@@ -1,0 +1,55 @@
+# Dokimos Server - Development Compose File
+#
+# This compose file is for contributors who want to build from source.
+# It builds the Docker image locally from the Dockerfile.
+#
+# Usage:
+#   cd dokimos-server
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# For production/end-user deployment, use the root docker-compose.yml
+# which pulls the pre-built image from ghcr.io
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dokimos-postgres
+    environment:
+      POSTGRES_DB: dokimos
+      POSTGRES_USER: dokimos
+      POSTGRES_PASSWORD: dokimos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dokimos -d dokimos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: dokimos-server/Dockerfile
+    container_name: dokimos-server
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: dokimos
+      DB_USERNAME: dokimos
+      DB_PASSWORD: dokimos
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_data:

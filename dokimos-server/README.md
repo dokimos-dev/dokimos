@@ -4,14 +4,14 @@ The Dokimos server stores experiment results, provides a web UI for viewing and 
 
 ## Quick Start
 
-Get up and running quickly with `docker-compose`:
+Get up and running with a pre-built Docker image:
 
 ```bash
-cd dokimos-server
-docker compose up
+curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
+docker compose up -d
 ```
 
-Once started, open [http://localhost:8080](http://localhost:8080) to see the UI.
+Open [http://localhost:8080](http://localhost:8080) to see the UI.
 
 ## Configuration
 
@@ -27,81 +27,6 @@ Configure the server using environment variables:
 | `DOKIMOS_API_KEY` | API key for write operations (optional) | _(disabled)_ |
 | `SERVER_PORT` | Server port | `8080` |
 | `LOG_LEVEL` | Application log level | `INFO` |
-
-## Deployment Options
-
-### Docker Compose (Development / Small Teams)
-
-The included `docker-compose.yml` runs both the server and PostgreSQL:
-
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: dokimos-postgres
-    environment:
-      POSTGRES_DB: dokimos
-      POSTGRES_USER: dokimos
-      POSTGRES_PASSWORD: dokimos
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dokimos -d dokimos"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  server:
-    build:
-      context: ..
-      dockerfile: dokimos-server/Dockerfile
-    container_name: dokimos-server
-    ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: dokimos
-      DB_USERNAME: dokimos
-      DB_PASSWORD: dokimos
-      # DOKIMOS_API_KEY: your-secret-key  # Uncomment to enable auth
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-volumes:
-  postgres_data:
-```
-
-Start with:
-
-```bash
-docker compose up -d
-```
-
-### Docker (Bring Your Own Database)
-
-If you have an existing PostgreSQL instance, run just the server container:
-
-```bash
-docker build -t dokimos-server -f dokimos-server/Dockerfile .
-
-docker run -d \
-  -p 8080:8080 \
-  -e DB_HOST=your-postgres-host \
-  -e DB_PORT=5432 \
-  -e DB_NAME=dokimos \
-  -e DB_USERNAME=your-user \
-  -e DB_PASSWORD=your-password \
-  -e DOKIMOS_API_KEY=your-secret-key \
-  dokimos-server
-```
-
-### Kubernetes
-
-A Helm chart is planned. For now, use standard Kubernetes manifests with the Docker image and configure via environment variables.
 
 ## Authentication
 
@@ -158,21 +83,66 @@ DokimosServerReporter reporter = DokimosServerReporter.fromEnvironment();
 
 For more details, see the [client documentation](https://dokimos.dev/server/client).
 
+## Deployment Options
+
+### Pre-built Image (Recommended)
+
+The root `docker-compose.yml` pulls the pre-built image from GitHub Container Registry:
+
+```bash
+curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
+docker compose up -d
+```
+
+You can pin a specific version:
+
+```yaml
+services:
+  server:
+    image: ghcr.io/dokimos-dev/dokimos-server:0.1.0  # Pin to specific version
+```
+
+### Docker (Bring Your Own Database)
+
+If you have an existing PostgreSQL instance, run just the server container:
+
+```bash
+docker run -d \
+  -p 8080:8080 \
+  -e DB_HOST=your-postgres-host \
+  -e DB_PORT=5432 \
+  -e DB_NAME=dokimos \
+  -e DB_USERNAME=your-user \
+  -e DB_PASSWORD=your-password \
+  -e DOKIMOS_API_KEY=your-secret-key \
+  ghcr.io/dokimos-dev/dokimos-server:latest
+```
+
+### Kubernetes
+
+A Helm chart is planned. For now, use standard Kubernetes manifests with the Docker image and configure via environment variables.
+
 ## API Documentation
 
 Swagger UI is available at [/swagger-ui.html](http://localhost:8080/swagger-ui.html) when the server is running.
 
 The OpenAPI spec is available at `/v3/api-docs`.
 
-## Development
+---
 
-### Prerequisites
+## For Contributors
 
-- JDK 17 or higher
-- Maven 3.6+
-- Docker (for running PostgreSQL)
+### Building from Source
 
-### Running Locally
+Use the development compose file to build locally:
+
+```bash
+git clone https://github.com/dokimos-dev/dokimos.git
+cd dokimos/dokimos-server
+docker compose -f docker-compose.dev.yml up --build
+```
+
+### Running Locally (without Docker)
 
 1. Start PostgreSQL:
 
@@ -192,7 +162,6 @@ docker run -d \
 # From the repository root
 mvn clean install -DskipTests
 
-# Run the server
 cd dokimos-server
 mvn spring-boot:run
 ```
@@ -202,11 +171,7 @@ The server starts at [http://localhost:8080](http://localhost:8080).
 ### Running Tests
 
 ```bash
-# Unit tests
-mvn test -pl dokimos-server
-
-# All tests including integration tests
-mvn verify -pl dokimos-server
+mvn test -pl dokimos-server        # Unit tests
 ```
 
 ### Building the Docker Image

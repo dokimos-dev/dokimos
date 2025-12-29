@@ -94,7 +94,7 @@ export SERVER_PORT=3000
 
 ### Binding to All Interfaces
 
-By default, the server binds to all interfaces (`0.0.0.0`). In Docker, this is usually what you want.
+By default, the server binds to all interfaces (`0.0.0.0`). 
 
 For local development, if you want to restrict to localhost only, use Docker's port mapping:
 
@@ -145,32 +145,13 @@ docker run -d \
 
 ### CI/CD Environment
 
-Configure the client to report to a shared server:
+If you'd like to configure the client to report to a shared internal server:
 
 ```bash
 # In your CI environment
 export DOKIMOS_SERVER_URL=https://dokimos.internal.company.com
 export DOKIMOS_PROJECT_NAME=my-llm-app
 export DOKIMOS_API_KEY=${{ secrets.DOKIMOS_API_KEY }}
-```
-
-### High-Volume Production
-
-For production with many concurrent experiments:
-
-```bash
-# Database connection pool (Spring defaults)
-export SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=20
-
-# Reduce logging overhead
-export LOG_LEVEL=WARN
-export SQL_LOG_LEVEL=ERROR
-
-# Run with more memory if needed
-docker run -d \
-  -m 2g \
-  -e JAVA_OPTS="-Xmx1536m" \
-  ...
 ```
 
 ## Health Checks
@@ -184,17 +165,6 @@ These are useful for load balancer health checks and container orchestration.
 
 ```bash
 curl http://localhost:8080/actuator/health
-```
-
-Response:
-```json
-{
-  "status": "UP",
-  "components": {
-    "db": { "status": "UP" },
-    "diskSpace": { "status": "UP" }
-  }
-}
 ```
 
 ## Spring Boot Properties
@@ -212,4 +182,4 @@ export SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=10
 export SERVER_TOMCAT_CONNECTION_TIMEOUT=20000
 ```
 
-See [Spring Boot documentation](https://docs.spring.io/spring-boot/docs/current/reference/html/application-properties.html) for all available properties.
+See [Spring Boot documentation](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) for all available properties.

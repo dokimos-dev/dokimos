@@ -109,26 +109,6 @@ Items are sent in batches to reduce HTTP overhead:
 
 Whichever threshold is reached first triggers a batch send.
 
-### Retry Logic
-
-Failed requests are retried with exponential backoff:
-
-- **Max retries**: 3 attempts
-- **Initial backoff**: 100ms
-- **Backoff multiplier**: 2x (100ms → 200ms → 400ms)
-
-Client errors (4xx) are not retried. Server errors (5xx) and network failures are retried.
-
-### Graceful Degradation
-
-If the server is unavailable:
-
-1. The client logs a warning
-2. The experiment continues normally
-3. Results are lost (not persisted locally)
-
-This ensures network issues don't break your evaluation pipeline.
-
 ## Error Handling
 
 ### Server Unavailable at Start
@@ -137,19 +117,10 @@ If the server is unavailable when starting a run:
 
 ```java
 RunHandle handle = reporter.startRun("experiment", metadata);
-// handle.runId() will be "local-<timestamp>" if server unavailable
+// handle.runId() will be "local-<timestamp>" if the server is unavailable
 ```
 
 The experiment runs normally but results won't be stored.
-
-### Server Unavailable During Run
-
-If the server becomes unavailable during a run:
-
-- Items in the queue are retried
-- After max retries, items are dropped with a warning log
-- The experiment continues
-- The run may be incomplete on the server
 
 ### Authentication Errors
 
@@ -157,8 +128,6 @@ If API key authentication fails:
 
 - Server returns `401 Unauthorized`
 - Client logs warning: `Client error 401 for POST ...`
-- Items are not retried (client errors don't retry)
-- Experiment continues but results aren't stored
 
 ## Lifecycle Methods
 
@@ -183,34 +152,6 @@ reporter.close();  // Flushes remaining items and stops background thread
 ```
 
 The `Experiment.run()` method calls `close()` automatically after completing.
-
-## Performance Characteristics
-
-### Throughput
-
-The client can handle high throughput experiments:
-
-- Background thread processes items independently
-- Batching reduces HTTP overhead
-- Non-blocking design doesn't slow down task execution
-
-Typical overhead: < 1ms per item added to queue.
-
-### Memory Usage
-
-Items are held in memory until sent:
-
-- Each item in queue: ~1-10KB depending on content size
-- Queue is unbounded (could grow large if server is slow)
-- Items are removed after successful send or max retries
-
-### Network Usage
-
-Per batch of 10 items:
-
-- One HTTP POST request
-- Request size: depends on item content (typically 10-100KB)
-- Response size: minimal (~50 bytes)
 
 ## Testing
 
@@ -257,78 +198,6 @@ Experiment.builder()
     .run();
 
 assertThat(mockReporter.reportedItems).hasSize(expectedCount);
-```
-
-### Integration Tests
-
-Test against a real server in integration tests:
-
-```java
-@Tag("integration")
-class ServerIntegrationTest {
-
-    private DokimosServerReporter reporter;
-
-    @BeforeEach
-    void setUp() {
-        reporter = DokimosServerReporter.builder()
-            .serverUrl("http://localhost:8080")
-            .projectName("integration-tests")
-            .build();
-    }
-
-    @AfterEach
-    void tearDown() {
-        reporter.close();
-    }
-
-    @Test
-    void shouldReportResults() {
-        ExperimentResult result = Experiment.builder()
-            .name("integration-test-" + System.currentTimeMillis())
-            .dataset(testDataset)
-            .task(testTask)
-            .evaluators(testEvaluators)
-            .reporter(reporter)
-            .build()
-            .run();
-
-        assertThat(result.passRate()).isGreaterThanOrEqualTo(0.0);
-        // Results should be visible in server UI
-    }
-}
-```
-
-### Test Containers
-
-Use Testcontainers for isolated integration tests:
-
-```java
-@Testcontainers
-class ServerContainerTest {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Container
-    static GenericContainer<?> server = new GenericContainer<>("dokimos-server:latest")
-        .withExposedPorts(8080)
-        .withEnv("DB_HOST", postgres.getHost())
-        .withEnv("DB_PORT", postgres.getFirstMappedPort().toString())
-        .dependsOn(postgres);
-
-    @Test
-    void shouldReportToContainerizedServer() {
-        String serverUrl = "http://" + server.getHost() + ":" + server.getFirstMappedPort();
-
-        DokimosServerReporter reporter = DokimosServerReporter.builder()
-            .serverUrl(serverUrl)
-            .projectName("container-test")
-            .build();
-
-        // Run experiment...
-    }
-}
 ```
 
 ## CI/CD Integration
@@ -419,18 +288,4 @@ The server has API key authentication enabled but:
 - No API key provided, or
 - Wrong API key provided
 
-Check your `DOKIMOS_API_KEY` matches the server's `DOKIMOS_API_KEY`.
-
-### Results Not Appearing
-
-1. Check server is running: `curl http://localhost:8080/actuator/health`
-2. Check for client-side errors in logs
-3. Verify project name matches what you expect
-4. Wait a few seconds for async processing to complete
-
-### High Memory Usage
-
-If processing very large experiments:
-- Items queue in memory until sent
-- Consider smaller batch sizes or more frequent flushes
-- Monitor queue size in logs
+Make sure that your `DOKIMOS_API_KEY` matches the server-side `DOKIMOS_API_KEY` environment variable.

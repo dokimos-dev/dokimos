@@ -4,68 +4,29 @@ sidebar_position: 2
 
 # Getting Started
 
-This guide walks you through running the Dokimos server locally and sending your first experiment results.
-
-## Prerequisites
-
-- **Docker** and **Docker Compose** installed
-- **Java 17+** for running experiments
-- **Maven** for building the project
+Get the Dokimos server running in under a minute. No building, no cloning—just Docker.
 
 ## Start the Server
 
-1. Clone the repository (if you haven't already):
+Run these two commands:
 
 ```bash
-git clone https://github.com/dokimos-dev/dokimos.git
-cd dokimos
+# Download the compose file
+curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
+
+# Start the server
+docker compose up -d
 ```
 
-2. Start the server with Docker Compose:
+The server will now be running at [http://localhost:8080](http://localhost:8080).
 
-```bash
-cd dokimos-server
-docker compose up
-```
+:::tip No Docker?
+If you don't have Docker installed, get it from [docker.com](https://docs.docker.com/get-docker/).
+:::
 
-This starts:
-- **PostgreSQL** on port 5432
-- **Dokimos Server** on port 8080
+## Send Your First Results
 
-3. Wait for the server to be ready. You'll see:
-
-```
-dokimos-server  | Started DokimosServerApplication in X seconds
-```
-
-## Access the UI
-
-Open [http://localhost:8080](http://localhost:8080) in your browser.
-
-You'll see an empty dashboard since no experiments have been run yet.
-
-## Run Your First Experiment
-
-Let's run an experiment that reports results to the server.
-
-### Option 1: Use the Example
-
-The repository includes a ready-to-run example:
-
-```bash
-# From the repository root
-cd dokimos-examples
-
-# Set your OpenAI API key
-export OPENAI_API_KEY=your-key-here
-
-# Run the example
-mvn exec:java -Dexec.mainClass="dev.dokimos.examples.basic.ServerReporterExample"
-```
-
-### Option 2: Write Your Own
-
-Add the server client dependency:
+Add the client dependency to your project:
 
 ```xml
 <dependency>
@@ -75,7 +36,7 @@ Add the server client dependency:
 </dependency>
 ```
 
-Create an experiment with the server reporter:
+Create an experiment that reports to the server:
 
 ```java
 import dev.dokimos.core.*;
@@ -90,23 +51,20 @@ public class MyFirstServerExperiment {
             .addExample(Example.of("What is the capital of Japan?", "Tokyo"))
             .build();
 
-        // Create reporter pointing to local server
+        // Connect to the local server
         DokimosServerReporter reporter = DokimosServerReporter.builder()
             .serverUrl("http://localhost:8080")
             .projectName("my-first-project")
             .build();
 
-        // Define your task (replace with your actual LLM call)
-        Task task = example -> {
-            String answer = callYourLLM(example.input());
-            return Map.of("output", answer);
-        };
-
         // Run experiment
         ExperimentResult result = Experiment.builder()
             .name("capitals-qa")
             .dataset(dataset)
-            .task(task)
+            .task(example -> {
+                String answer = callYourLLM(example.input());
+                return Map.of("output", answer);
+            })
             .evaluators(List.of(
                 ExactMatchEvaluator.builder()
                     .name("exact-match")
@@ -122,55 +80,49 @@ public class MyFirstServerExperiment {
 }
 ```
 
-## Verify Results in the UI
+## View Results in the UI
 
-After running the experiment:
+After running your experiment:
 
-1. Refresh the dashboard at [http://localhost:8080](http://localhost:8080)
+1. Open [http://localhost:8080](http://localhost:8080)
+2. Click on your project "my-first-project"
+3. Click on the experiment to see pass rates
+4. Click on a run to see individual test cases and evaluation details
 
-2. You should see your project listed (e.g., "my-first-project")
-
-3. Click on the project to see experiments
-
-4. Click on an experiment to see runs with pass rate trends
-
-5. Click on a run to see individual items and their evaluation results
-
-## What You'll See
-
-### Dashboard
-Shows all projects with their latest run status.
-
-### Project Page
-Lists all experiments in a project with their last run date and pass rate.
-
-### Experiment Page
-Shows a trend chart of pass rates over time and a table of all runs.
-
-### Run Page
-Displays summary statistics (total items, passed, pass rate, duration) and a table of all test items. Click any item to expand and see:
-- Full input text
-- Expected output
-- Actual output
-- Detailed evaluation results with scores and reasons
-
-## Stopping the Server
-
-To stop the server:
+## Managing the Server
 
 ```bash
-# If running in foreground
-Ctrl+C
+# View logs
+docker compose logs -f server
 
-# If running in background
+# Stop the server 
 docker compose down
-```
 
-Data is persisted in a Docker volume, so your results will still be there when you restart.
+# Stop and remove all data
+docker compose down -v
+```
 
 ## Next Steps
 
-- [Configuration](./configuration) - Customize server settings
-- [Deployment](./deployment) - Run in production
-- [Authentication](./authentication) - Secure your server
-- [Client](./client) - Advanced client configuration
+- [Configuration](./configuration): Customize settings and environment variables
+- [Deployment](./deployment): Share with your team or run in production
+- [Authentication](./authentication): Secure write operations with an API key
+- [Client](./client): Advanced reporter configuration
+
+---
+
+## Building from Source (Development)
+
+If you're contributing to Dokimos and need to build the server locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/dokimos-dev/dokimos.git
+cd dokimos
+
+# Use the development compose file
+cd dokimos-server
+docker compose -f docker-compose.dev.yml up --build
+```
+
+See the [Server README](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-server/README.md) for more details.

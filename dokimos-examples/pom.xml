@@ -46,6 +46,11 @@
             <artifactId>dokimos-spring-ai</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-server-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- LangChain4j dependencies -->
         <dependency>

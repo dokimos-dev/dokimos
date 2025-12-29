@@ -111,6 +111,19 @@ ExperimentResult result = Experiment.builder()
 System.out.println("Pass rate: " + result.passRate());
 ```
 
+## Experiment Server
+
+The Dokimos server lets you store experiment results, track quality over time, and share findings with your team. It provides a simple web UI for viewing runs, comparing results, and debugging failures.
+
+```bash
+curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
+docker compose up -d
+```
+
+Open [http://localhost:8080](http://localhost:8080) to view the dashboard.
+
+See the [server documentation](https://dokimos.dev/server/overview) for deployment options and configuration.
+
 ## Documentation
 
 The full documentation is available

@@ -9,6 +9,7 @@ Dokimos is an open-source Evaluation Framework for LLM applications in Java. It 
 1. Build and manage datasets programatically, from files, or with custom sources
 2. Run experiments with built-in evaluators, or your own custom evaluators
 3. Run evals in a test-driven way with JUnit 5 parameterized tests
+4. Track experiment results over time with an optional server and web UI
 
 Dokimos aims to bring the evaluation tooling that Python developers have to the Java ecosystem.
 
@@ -21,7 +22,6 @@ Lean more about what you can build with `dokimos` by exploring the [examples mod
 We're actively working on expanding Dokimos with features that make evaluation in Java easier and more powerful:
 
 - **More built-in evaluators**: Additional evaluators for common patterns like hallucination, misuse, contextual relevance, multi-turn conversations of AI agents, and more
-- **Open-source experiment server**: Run and track experiments with a web UI, compare results, and share findings with your team
 - **Server-side datasets**: Store and version datasets centrally, making them easier to share across teams
 - **SPI (Service Provider Interface)**: Plug in custom implementations for storage, metrics, and reporting
 - **Concurrency & parallelization**: Run evaluations faster with parallel execution

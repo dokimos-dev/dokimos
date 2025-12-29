@@ -1,0 +1,29 @@
+name: Bug report
+description: Create a new bug report
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report!
+  - type: textarea
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Verifications
+      options:
+        - label: I've verified that the problem I'm experiencing isn't covered in [the docs](https://next-intl.dev).
+          required: true
+        - label: I've searched for similar, existing issues on [GitHub](https://github.com/dokimos-dev/dokimos/issues).
+          required: true
+  - type: textarea
+    attributes:
+      label: Expected behaviour
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true

@@ -115,6 +115,21 @@ npm start
 
 This starts a local server at `http://localhost:3000`.
 
+## Running the Experiment Server
+
+To run the experiment server locally for development or testing:
+
+```bash
+cd dokimos-server
+docker compose up
+```
+
+This starts the server at `http://localhost:8080` with a PostgreSQL database.
+
+For configuration options and deployment details, see the [dokimos-server README](./dokimos-server/README.md).
+
+> **Note**: A devcontainer configuration is planned to simplify container-based development workflows.
+
 ## Getting Help
 
 - **Questions**: Open a GitHub Discussion

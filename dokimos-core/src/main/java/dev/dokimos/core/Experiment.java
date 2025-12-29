@@ -19,6 +19,7 @@ public class Experiment {
     private final Task task;
     private final List<Evaluator> evaluators;
     private final Map<String, Object> metadata;
+    private final Reporter reporter;
 
     private Experiment(Builder builder) {
         this.name = builder.name;
@@ -27,6 +28,7 @@ public class Experiment {
         this.task = builder.task;
         this.evaluators = List.copyOf(builder.evaluators);
         this.metadata = Map.copyOf(builder.metadata);
+        this.reporter = builder.reporter;
     }
 
     public static Builder builder() {
@@ -40,16 +42,26 @@ public class Experiment {
      */
     public ExperimentResult run() {
         List<ItemResult> itemResults = new ArrayList<>();
+        RunHandle runHandle = reporter.startRun(name, metadata);
+        RunStatus status = RunStatus.FAILED;
 
-        for (Example example : dataset) {
-            Map<String, Object> actualOutputs = task.run(example);
-            EvalTestCase testCase = example.toTestCase(actualOutputs);
+        try {
+            for (Example example : dataset) {
+                Map<String, Object> actualOutputs = task.run(example);
+                EvalTestCase testCase = example.toTestCase(actualOutputs);
 
-            List<EvalResult> evalResults = evaluators.stream()
-                    .map(evaluator -> evaluator.evaluate(testCase))
-                    .toList();
+                List<EvalResult> evalResults = evaluators.stream()
+                        .map(evaluator -> evaluator.evaluate(testCase))
+                        .toList();
 
-            itemResults.add(new ItemResult(example, actualOutputs, evalResults));
+                ItemResult itemResult = new ItemResult(example, actualOutputs, evalResults);
+                itemResults.add(itemResult);
+                reporter.reportItem(runHandle, itemResult);
+            }
+            status = RunStatus.SUCCESS;
+        } finally {
+            reporter.completeRun(runHandle, status);
+            reporter.flush();
         }
 
         return new ExperimentResult(name, description, metadata, itemResults);
@@ -62,6 +74,7 @@ public class Experiment {
         private String description = "";
         private Dataset dataset;
         private Task task;
+        private Reporter reporter = NoOpReporter.INSTANCE;
 
         /**
          * Sets the experiment name.
@@ -149,6 +162,20 @@ public class Experiment {
          */
         public Builder metadata(Map<String, Object> metadata) {
             this.metadata.putAll(metadata);
+            return this;
+        }
+
+        /**
+         * Sets the reporter for this experiment.
+         * <p>
+         * The reporter is called during experiment execution to report results
+         * to an external system. If not set, a no-op reporter is used.
+         *
+         * @param reporter the reporter to use
+         * @return builder
+         */
+        public Builder reporter(Reporter reporter) {
+            this.reporter = reporter != null ? reporter : NoOpReporter.INSTANCE;
             return this;
         }
 

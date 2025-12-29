@@ -37,7 +37,39 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.basic.CustomEvaluatorExample"
 ```
 
-### 3. JUnit 5 Parameterized Testing
+### 3. Server Reporter with OpenAI
+
+[dev.dokimos.examples.basic.ServerReporterExample](./src/main/java/dev/dokimos/examples/basic/ServerReporterExample.java)
+
+Demonstrates end-to-end evaluation with OpenAI and server reporting:
+
+- Using the OpenAI API to generate responses
+- Evaluating with exact match and pattern evaluators
+- Reporting results to a Dokimos server
+
+**Prerequisites**:
+
+1. Start the Dokimos server:
+```bash
+cd dokimos-server
+docker-compose up
+```
+
+2. Set OpenAI API key:
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+```
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.basic.ServerReporterExample"
+```
+
+Once complete, view the results at http://localhost:8080
+
+### 4. JUnit 5 Parameterized Testing
 
 **Location**: `dev.dokimos.examples.junit5.QAParameterizedTest`
 
@@ -55,7 +87,7 @@ To run the test:
 mvn test -pl dokimos-examples -Dtest=QAParameterizedTest
 ```
 
-### 4. LangChain4j RAG Evaluation
+### 5. LangChain4j RAG Evaluation
 
 **Location**: `dev.dokimos.examples.langchain4j.LangChain4jRAGExample`
 
@@ -79,7 +111,7 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.langchain4j.LangChain4jRAGExample"
 ```
 
-### 5. Spring AI Evaluation Example
+### 6. Spring AI Evaluation Example
 
 **Location**: `dev.dokimos.examples.springai.SpringAiEvaluationExample`
 
@@ -101,7 +133,7 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.springai.SpringAiEvaluationExample"
 ```
 
-### 6. Spring AI RAG Evaluation
+### 7. Spring AI RAG Evaluation
 
 **Location**: `dev.dokimos.examples.springai.SpringAiRAGExample`
 

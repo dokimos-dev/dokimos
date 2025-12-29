@@ -1,0 +1,4 @@
+# Use subclass mock maker instead of inline mock maker for JDK 25 compatibility.
+# The inline mock maker (mock-maker-inline) fails with JDK 25 due to stricter module access controls.
+# The subclass mock maker works fine since our service classes are not final.
+mock-maker-subclass

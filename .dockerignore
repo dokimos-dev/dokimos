@@ -1,0 +1,47 @@
+# Build artifacts
+**/target/
+**/*.class
+**/*.jar
+!dokimos-server/target/*.jar
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!dokimos-server/README.md
+docs/
+
+# Frontend build artifacts (if any)
+**/node_modules/
+**/dist/
+**/.next/
+
+# Test files
+**/test/
+**/tests/
+**/*Test.java
+**/*Tests.java
+**/src/test/
+
+# CI/CD
+.github/
+
+# Docker compose files
+docker-compose*.yml
+
+# Misc
+.DS_Store
+*.log
+*.tmp
+.env
+.env.*

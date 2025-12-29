@@ -16,9 +16,10 @@ COPY dokimos-examples/pom.xml ./dokimos-examples/pom.xml
 # Download dependencies (cached layer)
 RUN mvn dependency:go-offline -pl dokimos-server -am -q || true
 
-# Copy only source code needed for the server
+# Copy source code needed for the server
 COPY dokimos-core/src ./dokimos-core/src
 COPY dokimos-server/src ./dokimos-server/src
+COPY dokimos-server/frontend ./dokimos-server/frontend
 
 # Build the application
 RUN mvn clean package -pl dokimos-server -am -DskipTests

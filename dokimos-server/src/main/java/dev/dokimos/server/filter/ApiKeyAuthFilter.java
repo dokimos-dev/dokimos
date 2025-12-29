@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -17,14 +18,17 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Filter that enforces API key authentication for write operations on /api/v1/** endpoints.
+ * Filter that enforces API key authentication for write operations on
+ * /api/v1/** endpoints.
  * <p>
  * GET requests are always allowed.
- * POST, PUT, PATCH, DELETE requests require a valid API key in the Authorization header.
+ * POST, PUT, PATCH, DELETE requests require a valid API key in the
+ * Authorization header.
  * <p>
  * Expected header format: Authorization: Bearer &lt;api-key&gt;
  * <p>
- * If authentication is disabled (no API key configured), all requests are allowed.
+ * If authentication is disabled (no API key configured), all requests are
+ * allowed.
  */
 @Component
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
@@ -34,8 +38,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     private static final Set<String> READ_METHODS = Set.of(
             HttpMethod.GET.name(),
             HttpMethod.HEAD.name(),
-            HttpMethod.OPTIONS.name()
-    );
+            HttpMethod.OPTIONS.name());
 
     private final ApiKeyProperties apiKeyProperties;
     private final ObjectMapper objectMapper;
@@ -46,10 +49,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        // If auth is disabled, allow all requests
+        // If auth is disabled, we allow all requests
         if (!apiKeyProperties.isAuthEnabled()) {
             filterChain.doFilter(request, response);
             return;
@@ -62,7 +65,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // For write operations, check the API key
+        // For write operations, we check the API key
         String authHeader = request.getHeader(AUTHORIZATION_HEADER);
         if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
             sendUnauthorizedResponse(response, "Invalid or missing API key");
@@ -79,7 +82,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         // Only apply this filter to /api/v1/** paths
         String path = request.getRequestURI();
         return !path.startsWith("/api/v1/");

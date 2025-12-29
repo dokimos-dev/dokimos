@@ -1,20 +1,26 @@
-# Build stage
-FROM eclipse-temurin:17-jdk AS builder
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
-# Copy parent pom and module poms for dependency resolution
+# Copy all pom.xml files so Maven can parse the multi-module structure
 COPY pom.xml ./pom.xml
 COPY dokimos-core/pom.xml ./dokimos-core/pom.xml
+COPY dokimos-junit5/pom.xml ./dokimos-junit5/pom.xml
+COPY dokimos-langchain4j/pom.xml ./dokimos-langchain4j/pom.xml
+COPY dokimos-spring-ai/pom.xml ./dokimos-spring-ai/pom.xml
+COPY dokimos-server-client/pom.xml ./dokimos-server-client/pom.xml
 COPY dokimos-server/pom.xml ./dokimos-server/pom.xml
+COPY dokimos-examples/pom.xml ./dokimos-examples/pom.xml
 
-# Copy source code
+# Download dependencies (cached layer)
+RUN mvn dependency:go-offline -pl dokimos-server -am -q || true
+
+# Copy only source code needed for the server
 COPY dokimos-core/src ./dokimos-core/src
 COPY dokimos-server/src ./dokimos-server/src
 
 # Build the application
-RUN apt-get update && apt-get install -y maven && \
-    mvn clean package -pl dokimos-server -am -DskipTests
+RUN mvn clean package -pl dokimos-server -am -DskipTests
 
 # Runtime stage
 FROM eclipse-temurin:17-jre
@@ -28,10 +34,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 # Create non-root user
 RUN groupadd -r dokimos && useradd -r -g dokimos dokimos
 
-# Copy the built jar
 COPY --from=builder /app/dokimos-server/target/*.jar app.jar
 
-# Change ownership
 RUN chown -R dokimos:dokimos /app
 
 USER dokimos

@@ -43,8 +43,14 @@ public class DokimosServerReporter implements Reporter {
     private static final int MAX_RETRIES = 3;
     private static final long INITIAL_BACKOFF_MS = 100;
 
+    /**
+     * The default API version used when not explicitly specified.
+     */
+    public static final String DEFAULT_API_VERSION = "v1";
+
     private final String serverUrl;
     private final String projectName;
+    private final String apiVersion;
     private final String apiKey;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -59,6 +65,7 @@ public class DokimosServerReporter implements Reporter {
                 ? builder.serverUrl.substring(0, builder.serverUrl.length() - 1)
                 : builder.serverUrl;
         this.projectName = builder.projectName;
+        this.apiVersion = builder.apiVersion != null ? builder.apiVersion : DEFAULT_API_VERSION;
         this.apiKey = builder.apiKey;
         this.httpClient = builder.httpClient != null ? builder.httpClient
                 : HttpClient.newBuilder()
@@ -89,7 +96,8 @@ public class DokimosServerReporter implements Reporter {
      * Creates a reporter from environment variables.
      * <p>
      * Reads {@code DOKIMOS_SERVER_URL} and {@code DOKIMOS_PROJECT_NAME} from the
-     * environment. Optionally reads {@code DOKIMOS_API_KEY} for authentication.
+     * environment. Optionally reads {@code DOKIMOS_API_KEY} for authentication
+     * and {@code DOKIMOS_API_VERSION} for version pinning.
      *
      * @return a configured reporter
      * @throws IllegalStateException if required environment variables are not set
@@ -98,6 +106,7 @@ public class DokimosServerReporter implements Reporter {
         String serverUrl = System.getenv("DOKIMOS_SERVER_URL");
         String projectName = System.getenv("DOKIMOS_PROJECT_NAME");
         String apiKey = System.getenv("DOKIMOS_API_KEY");
+        String apiVersion = System.getenv("DOKIMOS_API_VERSION");
 
         if (serverUrl == null || serverUrl.isBlank()) {
             throw new IllegalStateException("DOKIMOS_SERVER_URL environment variable is not set");
@@ -110,6 +119,10 @@ public class DokimosServerReporter implements Reporter {
                 .serverUrl(serverUrl)
                 .projectName(projectName);
 
+        if (apiVersion != null && !apiVersion.isBlank()) {
+            builder.apiVersion(apiVersion);
+        }
+
         if (apiKey != null && !apiKey.isBlank()) {
             builder.apiKey(apiKey);
         }
@@ -117,9 +130,17 @@ public class DokimosServerReporter implements Reporter {
         return builder.build();
     }
 
+    /**
+     * Returns the API version being used.
+     * Package-private for testing.
+     */
+    String getApiVersion() {
+        return apiVersion;
+    }
+
     @Override
     public RunHandle startRun(String experimentName, Map<String, Object> metadata) {
-        String url = serverUrl + "/api/projects/" + projectName + "/runs";
+        String url = serverUrl + "/api/" + apiVersion + "/projects/" + projectName + "/runs";
 
         Map<String, Object> body = Map.of(
                 "experimentName", experimentName,
@@ -156,7 +177,7 @@ public class DokimosServerReporter implements Reporter {
         // Make sure all items are sent before completing
         flushItemsForRun(handle);
 
-        String url = serverUrl + "/api/runs/" + handle.runId();
+        String url = serverUrl + "/api/" + apiVersion + "/runs/" + handle.runId();
         Map<String, Object> body = Map.of("status", status.name());
 
         String response = executeWithRetry("PATCH", url, body);
@@ -267,7 +288,7 @@ public class DokimosServerReporter implements Reporter {
             String runId = entry.getKey();
             List<ItemResult> items = entry.getValue();
 
-            String url = serverUrl + "/api/runs/" + runId + "/items";
+            String url = serverUrl + "/api/" + apiVersion + "/runs/" + runId + "/items";
             List<Map<String, Object>> itemsPayload = items.stream()
                     .map(this::itemResultToMap)
                     .toList();
@@ -417,6 +438,7 @@ public class DokimosServerReporter implements Reporter {
     public static class Builder {
         private String serverUrl;
         private String projectName;
+        private String apiVersion;
         private String apiKey;
         private HttpClient httpClient;
 
@@ -442,6 +464,19 @@ public class DokimosServerReporter implements Reporter {
          */
         public Builder projectName(String projectName) {
             this.projectName = projectName;
+            return this;
+        }
+
+        /**
+         * Sets the API version to use.
+         * <p>
+         * If not specified, defaults to {@link DokimosServerReporter#DEFAULT_API_VERSION}.
+         *
+         * @param apiVersion the API version, e.g. "v1" or "v2"
+         * @return this builder
+         */
+        public Builder apiVersion(String apiVersion) {
+            this.apiVersion = apiVersion;
             return this;
         }
 

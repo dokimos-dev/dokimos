@@ -77,7 +77,7 @@ class DokimosServerReporterTest {
             assertThat(recordedRequests).hasSize(1);
             RecordedRequest request = recordedRequests.get(0);
             assertThat(request.method).isEqualTo("POST");
-            assertThat(request.path).isEqualTo("/api/projects/my-project/runs");
+            assertThat(request.path).isEqualTo("/api/v1/projects/my-project/runs");
             assertThat(request.body).contains("test-experiment");
         }
     }
@@ -151,7 +151,7 @@ class DokimosServerReporterTest {
                     .toList();
 
             assertThat(patchRequests).hasSize(1);
-            assertThat(patchRequests.get(0).path).isEqualTo("/api/runs/test-run-123");
+            assertThat(patchRequests.get(0).path).isEqualTo("/api/v1/runs/test-run-123");
             assertThat(patchRequests.get(0).body).contains("SUCCESS");
         }
     }
@@ -212,6 +212,64 @@ class DokimosServerReporterTest {
             // Should not throw, just return a local run ID
             RunHandle handle = reporter.startRun("test", Map.of());
             assertThat(handle.runId()).startsWith("local-");
+        }
+    }
+
+    @Test
+    void shouldUseDefaultApiVersionV1() {
+        try (var reporter = createReporter()) {
+            assertThat(reporter.getApiVersion()).isEqualTo("v1");
+            assertThat(DokimosServerReporter.DEFAULT_API_VERSION).isEqualTo("v1");
+        }
+    }
+
+    @Test
+    void shouldUseCustomApiVersion() {
+        try (var reporter = DokimosServerReporter.builder()
+                .serverUrl(serverUrl)
+                .projectName("my-project")
+                .apiVersion("v2")
+                .build()) {
+
+            assertThat(reporter.getApiVersion()).isEqualTo("v2");
+
+            reporter.startRun("test-experiment", Map.of());
+
+            assertThat(recordedRequests).hasSize(1);
+            RecordedRequest request = recordedRequests.get(0);
+            assertThat(request.path).isEqualTo("/api/v2/projects/my-project/runs");
+        }
+    }
+
+    @Test
+    void shouldUseCustomApiVersionForAllEndpoints() {
+        try (var reporter = DokimosServerReporter.builder()
+                .serverUrl(serverUrl)
+                .projectName("my-project")
+                .apiVersion("v2")
+                .build()) {
+
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+
+            reporter.completeRun(handle, RunStatus.SUCCESS);
+
+            // Check items endpoint uses v2
+            List<RecordedRequest> itemRequests = recordedRequests.stream()
+                    .filter(r -> r.path.contains("/items"))
+                    .toList();
+            assertThat(itemRequests).hasSize(1);
+            assertThat(itemRequests.get(0).path).isEqualTo("/api/v2/runs/test-run-123/items");
+
+            // Check PATCH endpoint uses v2
+            List<RecordedRequest> patchRequests = recordedRequests.stream()
+                    .filter(r -> r.method.equals("PATCH"))
+                    .toList();
+            assertThat(patchRequests).hasSize(1);
+            assertThat(patchRequests.get(0).path).isEqualTo("/api/v2/runs/test-run-123");
         }
     }
 

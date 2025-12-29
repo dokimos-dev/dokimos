@@ -20,6 +20,7 @@
     <properties>
         <!-- Skip the deployment to Maven Central -->
         <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.install.skip>true</maven.install.skip>
     </properties>
 
     <dependencies>

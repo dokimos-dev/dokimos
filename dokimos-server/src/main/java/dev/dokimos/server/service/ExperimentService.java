@@ -10,6 +10,7 @@ import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,12 +35,13 @@ public class ExperimentService {
     }
 
     @Transactional
-    public Experiment getOrCreateExperiment(Project project, String name) {
+    public Experiment getOrCreateExperiment(@NonNull Project project, @NonNull String name) {
         return experimentRepository.findByProjectAndName(project, name)
                 .orElseGet(() -> experimentRepository.save(new Experiment(project, name)));
     }
 
     @Transactional(readOnly = true)
+    @NonNull
     public List<ExperimentSummary> listExperiments(Project project) {
         List<Experiment> experiments = experimentRepository.findByProjectOrderByCreatedAtDesc(project);
         List<ExperimentSummary> summaries = new ArrayList<>();

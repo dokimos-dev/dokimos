@@ -1,6 +1,5 @@
 package dev.dokimos.server.controller.v1;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.ExperimentSummary;
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
@@ -34,10 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
-class ProjectControllerTest {
-
-    private MockMvc mockMvc;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+class ProjectControllerTest extends AbstractControllerTest {
 
     @Mock
     private ProjectService projectService;
@@ -117,8 +112,8 @@ class ProjectControllerTest {
         CreateRunRequest request = new CreateRunRequest("my-experiment", Map.of("key", "value"));
 
         mockMvc.perform(post("/api/v1/projects/my-project/runs")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                .content(toJson(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.runId").value(runId.toString()));
     }

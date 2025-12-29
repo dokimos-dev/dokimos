@@ -1,6 +1,5 @@
 package dev.dokimos.server.controller.v1;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
@@ -18,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
@@ -40,10 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
 @ExtendWith(MockitoExtension.class)
-class RunControllerTest {
-
-        private MockMvc mockMvc;
-        private final ObjectMapper objectMapper = new ObjectMapper();
+class RunControllerTest extends AbstractControllerTest {
 
         @Mock
         private RunService runService;
@@ -107,8 +102,8 @@ class RunControllerTest {
                 doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class));
 
                 mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .content(toJson(request)))
                                 .andExpect(status().isCreated())
                                 .andExpect(jsonPath("$.status").value("ok"));
 
@@ -130,8 +125,8 @@ class RunControllerTest {
                                 .when(runService).addItems(eq(runId), any(AddItemsRequest.class));
 
                 mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .content(toJson(request)))
                                 .andExpect(status().isNotFound());
         }
 
@@ -143,8 +138,8 @@ class RunControllerTest {
                 doNothing().when(runService).updateRun(eq(runId), any(UpdateRunRequest.class));
 
                 mockMvc.perform(patch("/api/v1/runs/{runId}", runId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .content(toJson(request)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.status").value("updated"));
 
@@ -160,8 +155,8 @@ class RunControllerTest {
                                 .when(runService).updateRun(eq(runId), any(UpdateRunRequest.class));
 
                 mockMvc.perform(patch("/api/v1/runs/{runId}", runId)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request)))
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .content(toJson(request)))
                                 .andExpect(status().isNotFound());
         }
 }

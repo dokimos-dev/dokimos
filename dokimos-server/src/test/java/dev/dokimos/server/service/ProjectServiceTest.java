@@ -81,9 +81,8 @@ class ProjectServiceTest {
         Project project2 = createProject("project-2");
 
         List<Object[]> rows = List.of(
-                new Object[]{project1, 5L},
-                new Object[]{project2, 3L}
-        );
+                new Object[] { project1, 5L },
+                new Object[] { project2, 3L });
         when(projectRepository.findAllWithExperimentCount()).thenReturn(rows);
 
         List<ProjectSummary> result = projectService.listProjects();

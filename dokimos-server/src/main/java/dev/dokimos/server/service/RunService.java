@@ -31,8 +31,8 @@ public class RunService {
     private final ObjectMapper objectMapper;
 
     public RunService(ExperimentRunRepository runRepository,
-                      ItemResultRepository itemResultRepository,
-                      ObjectMapper objectMapper) {
+            ItemResultRepository itemResultRepository,
+            ObjectMapper objectMapper) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.objectMapper = objectMapper;
@@ -62,8 +62,7 @@ public class RunService {
                             evalData.score(),
                             evalData.threshold(),
                             evalData.success(),
-                            evalData.reason()
-                    );
+                            evalData.reason());
                     item.addEvalResult(eval);
                 }
             }
@@ -113,11 +112,13 @@ public class RunService {
                 passRate,
                 run.getStartedAt(),
                 run.getCompletedAt(),
-                itemSummaries
-        );
+                itemSummaries);
     }
 
     private ExperimentRun getRun(UUID runId) {
+        if (runId == null) {
+            throw new IllegalArgumentException("Run ID cannot be null");
+        }
         return runRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
     }
@@ -135,8 +136,7 @@ public class RunService {
                 passedItems,
                 passRate,
                 run.getStartedAt(),
-                run.getCompletedAt()
-        );
+                run.getCompletedAt());
     }
 
     private RunDetails.ItemSummary toItemSummary(ItemResult item) {
@@ -147,8 +147,7 @@ public class RunService {
                         e.getScore(),
                         e.getThreshold(),
                         e.isSuccess(),
-                        e.getReason()
-                ))
+                        e.getReason()))
                 .toList();
 
         return new RunDetails.ItemSummary(
@@ -158,8 +157,7 @@ public class RunService {
                 item.getActualOutput(),
                 item.getMetadata(),
                 evalSummaries,
-                item.getCreatedAt()
-        );
+                item.getCreatedAt());
     }
 
     private String extractText(Map<String, Object> map) {

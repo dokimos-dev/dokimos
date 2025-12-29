@@ -26,8 +26,8 @@ public class ExperimentService {
     private final ItemResultRepository itemResultRepository;
 
     public ExperimentService(ExperimentRepository experimentRepository,
-                             ExperimentRunRepository runRepository,
-                             ItemResultRepository itemResultRepository) {
+            ExperimentRunRepository runRepository,
+            ItemResultRepository itemResultRepository) {
         this.experimentRepository = experimentRepository;
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
@@ -55,16 +55,14 @@ public class ExperimentService {
                         run.getId(),
                         run.getStatus(),
                         passRate,
-                        run.getStartedAt()
-                );
+                        run.getStartedAt());
             }
 
             summaries.add(new ExperimentSummary(
                     experiment.getId(),
                     experiment.getName(),
                     experiment.getCreatedAt(),
-                    latestRunInfo
-            ));
+                    latestRunInfo));
         }
 
         return summaries;
@@ -72,6 +70,9 @@ public class ExperimentService {
 
     @Transactional(readOnly = true)
     public Experiment getExperiment(UUID experimentId) {
+        if (experimentId == null) {
+            throw new IllegalArgumentException("Experiment ID cannot be null");
+        }
         return experimentRepository.findById(experimentId)
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
@@ -93,8 +94,7 @@ public class ExperimentService {
                     run.getStartedAt(),
                     passRate,
                     totalItems,
-                    passedItems
-            ));
+                    passedItems));
         }
 
         // Reverse to get chronological order

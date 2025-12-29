@@ -60,7 +60,6 @@ class ReporterIntegrationTest {
                                 .projectName(projectName)
                                 .build();
 
-                // Start the run
                 RunHandle handle = reporter.startRun(experimentName, metadata);
 
                 // The Run should be created
@@ -188,7 +187,6 @@ class ReporterIntegrationTest {
                                 .projectName(projectName)
                                 .build();
 
-                // Start the run
                 RunHandle handle = reporter.startRun(experimentName, metadata);
                 assertThat(handle.runId()).doesNotStartWith("local-");
 

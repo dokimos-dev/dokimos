@@ -164,14 +164,6 @@ public class RunService {
         if (map == null || map.isEmpty()) {
             return null;
         }
-        // Try common field names
-        for (String key : List.of("input", "output", "text", "content", "value")) {
-            if (map.containsKey(key)) {
-                Object value = map.get(key);
-                return value != null ? value.toString() : null;
-            }
-        }
-        // Fallback to JSON representation
         try {
             return objectMapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {

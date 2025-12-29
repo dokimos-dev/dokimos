@@ -149,7 +149,9 @@ class RunServiceTest {
 
         ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
         verify(itemResultRepository).save(captor.capture());
-        assertThat(captor.getValue().getInput()).isEqualTo("What is 2+2?");
+        assertThat(captor.getValue().getInput()).isEqualTo("{\"input\":\"What is 2+2?\"}");
+        assertThat(captor.getValue().getExpectedOutput()).isEqualTo("{\"output\":\"4\"}");
+        assertThat(captor.getValue().getActualOutput()).isEqualTo("{\"output\":\"4\"}");
         assertThat(captor.getValue().getEvalResults()).hasSize(1);
     }
 

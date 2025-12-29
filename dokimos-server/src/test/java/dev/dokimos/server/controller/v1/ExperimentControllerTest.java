@@ -29,88 +29,88 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class ExperimentControllerTest {
 
-    private MockMvc mockMvc;
+        private MockMvc mockMvc;
 
-    @Mock
-    private ExperimentService experimentService;
+        @Mock
+        private ExperimentService experimentService;
 
-    @Mock
-    private RunService runService;
+        @Mock
+        private RunService runService;
 
-    @BeforeEach
-    void setUp() {
-        ExperimentController controller = new ExperimentController(experimentService, runService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+        @BeforeEach
+        void setUp() {
+                ExperimentController controller = new ExperimentController(experimentService, runService);
+                mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                                .setControllerAdvice(new GlobalExceptionHandler())
+                                .build();
+        }
 
-    @Test
-    void listRuns_shouldReturnRuns() throws Exception {
-        UUID experimentId = UUID.randomUUID();
-        UUID runId = UUID.randomUUID();
-        Project project = new Project("my-project");
-        Experiment experiment = new Experiment(project, "my-experiment");
+        @Test
+        void listRuns_shouldReturnRuns() throws Exception {
+                UUID experimentId = UUID.randomUUID();
+                UUID runId = UUID.randomUUID();
+                Project project = new Project("my-project");
+                Experiment experiment = new Experiment(project, "my-experiment");
 
-        RunSummary summary = new RunSummary(
-                runId, RunStatus.SUCCESS, Map.of(), 10, 8, 0.8, Instant.now(), Instant.now());
+                RunSummary summary = new RunSummary(
+                                runId, RunStatus.SUCCESS, Map.of(), 10, 8, 0.8, Instant.now(), Instant.now());
 
-        when(experimentService.getExperiment(experimentId)).thenReturn(experiment);
-        when(runService.listRuns(experiment)).thenReturn(List.of(summary));
+                when(experimentService.getExperiment(experimentId)).thenReturn(experiment);
+                when(runService.listRuns(experiment)).thenReturn(List.of(summary));
 
-        mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
-                .andExpect(jsonPath("$[0].passRate").value(0.8));
-    }
+                mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].status").value("SUCCESS"))
+                                .andExpect(jsonPath("$[0].passRate").value(0.8));
+        }
 
-    @Test
-    void listRuns_shouldReturn404WhenExperimentNotFound() throws Exception {
-        UUID experimentId = UUID.randomUUID();
-        when(experimentService.getExperiment(experimentId))
-                .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
+        @Test
+        void listRuns_shouldReturn404WhenExperimentNotFound() throws Exception {
+                UUID experimentId = UUID.randomUUID();
+                when(experimentService.getExperiment(experimentId))
+                                .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
 
-        mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Experiment not found: " + experimentId));
-    }
+                mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.message").value("Experiment not found: " + experimentId));
+        }
 
-    @Test
-    void getTrends_shouldReturnTrendData() throws Exception {
-        UUID experimentId = UUID.randomUUID();
-        UUID runId = UUID.randomUUID();
-        TrendData.RunPoint point = new TrendData.RunPoint(
-                runId, Instant.now(), 0.85, 20, 17);
-        TrendData trendData = new TrendData("my-experiment", List.of(point));
+        @Test
+        void getTrends_shouldReturnTrendData() throws Exception {
+                UUID experimentId = UUID.randomUUID();
+                UUID runId = UUID.randomUUID();
+                TrendData.RunPoint point = new TrendData.RunPoint(
+                                runId, Instant.now(), 0.85, 20, 17);
+                TrendData trendData = new TrendData("my-experiment", List.of(point));
 
-        when(experimentService.getTrends(experimentId, 20)).thenReturn(trendData);
+                when(experimentService.getTrends(experimentId, 20)).thenReturn(trendData);
 
-        mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.experimentName").value("my-experiment"))
-                .andExpect(jsonPath("$.runs[0].passRate").value(0.85));
-    }
+                mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.experimentName").value("my-experiment"))
+                                .andExpect(jsonPath("$.runs[0].passRate").value(0.85));
+        }
 
-    @Test
-    void getTrends_shouldUseCustomLimit() throws Exception {
-        UUID experimentId = UUID.randomUUID();
-        TrendData trendData = new TrendData("my-experiment", List.of());
+        @Test
+        void getTrends_shouldUseCustomLimit() throws Exception {
+                UUID experimentId = UUID.randomUUID();
+                TrendData trendData = new TrendData("my-experiment", List.of());
 
-        when(experimentService.getTrends(experimentId, 50)).thenReturn(trendData);
+                when(experimentService.getTrends(experimentId, 50)).thenReturn(trendData);
 
-        mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId)
-                        .param("limit", "50"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.experimentName").value("my-experiment"));
-    }
+                mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId)
+                                .param("limit", "50"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.experimentName").value("my-experiment"));
+        }
 
-    @Test
-    void getTrends_shouldReturn404WhenExperimentNotFound() throws Exception {
-        UUID experimentId = UUID.randomUUID();
-        when(experimentService.getTrends(experimentId, 20))
-                .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
+        @Test
+        void getTrends_shouldReturn404WhenExperimentNotFound() throws Exception {
+                UUID experimentId = UUID.randomUUID();
+                when(experimentService.getTrends(experimentId, 20))
+                                .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
 
-        mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
-                .andExpect(status().isNotFound());
-    }
+                mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
+                                .andExpect(status().isNotFound());
+        }
 }

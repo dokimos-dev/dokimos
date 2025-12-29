@@ -4,9 +4,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ProjectSummary(
-        UUID id,
-        String name,
-        long experimentCount,
-        Instant createdAt
-) {
+                UUID id,
+                String name,
+                long experimentCount,
+                Instant createdAt) {
 }

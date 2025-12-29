@@ -3,10 +3,12 @@ package dev.dokimos.server.service;
 import dev.dokimos.server.dto.v1.ProjectSummary;
 import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.repository.ProjectRepository;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ProjectService {
@@ -18,9 +20,10 @@ public class ProjectService {
     }
 
     @Transactional
+    @NonNull
     public Project getOrCreateProject(String name) {
-        return projectRepository.findByName(name)
-                .orElseGet(() -> projectRepository.save(new Project(name)));
+        return Objects.requireNonNull(projectRepository.findByName(name)
+                .orElseGet(() -> projectRepository.save(new Project(name))));
     }
 
     @Transactional(readOnly = true)
@@ -33,15 +36,15 @@ public class ProjectService {
                             project.getId(),
                             project.getName(),
                             count,
-                            project.getCreatedAt()
-                    );
+                            project.getCreatedAt());
                 })
                 .toList();
     }
 
     @Transactional(readOnly = true)
+    @NonNull
     public Project getProject(String name) {
-        return projectRepository.findByName(name)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + name));
+        return Objects.requireNonNull(projectRepository.findByName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + name)));
     }
 }

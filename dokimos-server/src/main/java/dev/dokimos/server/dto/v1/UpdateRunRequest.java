@@ -4,6 +4,5 @@ import dev.dokimos.server.entity.RunStatus;
 import jakarta.validation.constraints.NotNull;
 
 public record UpdateRunRequest(
-        @NotNull RunStatus status
-) {
+                @NotNull RunStatus status) {
 }

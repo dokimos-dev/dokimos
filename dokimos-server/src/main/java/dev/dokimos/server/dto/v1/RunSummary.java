@@ -7,13 +7,12 @@ import java.util.Map;
 import java.util.UUID;
 
 public record RunSummary(
-        UUID id,
-        RunStatus status,
-        Map<String, Object> config,
-        long itemCount,
-        long passedCount,
-        Double passRate,
-        Instant startedAt,
-        Instant completedAt
-) {
+                UUID id,
+                RunStatus status,
+                Map<String, Object> config,
+                long itemCount,
+                long passedCount,
+                Double passRate,
+                Instant startedAt,
+                Instant completedAt) {
 }

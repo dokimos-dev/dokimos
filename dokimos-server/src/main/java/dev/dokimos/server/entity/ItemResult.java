@@ -56,7 +56,7 @@ public class ItemResult {
     }
 
     public ItemResult(ExperimentRun run, String input, String expectedOutput, String actualOutput,
-                      Map<String, Object> metadata) {
+            Map<String, Object> metadata) {
         this.run = run;
         this.input = input;
         this.expectedOutput = expectedOutput;

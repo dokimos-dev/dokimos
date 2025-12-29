@@ -19,7 +19,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "experiments", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"project_id", "name"})
+        @UniqueConstraint(columnNames = { "project_id", "name" })
 })
 public class Experiment {
 

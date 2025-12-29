@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
+@SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
 class RunControllerTest extends AbstractControllerTest {
 
@@ -57,7 +58,6 @@ class RunControllerTest extends AbstractControllerTest {
                 UUID runId = UUID.randomUUID();
 
                 PageRequest pageRequest = PageRequest.of(0, 10);
-                @SuppressWarnings("null")
                 Page<RunDetails.ItemSummary> emptyPage = new PageImpl<>(List.of(), pageRequest, 0);
 
                 RunDetails details = new RunDetails(

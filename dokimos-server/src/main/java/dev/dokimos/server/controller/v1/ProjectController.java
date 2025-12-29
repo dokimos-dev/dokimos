@@ -31,8 +31,8 @@ public class ProjectController {
     private final RunService runService;
 
     public ProjectController(ProjectService projectService,
-                             ExperimentService experimentService,
-                             RunService runService) {
+            ExperimentService experimentService,
+            RunService runService) {
         this.projectService = projectService;
         this.experimentService = experimentService;
         this.runService = runService;
@@ -52,7 +52,7 @@ public class ProjectController {
     @PostMapping("/{projectName}/runs")
     @ResponseStatus(HttpStatus.CREATED)
     public CreateRunResponse createRun(@PathVariable String projectName,
-                                        @Valid @RequestBody CreateRunRequest request) {
+            @Valid @RequestBody CreateRunRequest request) {
         Project project = projectService.getOrCreateProject(projectName);
         Experiment experiment = experimentService.getOrCreateExperiment(project, request.experimentName());
         ExperimentRun run = runService.createRun(experiment, request.metadata());

@@ -34,7 +34,7 @@ public class ExperimentController {
 
     @GetMapping("/{experimentId}/trends")
     public TrendData getTrends(@PathVariable UUID experimentId,
-                               @RequestParam(defaultValue = "20") int limit) {
+            @RequestParam(defaultValue = "20") int limit) {
         return experimentService.getTrends(experimentId, limit);
     }
 }

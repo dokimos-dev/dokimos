@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
 class RunServiceTest {
 
@@ -142,9 +143,7 @@ class RunServiceTest {
                         Map.of("output", "4"),
                         Map.of("output", "4"),
                         List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", Map.of())),
-                        true
-                )
-        ));
+                        true)));
 
         runService.addItems(runId, request);
 
@@ -171,9 +170,7 @@ class RunServiceTest {
                         Map.of("output", "expected"),
                         Map.of("output", "actual"),
                         null,
-                        false
-                )
-        ));
+                        false)));
 
         runService.addItems(runId, request);
 

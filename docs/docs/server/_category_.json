@@ -1,0 +1,9 @@
+{
+  "label": "Server",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "title": "Dokimos Server",
+    "description": "Store experiment results, track quality trends, and share findings with your team."
+  }
+}

@@ -51,7 +51,7 @@ class ReporterIntegrationTest {
                 String projectName = "test-project-" + UUID.randomUUID();
                 String experimentName = "test-experiment";
                 Map<String, Object> metadata = Map.of(
-                                "model", "gpt-4",
+                                "model", "gpt-5",
                                 "temperature", 0.7,
                                 "version", "1.0.0");
 
@@ -120,7 +120,7 @@ class ReporterIntegrationTest {
                 assertThat(storedRun.getCompletedAt()).isNotNull();
                 assertThat(storedRun.getExperiment().getName()).isEqualTo(experimentName);
                 assertThat(storedRun.getExperiment().getProject().getName()).isEqualTo(projectName);
-                assertThat(storedRun.getConfig()).containsEntry("model", "gpt-4");
+                assertThat(storedRun.getConfig()).containsEntry("model", "gpt-5");
                 assertThat(storedRun.getConfig()).containsEntry("version", "1.0.0");
 
                 // Verify items were stored along with their eval results
@@ -137,9 +137,9 @@ class ReporterIntegrationTest {
 
                 // Verify the first item
                 var firstItem = storedItems.get(0);
-                assertThat(firstItem.getInput()).isEqualTo("What is the capital of France?");
-                assertThat(firstItem.getExpectedOutput()).isEqualTo("Paris");
-                assertThat(firstItem.getActualOutput()).isEqualTo("Paris");
+                assertThat(firstItem.getInput()).isEqualTo("{\"input\":\"What is the capital of France?\"}");
+                assertThat(firstItem.getExpectedOutput()).isEqualTo("{\"output\":\"Paris\"}");
+                assertThat(firstItem.getActualOutput()).isEqualTo("{\"output\":\"Paris\"}");
                 assertThat(firstItem.getEvalResults()).hasSize(2);
 
                 // Verify eval results for first item
@@ -162,7 +162,7 @@ class ReporterIntegrationTest {
 
                 // Verify third item (with failure)
                 var thirdItem = storedItems.get(2);
-                assertThat(thirdItem.getInput()).isEqualTo("Translate 'hello' to Spanish");
+                assertThat(thirdItem.getInput()).isEqualTo("{\"input\":\"Translate 'hello' to Spanish\"}");
                 var thirdItemEvals = thirdItem.getEvalResults();
                 var failedEval = thirdItemEvals.stream()
                                 .filter(e -> "exact-match".equals(e.getEvaluatorName()))
@@ -236,15 +236,15 @@ class ReporterIntegrationTest {
 
                 // Verify first item is stored correctly
                 var firstItem = storedItems.get(0);
-                assertThat(firstItem.getInput()).isEqualTo("Question 1");
-                assertThat(firstItem.getActualOutput()).isEqualTo("Answer 1");
+                assertThat(firstItem.getInput()).isEqualTo("{\"input\":\"Question 1\"}");
+                assertThat(firstItem.getActualOutput()).isEqualTo("{\"output\":\"Answer 1\"}");
                 assertThat(firstItem.getEvalResults()).hasSize(1);
                 assertThat(firstItem.getEvalResults().get(0).isSuccess()).isTrue();
 
                 // Verify second item is stored correctly
                 var secondItem = storedItems.get(1);
-                assertThat(secondItem.getInput()).isEqualTo("Question 2");
-                assertThat(secondItem.getActualOutput()).isEqualTo("Wrong Answer");
+                assertThat(secondItem.getInput()).isEqualTo("{\"input\":\"Question 2\"}");
+                assertThat(secondItem.getActualOutput()).isEqualTo("{\"output\":\"Wrong Answer\"}");
                 assertThat(secondItem.getEvalResults()).hasSize(1);
                 assertThat(secondItem.getEvalResults().get(0).isSuccess()).isFalse();
         }

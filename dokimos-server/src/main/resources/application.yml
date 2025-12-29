@@ -1,6 +1,9 @@
 server:
   port: ${SERVER_PORT:8080}
 
+dokimos:
+  api-key: ${DOKIMOS_API_KEY:}
+
 spring:
   application:
     name: dokimos-server

@@ -188,7 +188,6 @@ export default function RunPage() {
           : "Run"}
       </h1>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
@@ -222,164 +221,168 @@ export default function RunPage() {
         </Card>
       </div>
 
-      {/* Items Table */}
       {items.length === 0 ? (
         <p className="text-muted-foreground">No items in this run.</p>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>Input</TableHead>
-                <TableHead>Expected</TableHead>
-                <TableHead>Actual</TableHead>
-                {evaluatorNames.map((name) => (
-                  <TableHead key={name}>{name}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => {
-                const itemId = item.id ?? "";
-                const isExpanded = expandedRows.has(itemId);
-                return (
-                  <Fragment key={itemId}>
-                    <TableRow
-                      className="cursor-pointer hover:bg-accent/50"
-                      onClick={() => toggleRow(itemId)}
-                    >
-                      <TableCell>
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <TruncatedText
-                          text={item.input ?? ""}
-                          maxLength={100}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TruncatedText
-                          text={item.expectedOutput ?? "—"}
-                          maxLength={80}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TruncatedText
-                          text={item.actualOutput ?? ""}
-                          maxLength={80}
-                        />
-                      </TableCell>
-                      {evaluatorNames.map((name) => {
-                        const evalResult = item.evalResults?.find(
-                          (e) => e.evaluatorName === name
-                        );
-                        return (
-                          <TableCell key={name}>
-                            {evalResult ? (
-                              <ScoreCell
-                                score={evalResult.score ?? 0}
-                                success={evalResult.success ?? false}
-                              />
-                            ) : (
-                              "—"
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                    {isExpanded && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={4 + evaluatorNames.length}
-                          className="bg-muted/50"
-                        >
-                          <div className="p-4 space-y-4">
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">
-                                Input
-                              </h4>
-                              <JsonDisplay data={item.input ?? ""} />
-                            </div>
-                            {item.expectedOutput && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>Input</TableHead>
+                  <TableHead>Expected</TableHead>
+                  <TableHead>Actual</TableHead>
+                  {evaluatorNames.map((name) => (
+                    <TableHead key={name}>{name}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const itemId = item.id ?? "";
+                  const isExpanded = expandedRows.has(itemId);
+                  return (
+                    <Fragment key={itemId}>
+                      <TableRow
+                        className="cursor-pointer hover:bg-accent/50"
+                        onClick={() => toggleRow(itemId)}
+                      >
+                        <TableCell>
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <TruncatedText
+                            text={item.input ?? ""}
+                            maxLength={100}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TruncatedText
+                            text={item.expectedOutput ?? "—"}
+                            maxLength={80}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TruncatedText
+                            text={item.actualOutput ?? ""}
+                            maxLength={80}
+                          />
+                        </TableCell>
+                        {evaluatorNames.map((name) => {
+                          const evalResult = item.evalResults?.find(
+                            (e) => e.evaluatorName === name
+                          );
+                          return (
+                            <TableCell key={name}>
+                              {evalResult ? (
+                                <ScoreCell
+                                  score={evalResult.score ?? 0}
+                                  success={evalResult.success ?? false}
+                                />
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={4 + evaluatorNames.length}
+                            className="bg-muted/50"
+                          >
+                            <div className="p-4 space-y-4">
                               <div>
                                 <h4 className="text-sm font-medium mb-2">
-                                  Expected Output
+                                  Input
                                 </h4>
-                                <JsonDisplay data={item.expectedOutput} />
+                                <JsonDisplay data={item.input ?? ""} />
                               </div>
-                            )}
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">
-                                Actual Output
-                              </h4>
-                              <JsonDisplay data={item.actualOutput ?? ""} />
-                            </div>
-                            {item.evalResults &&
-                              item.evalResults.length > 0 && (
+                              {item.expectedOutput && (
                                 <div>
                                   <h4 className="text-sm font-medium mb-2">
-                                    Evaluations
+                                    Expected Output
                                   </h4>
-                                  <div className="space-y-2">
-                                    {item.evalResults.map((evalResult, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="bg-background rounded-md p-3 border text-sm"
-                                      >
-                                        <div className="flex items-center gap-4 flex-wrap">
-                                          <span className="font-medium">
-                                            {evalResult.evaluatorName}
-                                          </span>
-                                          <span>
-                                            Score:{" "}
-                                            <ScoreCell
-                                              score={evalResult.score ?? 0}
-                                              success={
-                                                evalResult.success ?? false
-                                              }
-                                            />
-                                          </span>
-                                          {evalResult.threshold != null && (
-                                            <span className="text-muted-foreground">
-                                              Threshold: {evalResult.threshold}
-                                            </span>
-                                          )}
-                                          <span
-                                            className={
-                                              evalResult.success
-                                                ? "text-green-500"
-                                                : "text-red-500"
-                                            }
-                                          >
-                                            {evalResult.success
-                                              ? "Passed"
-                                              : "Failed"}
-                                          </span>
-                                        </div>
-                                        {evalResult.reason && (
-                                          <p className="text-muted-foreground mt-2">
-                                            {evalResult.reason}
-                                          </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                  <JsonDisplay data={item.expectedOutput} />
                                 </div>
                               )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">
+                                  Actual Output
+                                </h4>
+                                <JsonDisplay data={item.actualOutput ?? ""} />
+                              </div>
+                              {item.evalResults &&
+                                item.evalResults.length > 0 && (
+                                  <div>
+                                    <h4 className="text-sm font-medium mb-2">
+                                      Evaluations
+                                    </h4>
+                                    <div className="space-y-2">
+                                      {item.evalResults.map(
+                                        (evalResult, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="bg-background rounded-md p-3 border text-sm"
+                                          >
+                                            <div className="flex items-center gap-4 flex-wrap">
+                                              <span className="font-medium">
+                                                {evalResult.evaluatorName}
+                                              </span>
+                                              <span>
+                                                Score:{" "}
+                                                <ScoreCell
+                                                  score={evalResult.score ?? 0}
+                                                  success={
+                                                    evalResult.success ?? false
+                                                  }
+                                                />
+                                              </span>
+                                              {evalResult.threshold != null && (
+                                                <span className="text-muted-foreground">
+                                                  Threshold:{" "}
+                                                  {evalResult.threshold}
+                                                </span>
+                                              )}
+                                              <span
+                                                className={
+                                                  evalResult.success
+                                                    ? "text-green-500"
+                                                    : "text-red-500"
+                                                }
+                                              >
+                                                {evalResult.success
+                                                  ? "Passed"
+                                                  : "Failed"}
+                                              </span>
+                                            </div>
+                                            {evalResult.reason && (
+                                              <p className="text-muted-foreground mt-2">
+                                                {evalResult.reason}
+                                              </p>
+                                            )}
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
           <Pagination
             currentPage={pageNumber}
             totalItems={run.items?.totalElements ?? 0}

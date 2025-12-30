@@ -827,7 +827,7 @@ For production applications, you want to track evaluation results over time. The
 Download the Docker Compose file and start the server:
 
 ```bash
-curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
 docker compose up -d
 ```
 
@@ -1052,7 +1052,7 @@ The combination of Spring AI for building and Dokimos for evaluating provides a 
 
 ## Resources
 
-- [Tutorial Example Code](https://github.com/dokimos-dev/dokimos/tree/main/dokimos-examples/src/main/java/dev/dokimos/examples/springai/tutorial) - The complete working code from this tutorial
+- [Tutorial Example Code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/master/java/dev/dokimos/examples/springai/tutorial) - The complete working code from this tutorial
 - [Spring AI Documentation](https://docs.spring.io/spring-ai/reference/)
 - [Dokimos GitHub Repository](https://github.com/dokimos-dev/dokimos)
 

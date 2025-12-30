@@ -1,6 +1,7 @@
 package dev.dokimos.examples.junit5;
 
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.ExactMatchEvaluator;
 import dev.dokimos.junit5.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
 

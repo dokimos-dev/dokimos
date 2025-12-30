@@ -1,7 +1,12 @@
-package dev.dokimos.core;
+package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.BaseEvaluator;
+import dev.dokimos.core.EvalResult;
+import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.EvalTestCaseParam;
+import dev.dokimos.core.JudgeLM;
 
 import java.util.*;
 
@@ -65,10 +70,10 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 CLAIMS: %s
 
                 For each individual claim, provide a verdict (Yes/No/IDK) and a brief reasoning.
-                
+
                 Respond ONLY as a JSON array in the following format:
                 Do not include any markdown formatting or extra text.
-                
+
                 Example:
                 [{"verdict": "...", "reasoning": "...", ...}]
                 """.formatted(truths, extractedClaims);
@@ -91,10 +96,10 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         var prompt = """
                 Summarize the faithfulness of the following claim verdicts into exactly one brief sentence.
                 Focus on the primary reason why any claims were rejected or marked as unknown.
-                
+
                 VERDICTS:
                 %s
-                
+
                 One-sentence summary:
                 """.formatted(claimVerdicts);
 

@@ -3,11 +3,11 @@
   "examples": [
     {
       "input": "What is the refund policy?",
-      "expectedOutput": "30 day full refund"
+      "expectedOutput": "You can get a full refund within 30 days of purchase."
     },
     {
       "input": "Can I return after 60 days?",
-      "expectedOutput": "No, only within 30 days"
+      "expectedOutput": "You can get a full refund only within 30 days of purchase."
     }
   ]
 }

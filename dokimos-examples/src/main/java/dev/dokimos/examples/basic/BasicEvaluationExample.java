@@ -1,6 +1,8 @@
 package dev.dokimos.examples.basic;
 
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.ExactMatchEvaluator;
+import dev.dokimos.core.evaluators.RegexEvaluator;
 
 import java.util.List;
 import java.util.Map;

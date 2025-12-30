@@ -1,7 +1,12 @@
-package dev.dokimos.core;
+package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.BaseEvaluator;
+import dev.dokimos.core.EvalResult;
+import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.EvalTestCaseParam;
+import dev.dokimos.core.JudgeLM;
 
 import java.util.List;
 

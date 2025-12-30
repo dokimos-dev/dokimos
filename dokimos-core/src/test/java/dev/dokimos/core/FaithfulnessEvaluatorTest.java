@@ -1,5 +1,7 @@
 package dev.dokimos.core;
 
+import dev.dokimos.core.evaluators.EvaluationException;
+import dev.dokimos.core.evaluators.FaithfulnessEvaluator;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;

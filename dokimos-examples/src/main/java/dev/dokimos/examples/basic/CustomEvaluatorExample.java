@@ -5,6 +5,7 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 
 import java.util.List;
 import java.util.Map;

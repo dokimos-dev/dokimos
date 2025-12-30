@@ -1,6 +1,8 @@
 package dev.dokimos.examples.springai;
 
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.FaithfulnessEvaluator;
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;

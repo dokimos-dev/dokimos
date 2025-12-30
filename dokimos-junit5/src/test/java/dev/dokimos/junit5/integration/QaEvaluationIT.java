@@ -5,6 +5,7 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 import dev.dokimos.junit5.DatasetSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -35,9 +36,12 @@ class QaEvaluationIT {
         evaluators = List.of(
                 LLMJudgeEvaluator.builder()
                         .name("answer-correctness")
-                        .criteria("Does the actual output match the expected output semantically?")
-                        .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
-                        .threshold(0.2)
+                        .criteria("is the answer correctly answering the question?")
+                        .evaluationParams(List.of(
+                                EvalTestCaseParam.INPUT,
+                                EvalTestCaseParam.ACTUAL_OUTPUT,
+                                EvalTestCaseParam.EXPECTED_OUTPUT))
+                        .threshold(0.5)
                         .judge(llm)
                         .build());
     }
@@ -52,7 +56,7 @@ class QaEvaluationIT {
     }
 
     private String simulateAssistant(String question) {
-        return "You can get a full refund within 30 days of purchase.";
+        return "You can get a full refund within 30 days of purchase. No return is allowed after 30 days.";
     }
 
 }

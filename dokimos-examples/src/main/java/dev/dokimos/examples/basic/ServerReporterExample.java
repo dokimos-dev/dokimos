@@ -109,7 +109,7 @@ public class ServerReporterExample {
                                         .evaluators(evaluators)
                                         .reporter(reporter)
                                         .metadata(Map.of(
-                                                        "model", "gpt-4o-mini",
+                                                        "model", "gpt-5-nano",
                                                         "temperature", 0.0,
                                                         "version", "1.0.0"))
                                         .build()

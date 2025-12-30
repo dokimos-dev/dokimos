@@ -1,0 +1,22 @@
+{
+  "name": "QA Dataset",
+  "description": "Question answering test cases for parameterized testing",
+  "examples": [
+    {
+      "inputs": {
+        "input": "What is the capital of Switzerland?"
+      },
+      "expectedOutputs": {
+        "output": "Bern"
+      }
+    },
+    {
+      "inputs": {
+        "input": "What is the capital of France?"
+      },
+      "expectedOutputs": {
+        "output": "Paris"
+      }
+    }
+  ]
+}

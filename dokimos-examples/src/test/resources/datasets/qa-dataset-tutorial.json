@@ -1,0 +1,61 @@
+{
+  "name": "Knowledge Assistant Evaluation",
+  "examples": [
+    {
+      "input": "What is your return policy?",
+      "expectedOutput": "30 days, full refund, original condition",
+      "metadata": {
+        "category": "returns"
+      }
+    },
+    {
+      "input": "How much does premium membership cost?",
+      "expectedOutput": "$99 per year",
+      "metadata": {
+        "category": "membership"
+      }
+    },
+    {
+      "input": "What are your customer support hours?",
+      "expectedOutput": "Monday through Friday, 9 AM to 6 PM Eastern",
+      "metadata": {
+        "category": "support"
+      }
+    },
+    {
+      "input": "Do gift cards expire?",
+      "expectedOutput": "Gift cards never expire",
+      "metadata": {
+        "category": "gift-cards"
+      }
+    },
+    {
+      "input": "How can I get free shipping?",
+      "expectedOutput": "Orders over $50 or premium membership",
+      "metadata": {
+        "category": "shipping"
+      }
+    },
+    {
+      "input": "What is the fastest shipping option?",
+      "expectedOutput": "Next Day shipping for $24.99",
+      "metadata": {
+        "category": "shipping"
+      }
+    },
+    {
+      "input": "Can I return a product after 60 days?",
+      "expectedOutput": "No, returns must be within 30 days",
+      "metadata": {
+        "category": "returns"
+      }
+    },
+    {
+      "input": "What benefits do premium members get?",
+      "expectedOutput": "Free shipping, 20% discount, early access, priority support",
+      "metadata": {
+        "category": "membership"
+      }
+    }
+  ]
+}

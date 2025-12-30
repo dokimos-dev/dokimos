@@ -157,6 +157,38 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.springai.SpringAiRAGExample"
 ```
 
+### 8. Spring AI Agent Evaluation Tutorial
+
+**Location**: `dev.dokimos.examples.springai.tutorial`
+
+A complete example from the [Spring AI Agent Evaluation Tutorial](https://dokimos.dev/docs/tutorials/spring-ai-agent-evaluation). Includes:
+
+- REST API for the Knowledge Assistant (`POST /api/chat`)
+- RAG implementation with Spring AI
+- Reusable evaluator factory (`QAEvaluators`)
+- JUnit 5 integration with `@DatasetSource`
+
+**Run the app**:
+
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+mvn spring-boot:run -pl dokimos-examples
+```
+
+**Test the API**:
+
+```bash
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is your return policy?"}'
+```
+
+**Run evaluations**:
+
+```bash
+OPENAI_API_KEY='your-api-key' mvn test -pl dokimos-examples -Dtest=KnowledgeAssistantEvaluationTest
+```
+
 ## Building the Examples
 
 Build all examples:

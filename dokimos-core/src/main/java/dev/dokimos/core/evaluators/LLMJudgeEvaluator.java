@@ -7,6 +7,7 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.LlmResponseUtils;
 
 import java.util.List;
 
@@ -61,7 +62,8 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response) {
         try {
-            JsonNode node = OBJECT_MAPPER.readTree(response);
+            String json = LlmResponseUtils.stripMarkdown(response);
+            JsonNode node = OBJECT_MAPPER.readTree(json);
             double score = node.get("score").asDouble();
             String reason = node.has("reason") ? node.get("reason").asText() : "No reason provided.";
 

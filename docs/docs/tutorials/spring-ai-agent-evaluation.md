@@ -55,6 +55,12 @@ Create a new Spring Boot project and add the following dependencies:
 
 ```xml
 <dependencies>
+    <!-- Spring Boot Web -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
     <!-- Spring AI -->
     <dependency>
         <groupId>org.springframework.ai</groupId>
@@ -75,11 +81,18 @@ Create a new Spring Boot project and add the following dependencies:
         <version>${dokimos.version}</version>
     </dependency>
 
-    <!-- For JUnit 5 integration (optional) -->
+    <!-- For JUnit 5 integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-junit5</artifactId>
         <version>${dokimos.version}</version>
+        <scope>test</scope>
+    </dependency>
+
+    <!-- Spring Boot Test -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
         <scope>test</scope>
     </dependency>
 </dependencies>
@@ -89,21 +102,29 @@ Create a new Spring Boot project and add the following dependencies:
 
 ```groovy
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'dev.dokimos:dokimos-core:${dokimosVersion}'
     implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
     testImplementation 'dev.dokimos:dokimos-junit5:${dokimosVersion}'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 ```
 
 ### Configuration
 
-We use `GPT-5.1-nano` as our chat model here, as it offers a good balance of performance and cost. Add your OpenAI API key to `application.properties`:
+Add your OpenAI API key and model settings to `application.properties`:
 
 ```properties
 spring.ai.openai.api-key=${OPENAI_API_KEY}
-spring.ai.openai.chat.model=gpt-5.1-nano
+spring.ai.openai.chat.options.model=gpt-5-nano
+spring.ai.openai.chat.options.temperature=1.0
+spring.ai.openai.embedding.options.model=text-embedding-3-small
 ```
+
+Note: The `gpt-5-nano` model only supports `temperature=1.0`. If using a different model like `gpt-4o-mini`, you can omit the temperature setting.
+
+The `SimpleVectorStore` requires an embedding model to convert text to vectors. We use OpenAI's `text-embedding-3-small` which is fast and cost-effective.
 
 ## Part 1: Building the AI Agent
 
@@ -231,29 +252,52 @@ public class KnowledgeAssistant {
 }
 ```
 
-### Testing the Assistant
+### Exposing the Assistant as a REST API
 
-Verify the assistant works before moving on to evaluation:
+To make the assistant usable as a real service, expose it via a REST endpoint:
 
 ```java
-@SpringBootTest
-class KnowledgeAssistantTest {
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-    @Autowired
-    private KnowledgeAssistant assistant;
+import java.util.List;
 
-    @Test
-    void shouldAnswerQuestionAboutReturnPolicy() {
-        var response = assistant.answer("What is your return policy?");
+@RestController
+@RequestMapping("/api")
+public class KnowledgeAssistantController {
 
-        System.out.println("Question: What is your return policy?");
-        System.out.println("Answer: " + response.answer());
-        System.out.println("Retrieved " + response.retrievedDocuments().size() + " documents");
+    private final KnowledgeAssistant assistant;
 
-        assertNotNull(response.answer());
-        assertFalse(response.answer().isEmpty());
+    public KnowledgeAssistantController(KnowledgeAssistant assistant) {
+        this.assistant = assistant;
     }
+
+    @PostMapping("/chat")
+    public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
+        var response = assistant.answer(request.question());
+
+        List<String> sources = response.retrievedDocuments().stream()
+                .map(doc -> doc.getText())
+                .toList();
+
+        return ResponseEntity.ok(new ChatResponse(response.answer(), sources));
+    }
+
+    public record ChatRequest(String question) {}
+
+    public record ChatResponse(String answer, List<String> sources) {}
 }
+```
+
+You can now interact with your assistant:
+
+```bash
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is your return policy?"}'
 ```
 
 ## Part 2: Setting Up Evaluation with Dokimos
@@ -547,7 +591,7 @@ ExperimentResult result = Experiment.builder()
     .dataset(dataset)
     .task(evaluationTask)
     .evaluators(evaluators)
-    .metadata("model", "gpt-5.1-nano")
+    .metadata("model", "gpt-5-nano")
     .metadata("retrievalTopK", 3)
     .metadata("timestamp", Instant.now().toString())
     .build()
@@ -602,61 +646,141 @@ for (ItemResult item : result.itemResults()) {
 
 ## Part 5: Integrating with JUnit 5
 
-For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit 5 integration:
+For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit 5 integration.
+
+### Organizing Evaluators
+
+In a real application, you will want to organize your evaluators in a reusable way. Create a factory class that encapsulates your evaluation configuration:
 
 ```java
-import dev.dokimos.junit5.DatasetSource;
-import dev.dokimos.junit5.Assertions;
-import org.junit.jupiter.params.ParameterizedTest;
+package com.example.evaluation;
 
+import dev.dokimos.core.EvalTestCaseParam;
+import dev.dokimos.core.Evaluator;
+import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.evaluators.*;
+
+import java.util.List;
+
+public final class QAEvaluators {
+
+    public static final String CONTEXT_KEY = "context";
+
+    private QAEvaluators() {}
+
+    public static List<Evaluator> standard(JudgeLM judge) {
+        return List.of(
+                faithfulness(judge),
+                hallucination(judge),
+                answerQuality(judge),
+                contextualRelevance(judge)
+        );
+    }
+
+    public static Evaluator faithfulness(JudgeLM judge) {
+        return FaithfulnessEvaluator.builder()
+                .threshold(0.8)
+                .judge(judge)
+                .contextKey(CONTEXT_KEY)
+                .includeReason(true)
+                .build();
+    }
+
+    public static Evaluator hallucination(JudgeLM judge) {
+        return HallucinationEvaluator.builder()
+                .threshold(0.2)
+                .judge(judge)
+                .contextKey(CONTEXT_KEY)
+                .includeReason(true)
+                .build();
+    }
+
+    public static Evaluator answerQuality(JudgeLM judge) {
+        return LLMJudgeEvaluator.builder()
+                .name("Answer Quality")
+                .criteria("""
+                        Evaluate the answer based on:
+                        1. Does it directly address the user's question?
+                        2. Is it clear and easy to understand?
+                        3. Does it provide specific, actionable information?
+                        4. Is it appropriately concise?
+                        """)
+                .evaluationParams(List.of(
+                        EvalTestCaseParam.INPUT,
+                        EvalTestCaseParam.ACTUAL_OUTPUT
+                ))
+                .threshold(0.7)
+                .judge(judge)
+                .build();
+    }
+
+    public static Evaluator contextualRelevance(JudgeLM judge) {
+        return ContextualRelevanceEvaluator.builder()
+                .threshold(0.6)
+                .judge(judge)
+                .retrievalContextKey(CONTEXT_KEY)
+                .includeReason(true)
+                .build();
+    }
+}
+```
+
+This approach keeps your evaluation logic separate from your application code and makes it easy to reuse across different tests.
+
+### Writing the Evaluation Test
+
+Now write a clean test that uses the evaluator factory:
+
+```java
+import dev.dokimos.core.Assertions;
+import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.Evaluator;
+import dev.dokimos.core.Example;
+import dev.dokimos.core.JudgeLM;
+import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.springai.SpringAiSupport;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.List;
+
+@SpringBootTest
 class KnowledgeAssistantEvaluationTest {
 
     @Autowired
     private KnowledgeAssistant assistant;
 
     @Autowired
-    private ChatModel judgeModel;
+    private ChatModel chatModel;
 
     private List<Evaluator> evaluators;
 
     @BeforeEach
     void setup() {
-        JudgeLM judge = SpringAiSupport.asJudge(judgeModel);
-
-        evaluators = List.of(
-            FaithfulnessEvaluator.builder()
-                .threshold(0.8)
-                .judge(judge)
-                .contextKey("context")
-                .build(),
-            LLMJudgeEvaluator.builder()
-                .name("Answer Quality")
-                .criteria("Is the answer helpful and accurate?")
-                .threshold(0.7)
-                .judge(judge)
-                .build()
-        );
+        JudgeLM judge = SpringAiSupport.asJudge(chatModel);
+        evaluators = QAEvaluators.standard(judge);
     }
 
     @ParameterizedTest
     @DatasetSource("classpath:datasets/qa-dataset.json")
-    void assistantShouldProvideQualityAnswers(Example example) {
-        // Generate response
+    void shouldProvideQualityAnswers(Example example) {
         var response = assistant.answer(example.input());
 
-        // Build test case with context
         List<String> contextTexts = response.retrievedDocuments().stream()
-            .map(Document::getText)
-            .toList();
+                .map(Document::getText)
+                .toList();
 
         EvalTestCase testCase = EvalTestCase.builder()
-            .input(example.input())
-            .actualOutput(response.answer())
-            .actualOutput("context", contextTexts)
-            .expectedOutput(example.expectedOutput())
-            .build();
+                .input(example.input())
+                .actualOutput(response.answer())
+                .actualOutput(QAEvaluators.CONTEXT_KEY, contextTexts)
+                .expectedOutput(example.expectedOutput())
+                .build();
 
-        // Assert all evaluators pass
         Assertions.assertEval(testCase, evaluators);
     }
 }
@@ -741,14 +865,22 @@ The server stores results and lets you:
 
 ## Part 7: Creating Custom Evaluators
 
-Sometimes the built in evaluators do not cover your specific needs. You can create custom evaluators by extending `BaseEvaluator`:
+Sometimes the built in evaluators do not cover your specific needs. You can create custom evaluators by extending `BaseEvaluator`. Place these in your evaluation package alongside `QAEvaluators`:
 
 ```java
+package com.example.evaluation;
+
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 
+import java.util.List;
+
+/**
+ * Custom evaluator that checks if the response length is within acceptable bounds.
+ * This demonstrates a deterministic evaluator that does not require an LLM judge.
+ */
 public class ResponseLengthEvaluator extends BaseEvaluator {
 
     private final int minWords;
@@ -768,9 +900,8 @@ public class ResponseLengthEvaluator extends BaseEvaluator {
         boolean withinBounds = wordCount >= minWords && wordCount <= maxWords;
         double score = withinBounds ? 1.0 : 0.0;
         String reason = String.format(
-            "Response has %d words (expected %d to %d)",
-            wordCount, minWords, maxWords
-        );
+            "Response has %d words (expected %d-%d)",
+            wordCount, minWords, maxWords);
 
         return EvalResult.builder()
             .name(name())
@@ -780,9 +911,15 @@ public class ResponseLengthEvaluator extends BaseEvaluator {
             .build();
     }
 }
+```
 
-// Usage
-Evaluator lengthCheck = new ResponseLengthEvaluator(20, 200);
+You can then add it to your evaluator factory:
+
+```java
+// In QAEvaluators.java
+public static Evaluator responseLength(int minWords, int maxWords) {
+    return new ResponseLengthEvaluator(minWords, maxWords);
+}
 ```
 
 ## Part 8: Advanced Evaluation Patterns
@@ -896,14 +1033,15 @@ Integrate evaluations into your CI/CD pipeline. Run quick evaluations on every P
 
 Evaluating AI agents is essential for building reliable applications. In this tutorial, you learned how to:
 
-1. Build a RAG based knowledge assistant with Spring AI
+1. Build a RAG based knowledge assistant with Spring AI and expose it as a REST API
 2. Create evaluation datasets with examples and expected outputs
-3. Configure multiple evaluators for different quality dimensions
-4. Run evaluation experiments
-5. Analyze results and investigate failures
-6. Integrate evaluations with JUnit 5 for CI/CD
-7. Track results over time with the Dokimos Server
-8. Create custom evaluators for domain specific needs
+3. Organize evaluators in a reusable factory class
+4. Configure multiple evaluators for different quality dimensions
+5. Integrate evaluations with JUnit 5 for CI/CD
+6. Track results over time with the Dokimos Server
+7. Create custom evaluators for domain specific needs
+
+The structure we built separates concerns cleanly: the application code handles user requests, while the evaluation code lives in its own package and can be run independently via tests. This mirrors how you would structure a production application.
 
 The combination of Spring AI for building and Dokimos for evaluating provides a complete toolkit for developing production ready AI applications in Java.
 
@@ -916,6 +1054,10 @@ The combination of Spring AI for building and Dokimos for evaluating provides a 
 
 ## Resources
 
-- [Dokimos GitHub Repository](https://github.com/dokimos-dev/dokimos)
+- [Tutorial Example Code](https://github.com/dokimos-dev/dokimos/tree/main/dokimos-examples/src/main/java/dev/dokimos/examples/springai/tutorial) - The complete working code from this tutorial
 - [Spring AI Documentation](https://docs.spring.io/spring-ai/reference/)
-- [Example Code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples)
+- [Dokimos GitHub Repository](https://github.com/dokimos-dev/dokimos)
+
+---
+
+If you found this tutorial helpful, please consider giving the repository a star on GitHub. It helps others discover the project and keeps us motivated to improve it ⭐.

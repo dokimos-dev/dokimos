@@ -9,6 +9,7 @@ import dev.dokimos.examples.springai.tutorial.evaluation.QAEvaluators;
 import dev.dokimos.junit5.DatasetSource;
 import dev.dokimos.springai.SpringAiSupport;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
@@ -23,8 +24,14 @@ import java.util.List;
  * <p>This test class demonstrates how to evaluate a RAG-based assistant
  * using the JUnit 5 integration. Each test case from the dataset is
  * evaluated against multiple quality dimensions.
+ *
+ * <p>This test is skipped by default. Run with:
+ * <pre>
+ * RUN_EVAL_TESTS=true OPENAI_API_KEY='your-key' mvn test -Dtest=KnowledgeAssistantEvaluationTest
+ * </pre>
  */
 @SpringBootTest
+@EnabledIfEnvironmentVariable(named = "RUN_EVAL_TESTS", matches = "true")
 class KnowledgeAssistantEvaluationTest {
 
     @Autowired

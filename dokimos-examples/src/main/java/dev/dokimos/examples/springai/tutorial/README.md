@@ -20,8 +20,10 @@ curl -X POST http://localhost:8080/api/chat \
 ## Run Evaluations
 
 ```bash
-OPENAI_API_KEY='your-api-key' mvn test -pl dokimos-examples -Dtest=KnowledgeAssistantEvaluationTest
+RUN_EVAL_TESTS=true OPENAI_API_KEY='your-api-key' mvn test -pl dokimos-examples -Dtest=KnowledgeAssistantEvaluationTest
 ```
+
+Note: The test is skipped by default. Set `RUN_EVAL_TESTS=true` to run it.
 
 ## Structure
 

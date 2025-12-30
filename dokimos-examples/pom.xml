@@ -116,6 +116,7 @@
                 <configuration>
                     <environmentVariables>
                         <OPENAI_API_KEY>${env.OPENAI_API_KEY}</OPENAI_API_KEY>
+                        <RUN_EVAL_TESTS>${env.RUN_EVAL_TESTS}</RUN_EVAL_TESTS>
                     </environmentVariables>
                 </configuration>
             </plugin>

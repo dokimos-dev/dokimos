@@ -20,6 +20,17 @@ public interface Evaluator {
 }
 ```
 
+Evaluators extending `BaseEvaluator` also support **async evaluation**:
+
+```java
+// Async using common fork-join pool
+CompletableFuture<EvalResult> future = evaluator.evaluateAsync(testCase);
+
+// Async with custom executor
+ExecutorService executor = Executors.newFixedThreadPool(4);
+CompletableFuture<EvalResult> future = evaluator.evaluateAsync(testCase, executor);
+```
+
 An `EvalResult` contains:
 - **score**: Numeric score (0.0 to 1.0)
 - **success**: Whether score meets threshold
@@ -109,11 +120,156 @@ The evaluator:
 
 **When to use:** Any RAG system where accuracy matters. If your LLM is answering questions based on retrieved documents, you need this to catch hallucinations.
 
-:::note
+### HallucinationEvaluator
 
-More built-in evaluators that can be used out-of-the-box will be added soon.
+Detects when the output contains information not supported by the provided context. Unlike FaithfulnessEvaluator which measures how much is grounded, this evaluator specifically measures the proportion of hallucinated content.
 
-:::
+```java
+JudgeLM judge = prompt -> judgeModel.generate(prompt);
+
+Evaluator hallucination = HallucinationEvaluator.builder()
+    .threshold(0.3)  // Allow at most 30% hallucinated content
+    .judge(judge)
+    .contextKey("context")
+    .includeReason(true)
+    .build();
+```
+
+The evaluator:
+1. Breaks down the output into individual statements
+2. Checks if each statement is supported by the context
+3. Calculates score = (unsupported statements) / (total statements)
+
+**Important:** For this evaluator, **lower scores are better** (0.0 means no hallucinations). Success is determined by `score <= threshold`.
+
+**When to use:** When you need to specifically measure and limit hallucination rate, especially in high-stakes applications where any fabricated information is problematic.
+
+### ContextualRelevanceEvaluator
+
+Measures how relevant retrieved context chunks are to a user's query. This is essential for evaluating retrieval quality in RAG systems.
+
+```java
+JudgeLM judge = prompt -> judgeModel.generate(prompt);
+
+Evaluator relevance = ContextualRelevanceEvaluator.builder()
+    .threshold(0.5)
+    .judge(judge)
+    .retrievalContextKey("retrievalContext")
+    .includeReason(true)
+    .strictMode(false)  // Set to true for threshold of 1.0
+    .build();
+```
+
+The evaluator:
+1. Scores each context chunk independently (0.0 to 1.0) for relevance to the query
+2. Calculates final score as the mean average of all chunk scores
+3. Stores individual chunk scores in the result metadata for transparency
+
+```java
+var testCase = EvalTestCase.builder()
+    .input("What are symptoms of dehydration?")
+    .actualOutput("retrievalContext", List.of(
+        "Dehydration symptoms include thirst and fatigue.",  // Highly relevant
+        "The Pacific Ocean is the largest ocean.",           // Irrelevant
+        "Severe dehydration can cause dizziness."            // Highly relevant
+    ))
+    .build();
+
+EvalResult result = evaluator.evaluate(testCase);
+// result.score() ≈ 0.63 (average of individual scores)
+// result.metadata().get("contextScores") contains per-chunk details
+```
+
+**When to use:** Evaluating retrieval quality in RAG pipelines. Helps identify when your retriever is returning irrelevant documents that could confuse the LLM or dilute answer quality.
+
+### PrecisionEvaluator
+
+Measures what fraction of retrieved items are actually relevant. Requires ground truth labels.
+
+```java
+Evaluator precision = PrecisionEvaluator.builder()
+    .name("retrieval-precision")
+    .retrievedKey("retrievedDocs")   // Key in actualOutputs
+    .expectedKey("relevantDocs")     // Key in expectedOutputs (ground truth)
+    .matchingStrategy(MatchingStrategy.byEquality())
+    .threshold(0.8)
+    .build();
+```
+
+**Formula:** `precision = |relevant ∩ retrieved| / |retrieved|`
+
+A precision of 1.0 means every retrieved item was relevant (no false positives).
+
+**When to use:** When you need to minimize noise in retrieved results. High precision is critical when downstream processing is expensive or when irrelevant items could mislead the LLM.
+
+### RecallEvaluator
+
+Measures what fraction of relevant items were actually retrieved. Requires ground truth labels.
+
+```java
+Evaluator recall = RecallEvaluator.builder()
+    .name("retrieval-recall")
+    .retrievedKey("retrievedDocs")
+    .expectedKey("relevantDocs")
+    .matchingStrategy(MatchingStrategy.byEquality())
+    .threshold(0.8)
+    .build();
+```
+
+**Formula:** `recall = |relevant ∩ retrieved| / |relevant|`
+
+A recall of 1.0 means all relevant items were found (no false negatives).
+
+**When to use:** When missing relevant information is costly. High recall is critical for comprehensive answers or when the user expects complete coverage.
+
+### Matching Strategies
+
+Both Precision and Recall evaluators support flexible matching strategies for comparing retrieved items to ground truth:
+
+```java
+// Simple equality (default, for string IDs)
+MatchingStrategy.byEquality()
+
+// Case-insensitive string matching
+MatchingStrategy.caseInsensitive()
+
+// Match by a specific field (for Map/JSON objects)
+MatchingStrategy.byField("id")
+
+// Match by multiple fields (e.g., knowledge graph triples)
+MatchingStrategy.byFields("subject", "predicate", "object")
+
+// Substring containment matching
+MatchingStrategy.byContainment(true)  // normalized
+
+// LLM-based semantic matching (most flexible, most expensive)
+MatchingStrategy.llmBased(judge)
+
+// Combine strategies
+MatchingStrategy.anyOf(strategy1, strategy2)  // OR
+MatchingStrategy.allOf(strategy1, strategy2)  // AND
+```
+
+**Example with knowledge graph triples:**
+
+```java
+var precision = PrecisionEvaluator.builder()
+    .retrievedKey("triples")
+    .expectedKey("relevantTriples")
+    .matchingStrategy(MatchingStrategy.byFields("subject", "predicate", "object"))
+    .build();
+
+var testCase = EvalTestCase.builder()
+    .input("Who founded Microsoft?")
+    .actualOutput("triples", List.of(
+        Map.of("subject", "Bill Gates", "predicate", "founded", "object", "Microsoft")
+    ))
+    .expectedOutput("relevantTriples", List.of(
+        Map.of("subject", "Bill Gates", "predicate", "founded", "object", "Microsoft"),
+        Map.of("subject", "Paul Allen", "predicate", "co-founded", "object", "Microsoft")
+    ))
+    .build();
+```
 
 ## Common Configuration
 
@@ -219,7 +375,10 @@ An output only passes if it meets **all** the thresholds. This lets you enforce 
 - Use **ExactMatch** when there's only one correct answer (like math or data extraction)
 - Use **Regex** for format validation (dates, emails, IDs)
 - Use **LLMJudge** for semantic quality (helpfulness, clarity, tone)
-- Use **Faithfulness** for RAG systems to prevent hallucinations
+- Use **Faithfulness** for RAG systems to measure how grounded the output is
+- Use **Hallucination** to specifically measure and limit fabricated content
+- Use **ContextualRelevance** to evaluate retrieval quality without ground truth
+- Use **Precision/Recall** when you have ground truth labels for relevant items
 - Build **custom evaluators** for domain-specific requirements
 
 ### Start with looser thresholds

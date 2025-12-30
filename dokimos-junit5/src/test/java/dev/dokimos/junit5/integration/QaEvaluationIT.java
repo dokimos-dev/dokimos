@@ -36,9 +36,12 @@ class QaEvaluationIT {
         evaluators = List.of(
                 LLMJudgeEvaluator.builder()
                         .name("answer-correctness")
-                        .criteria("Does the actual output match the expected output semantically?")
-                        .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
-                        .threshold(0.2)
+                        .criteria("is the answer correctly answering the question?")
+                        .evaluationParams(List.of(
+                                EvalTestCaseParam.INPUT,
+                                EvalTestCaseParam.ACTUAL_OUTPUT,
+                                EvalTestCaseParam.EXPECTED_OUTPUT))
+                        .threshold(0.5)
                         .judge(llm)
                         .build());
     }

@@ -1,4 +1,9 @@
-package dev.dokimos.core;
+package dev.dokimos.core.evaluators;
+
+import dev.dokimos.core.BaseEvaluator;
+import dev.dokimos.core.EvalResult;
+import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.EvalTestCaseParam;
 
 import java.util.List;
 import java.util.Objects;

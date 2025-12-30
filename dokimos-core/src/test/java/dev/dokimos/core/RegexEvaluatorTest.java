@@ -1,5 +1,6 @@
 package dev.dokimos.core;
 
+import dev.dokimos.core.evaluators.RegexEvaluator;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

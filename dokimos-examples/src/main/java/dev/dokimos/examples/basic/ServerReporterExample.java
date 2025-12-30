@@ -5,6 +5,8 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.ExactMatchEvaluator;
+import dev.dokimos.core.evaluators.RegexEvaluator;
 import dev.dokimos.server.client.DokimosServerReporter;
 
 import java.util.List;

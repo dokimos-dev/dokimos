@@ -9,6 +9,7 @@ import dev.langchain4j.model.openai.OpenAiChatModelName;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 import dev.dokimos.langchain4j.LangChain4jSupport;
 import org.junit.jupiter.api.BeforeAll;
 import dev.langchain4j.model.embedding.onnx.bgesmallenv15q.BgeSmallEnV15QuantizedEmbeddingModel;

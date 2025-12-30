@@ -9,6 +9,12 @@
     <file url="file://$PROJECT_DIR$/dokimos-junit5/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/dokimos-langchain4j/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/dokimos-langchain4j/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-server-client/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-server-client/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-server/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-spring-ai/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/dokimos-spring-ai/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>

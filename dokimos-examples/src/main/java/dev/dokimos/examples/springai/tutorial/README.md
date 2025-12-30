@@ -39,7 +39,7 @@ tutorial/
 
 test/
   KnowledgeAssistantEvaluationTest.java
-  resources/datasets/qa-dataset.json
+  resources/datasets/qa-dataset-tutorial.json
 ```
 
 See the [full tutorial](https://dokimos.dev/docs/tutorials/spring-ai-agent-evaluation) for detailed explanations.

@@ -21,11 +21,14 @@ import java.util.List;
 /**
  * Evaluation tests for the Knowledge Assistant using Dokimos.
  *
- * <p>This test class demonstrates how to evaluate a RAG-based assistant
+ * <p>
+ * This test class demonstrates how to evaluate a RAG-based assistant
  * using the JUnit 5 integration. Each test case from the dataset is
  * evaluated against multiple quality dimensions.
  *
- * <p>This test is skipped by default. Run with:
+ * <p>
+ * This test is skipped by default. Run with:
+ * 
  * <pre>
  * RUN_EVAL_TESTS=true OPENAI_API_KEY='your-key' mvn test -Dtest=KnowledgeAssistantEvaluationTest
  * </pre>
@@ -49,7 +52,7 @@ class KnowledgeAssistantEvaluationTest {
     }
 
     @ParameterizedTest
-    @DatasetSource("classpath:datasets/qa-dataset.json")
+    @DatasetSource("classpath:datasets/qa-dataset-tutorial.json")
     void shouldProvideQualityAnswers(Example example) {
         var response = assistant.answer(example.input());
 

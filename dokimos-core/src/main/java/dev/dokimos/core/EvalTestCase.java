@@ -1,13 +1,13 @@
 package dev.dokimos.core;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * A test case for evaluation.
  * <p>
- * Contains inputs provided to the system, actual outputs produced by the system,
+ * Contains inputs provided to the system, actual outputs produced by the
+ * system,
  * optional expected outputs for comparison, and additional metadata.
  *
  * @param inputs          the inputs provided to the system under test
@@ -19,8 +19,7 @@ public record EvalTestCase(
         Map<String, Object> inputs,
         Map<String, Object> actualOutputs,
         Map<String, Object> expectedOutputs,
-        Map<String, Object> metadata
-) {
+        Map<String, Object> metadata) {
     public EvalTestCase {
         inputs = inputs != null ? Map.copyOf(inputs) : Map.of();
         actualOutputs = actualOutputs != null ? Map.copyOf(actualOutputs) : Map.of();
@@ -40,8 +39,7 @@ public record EvalTestCase(
                 Map.of("input", input),
                 Map.of("output", actualOutput),
                 Map.of(),
-                Map.of()
-        );
+                Map.of());
     }
 
     /**
@@ -57,8 +55,7 @@ public record EvalTestCase(
                 Map.of("input", input),
                 Map.of("output", actualOutput),
                 Map.of("output", expectedOutput),
-                Map.of()
-        );
+                Map.of());
     }
 
     /**

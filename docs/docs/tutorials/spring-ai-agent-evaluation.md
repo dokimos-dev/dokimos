@@ -1052,7 +1052,7 @@ The combination of Spring AI for building and Dokimos for evaluating provides a 
 
 ## Resources
 
-- [Tutorial Example Code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/master/java/dev/dokimos/examples/springai/tutorial) - The complete working code from this tutorial
+- [Tutorial Example Code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/main/java/dev/dokimos/examples/springai/tutorial) - The complete working code from this tutorial
 - [Spring AI Documentation](https://docs.spring.io/spring-ai/reference/)
 - [Dokimos GitHub Repository](https://github.com/dokimos-dev/dokimos)
 

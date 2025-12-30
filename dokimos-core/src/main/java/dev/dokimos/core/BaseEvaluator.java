@@ -1,9 +1,13 @@
 package dev.dokimos.core;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Base class for implementing concrete evaluators.
+ * <p>
+ * Provides parameter validation before evaluation and async evaluation support.
  */
 public abstract class BaseEvaluator implements Evaluator {
 
@@ -62,6 +66,30 @@ public abstract class BaseEvaluator implements Evaluator {
     @Override
     public double threshold() {
         return threshold;
+    }
+
+    /**
+     * Evaluates the test case asynchronously using the common fork-join pool.
+     * <p>
+     * This method allows for non-blocking evaluation, which is useful when
+     * processing multiple test cases concurrently.
+     *
+     * @param testCase the test case to evaluate
+     * @return a CompletableFuture that will complete with the evaluation result
+     */
+    public CompletableFuture<EvalResult> evaluateAsync(EvalTestCase testCase) {
+        return CompletableFuture.supplyAsync(() -> evaluate(testCase));
+    }
+
+    /**
+     * Evaluates the test case asynchronously using the provided executor.
+     *
+     * @param testCase the test case to evaluate
+     * @param executor the executor to use for async execution
+     * @return a CompletableFuture that will complete with the evaluation result
+     */
+    public CompletableFuture<EvalResult> evaluateAsync(EvalTestCase testCase, ExecutorService executor) {
+        return CompletableFuture.supplyAsync(() -> evaluate(testCase), executor);
     }
 
 }

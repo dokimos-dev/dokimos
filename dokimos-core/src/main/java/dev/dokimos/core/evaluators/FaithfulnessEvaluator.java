@@ -7,6 +7,7 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.LlmResponseUtils;
 
 import java.util.*;
 
@@ -78,7 +79,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 [{"verdict": "...", "reasoning": "...", ...}]
                 """.formatted(truths, extractedClaims);
 
-        String response = stripMarkdown(judge.generate(prompt));
+        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {
@@ -118,7 +119,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 Context: %s
                 """.formatted(context);
 
-        String response = stripMarkdown(judge.generate(prompt));
+        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
@@ -141,7 +142,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 AI Output: %s
                 """.formatted(actualOutput);
 
-        String response = stripMarkdown(judge.generate(prompt));
+        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
@@ -151,12 +152,6 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         }
     }
 
-    private static String stripMarkdown(String response) {
-        return response.strip()
-                .replaceAll("^```(?:json)?\\s*", "")
-                .replaceAll("\\s*```$", "")
-                .strip();
-    }
 
     private record ClaimVerdict(String verdict, String reasoning) {
     }

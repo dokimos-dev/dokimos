@@ -7,6 +7,7 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.LlmResponseUtils;
 
 import java.util.List;
 
@@ -82,7 +83,7 @@ public class HallucinationEvaluator extends BaseEvaluator {
                 """
                 .formatted(context, actualOutput);
 
-        String response = stripMarkdown(judge.generate(prompt));
+        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
             return OBJECT_MAPPER.readValue(response, new TypeReference<List<HallucinationVerdict>>() {
@@ -141,12 +142,6 @@ public class HallucinationEvaluator extends BaseEvaluator {
         return judge.generate(prompt).trim();
     }
 
-    private static String stripMarkdown(String response) {
-        return response.strip()
-                .replaceAll("^```(?:json)?\\s*", "")
-                .replaceAll("\\s*```$", "")
-                .strip();
-    }
 
     private record HallucinationVerdict(String verdict, String reason) {
     }

@@ -92,7 +92,7 @@ public class PrecisionEvaluator extends BaseEvaluator {
         long truePositives = matchingStrategy.countMatches(retrieved, expected);
         double precision = (double) truePositives / retrieved.size();
 
-        String reason = generateReason(truePositives, retrieved.size(), expected.size(), precision);
+        String reason = generateReason(truePositives, retrieved.size(), precision);
 
         return EvalResult.builder()
                 .name(name)
@@ -119,7 +119,7 @@ public class PrecisionEvaluator extends BaseEvaluator {
         return List.of(value);
     }
 
-    private String generateReason(long truePositives, int retrieved, int relevant, double precision) {
+    private String generateReason(long truePositives, int retrieved, double precision) {
         if (precision == 1.0) {
             return "All %d retrieved items are relevant (perfect precision).".formatted(retrieved);
         }

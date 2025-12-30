@@ -91,7 +91,7 @@ public class RecallEvaluator extends BaseEvaluator {
         long truePositives = matchingStrategy.countMatches(retrieved, expected);
         double recall = (double) truePositives / expected.size();
 
-        String reason = generateReason(truePositives, retrieved.size(), expected.size(), recall);
+        String reason = generateReason(truePositives, expected.size(), recall);
 
         return EvalResult.builder()
                 .name(name)
@@ -118,7 +118,7 @@ public class RecallEvaluator extends BaseEvaluator {
         return List.of(value);
     }
 
-    private String generateReason(long truePositives, int retrieved, int relevant, double recall) {
+    private String generateReason(long truePositives, int relevant, double recall) {
         if (recall == 1.0) {
             return "All %d relevant items were retrieved (perfect recall).".formatted(relevant);
         }

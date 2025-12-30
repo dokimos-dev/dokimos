@@ -56,7 +56,7 @@ class QaEvaluationIT {
     }
 
     private String simulateAssistant(String question) {
-        return "You can get a full refund within 30 days of purchase.";
+        return "You can get a full refund within 30 days of purchase. No return is allowed after 30 days.";
     }
 
 }

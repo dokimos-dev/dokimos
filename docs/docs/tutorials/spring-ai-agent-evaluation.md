@@ -1041,8 +1041,6 @@ Evaluating AI agents is essential for building reliable applications. In this tu
 6. Track results over time with the Dokimos Server
 7. Create custom evaluators for domain specific needs
 
-The structure we built separates concerns cleanly: the application code handles user requests, while the evaluation code lives in its own package and can be run independently via tests. This mirrors how you would structure a production application.
-
 The combination of Spring AI for building and Dokimos for evaluating provides a complete toolkit for developing production ready AI applications in Java.
 
 ## Next Steps

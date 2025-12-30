@@ -41,6 +41,8 @@ implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
 Convert a Spring AI `ChatClient` to a `JudgeLM` for evaluation:
 
 ```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.chat.client.ChatClient;
 
@@ -63,6 +65,8 @@ Evaluator correctness = LLMJudgeEvaluator.builder()
 You can also convert a `ChatModel` directly:
 
 ```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.openai.OpenAiChatModel;
 
@@ -88,6 +92,8 @@ Evaluator faithfulness = FaithfulnessEvaluator.builder()
 Convert Spring AI `EvaluationRequest` to Dokimos `EvalTestCase`:
 
 ```java
+import dev.dokimos.core.*;
+import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.evaluation.EvaluationRequest;
 import org.springframework.ai.document.Document;
 
@@ -122,6 +128,7 @@ System.out.println("Feedback: " + response.getFeedback());
 
 ```java
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
@@ -202,6 +209,9 @@ Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluatio
 If you're using Spring AI's built-in evaluators and want to integrate with Dokimos:
 
 ```java
+import dev.cokimos.core.*;
+import dev.cokimos.core.evaluators.*;
+import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.evaluation.RelevancyEvaluator;
 
 // Spring AI evaluator
@@ -245,6 +255,11 @@ Evaluator dokimosEvaluator = new BaseEvaluator("relevancy") {
 When evaluating RAG systems built with Spring AI:
 
 ```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.FaithfulnessEvaluator;
+import dev.dokimos.springai.SpringAiSupport;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 
@@ -380,6 +395,70 @@ void chatResponseShouldBeAccurate(Example example) {
     Assertions.assertEval(testCase, exactMatchEvaluator);
 }
 ```
+
+### Threshold-Based Quality Assertions
+
+The parameterized test above fails if *any single example* fails evaluation. For many use cases, you may want to assert that the *average score* across all examples meets a quality threshold instead. This is useful when:
+
+- Individual examples may occasionally score below the threshold, but overall quality should be high
+- You want to set different thresholds for different evaluators
+- You're running quality gates in CI/CD pipelines
+
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
+import dev.dokimos.springai.SpringAiSupport;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+@Test
+void experimentMeetsQualityThresholds() {
+    Dataset dataset = DatasetResolverRegistry.getInstance()
+        .resolve("classpath:datasets/qa-dataset.json");
+
+    JudgeLM judge = SpringAiSupport.asJudge(chatModel);
+
+    List<Evaluator> evaluators = List.of(
+        FaithfulnessEvaluator.builder()
+            .judge(judge)
+            .contextKey("context")
+            .build(),
+        ContextualRelevanceEvaluator.builder()
+            .judge(judge)
+            .retrievalContextKey("context")
+            .build(),
+        LLMJudgeEvaluator.builder()
+            .name("Answer Quality")
+            .criteria("Is the answer helpful, clear, and accurate?")
+            .judge(judge)
+            .build()
+    );
+
+    ExperimentResult result = Experiment.builder()
+        .name("Agent Evaluation")
+        .dataset(dataset)
+        .task(task)
+        .evaluators(evaluators)
+        .build()
+        .run();
+
+    // Assert each evaluator's average meets 0.8
+    assertAll(
+        () -> assertTrue(result.averageScore("Faithfulness") >= 0.8,
+            "Faithfulness: " + result.averageScore("Faithfulness")),
+        () -> assertTrue(result.averageScore("ContextualRelevance") >= 0.8,
+            "ContextualRelevance: " + result.averageScore("ContextualRelevance")),
+        () -> assertTrue(result.averageScore("Answer Quality") >= 0.8,
+            "Answer Quality: " + result.averageScore("Answer Quality"))
+    );
+}
+```
+
+:::tip
+
+Use `assertAll` to run all assertions and report all failures at once, rather than stopping at the first failure. This gives you a complete picture of which quality thresholds are not being met.
+
+:::
 
 ## Integration with Spring AI Testing
 

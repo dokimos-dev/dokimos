@@ -6,16 +6,16 @@ import java.util.List;
  * Results from a single run of an experiment.
  * <p>
  * When an experiment is configured with multiple runs, each run produces
- * a RunResult containing the evaluation results for that run. The parent
- * ExperimentResult aggregates these across all runs.
+ * a {@code RunResult} containing the evaluation results for that run. The
+ * parent {@link ExperimentResult} aggregates these across all runs.
  *
  * @param runIndex    the zero-based index of this run
- * @param itemResults results for each dataset item in this run
+ * @param itemResults results for each dataset example in this run
  */
 public record RunResult(
         int runIndex,
         List<ItemResult> itemResults) {
-    private static final double PRECISION_SCALE = 1_000_000.0; // 6 decimal places
+    private static final double PRECISION_SCALE = 1_000_000.0;
 
     public RunResult {
         itemResults = itemResults != null ? List.copyOf(itemResults) : List.of();

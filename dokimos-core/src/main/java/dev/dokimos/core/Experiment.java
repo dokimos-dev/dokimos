@@ -4,9 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * An evaluation experiment that runs a task against a dataset and evaluates the results.
+ * An evaluation experiment that runs a task against a dataset and evaluates the
+ * results.
  * <p>
  * Experiments coordinate the execution of a task across dataset examples,
  * apply evaluators to the outputs, and aggregate results.
@@ -20,6 +24,8 @@ public class Experiment {
     private final List<Evaluator> evaluators;
     private final Map<String, Object> metadata;
     private final Reporter reporter;
+    private final int parallelism;
+    private final int runs;
 
     private Experiment(Builder builder) {
         this.name = builder.name;
@@ -29,6 +35,8 @@ public class Experiment {
         this.evaluators = List.copyOf(builder.evaluators);
         this.metadata = Map.copyOf(builder.metadata);
         this.reporter = builder.reporter;
+        this.parallelism = builder.parallelism;
+        this.runs = builder.runs;
     }
 
     public static Builder builder() {
@@ -37,26 +45,35 @@ public class Experiment {
 
     /**
      * Runs the experiment and returns the aggregated results.
+     * <p>
+     * If multiple runs are configured, the experiment executes each run
+     * sequentially
+     * and aggregates results across all runs. If parallelism is greater than 1,
+     * examples within each run are processed concurrently.
      *
      * @return the experiment results
      */
     public ExperimentResult run() {
-        List<ItemResult> itemResults = new ArrayList<>();
+        List<RunResult> runResults = new ArrayList<>();
+
+        for (int runIndex = 0; runIndex < runs; runIndex++) {
+            RunResult runResult = executeSingleRun(runIndex);
+            runResults.add(runResult);
+        }
+
+        return new ExperimentResult(name, description, metadata, runResults);
+    }
+
+    private RunResult executeSingleRun(int runIndex) {
+        List<ItemResult> itemResults;
         RunHandle runHandle = reporter.startRun(name, metadata);
         RunStatus status = RunStatus.FAILED;
 
         try {
-            for (Example example : dataset) {
-                Map<String, Object> actualOutputs = task.run(example);
-                EvalTestCase testCase = example.toTestCase(actualOutputs);
-
-                List<EvalResult> evalResults = evaluators.stream()
-                        .map(evaluator -> evaluator.evaluate(testCase))
-                        .toList();
-
-                ItemResult itemResult = new ItemResult(example, actualOutputs, evalResults);
-                itemResults.add(itemResult);
-                reporter.reportItem(runHandle, itemResult);
+            if (parallelism > 1) {
+                itemResults = executeParallel(runHandle);
+            } else {
+                itemResults = executeSequential(runHandle);
             }
             status = RunStatus.SUCCESS;
         } finally {
@@ -64,7 +81,49 @@ public class Experiment {
             reporter.flush();
         }
 
-        return new ExperimentResult(name, description, metadata, itemResults);
+        return new RunResult(runIndex, itemResults);
+    }
+
+    private List<ItemResult> executeSequential(RunHandle runHandle) {
+        List<ItemResult> itemResults = new ArrayList<>();
+        for (Example example : dataset) {
+            ItemResult itemResult = runSingleExample(example);
+            itemResults.add(itemResult);
+            reporter.reportItem(runHandle, itemResult);
+        }
+        return itemResults;
+    }
+
+    private List<ItemResult> executeParallel(RunHandle runHandle) {
+        ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+        try {
+            List<CompletableFuture<ItemResult>> futures = dataset.examples().stream()
+                    .map(example -> CompletableFuture.supplyAsync(
+                            () -> runSingleExample(example), executor))
+                    .toList();
+
+            List<ItemResult> results = futures.stream()
+                    .map(CompletableFuture::join)
+                    .toList();
+
+            // Report items after completion to maintain ordering in reports
+            results.forEach(itemResult -> reporter.reportItem(runHandle, itemResult));
+
+            return results;
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    private ItemResult runSingleExample(Example example) {
+        Map<String, Object> actualOutputs = task.run(example);
+        EvalTestCase testCase = example.toTestCase(actualOutputs);
+
+        List<EvalResult> evalResults = evaluators.stream()
+                .map(evaluator -> evaluator.evaluate(testCase))
+                .toList();
+
+        return new ItemResult(example, actualOutputs, evalResults);
     }
 
     public static class Builder {
@@ -75,6 +134,8 @@ public class Experiment {
         private Dataset dataset;
         private Task task;
         private Reporter reporter = NoOpReporter.INSTANCE;
+        private int parallelism = 1;
+        private int runs = 1;
 
         /**
          * Sets the experiment name.
@@ -176,6 +237,50 @@ public class Experiment {
          */
         public Builder reporter(Reporter reporter) {
             this.reporter = reporter != null ? reporter : NoOpReporter.INSTANCE;
+            return this;
+        }
+
+        /**
+         * Sets the level of parallelism for running the experiment.
+         * <p>
+         * When parallelism is greater than 1, examples within each run are processed
+         * concurrently using a fixed thread pool. Default is 1 for sequential
+         * execution.
+         * <p>
+         * Ensure your task implementation is thread-safe when using parallelism.
+         *
+         * @param parallelism the number of examples to process in parallel, must be at
+         *                    least 1
+         * @return builder
+         * @throws IllegalArgumentException if parallelism is less than 1
+         */
+        public Builder parallelism(int parallelism) {
+            if (parallelism < 1) {
+                throw new IllegalArgumentException("Parallelism must be at least 1, got: " + parallelism);
+            }
+            this.parallelism = parallelism;
+            return this;
+        }
+
+        /**
+         * Sets the number of times to run the experiment.
+         * <p>
+         * Running an experiment multiple times helps reduce variance from LLM
+         * non-determinism
+         * and provides statistical confidence in the results. Results are automatically
+         * aggregated across runs.
+         * <p>
+         * Runs execute sequentially while parallelism applies within each run.
+         *
+         * @param runs the number of experiment runs, must be at least 1
+         * @return builder
+         * @throws IllegalArgumentException if runs is less than 1
+         */
+        public Builder runs(int runs) {
+            if (runs < 1) {
+                throw new IllegalArgumentException("Runs must be at least 1, got: " + runs);
+            }
+            this.runs = runs;
             return this;
         }
 

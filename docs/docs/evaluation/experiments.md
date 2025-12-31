@@ -208,6 +208,58 @@ for (ItemResult failure : failures) {
 }
 ```
 
+## Parallelism and Multiple Runs
+
+Dokimos supports running experiments with parallelism and multiple runs for statistical confidence.
+
+### Parallelism
+
+Set `.parallelism(n)` to process n examples concurrently within each run:
+
+```java
+ExperimentResult result = Experiment.builder()
+    .name("Knowledge Assistant Evaluation")
+    .dataset(dataset)
+    .task(task)
+    .evaluators(evaluators)
+    .parallelism(4)  // Run 4 examples concurrently
+    .build()
+    .run();
+```
+
+Default is 1 for sequential execution. Increase for faster execution, but be mindful of API rate limits.
+
+When using parallelism, ensure your task implementation is thread-safe.
+
+### Multiple Runs
+
+Set `.runs(n)` to repeat the experiment n times:
+
+```java
+ExperimentResult result = Experiment.builder()
+    .name("Knowledge Assistant Evaluation")
+    .dataset(dataset)
+    .task(task)
+    .evaluators(evaluators)
+    .runs(3)         // Run experiment 3 times
+    .parallelism(4)  // Parallelism within each run
+    .build()
+    .run();
+```
+
+Runs execute sequentially while parallelism applies within each run. This helps reduce variance from LLM non-determinism and provides statistical confidence in results.
+
+Access run statistics:
+
+```java
+result.averageScore("Faithfulness")     // Mean across all runs
+result.scoreStdDev("Faithfulness")      // Standard deviation across runs
+result.runCount()                       // Number of runs performed
+result.runs()                           // Individual run results
+```
+
+High standard deviation suggests instability in your task or evaluator outputs.
+
 ## Configuring Experiments
 
 You can customize experiments with names, descriptions, evaluators, and metadata.
@@ -375,7 +427,7 @@ System.out.println("Faithfulness: " + result.averageScore("Faithfulness"));
 
 ## Analyzing Experiment Results
 
-The `ExperimentResult` provides comprehensive metrics and detailed results:
+The `ExperimentResult` provides comprehensive metrics and detailed results. When running multiple runs, all metrics are automatically averaged across runs.
 
 ### Aggregate Metrics
 
@@ -394,6 +446,13 @@ System.out.println("Pass rate: " + String.format("%.2f%%", result.passRate() * 1
 System.out.println("\nAverage scores:");
 System.out.println("Exact Match: " + result.averageScore("Exact Match"));
 System.out.println("Relevance: " + result.averageScore("Relevance"));
+
+// For multi-run experiments, check stability
+if (result.runCount() > 1) {
+    System.out.println("\nScore stability (standard deviation):");
+    System.out.println("Exact Match: " + result.scoreStdDev("Exact Match"));
+    System.out.println("Relevance: " + result.scoreStdDev("Relevance"));
+}
 ```
 
 ### Item-Level Results

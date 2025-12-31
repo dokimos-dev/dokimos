@@ -255,6 +255,47 @@ target/surefire-reports/
   └── CustomerSupportTest.txt
 ```
 
+## Parallel Test Execution
+
+JUnit 5 supports parallel test execution out of the box. This speeds up evaluation suites with many examples.
+
+### Configuration
+
+Create `src/test/resources/junit-platform.properties`:
+
+```properties
+junit.jupiter.execution.parallel.enabled=true
+junit.jupiter.execution.parallel.mode.default=concurrent
+junit.jupiter.execution.parallel.config.fixed.parallelism=4
+```
+
+### With @DatasetSource
+
+Parameterized tests using `@DatasetSource` automatically benefit from parallel execution:
+
+```java
+@ParameterizedTest
+@DatasetSource("classpath:datasets/qa-dataset.json")
+void shouldAnswerCorrectly(Example example) {
+    String answer = assistant.answer(example.input());
+    EvalTestCase testCase = example.toTestCase(answer);
+    Assertions.assertEval(testCase, evaluators);
+}
+```
+
+With parallelism enabled, JUnit runs multiple examples concurrently.
+
+### Rate Limit Considerations
+
+LLM APIs have rate limits. If you hit rate limits:
+
+- Reduce `parallelism` in the properties file
+- Or use the programmatic `Experiment` API with explicit `.parallelism()` control
+
+### Thread Safety
+
+Ensure your task implementation and any shared state is thread-safe when running tests in parallel.
+
 ## Best Practices
 
 **Keep datasets in version control** - Store them alongside your code so tests are reproducible.

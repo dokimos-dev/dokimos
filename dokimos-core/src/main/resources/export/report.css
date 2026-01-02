@@ -1,0 +1,46 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+       line-height: 1.6; padding: 2rem; max-width: 1400px; margin: 0 auto;
+       background: #fff; color: #1a1a2e; }
+header { margin-bottom: 2rem; }
+h1 { color: #1a1a2e; margin-bottom: 0.5rem; }
+h2 { color: #16213e; margin: 1.5rem 0 1rem; }
+.timestamp { color: #666; font-size: 0.9rem; }
+.description { color: #444; margin-top: 0.5rem; }
+.summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1.5rem 0; }
+.stat-card { background: #f8f9fa; border-radius: 8px; padding: 1.5rem; min-width: 120px; text-align: center; }
+.stat-value { font-size: 2rem; font-weight: bold; }
+.stat-value.pass, .stat-value.success { color: #28a745; }
+.stat-value.failure { color: #dc3545; }
+.stat-label { color: #666; font-size: 0.85rem; margin-top: 0.25rem; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #dee2e6; }
+th { background: #f8f9fa; cursor: pointer; user-select: none; }
+th:hover { background: #e9ecef; }
+th[data-sort]::after { content: ' \2195'; opacity: 0.3; }
+.success { color: #28a745; }
+.failure { color: #dc3545; }
+.expandable { cursor: pointer; }
+.expandable:hover { background: #f8f9fa; }
+.expandable::before { content: '\25B6'; margin-right: 0.5rem; font-size: 0.7rem; display: inline-block; transition: transform 0.2s; }
+.expandable.expanded::before { transform: rotate(90deg); }
+.details { display: none; background: #f8f9fa; }
+.details.show { display: table-row; }
+.details td { padding: 1rem; }
+.detail-content { max-width: 100%; overflow-x: auto; }
+pre { background: #e9ecef; padding: 0.75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; margin: 0.5rem 0; }
+ul { margin: 0.5rem 0 0.5rem 1.5rem; }
+li { margin: 0.25rem 0; }
+em { color: #666; }
+.scores { font-size: 0.85rem; color: #666; margin-left: 0.5rem; }
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a2e; color: #e8e8e8; }
+    h1, h2 { color: #e8e8e8; }
+    .stat-card { background: #2d2d44; }
+    th { background: #2d2d44; }
+    th:hover { background: #3d3d54; }
+    .expandable:hover { background: #2d2d44; }
+    .details { background: #2d2d44; }
+    pre { background: #3d3d54; }
+    td, th { border-color: #3d3d54; }
+}

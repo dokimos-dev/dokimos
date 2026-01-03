@@ -8,6 +8,7 @@ const config: Config = {
   title: "Dokimos",
   tagline: "An Evaluation Framework for LLM applications in Java",
   favicon: "img/favicon.ico",
+  staticDirectories: ["public", "static"],
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {

@@ -689,7 +689,7 @@ Dokimos can export experiment results to multiple formats for reporting, analysi
 | **JSON** | Programmatic access, storing results, further processing |
 | **HTML** | Human-readable reports, sharing with stakeholders |
 | **Markdown** | CI/CD logs, GitHub PR comments |
-| **CSV** | Spreadsheet analysis, data exploration |
+| **CSV** | Spreadsheet analysis, exploration |
 
 ### Basic Export
 
@@ -792,6 +792,10 @@ HTML reports include:
 - Results table with expandable rows for details
 - Pass/fail color coding
 - Dark mode support
+
+The following is an example of the HTML report layout:
+
+![HTML Report Example](/img/html-export-preview.png)
 
 ### CSV Export
 

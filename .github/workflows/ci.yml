@@ -59,6 +59,8 @@ jobs:
             platform: '1.10.3'
           - version: '5.11.4'
             platform: '1.11.4'
+          - version: '5.14.1'
+            platform: '1.14.1'
       fail-fast: false
 
     steps:

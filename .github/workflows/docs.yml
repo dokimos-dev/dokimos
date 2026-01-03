@@ -6,7 +6,7 @@ on:
       - master
     paths:
       - 'dokimos-core/**'
-      - 'dokimos-junit5/**'
+      - 'dokimos-junit/**'
       - 'dokimos-langchain4j/**'
       - 'dokimos-spring-ai/**'
       - 'docs/**'

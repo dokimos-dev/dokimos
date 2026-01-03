@@ -191,10 +191,10 @@ Both JSON and CSV files are automatically detected based on the file extension.
 
 ## Using Datasets with JUnit 5
 
-The `dokimos-junit5` module makes it easy to use datasets with JUnit 5's parameterized tests through the `@DatasetSource` annotation.
+The `dokimos-junit` module makes it easy to use datasets with JUnit's parameterized tests through the `@DatasetSource` annotation.
 
 ```java
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.Example;
 import org.junit.jupiter.params.ParameterizedTest;
 

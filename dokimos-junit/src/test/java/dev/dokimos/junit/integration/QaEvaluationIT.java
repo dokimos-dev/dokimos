@@ -1,4 +1,4 @@
-package dev.dokimos.junit5.integration;
+package dev.dokimos.junit.integration;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -6,7 +6,7 @@ import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;

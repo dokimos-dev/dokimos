@@ -29,7 +29,7 @@ Recommended:
 This compiles the code, runs tests, and installs artifacts to your local Maven repository. The build includes:
 
 - **dokimos-core**: Core evaluation framework
-- **dokimos-junit5**: JUnit 5 integration
+- **dokimos-junit**: JUnit integration
 - **dokimos-langchain4j**: LangChain4j integration
 - **dokimos-examples**: Example implementations
 
@@ -46,7 +46,7 @@ dokimos/
 ├── dokimos-core/          # Core evaluation framework
 │   ├── src/main/java/     # Source code
 │   └── src/test/java/     # Unit and integration tests
-├── dokimos-junit5/        # JUnit 5 integration
+├── dokimos-junit/         # JUnit integration
 ├── dokimos-langchain4j/   # LangChain4j integration
 ├── dokimos-examples/      # Runnable examples
 └── docs/                  # Documentation site (Docusaurus)

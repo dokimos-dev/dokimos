@@ -1,14 +1,14 @@
 # Dokimos: Evaluation for LLM applications in Java
 
 Dokimos is a systematic approach to evaluate LLM outputs using datasets, metrics, and experiments in Java. It integrates
-seamlessly with JUnit 5 for parameterized testing, and libraries such
+seamlessly with JUnit for parameterized testing, and libraries such
 as [LangChain4j](https://github.com/langchain4j/langchain4j) and [Spring AI](https://spring.io/projects/spring-ai) for evaluation of sophisticated AI systems and agents.
 
 ## Features
 
 - **Dataset-driven evaluation**: Load datasets from JSON, CSV, or custom sources
 - **Built-in evaluators**: Exact match, regex, and LLM-based judges
-- **JUnit 5 integration**: Parameterized tests with dataset sources
+- **JUnit integration**: Parameterized tests with dataset sources
 - **LangChain4j integration**: Evaluation of production-ready AI systems and agents
 - **Spring AI integration**: Use Spring AI `ChatClient` and `ChatModel` as evaluation judges
 - **Experiment tracking**: Aggregate eval results with pass rates and scores

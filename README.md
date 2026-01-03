@@ -89,7 +89,7 @@ dependencies {
 For complete, runnable examples see the [dokimos-examples](./dokimos-examples) module, which includes:
 - Basic evaluation workflows
 - **Custom evaluators** (extending `BaseEvaluator` or using `LLMJudgeEvaluator`)
-- JUnit 5 parameterized testing
+- JUnit parameterized testing
 - LangChain4j RAG evaluation
 - Spring AI RAG and evaluation
 

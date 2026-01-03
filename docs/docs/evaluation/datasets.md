@@ -189,7 +189,7 @@ Dataset dataset = DatasetResolverRegistry.getInstance()
 
 Both JSON and CSV files are automatically detected based on the file extension.
 
-## Using Datasets with JUnit 5
+## Using Datasets with JUnit
 
 The `dokimos-junit` module makes it easy to use datasets with JUnit's parameterized tests through the `@DatasetSource` annotation.
 

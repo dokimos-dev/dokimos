@@ -11,10 +11,15 @@ import dev.dokimos.core.LlmResponseUtils;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
- * Evaluator that uses an LLM to evaluate outputs based on the specified criteria.
+ * Evaluator that uses an LLM to evaluate outputs based on the specified
+ * criteria.
  */
 public class LLMJudgeEvaluator extends BaseEvaluator {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LLMJudgeEvaluator.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final String criteria;
     private final double minScore;
@@ -74,6 +79,7 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
                     .reason(reason)
                     .build();
         } catch (Exception e) {
+            LOGGER.error("Error parsing LLM judge response: {}", response, e);
             return EvalResult.failure(name, 0.0, "Failed to parse LLM response: " + e.getMessage());
         }
     }
@@ -165,7 +171,8 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
             if (evaluationParams.isEmpty()) {
                 throw new IllegalStateException("LLM Judge requires at least one evaluation param");
             }
-            if (judge == null) throw new IllegalStateException("JudgeLM is required");
+            if (judge == null)
+                throw new IllegalStateException("JudgeLM is required");
             return new LLMJudgeEvaluator(this);
         }
     }

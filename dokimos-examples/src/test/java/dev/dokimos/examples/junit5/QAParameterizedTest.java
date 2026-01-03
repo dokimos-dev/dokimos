@@ -10,7 +10,7 @@ import java.util.List;
 import static dev.dokimos.core.Assertions.assertEval;
 
 /**
- * JUnit 5 parameterized test example demonstrating how to:
+ * JUnit parameterized test example that demonstates how to:
  * - Use @DatasetSource annotation to load test cases from a JSON file
  * - Run parameterized tests for each example in the dataset
  * - Use assertEval to verify LLM outputs against expected results

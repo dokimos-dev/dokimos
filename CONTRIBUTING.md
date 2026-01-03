@@ -95,7 +95,7 @@ mvn verify -Dgroups=integration
 
 ### Testing Strategy
 
-- Unit tests use JUnit 5 and AssertJ for assertions
+- Unit tests use JUnit and AssertJ for assertions
 - Tag expensive tests requiring external APIs with `@Tag("integration")`
 
 ## Some General Coding Guidelines

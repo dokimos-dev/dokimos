@@ -22,7 +22,7 @@ When building LLM applications, you need more than just manual testing with a fe
 
 ## How Experiments Differ from JUnit Testing
 
-While Dokimos integrates with JUnit 5, **Experiments** serve a different purpose:
+While Dokimos integrates with JUnit, **Experiments** serve a different purpose:
 
 | Aspect | JUnit Tests with `@DatasetSource` | Experiments |
 |--------|-----------------------------------|-------------|

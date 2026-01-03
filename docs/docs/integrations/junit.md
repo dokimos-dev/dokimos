@@ -259,7 +259,7 @@ target/surefire-reports/
 
 ## Parallel Test Execution
 
-JUnit 5 supports parallel test execution out of the box. This speeds up evaluation suites with many examples.
+JUnit 5 and 6 support parallel test execution out of the box. This speeds up evaluation suites with many examples.
 
 ### Configuration
 

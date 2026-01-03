@@ -69,11 +69,11 @@ mvn exec:java -pl dokimos-examples \
 
 Once complete, view the results at http://localhost:8080
 
-### 4. JUnit 5 Parameterized Testing
+### 4. JUnit Parameterized Testing
 
 **Location**: `dev.dokimos.examples.junit5.QAParameterizedTest`
 
-Shows how to integrate `dokimos` with JUnit 5:
+Shows how to integrate `dokimos` with JUnit:
 
 - Using `@DatasetSource` annotation to load test cases
 - Running parameterized tests for each dataset example
@@ -166,7 +166,7 @@ A complete example from the [Spring AI Agent Evaluation Tutorial](https://dokimo
 - REST API for the Knowledge Assistant (`POST /api/chat`)
 - RAG implementation with Spring AI
 - Reusable evaluator factory (`QAEvaluators`)
-- JUnit 5 integration with `@DatasetSource`
+- JUnit integration with `@DatasetSource`
 
 **Run the app**:
 

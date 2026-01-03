@@ -1,4 +1,4 @@
-package dev.dokimos.examples.junit5;
+package dev.dokimos.examples.junit;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;

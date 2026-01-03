@@ -23,7 +23,7 @@ import java.util.List;
  *
  * <p>
  * This test class demonstrates how to evaluate a RAG-based assistant
- * using the JUnit 5 integration. Each test case from the dataset is
+ * using the JUnit integration. Each test case from the dataset is
  * evaluated against multiple quality dimensions.
  *
  * <p>

@@ -30,7 +30,7 @@ const FeatureList: FeatureItem[] = [
     Svg: require("@site/static/img/framework-integration.svg").default,
     description: (
       <>
-        Works with JUnit 5 for parameterized testing and LangChain4j for
+        Works with JUnit for parameterized testing and LangChain4j for
         evaluating AI Services. Integrate into existing CI/CD pipelines.
       </>
     ),

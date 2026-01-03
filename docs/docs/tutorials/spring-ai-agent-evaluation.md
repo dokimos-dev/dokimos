@@ -644,9 +644,9 @@ for (ItemResult item : result.itemResults()) {
 }
 ```
 
-## Part 5: Integrating with JUnit 5
+## Part 5: Integrating with JUnit
 
-For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit 5 integration.
+For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit integration.
 
 ### Organizing Evaluators
 
@@ -1037,7 +1037,7 @@ Evaluating AI agents is essential for building reliable applications. In this tu
 2. Create evaluation datasets with examples and expected outputs
 3. Organize evaluators in a reusable factory class
 4. Configure multiple evaluators for different quality dimensions
-5. Integrate evaluations with JUnit 5 for CI/CD
+5. Integrate evaluations with JUnit for CI/CD
 6. Track results over time with the Dokimos Server
 7. Create custom evaluators for domain specific needs
 
@@ -1048,7 +1048,7 @@ The combination of Spring AI for building and Dokimos for evaluating provides a 
 - Explore the [Evaluators documentation](/evaluation/evaluators) for all available evaluators
 - Learn about [Datasets](/evaluation/datasets) for advanced dataset management
 - Set up the [Dokimos Server](/server/overview) for result tracking
-- Check out the [JUnit 5 integration](/integrations/junit5) for test driven evaluation
+- Check out the [JUnit integration](/integrations/junit) for test driven evaluation
 
 ## Resources
 

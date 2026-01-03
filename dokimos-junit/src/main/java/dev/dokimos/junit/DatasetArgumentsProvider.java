@@ -11,7 +11,7 @@ import org.junit.jupiter.params.support.AnnotationConsumer;
 import java.util.stream.Stream;
 
 /**
- * JUnit 5 ArgumentsProvider that loads {@code Example}s from a {@code Dataset}.
+ * JUnit ArgumentsProvider that loads {@code Example}s from a {@code Dataset}.
  */
 public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<DatasetSource> {
 

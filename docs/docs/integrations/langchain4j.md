@@ -384,9 +384,9 @@ public class RAGEvaluation {
 }
 ```
 
-## JUnit 5 Integration
+## JUnit Integration
 
-Combine with [JUnit 5](./junit5) for testing:
+Combine with [JUnit](./junit) for testing:
 
 ```java
 import dev.dokimos.junit.DatasetSource;

@@ -22,7 +22,7 @@ The core concepts in Dokimos are:
 
 ## Experiments
 
-**Experiments** are the core of any evaluation process. They are used to run evaluations using specific datasets and evaluators. In Dokimos, experiments can be defined in a way that allows for easy integration with testing frameworks like JUnit 5, enabling automated evaluation as part of your development workflow.
+**Experiments** are the core of any evaluation process. They are used to run evaluations using specific datasets and evaluators. In Dokimos, experiments can be defined in a way that allows for easy integration with testing frameworks like JUnit, enabling automated evaluation as part of your development workflow.
 
 For good experiments, it's recommended to:
 - Use representative datasets that reflect real-world scenarios.

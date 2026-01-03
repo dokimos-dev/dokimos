@@ -6,7 +6,7 @@ sidebar_position: 1
 
 ## Getting started
 
-Dokimos offers integrations with JUnit 5, LangChain4j, Spring AI, etc. Each of those provides a separate maven dependency.
+Dokimos offers integrations with JUnit, LangChain4j, Spring AI, etc. Each of those provides a separate maven dependency.
 
 If you haven't done so already, install `dokimos-core` in your project:
 

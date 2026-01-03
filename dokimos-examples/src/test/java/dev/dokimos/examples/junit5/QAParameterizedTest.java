@@ -2,7 +2,7 @@ package dev.dokimos.examples.junit5;
 
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.ExactMatchEvaluator;
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.List;
@@ -33,8 +33,7 @@ public class QAParameterizedTest {
                 ExactMatchEvaluator.builder()
                         .name("Exact Match")
                         .threshold(1.0)
-                        .build()
-        );
+                        .build());
 
         // Assert evaluation passes - will fail the test if evaluation fails
         assertEval(testCase, evaluators);

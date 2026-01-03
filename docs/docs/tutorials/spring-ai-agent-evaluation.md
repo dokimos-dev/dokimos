@@ -81,10 +81,10 @@ Create a new Spring Boot project and add the following dependencies:
         <version>${dokimos.version}</version>
     </dependency>
 
-    <!-- For JUnit 5 integration -->
+    <!-- For JUnit integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
-        <artifactId>dokimos-junit5</artifactId>
+        <artifactId>dokimos-junit</artifactId>
         <version>${dokimos.version}</version>
         <scope>test</scope>
     </dependency>
@@ -106,7 +106,7 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'dev.dokimos:dokimos-core:${dokimosVersion}'
     implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
-    testImplementation 'dev.dokimos:dokimos-junit5:${dokimosVersion}'
+    testImplementation 'dev.dokimos:dokimos-junit:${dokimosVersion}'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 ```
@@ -737,7 +737,7 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.Evaluator;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.JudgeLM;
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.springai.SpringAiSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;

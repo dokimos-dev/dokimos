@@ -1,4 +1,4 @@
-package dev.dokimos.junit5;
+package dev.dokimos.junit;
 
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
@@ -8,17 +8,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Provides {@code Example}s from a {@code Dataset} as arguments to a parameterized test.
+ * Provides {@code Example}s from a {@code Dataset} as arguments to a
+ * parameterized test.
  *
- * <p>Supports multiple source types:
+ * <p>
+ * Supports multiple source types:
  * <ul>
- *     <li>{@code classpath:datasets/dataset.json} - classpath resource</li>
- *     <li>{@code file:path/to/dataset.json} - file path</li>
- *     <li>{@code path/to/dataset.json} - file path (default)</li>
- *     <li>Inline JSON via {@link #json()}</li>
+ * <li>{@code classpath:datasets/dataset.json} - classpath resource</li>
+ * <li>{@code file:path/to/dataset.json} - file path</li>
+ * <li>{@code path/to/dataset.json} - file path (default)</li>
+ * <li>Inline JSON via {@link #json()}</li>
  * </ul>
  *
- * <p>Example usage:
+ * <p>
+ * Example usage:
+ * 
  * <pre>{@code
  * @ParameterizedTest
  * @DatasetSource("classpath:datasets/qa.json")

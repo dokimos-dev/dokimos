@@ -372,7 +372,7 @@ public class AiEvaluationService {
 Combine with [JUnit 5](./junit5) for testing:
 
 ```java
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
 
 @ParameterizedTest

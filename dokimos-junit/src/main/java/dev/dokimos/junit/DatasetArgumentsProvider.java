@@ -1,4 +1,4 @@
-package dev.dokimos.junit5;
+package dev.dokimos.junit;
 
 import dev.dokimos.core.Dataset;
 import dev.dokimos.core.DatasetResolutionException;

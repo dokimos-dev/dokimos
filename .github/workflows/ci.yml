@@ -22,7 +22,7 @@ on:
 jobs:
 
   build:
-    name: Build & Test (JDK ${{ matrix.java }})
+    name: Build & Test (JDK ${{ matrix.java_version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:

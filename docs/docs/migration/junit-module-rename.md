@@ -50,11 +50,11 @@ testImplementation 'dev.dokimos:dokimos-junit:0.8.0'
 
 ### 3. Update Import Statements
 
-The package name has changed from `dev.dokimos.junit5` to `dev.dokimos.junit`:
+The package name has changed from `dev.dokimos.junit` to `dev.dokimos.junit`:
 
 ```java
 // Before
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 
 // After
 import dev.dokimos.junit.DatasetSource;

@@ -6,7 +6,7 @@ import dev.dokimos.core.Evaluator;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.examples.springai.tutorial.evaluation.QAEvaluators;
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.springai.SpringAiSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;

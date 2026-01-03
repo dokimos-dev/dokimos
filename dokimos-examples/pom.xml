@@ -33,7 +33,7 @@
         </dependency>
         <dependency>
             <groupId>dev.dokimos</groupId>
-            <artifactId>dokimos-junit5</artifactId>
+            <artifactId>dokimos-junit</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

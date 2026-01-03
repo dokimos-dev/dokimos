@@ -5,7 +5,7 @@ WORKDIR /app
 # Copy all pom.xml files so Maven can parse the multi-module structure
 COPY pom.xml ./pom.xml
 COPY dokimos-core/pom.xml ./dokimos-core/pom.xml
-COPY dokimos-junit5/pom.xml ./dokimos-junit5/pom.xml
+COPY dokimos-junit/pom.xml ./dokimos-junit/pom.xml
 COPY dokimos-langchain4j/pom.xml ./dokimos-langchain4j/pom.xml
 COPY dokimos-spring-ai/pom.xml ./dokimos-spring-ai/pom.xml
 COPY dokimos-server-client/pom.xml ./dokimos-server-client/pom.xml

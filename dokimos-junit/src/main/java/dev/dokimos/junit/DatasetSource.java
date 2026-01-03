@@ -1,4 +1,4 @@
-package dev.dokimos.junit5;
+package dev.dokimos.junit;
 
 import org.junit.jupiter.params.provider.ArgumentsSource;
 

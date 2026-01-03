@@ -1,4 +1,4 @@
-package dev.dokimos.junit5;
+package dev.dokimos.junit;
 
 import dev.dokimos.core.*;
 import org.junit.jupiter.params.ParameterizedTest;

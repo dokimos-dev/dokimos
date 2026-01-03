@@ -2,11 +2,11 @@
 sidebar_position: 1
 ---
 
-# JUnit 5 Integration
+# JUnit Integration
 
-Dokimos works with JUnit 5's parameterized tests so you can test LLM applications the same way you test regular code - with fast-failing tests that catch regressions.
+Dokimos integrates with JUnit's parameterized tests so you can test LLM applications the same way you test regular code - with fast-failing tests that catch regressions.
 
-## Why Use JUnit 5 Integration?
+## Why Use JUnit Integration?
 
 **Fast feedback during development** - Tests fail immediately when an output doesn't meet your criteria. You don't have to wait for a full evaluation run to finish.
 
@@ -30,16 +30,18 @@ See [Experiments vs JUnit Testing](../evaluation/experiments#how-experiments-dif
 
 ## Setup
 
-Add the JUnit 5 integration dependency:
+Add the JUnit integration dependency:
 
 ```xml
 <dependency>
     <groupId>dev.dokimos</groupId>
-    <artifactId>dokimos-junit5</artifactId>
+    <artifactId>dokimos-junit</artifactId>
     <version>${dokimos.version}</version>
     <scope>test</scope>
 </dependency>
 ```
+
+> **Note:** Supports JUnit 5.x and 6.x.
 
 ## Basic Usage
 
@@ -48,7 +50,7 @@ Add the JUnit 5 integration dependency:
 Load datasets with the `@DatasetSource` annotation:
 
 ```java
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.*;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -109,7 +111,7 @@ Reason: The answer is incomplete and doesn't mention the 30-day policy.
 ## Complete Example
 
 ```java
-import dev.dokimos.junit5.DatasetSource;
+import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;

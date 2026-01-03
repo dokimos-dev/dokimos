@@ -500,9 +500,8 @@ public final class ExperimentResultExporter {
         }
 
         // Failed Examples Section
-        List<ItemResult> failedItems = result.itemResults().stream()
-                .filter(item -> !item.success())
-                .toList();
+        // Show items that failed in any run, using data from the first failing run
+        List<ItemResult> failedItems = findFailedItems(result);
 
         if (!failedItems.isEmpty()) {
             md.append("## Failed Examples\n\n");
@@ -621,16 +620,46 @@ public final class ExperimentResultExporter {
         }
     }
 
+    /**
+     * Finds items that failed in any run, returning the ItemResult from the first
+     * failing run.
+     */
+    private static List<ItemResult> findFailedItems(ExperimentResult result) {
+        if (result.runCount() == 0) {
+            return List.of();
+        }
+
+        int itemCount = result.runs().get(0).itemResults().size();
+        List<ItemResult> failedItems = new ArrayList<>();
+
+        for (int i = 0; i < itemCount; i++) {
+            final int itemIndex = i;
+            // Find the first run where this item failed
+            for (var run : result.runs()) {
+                ItemResult item = run.itemResults().get(itemIndex);
+                if (!item.success()) {
+                    failedItems.add(item);
+                    break; // Use data from first failing run
+                }
+            }
+        }
+
+        return failedItems;
+    }
+
     private static String formatValue(Map<String, Object> map) {
         if (map == null || map.isEmpty()) {
             return "";
         }
-        // If map has a single "input" or "output" key, return its value directly
+        // If map has a single entry, return its value directly
         if (map.size() == 1) {
             Object value = map.values().iterator().next();
             return value != null ? value.toString() : "";
         }
-        // Otherwise, return a simple representation
+        if (map.containsKey("output")) {
+            Object value = map.get("output");
+            return value != null ? value.toString() : "";
+        }
         try {
             return MAPPER.writeValueAsString(map);
         } catch (IOException e) {

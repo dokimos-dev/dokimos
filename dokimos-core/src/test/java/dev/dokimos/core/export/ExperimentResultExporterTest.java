@@ -231,6 +231,65 @@ class ExperimentResultExporterTest {
     }
 
     @Test
+    void shouldNotDuplicateFailedExamplesAcrossRuns() {
+        // Multi-run experiment where the same example fails in all runs
+        ExperimentResult result = new ExperimentResult(
+                "multi-run-failures",
+                "",
+                Map.of(),
+                List.of(
+                        new RunResult(0, List.of(
+                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                                        List.of(EvalResult.failure("accuracy", 0.3, "Failed"))))),
+                        new RunResult(1, List.of(
+                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                                        List.of(EvalResult.failure("accuracy", 0.2, "Failed"))))),
+                        new RunResult(2, List.of(
+                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                                        List.of(EvalResult.failure("accuracy", 0.4, "Failed")))))));
+
+        String md = ExperimentResultExporter.toMarkdown(result);
+
+        // Count occurrences of the failed example header - should appear exactly once
+        int occurrences = md.split("### Q1").length - 1;
+        assertThat(occurrences).isEqualTo(1);
+    }
+
+    @Test
+    void shouldShowFailedExamplesFromLaterRunsUsingFirstFailingRunData() {
+        // Item passes in run 0, but fails in runs 1 and 2
+        // Should appear in Failed Examples using data from run 1
+        ExperimentResult result = new ExperimentResult(
+                "flaky-test",
+                "",
+                Map.of(),
+                List.of(
+                        new RunResult(0, List.of(
+                                new ItemResult(Example.of("Flaky question", "Expected"),
+                                        Map.of("output", "Correct in run 0"),
+                                        List.of(EvalResult.success("accuracy", 0.9, "Passed"))))),
+                        new RunResult(1, List.of(
+                                new ItemResult(Example.of("Flaky question", "Expected"),
+                                        Map.of("output", "Wrong in run 1"),
+                                        List.of(EvalResult.failure("accuracy", 0.3, "Failed in run 1"))))),
+                        new RunResult(2, List.of(
+                                new ItemResult(Example.of("Flaky question", "Expected"),
+                                        Map.of("output", "Wrong in run 2"),
+                                        List.of(EvalResult.failure("accuracy", 0.4, "Failed in run 2")))))));
+
+        String md = ExperimentResultExporter.toMarkdown(result);
+
+        assertThat(md).contains("## Failed Examples");
+        assertThat(md).contains("Flaky question");
+
+        // Should show data from run 1, not run 0
+        assertThat(md).contains("Wrong in run 1");
+        assertThat(md).contains("Failed in run 1");
+        assertThat(md).doesNotContain("Correct in run 0");
+        assertThat(md).doesNotContain("Wrong in run 2");
+    }
+
+    @Test
     void shouldExportMarkdownToFile() throws IOException {
         ExperimentResult result = createTestResult();
         Path mdFile = tempDir.resolve("result.md");
@@ -356,7 +415,6 @@ class ExperimentResultExporterTest {
         JsonNode root = MAPPER.readTree(json);
         JsonNode evaluation = root.get("items").get(0).get("evaluations").get(0);
 
-        // Should have score (not averageScore) for single run
         assertThat(evaluation.has("score")).isTrue();
         assertThat(evaluation.has("scores")).isFalse();
         assertThat(evaluation.has("stdDev")).isFalse();
@@ -428,7 +486,42 @@ class ExperimentResultExporterTest {
         assertThat(csv).contains("\"Line 1\nLine 2\nLine 3\"");
     }
 
-    // ========== Integration Tests via ExperimentResult ==========
+    @Test
+    void shouldExtractOutputKeyFromMultiKeyActualOutputMap() throws IOException {
+        // When actualOutputs has multiple keys including "output", only the "output"
+        // value should be used
+        ExperimentResult result = new ExperimentResult(
+                "multi-key-output",
+                "",
+                Map.of(),
+                List.of(new RunResult(0, List.of(
+                        new ItemResult(
+                                Example.of("question", "expected answer"),
+                                Map.of(
+                                        "output", "The actual response text",
+                                        "retrievedContext", List.of("context 1", "context 2"),
+                                        "metadata", Map.of("latency", 100)),
+                                List.of(EvalResult.success("accuracy", 0.9, "Good")))))));
+
+        // Check JSON
+        String json = ExperimentResultExporter.toJson(result);
+        JsonNode root = MAPPER.readTree(json);
+        String actualOutput = root.get("items").get(0).get("actualOutput").asText();
+        assertThat(actualOutput).isEqualTo("The actual response text");
+        assertThat(actualOutput).doesNotContain("retrievedContext");
+
+        // Check HTML
+        String html = ExperimentResultExporter.toHtml(result);
+        assertThat(html).contains("The actual response text");
+        assertThat(html).doesNotContain("retrievedContext");
+
+        // Check CSV
+        String csv = ExperimentResultExporter.toCsv(result);
+        assertThat(csv).contains("The actual response text");
+        assertThat(csv).doesNotContain("retrievedContext");
+    }
+
+    // ========== Tests with ExperimentResult ==========
 
     @Test
     void shouldExportViaExperimentResultMethods() {

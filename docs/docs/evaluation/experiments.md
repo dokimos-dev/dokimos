@@ -677,3 +677,155 @@ src/test/resources/datasets/
 ### Run experiments regularly
 
 Set up nightly builds or weekly evaluations to catch performance regressions early. You can also run quick experiments during development with a smaller dataset.
+
+## Exporting Results
+
+Dokimos can export experiment results to multiple formats for reporting, analysis, or integration with other tools.
+
+### Export Formats
+
+| Format | Best For |
+|--------|----------|
+| **JSON** | Programmatic access, storing results, further processing |
+| **HTML** | Human-readable reports, sharing with stakeholders |
+| **Markdown** | CI/CD logs, GitHub PR comments |
+| **CSV** | Spreadsheet analysis, exploration |
+
+### Basic Export
+
+Export to files or get as strings:
+
+```java
+ExperimentResult result = experiment.run();
+
+// Export to files
+result.exportJson(Path.of("results/experiment.json"));
+result.exportHtml(Path.of("results/report.html"));
+result.exportMarkdown(Path.of("results/summary.md"));
+result.exportCsv(Path.of("results/data.csv"));
+
+// Get as strings (for inline use, PR comments, etc.)
+String json = result.toJson();
+String html = result.toHtml();
+String markdown = result.toMarkdown();
+String csv = result.toCsv();
+```
+
+### JSON Format
+
+The JSON export includes full experiment data:
+
+```json
+{
+  "version": 1,
+  "experimentName": "QA Evaluation",
+  "timestamp": "2025-01-02T14:30:00Z",
+  "description": "Testing customer support bot",
+  "metadata": { "model": "gpt-5-nano" },
+  "config": { "runs": 3 },
+  "summary": {
+    "totalExamples": 50,
+    "passCount": 45,
+    "failCount": 5,
+    "passRate": 0.9,
+    "runCount": 3,
+    "evaluators": {
+      "Faithfulness": {
+        "averageScore": 0.85,
+        "stdDev": 0.03,
+        "passRate": 0.92
+      }
+    }
+  },
+  "items": [...]
+}
+```
+
+For multi-run experiments, each item's evaluations include aggregated statistics:
+
+```json
+{
+  "evaluator": "Faithfulness",
+  "averageScore": 0.85,
+  "stdDev": 0.03,
+  "scores": [0.82, 0.87, 0.86],
+  "threshold": 0.8,
+  "success": true
+}
+```
+
+### Markdown Format
+
+Markdown is ideal for CI/CD logs and readable summaries:
+
+```markdown
+# Experiment: QA Evaluation
+
+**Date:** 2025-01-02 14:30:00
+**Pass Rate:** 90% (45/50)
+
+## Evaluator Summary
+
+| Evaluator | Avg Score | Std Dev | Pass Rate |
+|-----------|-----------|---------|-----------|
+| Faithfulness | 0.85 | 0.03 | 92% |
+
+## Failed Examples
+
+### What is your return policy?
+**Expected:** 30 days, full refund
+**Actual:** You can return items within 60 days...
+**Faithfulness:** 0.45 (FAIL): Claim not supported by context
+```
+
+### HTML Reports
+
+Generate standalone HTML reports with embedded styling:
+
+```java
+result.exportHtml(Path.of("reports/evaluation-report.html"));
+```
+
+HTML reports include:
+- Summary cards with pass rate, counts
+- Evaluator statistics table (sortable)
+- Results table with expandable rows for details
+- Pass/fail color coding
+- Dark mode support
+
+The following is an example of the HTML report layout:
+
+![HTML Report Example](/img/html-export-preview.png)
+
+### CSV Export
+
+CSV is useful for spreadsheet analysis:
+
+```java
+result.exportCsv(Path.of("results/data.csv"));
+```
+
+The CSV has dynamic columns based on evaluators used:
+
+```csv
+input,expected_output,actual_output,success,faithfulness_score,faithfulness_pass
+"What is..?","30 days","You can...",true,0.92,true
+```
+
+### Exporting in CI/CD
+
+Export results for analysis and reporting:
+
+```java
+ExperimentResult result = experiment.run();
+
+// Export all formats
+Path outputDir = Path.of("target/evaluation-results");
+result.exportJson(outputDir.resolve("results.json"));
+result.exportHtml(outputDir.resolve("report.html"));
+result.exportMarkdown(outputDir.resolve("summary.md"));
+result.exportCsv(outputDir.resolve("data.csv"));
+
+// Print markdown summary to console
+System.out.println(result.toMarkdown());
+```

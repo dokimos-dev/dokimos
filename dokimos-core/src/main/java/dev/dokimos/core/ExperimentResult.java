@@ -1,5 +1,8 @@
 package dev.dokimos.core;
 
+import dev.dokimos.core.export.ExperimentResultExporter;
+
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -176,5 +179,79 @@ public record ExperimentResult(
                 .flatMap(item -> item.evalResults().stream())
                 .map(EvalResult::name)
                 .collect(Collectors.toSet());
+    }
+
+    // ========== Export Methods ==========
+
+    /**
+     * Exports the experiment result to a JSON file.
+     *
+     * @param path the file path to write to
+     */
+    public void exportJson(Path path) {
+        ExperimentResultExporter.exportJson(this, path);
+    }
+
+    /**
+     * Exports the experiment result to an HTML file.
+     *
+     * @param path the file path to write to
+     */
+    public void exportHtml(Path path) {
+        ExperimentResultExporter.exportHtml(this, path);
+    }
+
+    /**
+     * Exports the experiment result to a Markdown file.
+     *
+     * @param path the file path to write to
+     */
+    public void exportMarkdown(Path path) {
+        ExperimentResultExporter.exportMarkdown(this, path);
+    }
+
+    /**
+     * Exports the experiment result to a CSV file.
+     *
+     * @param path the file path to write to
+     */
+    public void exportCsv(Path path) {
+        ExperimentResultExporter.exportCsv(this, path);
+    }
+
+    /**
+     * Returns the experiment result as a JSON string.
+     *
+     * @return JSON representation
+     */
+    public String toJson() {
+        return ExperimentResultExporter.toJson(this);
+    }
+
+    /**
+     * Returns the experiment result as an HTML string.
+     *
+     * @return HTML representation
+     */
+    public String toHtml() {
+        return ExperimentResultExporter.toHtml(this);
+    }
+
+    /**
+     * Returns the experiment result as a Markdown string.
+     *
+     * @return Markdown representation
+     */
+    public String toMarkdown() {
+        return ExperimentResultExporter.toMarkdown(this);
+    }
+
+    /**
+     * Returns the experiment result as a CSV string.
+     *
+     * @return CSV representation
+     */
+    public String toCsv() {
+        return ExperimentResultExporter.toCsv(this);
     }
 }

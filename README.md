@@ -133,7 +133,8 @@ Build custom evaluators by extending `BaseEvaluator`, or use `LLMJudgeEvaluator`
 | `dokimos-junit` | JUnit integration with `@DatasetSource` for parameterized tests |
 | `dokimos-langchain4j` | LangChain4j support for evaluating RAG systems and agents |
 | `dokimos-spring-ai` | Spring AI integration using `ChatClient` and `ChatModel` as judges |
-| `dokimos-server` | Optional web UI for tracking experiments over time |
+| `dokimos-server` | Optional API and web UI for tracking experiments over time |
+| `dokimos-server-client` | Client library for reporting to the Dokimos server |
 
 ## Installation
 

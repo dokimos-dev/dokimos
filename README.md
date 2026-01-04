@@ -102,7 +102,7 @@ ExperimentResult result = Experiment.builder()
 
 // Check results
 System.out.println("Pass rate: " + result.passRate());
-System.out.println("Exact Match avg: " + result.averageScore("Exact Match"));
+System.out.println("Faithfulness avg: " + result.averageScore("Faithfulness"));
 
 // Export to multiple formats
 result.exportHtml(Path.of("report.html"));
@@ -195,14 +195,27 @@ No additional repository configuration needed.
 
 ### JUnit
 
-Use `@DatasetSource` to run evaluations as parameterized tests:
+Use `@DatasetSource` to load test cases and `LLMJudgeEvaluator` with custom criteria:
 
 ```java
+// Create a judge from any LLM client
+JudgeLM judgeLM = prompt -> openAiClient.generate(prompt);
+
 @ParameterizedTest
-@DatasetSource("qa-dataset.json")
-void testQAResponses(Example example) {
-    String response = assistant.chat(example.input());
-    assertEval(example, response, new ExactMatchEvaluator());
+@DatasetSource("classpath:support-tickets.json")
+void testSupportResponses(Example example) {
+    String response = supportBot.answer(example.input());
+    EvalTestCase testCase = example.toTestCase(response);
+
+    Evaluator evaluator = LLMJudgeEvaluator.builder()
+        .name("Helpfulness")
+        .criteria("Is the response helpful and addresses the customer's issue?")
+        .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
+        .judge(judgeLM)
+        .threshold(0.7)
+        .build();
+
+    Assertions.assertEval(testCase, evaluator);
 }
 ```
 
@@ -211,13 +224,25 @@ void testQAResponses(Example example) {
 Evaluate RAG pipelines and AI assistants built with LangChain4j:
 
 ```java
+// Create a judge from any LLM client
+JudgeLM judgeLM = prompt -> chatLanguageModel.generate(prompt);
+
+Evaluator faithfulness = FaithfulnessEvaluator.builder()
+    .judge(judgeLM)
+    .contextKey("retrievedContext")
+    .threshold(0.8)
+    .build();
+
 Experiment.builder()
     .dataset(dataset)
     .task(example -> {
-        String response = assistant.chat(example.input());
-        return Map.of("output", response);
+        Result<String> result = assistant.chat(example.input());
+        return Map.of(
+            "output", result.content(),
+            "retrievedContext", result.sources()
+        );
     })
-    .evaluators(List.of(new FaithfulnessEvaluator(judgeLM)))
+    .evaluators(List.of(faithfulness))
     .build()
     .run();
 ```
@@ -227,8 +252,15 @@ Experiment.builder()
 Use Spring AI's `ChatModel` as an evaluation judge:
 
 ```java
-JudgeLM judge = new SpringAiJudgeLM(chatModel);
-Evaluator evaluator = new LLMJudgeEvaluator(judge, "Is the response helpful?");
+JudgeLM judge = SpringAiSupport.asJudge(chatModel);
+
+Evaluator evaluator = LLMJudgeEvaluator.builder()
+    .name("Accuracy")
+    .criteria("Is the response factually accurate?")
+    .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
+    .judge(judge)
+    .threshold(0.8)
+    .build();
 ```
 
 ## Experiment Server

@@ -11,7 +11,7 @@
 
     <name>Dokimos :: Parent POM</name>
     <description>Evaluation Framework for LLM applications in Java</description>
-    <url>https://github.com/dokimos-io/dokimos/tree/master</url>
+    <url>https://github.com/dokimos-dev/dokimos/tree/master</url>
 
     <licenses>
         <license>
@@ -30,9 +30,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/dokimos-io/dokimos.git</connection>
-        <developerConnection>scm:git:git@github.com:dokimos-io/dokimos.git</developerConnection>
-        <url>https://github.com/dokimos-io/dokimos/tree/master</url>
+        <connection>scm:git:git://github.com/dokimos-dev/dokimos.git</connection>
+        <developerConnection>scm:git:git@github.com:dokimos-dev/dokimos.git</developerConnection>
+        <url>https://github.com/dokimos-dev/dokimos/tree/master</url>
     </scm>
 
     <modules>

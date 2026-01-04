@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docs/static/img/logo.jpeg" alt="Dokimos Logo" width="200">
+  <img src="https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docs/static/img/logo.jpeg" alt="Dokimos Logo" width="150">
 </p>
 
 <h1 align="center">Dokimos</h1>

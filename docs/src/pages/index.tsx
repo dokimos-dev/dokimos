@@ -31,8 +31,8 @@ export default function Home(): ReactNode {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />"
+      title={siteConfig.title}
+      description="Dokimos is an evaluation framework for LLM applications in Java. It helps you evaluate responses, track quality over time, and catch regressions before they reach production. It integrates with JUnit, LangChain4j, and Spring AI so you can run evaluations as part of your existing test suite and CI/CD pipeline."
     >
       <HomepageHeader />
       <main>

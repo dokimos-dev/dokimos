@@ -71,13 +71,22 @@ System.out.println("Score: " + result.score());     // 1.0
 Use `@DatasetSource` to run evaluations as parameterized tests:
 
 ```java
+JudgeLM judgeLM = prompt -> openAiClient.generate(prompt);
+
+Evaluator correctnessEvaluator = LLMJudgeEvaluator.builder()
+    .name("Correctness")
+    .criteria("Is the answer correct and complete?")
+    .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
+    .judge(judgeLM)
+    .build();
+
 @ParameterizedTest
 @DatasetSource("classpath:datasets/qa.json")
 void testQAResponses(Example example) {
     String response = assistant.chat(example.input());
     EvalTestCase testCase = example.toTestCase(response);
 
-    Assertions.assertEval(testCase, List.of(hallucinationEvaluator));
+    Assertions.assertEval(testCase, correctnessEvaluator);
 }
 ```
 
@@ -86,6 +95,15 @@ void testQAResponses(Example example) {
 Run experiments across entire datasets with aggregated metrics:
 
 ```java
+JudgeLM judgeLM = prompt -> openAiClient.generate(prompt);
+
+Evaluator correctnessEvaluator = LLMJudgeEvaluator.builder()
+    .name("Correctness")
+    .criteria("Is the answer correct?")
+    .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
+    .judge(judgeLM)
+    .build();
+
 Dataset dataset = Dataset.builder()
     .name("QA Dataset")
     .addExample(Example.of("What is 2+2?", "4"))
@@ -96,13 +114,13 @@ ExperimentResult result = Experiment.builder()
     .name("QA Evaluation")
     .dataset(dataset)
     .task(example -> Map.of("output", yourLLM.generate(example.input())))
-    .evaluators(List.of(hallucinationEvaluator, faithfulnessEvaluator))
+    .evaluators(List.of(correctnessEvaluator))
     .build()
     .run();
 
 // Check results
 System.out.println("Pass rate: " + result.passRate());
-System.out.println("Faithfulness avg: " + result.averageScore("Faithfulness"));
+System.out.println("Correctness avg: " + result.averageScore("Correctness"));
 
 // Export to multiple formats
 result.exportHtml(Path.of("report.html"));

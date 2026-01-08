@@ -17,11 +17,13 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
 
     private String uri;
     private String inlineJson;
+    private String inlineJsonl;
 
     @Override
     public void accept(DatasetSource annotation) {
         this.uri = annotation.value();
         this.inlineJson = annotation.json();
+        this.inlineJsonl = annotation.jsonl();
     }
 
     @Override
@@ -36,10 +38,14 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
             return Dataset.fromJson(inlineJson);
         }
 
+        if (!inlineJsonl.isBlank()) {
+            return Dataset.fromJsonl(inlineJsonl);
+        }
+
         if (!uri.isBlank()) {
             return DatasetResolverRegistry.getInstance().resolve(uri);
         }
 
-        throw new DatasetResolutionException("Either `value()` or `json()` must be specified in @DatasetSource");
+        throw new DatasetResolutionException("Either `value()`, `json()`, or `jsonl()` must be specified in @DatasetSource");
     }
 }

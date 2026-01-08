@@ -27,6 +27,8 @@ public class FileDatasetResolver implements DatasetResolver {
         try {
             if (pathname.endsWith(".csv")) {
                 return Dataset.fromCsv(Path.of(pathname));
+            } else if (pathname.endsWith(".jsonl")) {
+                return Dataset.fromJsonl(Path.of(pathname));
             } else {
                 return Dataset.fromJson(Path.of(pathname));
             }

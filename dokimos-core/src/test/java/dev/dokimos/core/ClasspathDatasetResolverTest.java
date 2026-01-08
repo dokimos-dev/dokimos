@@ -28,4 +28,12 @@ class ClasspathDatasetResolverTest {
                 .isInstanceOf(DatasetResolutionException.class)
                 .hasMessageContaining("not found");
     }
+
+    @Test
+    void shouldLoadJsonlFromClasspath() {
+        var dataset = resolver.resolve("classpath:datasets/sample.jsonl");
+
+        assertThat(dataset.size()).isGreaterThan(0);
+        assertThat(dataset.name()).isEqualTo("sample");
+    }
 }

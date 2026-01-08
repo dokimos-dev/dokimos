@@ -70,6 +70,47 @@ public final class DatasetParser {
         return parseCsv(csv, name, ',');
     }
 
+    /**
+     * Parses a dataset from a JSONL string.
+     * Each line is a separate JSON object representing an example.
+     *
+     * @param jsonl the JSONL content
+     * @param name  the dataset name
+     * @return the parsed dataset
+     */
+    public static Dataset parseJsonl(String jsonl, String name) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(jsonl))) {
+            List<Example> examples = new ArrayList<>();
+            String line;
+            int lineNumber = 0;
+
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                if (line.isBlank()) continue;
+
+                try {
+                    Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
+                    examples.add(parseExample(raw));
+                } catch (IOException e) {
+                    throw new IllegalArgumentException(
+                            "Failed to parse JSONL at line " + lineNumber + ": " + e.getMessage(), e);
+                }
+            }
+
+            if (examples.isEmpty()) {
+                throw new IllegalArgumentException("JSONL dataset contains no examples");
+            }
+
+            return Dataset.builder()
+                    .name(name)
+                    .addExamples(examples)
+                    .build();
+
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to parse JSONL dataset", e);
+        }
+    }
+
     public static Dataset parseCsv(String csv, String name, char delimiter) {
         try (BufferedReader reader = new BufferedReader(new StringReader(csv))) {
             String headerLine = reader.readLine();

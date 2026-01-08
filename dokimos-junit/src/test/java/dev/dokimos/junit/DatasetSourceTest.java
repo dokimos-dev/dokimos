@@ -76,4 +76,20 @@ class DatasetSourceTest {
     assertThat(example.input()).contains("Capital");
   }
 
+  @ParameterizedTest
+  @DatasetSource("classpath:datasets/sample.jsonl")
+  void shouldLoadJsonlFromClasspath(Example example) {
+    assertThat(example.input()).isNotBlank();
+    assertThat(example.expectedOutput()).isNotBlank();
+  }
+
+  @ParameterizedTest
+  @DatasetSource(jsonl = """
+      {"input": "What is 2+2?", "expectedOutput": "4"}
+      {"input": "What is 3*3?", "expectedOutput": "9"}
+      """)
+  void shouldLoadFromInlineJsonl(Example example) {
+    assertThat(example.input()).isNotBlank();
+  }
+
 }

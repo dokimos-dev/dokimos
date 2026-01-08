@@ -27,6 +27,9 @@ public class ClasspathDatasetResolver implements DatasetResolver {
             if (resourcePath.endsWith(".csv")) {
                 String name = extractName(resourcePath);
                 return Dataset.fromCsv(content, name);
+            } else if (resourcePath.endsWith(".jsonl")) {
+                String name = extractName(resourcePath);
+                return Dataset.fromJsonl(content, name);
             } else {
                 return Dataset.fromJson(content);
             }

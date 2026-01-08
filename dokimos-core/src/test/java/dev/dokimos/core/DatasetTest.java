@@ -194,4 +194,89 @@ class DatasetTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("input");
     }
+
+    @Test
+    void shouldParseJsonl() {
+        String jsonl = """
+                {"input": "What is 2+2?", "expectedOutput": "4"}
+                {"input": "What is 3*3?", "expectedOutput": "9"}
+                """;
+
+        var dataset = Dataset.fromJsonl(jsonl, "math-qa");
+
+        assertThat(dataset.name()).isEqualTo("math-qa");
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).input()).isEqualTo("What is 2+2?");
+        assertThat(dataset.get(0).expectedOutput()).isEqualTo("4");
+        assertThat(dataset.get(1).input()).isEqualTo("What is 3*3?");
+    }
+
+    @Test
+    void shouldParseJsonlWithNestedStructure() {
+        String jsonl = """
+                {"inputs": {"question": "What is AI?"}, "expectedOutputs": {"answer": "Artificial Intelligence"}, "metadata": {"source": "wiki"}}
+                {"inputs": {"question": "What is ML?"}, "expectedOutputs": {"answer": "Machine Learning"}}
+                """;
+
+        var dataset = Dataset.fromJsonl(jsonl, "ai-qa");
+
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).inputs()).containsEntry("question", "What is AI?");
+        assertThat(dataset.get(0).expectedOutputs()).containsEntry("answer", "Artificial Intelligence");
+        assertThat(dataset.get(0).metadata()).containsEntry("source", "wiki");
+    }
+
+    @Test
+    void shouldIgnoreBlankLinesInJsonl() {
+        String jsonl = """
+                {"input": "First", "expectedOutput": "1"}
+
+                {"input": "Second", "expectedOutput": "2"}
+
+                """;
+
+        var dataset = Dataset.fromJsonl(jsonl, "test");
+
+        assertThat(dataset.size()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldLoadJsonlFromFile(@TempDir Path tempDir) throws IOException {
+        String jsonl = """
+                {"input": "hello", "expectedOutput": "world"}
+                {"input": "foo", "expectedOutput": "bar"}
+                """;
+        Path file = tempDir.resolve("test.jsonl");
+        Files.writeString(file, jsonl);
+
+        var dataset = Dataset.fromJsonl(file);
+
+        assertThat(dataset.name()).isEqualTo("test");
+        assertThat(dataset.size()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldThrowOnEmptyJsonl() {
+        String jsonl = """
+
+
+                """;
+
+        assertThatThrownBy(() -> Dataset.fromJsonl(jsonl, "empty"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no examples");
+    }
+
+    @Test
+    void shouldThrowOnMalformedJsonlLine() {
+        String jsonl = """
+                {"input": "valid", "expectedOutput": "ok"}
+                {invalid json here}
+                {"input": "another", "expectedOutput": "one"}
+                """;
+
+        assertThatThrownBy(() -> Dataset.fromJsonl(jsonl, "test"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("line 2");
+    }
 }

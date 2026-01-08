@@ -1,0 +1,3 @@
+{"input": "What is the capital of France?", "expectedOutput": "Paris"}
+{"input": "What is 2+2?", "expectedOutput": "4"}
+{"input": "Who wrote Hamlet?", "expectedOutput": "William Shakespeare"}

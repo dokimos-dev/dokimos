@@ -55,4 +55,19 @@ class FileDatasetResolverTest {
                 .isInstanceOf(DatasetResolutionException.class)
                 .hasMessageContaining("Failed to load");
     }
+
+    @Test
+    void shouldLoadFromJsonl(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("test.jsonl");
+        Files.writeString(file, """
+                {"input": "Hello", "expectedOutput": "Hi"}
+                {"input": "Goodbye", "expectedOutput": "Bye"}
+                """);
+
+        var dataset = resolver.resolve(file.toString());
+
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).input()).isEqualTo("Hello");
+        assertThat(dataset.get(1).input()).isEqualTo("Goodbye");
+    }
 }

@@ -108,7 +108,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         double aggregatedScore = aggregationStrategy.aggregate(criterionScores);
 
         // Generate overall reason
-        String reason = generateOverallReason(trajectory, criterionScores);
+        String reason = generateOverallReason(criterionScores);
 
         // Build metadata
         Map<String, Object> metadata = new HashMap<>();

@@ -198,8 +198,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         return sb.toString().trim();
     }
 
-    private String generateOverallReason(ConversationTrajectory trajectory,
-            List<Map.Entry<EvaluationCriterion, Double>> criterionScores) {
+    private String generateOverallReason(List<Map.Entry<EvaluationCriterion, Double>> criterionScores) {
         if (criteria.size() == 1) {
             // If only one criterion, use its score directly in the reason
             Map.Entry<EvaluationCriterion, Double> entry = criterionScores.get(0);

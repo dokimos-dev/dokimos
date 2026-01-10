@@ -9,8 +9,6 @@ package dev.dokimos.core.conversation;
  * conversation trajectory. Implementations can use LLMs, scripted responses, or
  * any other strategy to produce realistic user interactions.
  * <p>
- * This interface is inspired by OpenEvals' simulated user pattern but adapted
- * for the Dokimos framework.
  *
  * @see LLMSimulatedUser for an LLM-based implementation
  * @see UserPersonas for pre-built persona factories

@@ -12,10 +12,6 @@ import java.util.function.Predicate;
  * conditions,
  * and captures the complete interaction trajectory for evaluation.
  * <p>
- * Inspired by OpenEvals' {@code run_multiturn_simulation} but adapted for the
- * Dokimos
- * framework with Java idioms and builder pattern configuration.
- * <p>
  * Example usage:
  * 
  * <pre>{@code

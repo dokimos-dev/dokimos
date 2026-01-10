@@ -11,7 +11,7 @@ import java.util.List;
  * This implementation uses a {@link JudgeLM} to generate contextually
  * appropriate user messages based on a configured persona and behavior
  * guidelines. It supports both fully dynamic responses and fixed initial
- * responses (inspired by OpenEvals' fixed_responses pattern).
+ * responses.
  * <p>
  * Example usage:
  * 

@@ -6,7 +6,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "Dokimos | LLM Evaluation Framework for Java",
-  tagline: "An Evaluation framework for LLM applications in Java.",
+  tagline: "An Evaluation Framework for LLM applications in Java.",
   favicon: "img/favicon.ico",
   staticDirectories: ["public", "static"],
 

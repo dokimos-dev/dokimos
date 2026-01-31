@@ -334,7 +334,6 @@ Evaluator lengthCheck = new ResponseLengthEvaluator("Length Check", 50, 200);
 ```
 
 For very simple checks, you can also implement the `Evaluator` interface directly.
-```
 
 ## Combining Multiple Evaluators
 

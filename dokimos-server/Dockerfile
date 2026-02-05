@@ -24,6 +24,11 @@ COPY dokimos-server/frontend ./dokimos-server/frontend
 # Build the application
 RUN mvn clean package -pl dokimos-server -am -DskipTests
 
+# Extract only the Spring Boot fat JAR
+RUN find dokimos-server/target -maxdepth 1 -name "dokimos-server-*.jar" \
+    ! -name "*-sources.jar" ! -name "*-javadoc.jar" \
+    | head -1 | xargs -I{} cp {} /app/app.jar
+
 # Runtime stage
 FROM eclipse-temurin:17-jre
 
@@ -36,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 # Create non-root user
 RUN groupadd -r dokimos && useradd -r -g dokimos dokimos
 
-COPY --from=builder /app/dokimos-server/target/*.jar app.jar
+COPY --from=builder /app/app.jar app.jar
 
 RUN chown -R dokimos:dokimos /app
 

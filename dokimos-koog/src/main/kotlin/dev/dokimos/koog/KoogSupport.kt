@@ -23,8 +23,8 @@ object KoogSupport {
     /**
      * Creates a [JudgeLM] from a Koog [AIAgent].
      *
-     * The agent is executed in a blocking coroutine. The agent is expected to
-     * take the prompt as input and return a textual response.
+     * Provide a blocking runner that invokes the agent (callers may wrap
+     * suspending `run` with `runBlocking` in their codebase if needed).
      */
     fun asJudge(agent: AIAgent<String, String>, runner: (AIAgent<String, String>, String) -> String): JudgeLM =
         asJudge { prompt -> runner(agent, prompt) }

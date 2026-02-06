@@ -13,28 +13,27 @@ import dev.dokimos.core.Task
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.evaluators.ExactMatchEvaluator
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator
+import dev.dokimos.koog.runBlocking
 import kotlinx.coroutines.runBlocking
 
 /**
  * A simple Koog + Dokimos evaluation example (no RAG).
  * Requires the `OPENAI_API_KEY` environment variable.
  */
-suspend fun main() {
+fun main() {
     val apiKey = System.getenv("OPENAI_API_KEY")
     if (apiKey.isNullOrBlank()) {
         System.err.println("OPENAI_API_KEY not set; skipping Koog evaluation example")
-        return
+        return System.exit(-1)
     }
 
     // 1. Set up Koog single-run agent (idiomatic creation)
     val agent = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT4_1Mini,
-        systemPrompt = "You are a helpful assistant. Answer user questions concisely.",
-        maxIterations = 1
+        maxIterations = 10
     )
 
-    suspend fun runKoog(promptText: String): String = agent.run(promptText)
 
     // 2. Create dataset
     val dataset = Dataset.builder()
@@ -53,13 +52,13 @@ suspend fun main() {
     // 3. Task using Koog agent (wrap suspend into blocking for Task contract)
     val task: Task = Task { example ->
         val input = example.inputs()["input"] as? String ?: example.input()
-        mapOf("output" to runBlocking { runKoog("Answer the following customer question concisely: $input") })
+        mapOf("output" to agent.runBlocking("Answer the following customer question concisely: $input"))
     }
 
     // 4. Judge using same agent
     val judge = JudgeLM { prompt ->
         requireNotNull(prompt) { "Prompt cannot be null" }
-        val content = runBlocking { runKoog(prompt) }
+        val content:String = agent.runBlocking(prompt)
         require(content.isNotBlank()) { "Judge response content was blank" }
         content
     }

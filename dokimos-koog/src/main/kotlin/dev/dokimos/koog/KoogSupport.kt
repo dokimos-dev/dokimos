@@ -4,7 +4,9 @@ import ai.koog.agents.core.agent.AIAgent
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.Task
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Utilities for integrating Dokimos with Koog agents.
@@ -46,6 +48,10 @@ fun asJudge(agent: AIAgent<String, String>): JudgeLM {
  */
 fun ragTask(agentCall: (String) -> RagResult): Task {
     return ragTask(agentCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY)
+}
+
+fun <I, O> AIAgent<I, O>.runBlocking(input:I, context: CoroutineContext = Dispatchers.Default):O = runBlocking {
+    run(input)
 }
 
 /**

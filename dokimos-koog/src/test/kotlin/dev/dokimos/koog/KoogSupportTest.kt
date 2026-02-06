@@ -5,6 +5,16 @@ import dev.dokimos.core.Example
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.agent.config.AIAgentConfig
+import ai.koog.agents.core.agent.config.AIAgentConfigBase
+import ai.koog.agents.core.agent.AIAgent.Companion.State.Finished
+import ai.koog.agents.core.agent.AIAgent.Companion.State.NotStarted
+import ai.koog.agents.testing.client.CapturingLLMClient
+import ai.koog.prompt.dsl.prompt
+import ai.koog.prompt.llm.LLModel
+import ai.koog.prompt.llm.LLMProvider
+import kotlinx.coroutines.runBlocking
 
 class KoogSupportTest {
 
@@ -100,4 +110,76 @@ class KoogSupportTest {
 
         assertThat(outputs).containsEntry("latencyMs", 12L)
     }
+
+    @Test
+    fun `asJudge with agent runner delegates to agent`() {
+        val client = CapturingLLMClient()
+        val model = LLModel(object : LLMProvider("provider", "Provider") {}, "model-id", emptyList(), 0, null)
+        val agent = BlockingAgent(model, client) { prompt -> "$prompt -> judged" }
+
+        val judge = KoogSupport.asJudge(agent) { a, prompt ->
+            runBlocking { a.run(prompt) }
+        }
+
+        val response = judge.generate("evaluate me")
+
+        assertThat(response).isEqualTo("evaluate me -> judged")
+        assertThat(agent.lastPrompt).isEqualTo("evaluate me")
+        assertThat(client.lastExecutedModel).isEqualTo(model)
+        assertThat(client.lastExecutedPrompt).isNotNull
+    }
+
+    @Test
+    fun `task with agent runner delegates to agent`() {
+        val client = CapturingLLMClient()
+        val model = LLModel(object : LLMProvider("provider", "Provider") {}, "model-id", emptyList(), 0, null)
+        val agent = BlockingAgent(model, client) { input -> "$input -> reply" }
+
+        val task = KoogSupport.task(agent) { a, input ->
+            runBlocking { a.run(input) }
+        }
+
+        val example = Example.builder()
+                .input(KoogSupport.INPUT_KEY, "hello")
+                .build()
+
+        val outputs = task.run(example)
+
+        assertThat(outputs).containsEntry(KoogSupport.OUTPUT_KEY, "hello -> reply")
+        assertThat(agent.lastPrompt).isEqualTo("hello")
+        assertThat(client.lastExecutedModel).isEqualTo(model)
+    }
+}
+
+private class BlockingAgent(
+        override val agentConfig: AIAgentConfigBase,
+        private val client: CapturingLLMClient,
+        private val handler: (String) -> String
+) : AIAgent<String, String> {
+
+    constructor(model: LLModel, client: CapturingLLMClient, handler: (String) -> String) : this(
+            AIAgentConfig(
+                    prompt = prompt("capture") {},
+                    model = model,
+                    maxAgentIterations = 1
+            ),
+            client,
+            handler
+    )
+
+    override val id: String = "test-agent"
+    var lastPrompt: String? = null
+    private var lastResult: String? = null
+
+    override suspend fun run(input: String): String {
+        lastPrompt = input
+        client.lastExecutedPrompt = prompt("capture") {}
+        client.lastExecutedModel = agentConfig.model
+        return handler(input).also { lastResult = it }
+    }
+
+    override suspend fun close() { /* no-op */ }
+
+    override suspend fun getState(): AIAgent.Companion.State<String> =
+            lastResult?.let { Finished(it) } ?: NotStarted()
 }

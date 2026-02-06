@@ -54,12 +54,22 @@
         </dependency>
         <dependency>
             <groupId>ai.koog</groupId>
+            <artifactId>koog-agents-jvm</artifactId>
+            <version>0.6.1</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.koog</groupId>
             <artifactId>prompt-executor-openai-client-jvm</artifactId>
             <version>0.6.1</version>
         </dependency>
         <dependency>
             <groupId>ai.koog</groupId>
             <artifactId>prompt-executor-llms-jvm</artifactId>
+            <version>0.6.1</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.koog</groupId>
+            <artifactId>prompt-executor-llms-all-jvm</artifactId>
             <version>0.6.1</version>
         </dependency>
         <dependency>
@@ -130,6 +140,8 @@
     </dependencies>
 
     <build>
+        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

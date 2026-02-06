@@ -57,12 +57,10 @@ class KoogSupportTest {
                 mapOf("latencyMs" to 120L)
         )
 
-        val response = KoogSupport.toEvaluationResponse(result)
-
-        assertThat(response.pass).isTrue()
-        assertThat(response.feedback).isEqualTo("Response grounded in documents")
-        assertThat(response.metadata).containsEntry("score", 0.92)
-        assertThat(response.metadata).containsEntry("latencyMs", 120L)
+        assertThat(result.success).isTrue()
+        assertThat(result.reason).isEqualTo("Response grounded in documents")
+        assertThat(result.score).isEqualTo(0.92)
+        assertThat(result.metadata).containsEntry("latencyMs", 120L)
     }
 
     @Test

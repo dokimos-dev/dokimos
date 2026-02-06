@@ -5,7 +5,6 @@ import dev.dokimos.core.EvalResult
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.Task
-import kotlinx.coroutines.runBlocking
 
 /**
  * Utilities for integrating Dokimos with Koog agents.
@@ -27,29 +26,17 @@ object KoogSupport {
      * The agent is executed in a blocking coroutine. The agent is expected to
      * take the prompt as input and return a textual response.
      */
-    fun asJudge(agent: AIAgent<String, String>): JudgeLM {
-        return asJudge(agent) { it }
-    }
+    fun asJudge(agent: AIAgent<String, String>, runner: (AIAgent<String, String>, String) -> String): JudgeLM =
+        asJudge { prompt -> runner(agent, prompt) }
 
     /**
-     * Creates a [JudgeLM] from a Koog [AIAgent] with a custom mapper from the
-     * agent output to text.
-     */
-    fun <Output> asJudge(agent: AIAgent<String, Output>, toText: (Output) -> String): JudgeLM {
-        return asJudge { prompt ->
-            val result = runBlocking { agent.run(prompt) }
-            toText(result)
-        }
-    }
-
-    /**
-     * Creates a [JudgeLM] from any suspending call that accepts a prompt and
+     * Creates a [JudgeLM] from any blocking call that accepts a prompt and
      * returns text.
      */
-    fun asJudge(agentCall: suspend (String) -> String): JudgeLM {
+    fun asJudge(agentCall: (String) -> String): JudgeLM {
         return JudgeLM { prompt ->
             requireNotNull(prompt) { "Prompt cannot be null" }
-            val content = runBlocking { agentCall(prompt) }
+            val content = agentCall(prompt)
             require(content.isNotBlank()) { "Judge response content was blank" }
             content
         }
@@ -73,43 +60,20 @@ object KoogSupport {
     }
 
     /**
-     * Converts a Dokimos [EvalResult] to a simple Koog-friendly response DTO.
-     */
-    fun toEvaluationResponse(result: EvalResult): KoogEvaluationResponse {
-        val metadata = HashMap<String, Any>(result.metadata())
-        metadata["score"] = result.score()
-        return KoogEvaluationResponse(
-            pass = result.success(),
-            feedback = result.reason(),
-            metadata = metadata
-        )
-    }
-
-    /**
      * Creates a simple [Task] that runs a Koog agent and maps its string output
      * into Dokimos output keys.
      */
-    fun task(agent: AIAgent<String, String>): Task = task(agent) { it }
+    fun task(agent: AIAgent<String, String>, runner: (AIAgent<String, String>, String) -> String): Task =
+        task { input -> runner(agent, input) }
 
     /**
-     * Creates a [Task] from a Koog agent with a custom mapper from the agent
-     * output to text.
-     */
-    fun <Output> task(agent: AIAgent<String, Output>, toText: (Output) -> String): Task {
-        return task { input ->
-            val result = runBlocking { agent.run(input) }
-            toText(result)
-        }
-    }
-
-    /**
-     * Creates a [Task] from any suspending call that accepts the example input
+     * Creates a [Task] from any blocking call that accepts the example input
      * and returns text.
      */
-    fun task(agentCall: suspend (String) -> String): Task {
+    fun task(agentCall: (String) -> String): Task {
         return Task { example ->
             val input = example.inputs()[INPUT_KEY] as? String ?: example.input()
-            val output = runBlocking { agentCall(input) }
+            val output = agentCall(input)
             mapOf(OUTPUT_KEY to output)
         }
     }
@@ -118,7 +82,7 @@ object KoogSupport {
      * Creates a RAG-oriented [Task] using a suspending Koog call that returns
      * both the answer and its retrieved context.
      */
-    fun ragTask(agentCall: suspend (String) -> RagResult): Task {
+    fun ragTask(agentCall: (String) -> RagResult): Task {
         return ragTask(agentCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY)
     }
 
@@ -126,14 +90,14 @@ object KoogSupport {
      * Creates a RAG-oriented [Task] with configurable keys.
      */
     fun ragTask(
-        agentCall: suspend (String) -> RagResult,
+        agentCall: (String) -> RagResult,
         inputKey: String,
         outputKey: String,
         contextKey: String
     ): Task {
         return Task { example ->
             val input = example.inputs()[inputKey] as? String ?: example.input()
-            val result = runBlocking { agentCall(input) }
+            val result = agentCall(input)
             buildMap<String, Any> {
                 put(outputKey, result.output)
                 if (result.context.isNotEmpty()) {
@@ -154,13 +118,4 @@ data class RagResult(
     val output: String,
     val context: List<String> = emptyList(),
     val metadata: Map<String, Any> = emptyMap()
-)
-
-/**
- * Simple response DTO for mapping Dokimos results back into Koog flows.
- */
-data class KoogEvaluationResponse(
-    val pass: Boolean,
-    val feedback: String,
-    val metadata: Map<String, Any>
 )

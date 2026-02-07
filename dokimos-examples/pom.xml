@@ -22,7 +22,7 @@
         <maven.install.skip>true</maven.install.skip>
         <maven.source.skip>true</maven.source.skip>
         <maven.javadoc.skip>true</maven.javadoc.skip>
-        <kotlin.version>2.3.10</kotlin.version>
+        <koog.version>0.6.1</koog.version>
     </properties>
 
     <dependencies>
@@ -55,27 +55,31 @@
         <dependency>
             <groupId>ai.koog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
-            <version>0.6.1</version>
+            <version>${koog.version}</version>
         </dependency>
         <dependency>
-            <groupId>ai.koog</groupId>
-            <artifactId>prompt-executor-openai-client-jvm</artifactId>
-            <version>0.6.1</version>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-client-cio-jvm</artifactId>
+            <version>3.2.2</version>
         </dependency>
-        <dependency>
-            <groupId>ai.koog</groupId>
-            <artifactId>prompt-executor-llms-jvm</artifactId>
-            <version>0.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>ai.koog</groupId>
-            <artifactId>prompt-executor-llms-all-jvm</artifactId>
-            <version>0.6.1</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>ai.koog</groupId>-->
+<!--            <artifactId>prompt-executor-openai-client-jvm</artifactId>-->
+<!--            <version>${koog.version}</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>ai.koog</groupId>-->
+<!--            <artifactId>prompt-executor-llms-jvm</artifactId>-->
+<!--            <version>${koog.version}</version>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>ai.koog</groupId>-->
+<!--            <artifactId>prompt-executor-llms-all-jvm</artifactId>-->
+<!--            <version>${koog.version}</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
-            <version>${kotlin.version}</version>
         </dependency>
         <dependency>
             <groupId>dev.dokimos</groupId>

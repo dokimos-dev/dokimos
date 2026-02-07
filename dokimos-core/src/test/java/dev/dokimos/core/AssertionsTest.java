@@ -66,7 +66,7 @@ class AssertionsTest {
         assertThatThrownBy(() -> Assertions.assertEval(testCase, failingEvaluator))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("correctness")
-                .hasMessageContaining("0.30")
+                .hasMessageMatching(".*0[\\.,]30.*")
                 .hasMessageContaining("The output doesn't match");
     }
 

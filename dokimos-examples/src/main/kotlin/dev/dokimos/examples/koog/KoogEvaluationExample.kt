@@ -3,18 +3,11 @@ package dev.dokimos.examples.koog
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
-import dev.dokimos.core.Dataset
-import dev.dokimos.core.EvalTestCaseParam
-import dev.dokimos.core.Evaluator
-import dev.dokimos.core.Example
-import dev.dokimos.core.Experiment
-import dev.dokimos.core.ExperimentResult
-import dev.dokimos.core.Task
-import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.*
 import dev.dokimos.core.evaluators.ExactMatchEvaluator
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator
+import dev.dokimos.koog.asJudge
 import dev.dokimos.koog.runBlocking
-import kotlinx.coroutines.runBlocking
 
 /**
  * A simple Koog + Dokimos evaluation example (no RAG).
@@ -28,9 +21,9 @@ fun main() {
     }
 
     // 1. Set up Koog single-run agent (idiomatic creation)
-    val agent = AIAgent(
+    fun agent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
-        llmModel = OpenAIModels.Chat.GPT4_1Mini,
+        llmModel = OpenAIModels.Chat.GPT5Nano,
         maxIterations = 10
     )
 
@@ -49,19 +42,20 @@ fun main() {
             "Yes, we provide 24/7 technical support via email and chat."))
         .build()
 
-    // 3. Task using Koog agent (wrap suspend into blocking for Task contract)
-    val task: Task = Task { example ->
-        val input = example.inputs()["input"] as? String ?: example.input()
-        mapOf("output" to agent.runBlocking("Answer the following customer question concisely: $input"))
+    // 3. Create task that calls Koog agent
+    val task: Task =  { example ->
+        val prompt = "Answer the following customer question concisely: " + example.input()
+        val response = agent().runBlocking(prompt)
+        mapOf("output" to response)
     }
 
-    // 4. Judge using same agent
-    val judge = JudgeLM { prompt ->
-        requireNotNull(prompt) { "Prompt cannot be null" }
-        val content:String = agent.runBlocking(prompt)
-        require(content.isNotBlank()) { "Judge response content was blank" }
-        content
-    }
+    // 4. Set up evaluators using Koog's agent as judge
+    fun judgeAgent() = AIAgent(
+        promptExecutor = simpleOpenAIExecutor(apiKey),
+        llmModel = OpenAIModels.Chat.GPT5Nano,
+        maxIterations = 10
+    )
+    val judge = asJudge(::judgeAgent)
 
     val evaluators: List<Evaluator> = listOf(
         ExactMatchEvaluator.builder()
@@ -96,12 +90,12 @@ fun main() {
     println("=".repeat(60))
     println("Koog Customer Support Evaluation Results")
     println("=".repeat(60))
-    println("Pass rate: ${"%0.0f".format(result.passRate() * 100)}%")
+    println("Pass rate: ${"%.0f".format(result.passRate() * 100)}%")
     println()
 
     println("Average Scores:")
-    println("  Answer Quality: ${"%0.2f".format(result.averageScore("Answer Quality"))}")
-    println("  Conciseness: ${"%0.2f".format(result.averageScore("Conciseness"))}")
+    println("  Answer Quality: ${"%.2f".format(result.averageScore("Answer Quality"))}")
+    println("  Conciseness: ${"%.2f".format(result.averageScore("Conciseness"))}")
     println()
 
     println("Detailed Results:")
@@ -111,10 +105,10 @@ fun main() {
         println("Question: ${item.example().input()}")
         println("Response: ${item.actualOutputs()["output"]}")
         println("Expected: ${item.example().expectedOutput()}")
-        println("Status: ${if (item.success()) "✓ PASS" else "✗ FAIL"}")
+        println("Status: ${if (item.success()) "✅ PASS" else "❌ FAIL"}")
         println("Scores:")
         item.evalResults().forEach { eval ->
-            println("  • ${eval.name()}: ${"%0.2f".format(eval.score())}${if (eval.success()) " ✓" else " ✗"}")
+            println("  • ${eval.name()}: ${"%.2f".format(eval.score())}${if (eval.success()) " ❌" else " ✅"}")
         }
     }
     println()

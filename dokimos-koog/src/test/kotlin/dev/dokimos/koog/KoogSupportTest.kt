@@ -39,7 +39,7 @@ class KoogSupportTest {
 
     @Test
     fun `asJudge rejects blank responses`() {
-        val judge = asJudge { "" }
+        val judge = asJudge { _ -> "" }
 
         assertThatThrownBy { judge.generate("prompt") }
                 .isInstanceOf(IllegalArgumentException::class.java)

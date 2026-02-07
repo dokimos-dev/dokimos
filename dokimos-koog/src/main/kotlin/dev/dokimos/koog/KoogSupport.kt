@@ -37,8 +37,8 @@ fun asJudge(agentCall: suspend (String) -> String): JudgeLM {
 /**
  * Creates a [JudgeLM] from a suspending Koog agent.
  */
-fun asJudge(agent: AIAgent<String, String>): JudgeLM {
-    return asJudge(agent::run)
+fun asJudge(agent:() ->  AIAgent<String, String>): JudgeLM {
+     return asJudge { input -> agent().run(input) }
 }
 
 

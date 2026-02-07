@@ -53,6 +53,15 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>6.0.1</junit.version>
         <junit.platform.version>6.0.1</junit.platform.version>
+
+        <!-- Keep Kotlin artifacts consistent across modules (Koog + openai-java are Kotlin-based) -->
+        <kotlin.version>2.3.10</kotlin.version>
+        <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
+        <ktor.version>3.2.2</ktor.version>
+
+        <!-- Align Apache HttpComponents 5 (required by Ktor apache5 engine) -->
+        <httpcomponents5.version>5.5</httpcomponents5.version>
+        <httpcore5.version>5.3.4</httpcore5.version>
     </properties>
 
     <dependencyManagement>
@@ -65,6 +74,58 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- Kotlin BOM (align stdlib/reflect across the whole build) -->
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-bom</artifactId>
+                <version>${kotlin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Ktor BOM (align client/server/engines across modules) -->
+            <dependency>
+                <groupId>io.ktor</groupId>
+                <artifactId>ktor-bom</artifactId>
+                <version>${ktor.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-serialization-core-jvm</artifactId>
+                <version>${kotlinx.serialization.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-serialization-json-jvm</artifactId>
+                <version>${kotlinx.serialization.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlinx</groupId>
+                <artifactId>kotlinx-serialization-json-io-jvm</artifactId>
+                <version>${kotlinx.serialization.version}</version>
+            </dependency>
+
+            <!-- Explicitly manage Kotlin runtime artifacts to avoid older transitive pulls -->
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-jdk8</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-reflect</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+
 
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
@@ -124,6 +185,23 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>2.0.16</version>
+            </dependency>
+
+            <!-- Force a consistent HttpComponents5 stack to avoid runtime NoSuchMethodError in ktor-client-apache5 -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${httpcomponents5.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5</artifactId>
+                <version>${httpcore5.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents.core5</groupId>
+                <artifactId>httpcore5-h2</artifactId>
+                <version>${httpcore5.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

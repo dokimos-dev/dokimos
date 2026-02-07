@@ -57,7 +57,6 @@
         <!-- Keep Kotlin artifacts consistent across modules (Koog + openai-java are Kotlin-based) -->
         <kotlin.version>2.3.10</kotlin.version>
         <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
-        <ktor.version>3.2.2</ktor.version>
 
         <!-- Align Apache HttpComponents 5 (required by Ktor apache5 engine) -->
         <httpcomponents5.version>5.5</httpcomponents5.version>
@@ -80,15 +79,6 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-bom</artifactId>
                 <version>${kotlin.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <!-- Ktor BOM (align client/server/engines across modules) -->
-            <dependency>
-                <groupId>io.ktor</groupId>
-                <artifactId>ktor-bom</artifactId>
-                <version>${ktor.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

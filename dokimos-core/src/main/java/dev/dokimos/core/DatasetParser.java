@@ -7,6 +7,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -66,8 +68,19 @@ public final class DatasetParser {
         return new Example(inputs, expectedOutputs, metadata);
     }
 
-    public static Dataset parseCsv(String csv, String name) {
-        return parseCsv(csv, name, ',');
+    /**
+     * Parses a dataset from a JSONL file, streaming line-by-line from disk
+     * without loading the entire file into memory.
+     *
+     * @param path the file path
+     * @param name the dataset name
+     * @return the parsed dataset
+     * @throws IOException if reading the file fails
+     */
+    public static Dataset parseJsonl(Path path, String name) throws IOException {
+        try (BufferedReader reader = Files.newBufferedReader(path)) {
+            return parseJsonl(reader, name);
+        }
     }
 
     /**
@@ -80,35 +93,42 @@ public final class DatasetParser {
      */
     public static Dataset parseJsonl(String jsonl, String name) {
         try (BufferedReader reader = new BufferedReader(new StringReader(jsonl))) {
-            List<Example> examples = new ArrayList<>();
-            String line;
-            int lineNumber = 0;
-
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) continue;
-
-                try {
-                    Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
-                    examples.add(parseExample(raw));
-                } catch (IOException e) {
-                    throw new IllegalArgumentException(
-                            "Failed to parse JSONL at line " + lineNumber + ": " + e.getMessage(), e);
-                }
-            }
-
-            if (examples.isEmpty()) {
-                throw new IllegalArgumentException("JSONL dataset contains no examples");
-            }
-
-            return Dataset.builder()
-                    .name(name)
-                    .addExamples(examples)
-                    .build();
-
+            return parseJsonl(reader, name);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to parse JSONL dataset", e);
         }
+    }
+
+    private static Dataset parseJsonl(BufferedReader reader, String name) throws IOException {
+        List<Example> examples = new ArrayList<>();
+        String line;
+        int lineNumber = 0;
+
+        while ((line = reader.readLine()) != null) {
+            lineNumber++;
+            if (line.isBlank()) continue;
+
+            try {
+                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
+                examples.add(parseExample(raw));
+            } catch (IOException e) {
+                throw new IllegalArgumentException(
+                        "Failed to parse JSONL at line " + lineNumber + ": " + e.getMessage(), e);
+            }
+        }
+
+        if (examples.isEmpty()) {
+            throw new IllegalArgumentException("JSONL dataset contains no examples");
+        }
+
+        return Dataset.builder()
+                .name(name)
+                .addExamples(examples)
+                .build();
+    }
+
+    public static Dataset parseCsv(String csv, String name) {
+        return parseCsv(csv, name, ',');
     }
 
     public static Dataset parseCsv(String csv, String name, char delimiter) {

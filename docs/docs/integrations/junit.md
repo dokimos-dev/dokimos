@@ -75,14 +75,16 @@ JUnit runs this test once for each example in the dataset. If any evaluator does
 From classpath (like `src/test/resources`):
 ```java
 @DatasetSource("classpath:datasets/support-qa.json")
+@DatasetSource("classpath:datasets/support-qa.jsonl")
 ```
 
 From file system:
 ```java
 @DatasetSource("file:testdata/support-qa.json")
+@DatasetSource("file:testdata/support-qa.jsonl")
 ```
 
-Inline for quick tests:
+Inline JSON for quick tests:
 ```java
 @DatasetSource(json = """
     {
@@ -91,6 +93,14 @@ Inline for quick tests:
         {"input": "Track order", "expectedOutput": "Check Order History"}
       ]
     }
+    """)
+```
+
+Inline JSONL for quick tests:
+```java
+@DatasetSource(jsonl = """
+    {"input": "Reset password", "expectedOutput": "Click Forgot Password"}
+    {"input": "Track order", "expectedOutput": "Check Order History"}
     """)
 ```
 

@@ -23,18 +23,24 @@ public class FileDatasetResolver implements DatasetResolver {
     public Dataset resolve(String uri) {
         // Cut off the `FILE_PREFIX` if present
         String pathname = uri.startsWith(FILE_PREFIX) ? uri.substring(FILE_PREFIX.length()) : uri;
+        Path path = Path.of(pathname);
 
         try {
-            if (pathname.endsWith(".csv")) {
-                return Dataset.fromCsv(Path.of(pathname));
-            } else if (pathname.endsWith(".jsonl")) {
-                return Dataset.fromJsonl(Path.of(pathname));
-            } else {
-                return Dataset.fromJson(Path.of(pathname));
-            }
+            return switch (getExtension(pathname)) {
+                case ".json" -> Dataset.fromJson(path);
+                case ".jsonl" -> Dataset.fromJsonl(path);
+                case ".csv" -> Dataset.fromCsv(path);
+                default -> throw new DatasetResolutionException(
+                        "Unsupported file type: " + pathname + ". Supported types: .json, .jsonl, .csv");
+            };
         } catch (IOException e) {
             throw new DatasetResolutionException("Failed to load dataset from file: " + pathname, e);
         }
+    }
+
+    private static String getExtension(String pathname) {
+        int dotIdx = pathname.lastIndexOf('.');
+        return dotIdx >= 0 ? pathname.substring(dotIdx) : "";
     }
 
 

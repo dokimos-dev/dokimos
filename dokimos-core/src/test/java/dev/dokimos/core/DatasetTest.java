@@ -214,7 +214,7 @@ class DatasetTest {
     @Test
     void shouldParseJsonlWithNestedStructure() {
         String jsonl = """
-                {"inputs": {"question": "What is AI?"}, "expectedOutputs": {"answer": "Artificial Intelligence"}, "metadata": {"source": "wiki"}}
+                {"inputs": {"question": "What is AI?", "context": "Technology"}, "expectedOutputs": {"answer": "Artificial Intelligence", "confidence": 0.95}, "metadata": {"source": "wiki", "category": "tech"}}
                 {"inputs": {"question": "What is ML?"}, "expectedOutputs": {"answer": "Machine Learning"}}
                 """;
 
@@ -222,8 +222,33 @@ class DatasetTest {
 
         assertThat(dataset.size()).isEqualTo(2);
         assertThat(dataset.get(0).inputs()).containsEntry("question", "What is AI?");
+        assertThat(dataset.get(0).inputs()).containsEntry("context", "Technology");
         assertThat(dataset.get(0).expectedOutputs()).containsEntry("answer", "Artificial Intelligence");
+        assertThat(dataset.get(0).expectedOutputs()).containsEntry("confidence", 0.95);
         assertThat(dataset.get(0).metadata()).containsEntry("source", "wiki");
+        assertThat(dataset.get(0).metadata()).containsEntry("category", "tech");
+        assertThat(dataset.get(1).inputs()).containsEntry("question", "What is ML?");
+        assertThat(dataset.get(1).expectedOutputs()).containsEntry("answer", "Machine Learning");
+    }
+
+    @Test
+    void shouldParseJsonlWithNestedInputsAndMetadata() {
+        String jsonl = """
+                {"inputs": {"query": "Explain photosynthesis", "language": "en", "max_tokens": 150}, "expectedOutputs": {"summary": "Plants convert sunlight to energy", "keywords": ["plants", "sunlight", "energy"]}, "metadata": {"difficulty": "easy", "subject": "biology"}}
+                {"inputs": {"query": "Describe quantum entanglement", "language": "en", "max_tokens": 200}, "expectedOutputs": {"summary": "Particles share quantum states", "keywords": ["quantum", "particles"]}, "metadata": {"difficulty": "hard", "subject": "physics"}}
+                """;
+
+        var dataset = Dataset.fromJsonl(jsonl, "science-qa");
+
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).inputs()).containsEntry("query", "Explain photosynthesis");
+        assertThat(dataset.get(0).inputs()).containsEntry("language", "en");
+        assertThat(dataset.get(0).inputs()).containsEntry("max_tokens", 150);
+        assertThat(dataset.get(0).expectedOutputs()).containsEntry("summary", "Plants convert sunlight to energy");
+        assertThat(dataset.get(0).metadata()).containsEntry("difficulty", "easy");
+        assertThat(dataset.get(0).metadata()).containsEntry("subject", "biology");
+        assertThat(dataset.get(1).metadata()).containsEntry("difficulty", "hard");
+        assertThat(dataset.get(1).metadata()).containsEntry("subject", "physics");
     }
 
     @Test

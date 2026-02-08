@@ -78,17 +78,16 @@ public record Dataset(String name, String description, List<Example> examples) i
     }
 
     /**
-     * Loads a dataset from a JSONL file.
-     * Each line in the file is a separate JSON object representing an example.
+     * Loads a dataset from a JSONL file, streaming line-by-line from disk
+     * without loading the entire file into memory.
      *
      * @param path the file path
      * @return the loaded dataset
      * @throws IOException if reading the file fails
      */
     public static Dataset fromJsonl(Path path) throws IOException {
-        String content = Files.readString(path);
         String name = path.getFileName().toString().replace(".jsonl", "");
-        return fromJsonl(content, name);
+        return DatasetParser.parseJsonl(path, name);
     }
 
     /**

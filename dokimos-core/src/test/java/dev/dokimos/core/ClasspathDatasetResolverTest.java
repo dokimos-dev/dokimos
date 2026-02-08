@@ -36,4 +36,11 @@ class ClasspathDatasetResolverTest {
         assertThat(dataset.size()).isGreaterThan(0);
         assertThat(dataset.name()).isEqualTo("sample");
     }
+
+    @Test
+    void shouldThrowForUnsupportedResourceType() {
+        assertThatThrownBy(() -> resolver.resolve("classpath:datasets/sample.xml"))
+                .isInstanceOf(DatasetResolutionException.class)
+                .hasMessageContaining("Unsupported resource type");
+    }
 }

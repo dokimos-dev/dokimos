@@ -28,4 +28,19 @@ class ClasspathDatasetResolverTest {
                 .isInstanceOf(DatasetResolutionException.class)
                 .hasMessageContaining("not found");
     }
+
+    @Test
+    void shouldLoadJsonlFromClasspath() {
+        var dataset = resolver.resolve("classpath:datasets/sample.jsonl");
+
+        assertThat(dataset.size()).isGreaterThan(0);
+        assertThat(dataset.name()).isEqualTo("sample");
+    }
+
+    @Test
+    void shouldThrowForUnsupportedResourceType() {
+        assertThatThrownBy(() -> resolver.resolve("classpath:datasets/sample.xml"))
+                .isInstanceOf(DatasetResolutionException.class)
+                .hasMessageContaining("Unsupported resource type");
+    }
 }

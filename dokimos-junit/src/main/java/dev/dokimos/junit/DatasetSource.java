@@ -14,10 +14,12 @@ import java.lang.annotation.Target;
  * <p>
  * Supports multiple source types:
  * <ul>
- * <li>{@code classpath:datasets/dataset.json} - classpath resource</li>
+ * <li>{@code classpath:datasets/dataset.json} - classpath JSON resource</li>
+ * <li>{@code classpath:datasets/dataset.jsonl} - classpath JSONL resource</li>
  * <li>{@code file:path/to/dataset.json} - file path</li>
  * <li>{@code path/to/dataset.json} - file path (default)</li>
  * <li>Inline JSON via {@link #json()}</li>
+ * <li>Inline JSONL via {@link #jsonl()}</li>
  * </ul>
  *
  * <p>
@@ -47,5 +49,11 @@ public @interface DatasetSource {
      * Inline JSON dataset. Use this for small/quick tests only.
      */
     String json() default "";
+
+    /**
+     * Inline JSONL dataset. Each line is a JSON object.
+     * Use this for small/quick tests only.
+     */
+    String jsonl() default "";
 
 }

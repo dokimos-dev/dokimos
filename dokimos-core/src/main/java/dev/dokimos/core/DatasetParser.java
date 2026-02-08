@@ -69,8 +69,7 @@ public final class DatasetParser {
     }
 
     /**
-     * Parses a dataset from a JSONL file, streaming line-by-line from disk
-     * without loading the entire file into memory.
+     * Parses a dataset from a JSONL file, streaming line-by-line from disk.
      *
      * @param path the file path
      * @param name the dataset name
@@ -106,10 +105,12 @@ public final class DatasetParser {
 
         while ((line = reader.readLine()) != null) {
             lineNumber++;
-            if (line.isBlank()) continue;
+            if (line.isBlank())
+                continue;
 
             try {
-                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
+                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {
+                });
                 examples.add(parseExample(raw));
             } catch (IOException e) {
                 throw new IllegalArgumentException(
@@ -149,7 +150,8 @@ public final class DatasetParser {
             List<Example> examples = new ArrayList<>();
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) continue;
+                if (line.isBlank())
+                    continue;
 
                 String[] values = parseCsvLine(line, delimiter);
 

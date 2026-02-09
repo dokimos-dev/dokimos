@@ -59,7 +59,7 @@ Dataset dataset = Dataset.builder()
 
 ## Loading Datasets from Files
 
-For most real-world use cases, you'll want to store your datasets as JSON or CSV files. This makes it easier to version control your test data, collaborate with team members, and separate test data from code.
+For most real-world use cases, you'll want to store your datasets as JSON, JSONL, or CSV files. This makes it easier to version control your test data, collaborate with team members, and separate test data from code.
 
 ### JSON Format
 
@@ -130,6 +130,40 @@ String json = """
 Dataset dataset = Dataset.fromJson(json);
 ```
 
+### JSONL Format
+
+JSONL (JSON Lines) stores one JSON object per line. This format is well-suited for large datasets because Dokimos streams it line-by-line from disk without loading the entire file into memory.
+
+#### Simple Format
+
+```jsonl
+{"input": "Can I get a refund?", "expectedOutput": "Yes, we offer a 30-day money-back guarantee"}
+{"input": "How long does a refund take?", "expectedOutput": "Refunds are processed within 5-7 business days"}
+```
+
+#### Complex Format
+
+Each line supports the same `inputs`, `expectedOutputs`, and `metadata` structure as JSON:
+
+```jsonl
+{"inputs": {"question": "What are the system requirements?", "documentIds": ["doc-123"]}, "expectedOutputs": {"answer": "Requires Java 21 or higher", "confidence": 0.95}, "metadata": {"category": "technical"}}
+{"inputs": {"question": "How do I install?", "documentIds": ["doc-456"]}, "expectedOutputs": {"answer": "Run the installer and follow the prompts", "confidence": 0.9}, "metadata": {"category": "setup"}}
+```
+
+#### Loading JSONL Files
+
+```java
+// From a file path (streamed line-by-line from disk)
+Dataset dataset = Dataset.fromJsonl(Path.of("path/to/dataset.jsonl"));
+
+// From a JSONL string
+String jsonl = """
+    {"input": "Hello", "expectedOutput": "Hi"}
+    {"input": "Goodbye", "expectedOutput": "Bye"}
+    """;
+Dataset dataset = Dataset.fromJsonl(jsonl, "greetings");
+```
+
 ### CSV Format
 
 CSV files work well for simpler datasets. You need at least an `input` column, and optionally an `expectedOutput` column (you can also use `expected_output` or `output` as the column name). Any additional columns are automatically treated as metadata.
@@ -187,7 +221,7 @@ Dataset dataset = DatasetResolverRegistry.getInstance()
     .resolve("path/to/dataset.json");
 ```
 
-Both JSON and CSV files are automatically detected based on the file extension.
+JSON, JSONL, and CSV files are automatically detected based on the file extension.
 
 ## Using Datasets with JUnit
 
@@ -207,7 +241,7 @@ void testQa(Example example) {
 }
 ```
 
-You can also provide inline JSON directly in the annotation:
+You can also provide inline JSON or JSONL directly in the annotation:
 
 ```java
 @ParameterizedTest
@@ -220,7 +254,16 @@ You can also provide inline JSON directly in the annotation:
       ]
     }
     """)
-void testWithInlineData(Example example) {
+void testWithInlineJson(Example example) {
+    // Test implementation
+}
+
+@ParameterizedTest
+@DatasetSource(jsonl = """
+    {"input": "test1", "expectedOutput": "result1"}
+    {"input": "test2", "expectedOutput": "result2"}
+    """)
+void testWithInlineJsonl(Example example) {
     // Test implementation
 }
 ```
@@ -372,6 +415,7 @@ src/test/resources/
   datasets/
     customer-support-v1.json
     product-qa-v2.csv
+    large-evaluation-set.jsonl
     code-review-examples.json
 ```
 

@@ -55,4 +55,45 @@ class FileDatasetResolverTest {
                 .isInstanceOf(DatasetResolutionException.class)
                 .hasMessageContaining("Failed to load");
     }
+
+    @Test
+    void shouldThrowForUnsupportedFileType() {
+        assertThatThrownBy(() -> resolver.resolve("dataset.xml"))
+                .isInstanceOf(DatasetResolutionException.class)
+                .hasMessageContaining("Unsupported file type");
+    }
+
+    @Test
+    void shouldLoadFromJsonl(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("test.jsonl");
+        Files.writeString(file, """
+                {"input": "Hello", "expectedOutput": "Hi"}
+                {"input": "Goodbye", "expectedOutput": "Bye"}
+                """);
+
+        var dataset = resolver.resolve(file.toString());
+
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).input()).isEqualTo("Hello");
+        assertThat(dataset.get(1).input()).isEqualTo("Goodbye");
+    }
+
+    @Test
+    void shouldLoadNestedJsonlFromFile(@TempDir Path tempDir) throws IOException {
+        Path file = tempDir.resolve("complex.jsonl");
+        Files.writeString(file, """
+                {"inputs": {"question": "What is AI?", "context": "Technology"}, "expectedOutputs": {"answer": "Artificial Intelligence"}, "metadata": {"source": "wiki"}}
+                {"inputs": {"question": "What is ML?", "context": "Data Science"}, "expectedOutputs": {"answer": "Machine Learning"}, "metadata": {"source": "textbook"}}
+                """);
+
+        var dataset = resolver.resolve(file.toString());
+
+        assertThat(dataset.size()).isEqualTo(2);
+        assertThat(dataset.get(0).inputs()).containsEntry("question", "What is AI?");
+        assertThat(dataset.get(0).inputs()).containsEntry("context", "Technology");
+        assertThat(dataset.get(0).expectedOutputs()).containsEntry("answer", "Artificial Intelligence");
+        assertThat(dataset.get(0).metadata()).containsEntry("source", "wiki");
+        assertThat(dataset.get(1).inputs()).containsEntry("question", "What is ML?");
+        assertThat(dataset.get(1).metadata()).containsEntry("source", "textbook");
+    }
 }

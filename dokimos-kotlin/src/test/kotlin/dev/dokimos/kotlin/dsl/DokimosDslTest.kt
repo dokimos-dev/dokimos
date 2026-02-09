@@ -1,9 +1,12 @@
 package dev.dokimos.kotlin.dsl
 
 import dev.dokimos.core.EvalTestCaseParam
+import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.Example
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
+import dev.dokimos.core.Evaluator
 import dev.dokimos.kotlin.core.EvalTestCase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -85,11 +88,10 @@ class DokimosDslTest {
             threshold = 0.5
         }
 
-        val testCase = dev.dokimos.core.EvalTestCase.builder()
-            .input("question")
-            .actualOutput("output", "answer")
-            .actualOutput("ctx", "context text")
-            .build()
+        val testCase = EvalTestCase(
+            input = "question",
+            actualOutputs = mapOf("output" to  "answer", "ctx" to "context text")
+        )
 
         val result = evaluator.evaluate(testCase)
 
@@ -159,12 +161,7 @@ class DokimosDslTest {
     }
 
     @Test
-    fun `precision and recall DSL evaluate with matching strategy`() {
-        val precisionEvaluator = precision {
-            retrievedKey = "retr"
-            expectedKey = "rel"
-            matchingStrategy = MatchingStrategy.caseInsensitive()
-        }
+    fun `recall DSL evaluate with matching strategy`() {
 
         val recallEvaluator = recall {
             retrievedKey = "retr"
@@ -178,12 +175,113 @@ class DokimosDslTest {
             expectedOutput = mapOf("rel" to listOf("doca", "docC"))
         )
 
-        val precisionResult = precisionEvaluator.evaluate(testCase)
         val recallResult = recallEvaluator.evaluate(testCase)
 
-        assertThat(precisionResult.score()).isEqualTo(0.5)
         assertThat(recallResult.score()).isEqualTo(0.5)
-        assertThat(precisionResult.success()).isTrue()
         assertThat(recallResult.success()).isTrue()
+    }
+
+    @Test
+    fun `precision DSL evaluate with matching strategy`() {
+
+        val precisionEvaluator = precision {
+            retrievedKey = "retr"
+            expectedKey = "rel"
+            matchingStrategy = MatchingStrategy.caseInsensitive()
+        }
+
+        val testCase = EvalTestCase(
+            input = "query",
+            actualOutputs = mapOf("retr" to listOf("DocA", "DocB")),
+            expectedOutput = mapOf("rel" to listOf("doca", "docC"))
+        )
+
+        val precisionResult = precisionEvaluator.evaluate(testCase)
+
+        assertThat(precisionResult.score()).isEqualTo(0.5)
+        assertThat(precisionResult.success()).isTrue()
+    }
+
+
+    @Test
+    fun `evaluators DSL builds every evaluator method`() {
+        val judge = JudgeLM { "{}" }
+
+        val customEvaluator = object : Evaluator {
+            override fun evaluate(testCase: EvalTestCase): EvalResult =
+                EvalResult.builder()
+                    .name(name())
+                    .score(1.0)
+                    .reason("custom")
+                    .build()
+
+            override fun name(): String = "Custom Eval"
+
+            override fun threshold(): Double = 0.0
+        }
+
+        val evaluators = evaluators {
+            exactMatch {
+                name = "Exact"
+                threshold = 0.9
+            }
+            regex {
+                name = "Regex"
+                pattern = "foo"
+                ignoreCase = true
+                threshold = 0.1
+            }
+            llmJudge(judge) {
+                name = "LLM"
+                criteria = "crit"
+                threshold = 0.2
+            }
+            hallucination(judge) {
+                name = "Halluc"
+                contextKey = "ctx"
+                threshold = 0.3
+            }
+            faithfulness(judge) {
+                name = "Faith"
+                contextKey = "ctx"
+                threshold = 0.4
+            }
+            contextualRelevance(judge) {
+                name = "Context"
+                retrievalContextKey = "ctxList"
+                strictMode = false
+                threshold = 0.5
+            }
+            precision {
+                name = "Precision"
+                retrievedKey = "retr"
+                expectedKey = "rel"
+                threshold = 0.6
+            }
+            recall {
+                name = "Recall"
+                retrievedKey = "retr"
+                expectedKey = "rel"
+                threshold = 0.7
+            }
+            evaluator(customEvaluator)
+        }
+
+
+        assertThat(evaluators).hasSize(9)
+        assertThat(evaluators.map { it.name() }).containsExactly(
+            "Exact",
+            "Regex",
+            "LLM",
+            "Halluc",
+            "Faith",
+            "Context",
+            "Precision",
+            "Recall",
+            "Custom Eval"
+        )
+        assertThat(evaluators.map { it.threshold() }).containsSequence(
+            0.9, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0
+        )
     }
 }

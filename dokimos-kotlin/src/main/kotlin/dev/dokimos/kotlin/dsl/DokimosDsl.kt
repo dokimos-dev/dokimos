@@ -18,12 +18,16 @@ import dev.dokimos.core.evaluators.PrecisionEvaluator
 import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
 import dev.dokimos.core.EvalTestCaseParam
+import kotlin.collections.plusAssign
 
 @DslMarker
 annotation class DokimosDsl
 
 fun experiment(block: ExperimentDsl.() -> Unit): Experiment =
     ExperimentDsl().apply(block).build()
+
+fun evaluators(block: EvaluatorsDsl.() -> Unit): List<Evaluator> =
+    EvaluatorsDsl().apply(block).build()
 
 fun dataset(block: DatasetDsl.() -> Unit): Dataset =
     DatasetDsl().apply(block).build()

@@ -31,7 +31,7 @@ suspend fun main() {
     // Embeddings (all in-memory, string documents)
     val baseEmbedder = LLMEmbedder(OpenAILLMClient(apiKey), OpenAIModels.Embeddings.TextEmbeddingAda002)
     val stringEmbedder = object : DocumentEmbedder<String> {
-        override suspend fun embed(document: String) = baseEmbedder.embed(document)
+        override suspend fun embed(text: String) = baseEmbedder.embed(text)
         override fun diff(embedding1: Vector, embedding2: Vector): Double =
             baseEmbedder.diff(embedding1, embedding2)
     }

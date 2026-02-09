@@ -8,8 +8,14 @@ import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.Reporter
 import dev.dokimos.core.Task
 import dev.dokimos.core.NoOpReporter
+import dev.dokimos.core.MatchingStrategy
+import dev.dokimos.core.evaluators.ContextualRelevanceEvaluator
 import dev.dokimos.core.evaluators.ExactMatchEvaluator
+import dev.dokimos.core.evaluators.FaithfulnessEvaluator
+import dev.dokimos.core.evaluators.HallucinationEvaluator
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator
+import dev.dokimos.core.evaluators.PrecisionEvaluator
+import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
 import dev.dokimos.core.EvalTestCaseParam
 
@@ -29,6 +35,21 @@ fun task(block: (Example) -> Map<String, Any>): Task = Task(block)
 
 fun llmJudge(judge: JudgeLM, block: LlmJudgeEvaluatorDsl.() -> Unit): LLMJudgeEvaluator =
     LlmJudgeEvaluatorDsl(judge).apply(block).build()
+
+fun hallucination(judge: JudgeLM, block: HallucinationEvaluatorDsl.() -> Unit): HallucinationEvaluator =
+    HallucinationEvaluatorDsl(judge).apply(block).build()
+
+fun faithfulness(judge: JudgeLM, block: FaithfulnessEvaluatorDsl.() -> Unit): FaithfulnessEvaluator =
+    FaithfulnessEvaluatorDsl(judge).apply(block).build()
+
+fun contextualRelevance(judge: JudgeLM, block: ContextualRelevanceEvaluatorDsl.() -> Unit): ContextualRelevanceEvaluator =
+    ContextualRelevanceEvaluatorDsl(judge).apply(block).build()
+
+fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}): PrecisionEvaluator =
+    PrecisionEvaluatorDsl().apply(block).build()
+
+fun recall(block: RecallEvaluatorDsl.() -> Unit = {}): RecallEvaluator =
+    RecallEvaluatorDsl().apply(block).build()
 
 
 
@@ -178,6 +199,26 @@ class EvaluatorsDsl {
         evaluators += LlmJudgeEvaluatorDsl(judge).apply(block).build()
     }
 
+    fun hallucination(judge: JudgeLM, block: HallucinationEvaluatorDsl.() -> Unit) {
+        evaluators += HallucinationEvaluatorDsl(judge).apply(block).build()
+    }
+
+    fun faithfulness(judge: JudgeLM, block: FaithfulnessEvaluatorDsl.() -> Unit) {
+        evaluators += FaithfulnessEvaluatorDsl(judge).apply(block).build()
+    }
+
+    fun contextualRelevance(judge: JudgeLM, block: ContextualRelevanceEvaluatorDsl.() -> Unit) {
+        evaluators += ContextualRelevanceEvaluatorDsl(judge).apply(block).build()
+    }
+
+    fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}) {
+        evaluators += PrecisionEvaluatorDsl().apply(block).build()
+    }
+
+    fun recall(block: RecallEvaluatorDsl.() -> Unit = {}) {
+        evaluators += RecallEvaluatorDsl().apply(block).build()
+    }
+
     fun evaluator(evaluator: Evaluator) {
         evaluators += evaluator
     }
@@ -254,5 +295,125 @@ class LlmJudgeEvaluatorDsl(private val judge: JudgeLM) {
             .threshold(threshold)
             .scoreRange(minScore, maxScore)
             .judge(judge)
+            .build()
+}
+
+@DokimosDsl
+class HallucinationEvaluatorDsl(private val judge: JudgeLM) {
+    var name: String = "Hallucination"
+    var contextKey: String = "context"
+    var threshold: Double = 0.5
+    var evaluationParams: List<EvalTestCaseParam> = listOf(
+            EvalTestCaseParam.INPUT,
+            EvalTestCaseParam.ACTUAL_OUTPUT
+    )
+    var includeReason: Boolean = true
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): HallucinationEvaluator = HallucinationEvaluator.builder()
+            .name(name)
+            .contextKey(contextKey)
+            .threshold(threshold)
+            .evaluationParams(evaluationParams)
+            .judge(judge)
+            .includeReason(includeReason)
+            .build()
+}
+
+@DokimosDsl
+class FaithfulnessEvaluatorDsl(private val judge: JudgeLM) {
+    var name: String = "Faithfulness"
+    var contextKey: String = "context"
+    var threshold: Double = 0.8
+    var evaluationParams: List<EvalTestCaseParam> = listOf(
+            EvalTestCaseParam.INPUT,
+            EvalTestCaseParam.ACTUAL_OUTPUT
+    )
+    var includeReason: Boolean = true
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): FaithfulnessEvaluator = FaithfulnessEvaluator.builder()
+            .name(name)
+            .contextKey(contextKey)
+            .threshold(threshold)
+            .evaluationParams(evaluationParams)
+            .judge(judge)
+            .includeReason(includeReason)
+            .build()
+}
+
+@DokimosDsl
+class ContextualRelevanceEvaluatorDsl(private val judge: JudgeLM) {
+    var name: String = "ContextualRelevance"
+    var retrievalContextKey: String = "retrievalContext"
+    var threshold: Double = 0.5
+    var strictMode: Boolean = false
+    var evaluationParams: List<EvalTestCaseParam> = listOf(EvalTestCaseParam.INPUT)
+    var includeReason: Boolean = true
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ContextualRelevanceEvaluator = ContextualRelevanceEvaluator.builder()
+            .name(name)
+            .retrievalContextKey(retrievalContextKey)
+            .threshold(threshold)
+            .strictMode(strictMode)
+            .evaluationParams(evaluationParams)
+            .judge(judge)
+            .includeReason(includeReason)
+            .build()
+}
+
+@DokimosDsl
+class PrecisionEvaluatorDsl {
+    var name: String = "Precision"
+    var retrievedKey: String = "retrieved"
+    var expectedKey: String = "relevant"
+    var threshold: Double = 0.5
+    var matchingStrategy: MatchingStrategy = MatchingStrategy.byEquality()
+    var evaluationParams: List<EvalTestCaseParam> = listOf(EvalTestCaseParam.INPUT)
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): PrecisionEvaluator = PrecisionEvaluator.builder()
+            .name(name)
+            .retrievedKey(retrievedKey)
+            .expectedKey(expectedKey)
+            .threshold(threshold)
+            .matchingStrategy(matchingStrategy)
+            .evaluationParams(evaluationParams)
+            .build()
+}
+
+@DokimosDsl
+class RecallEvaluatorDsl {
+    var name: String = "Recall"
+    var retrievedKey: String = "retrieved"
+    var expectedKey: String = "relevant"
+    var threshold: Double = 0.5
+    var matchingStrategy: MatchingStrategy = MatchingStrategy.byEquality()
+    var evaluationParams: List<EvalTestCaseParam> = listOf(EvalTestCaseParam.INPUT)
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): RecallEvaluator = RecallEvaluator.builder()
+            .name(name)
+            .retrievedKey(retrievedKey)
+            .expectedKey(expectedKey)
+            .threshold(threshold)
+            .matchingStrategy(matchingStrategy)
+            .evaluationParams(evaluationParams)
             .build()
 }

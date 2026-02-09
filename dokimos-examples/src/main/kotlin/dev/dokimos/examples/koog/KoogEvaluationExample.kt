@@ -7,7 +7,6 @@ import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.koog.asJudge
 import dev.dokimos.koog.runBlocking
 import dev.dokimos.kotlin.dsl.experiment
-import dev.dokimos.kotlin.dsl.llmJudge
 import kotlin.system.exitProcess
 
 /**

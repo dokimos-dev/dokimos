@@ -1,21 +1,14 @@
 package dev.dokimos.koog
 
 import ai.koog.agents.core.agent.AIAgent
-import ai.koog.agents.core.agent.AIAgent.Companion.State.Finished
-import ai.koog.agents.core.agent.AIAgent.Companion.State.NotStarted
 import ai.koog.agents.core.agent.config.AIAgentConfig
-import ai.koog.agents.core.agent.config.AIAgentConfigBase
-import ai.koog.agents.testing.client.CapturingLLMClient
 import ai.koog.agents.testing.feature.withTesting
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import dev.dokimos.core.EvalResult
-import dev.dokimos.core.Example
 import dev.dokimos.kotlin.core.EvalTestCase
 import io.mockk.mockk
-import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

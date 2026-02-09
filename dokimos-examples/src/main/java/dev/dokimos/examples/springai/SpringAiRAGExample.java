@@ -38,7 +38,6 @@ public class SpringAiRAGExample {
                 OpenAiApi openAiApi = OpenAiApi.builder().apiKey(System.getenv("OPENAI_API_KEY")).build();
 
                 EmbeddingModel embeddingModel = new OpenAiEmbeddingModel(openAiApi);
-                @SuppressWarnings("removal")
                 VectorStore vectorStore = SimpleVectorStore.builder(embeddingModel).build();
 
                 // 2. Ingest documents into vector store

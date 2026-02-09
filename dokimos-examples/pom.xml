@@ -26,6 +26,7 @@
         <spring-version>3.5.10</spring-version>
         <langchain4j.version>1.11.0</langchain4j.version>
         <langchain4j.embeddings.version>1.11.0-beta19</langchain4j.embeddings.version>
+        <kotlin.version>2.3.10</kotlin.version>
         <koog.version>0.6.1</koog.version>
         <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
     </properties>

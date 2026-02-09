@@ -10,6 +10,10 @@
         <version>0.12.0-SNAPSHOT</version>
     </parent>
 
+    <properties>
+        <kotlin.version>2.3.10</kotlin.version>
+    </properties>
+
 <artifactId>dokimos-kotlin</artifactId>
 <name>Dokimos :: DSL :: Kotlin</name>
 <description>Kotlin DSL for Dokimos builders</description>

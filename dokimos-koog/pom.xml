@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns="http://maven.apache.org/POM/4.0.0"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -10,9 +10,16 @@
         <version>0.12.0-SNAPSHOT</version>
     </parent>
 
-<artifactId>dokimos-koog</artifactId>
-<name>Dokimos :: Integration :: Koog</name>
-<description>Koog integration for Dokimos</description>
+    <properties>
+        <koog.version>0.6.1</koog.version>
+        <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
+        <mockk.version>1.14.6</mockk.version>
+        <kotlin.version>2.3.10</kotlin.version>
+    </properties>
+
+    <artifactId>dokimos-koog</artifactId>
+    <name>Dokimos :: Integration :: Koog</name>
+    <description>Koog integration for Dokimos</description>
 
     <dependencyManagement>
         <dependencies>
@@ -26,11 +33,7 @@
         </dependencies>
     </dependencyManagement>
 
-    <properties>
-        <koog.version>0.6.1</koog.version>
-        <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
-        <mockk.version>1.14.6</mockk.version>
-    </properties>
+
 
     <dependencies>
         <dependency>

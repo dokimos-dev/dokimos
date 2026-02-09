@@ -54,13 +54,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>6.0.1</junit.version>
         <junit.platform.version>6.0.1</junit.platform.version>
-
-        <!-- Keep Kotlin plugin version aligned for Kotlin modules -->
-        <kotlin.version>2.3.10</kotlin.version>
-
-        <!-- Align Apache HttpComponents 5 (required by Ktor apache5 engine) -->
-        <httpcomponents5.version>5.5</httpcomponents5.version>
-        <httpcore5.version>5.3.4</httpcore5.version>
     </properties>
 
     <dependencyManagement>
@@ -132,23 +125,6 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>2.0.16</version>
-            </dependency>
-
-            <!-- Force a consistent HttpComponents5 stack to avoid runtime NoSuchMethodError in ktor-client-apache5 -->
-            <dependency>
-                <groupId>org.apache.httpcomponents.client5</groupId>
-                <artifactId>httpclient5</artifactId>
-                <version>${httpcomponents5.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents.core5</groupId>
-                <artifactId>httpcore5</artifactId>
-                <version>${httpcore5.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents.core5</groupId>
-                <artifactId>httpcore5-h2</artifactId>
-                <version>${httpcore5.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

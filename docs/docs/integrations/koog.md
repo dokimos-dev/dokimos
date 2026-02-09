@@ -41,8 +41,6 @@ implementation("dev.dokimos:dokimos-koog:${dokimosVersion}")
 Evaluate a Koog agent with Dokimos, using the Kotlin DSL throughout:
 
 ```kotlin
-package dev.dokimos.examples.koog
-
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor

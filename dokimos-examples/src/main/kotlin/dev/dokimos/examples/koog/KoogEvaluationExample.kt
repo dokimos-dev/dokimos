@@ -3,11 +3,12 @@ package dev.dokimos.examples.koog
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
-import dev.dokimos.core.*
-import dev.dokimos.core.evaluators.ExactMatchEvaluator
-import dev.dokimos.core.evaluators.LLMJudgeEvaluator
+import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.koog.asJudge
 import dev.dokimos.koog.runBlocking
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.llmJudge
+import kotlin.system.exitProcess
 
 /**
  * A simple Koog + Dokimos evaluation example (no RAG).
@@ -17,7 +18,7 @@ fun main() {
     val apiKey = System.getenv("OPENAI_API_KEY")
     if (apiKey.isNullOrBlank()) {
         System.err.println("OPENAI_API_KEY not set; skipping Koog evaluation example")
-        return System.exit(-1)
+        exitProcess(-1)
     }
 
     // 1. Set up Koog single-run agent (idiomatic creation)
@@ -27,29 +28,7 @@ fun main() {
         maxIterations = 10
     )
 
-
-    // 2. Create dataset
-    val dataset = Dataset.builder()
-        .name("customer-support-koog")
-        .addExample(Example.of(
-            "What is your return policy?",
-            "We offer a 30-day money-back guarantee on all purchases."))
-        .addExample(Example.of(
-            "How long does shipping take?",
-            "Standard shipping takes 5-7 business days."))
-        .addExample(Example.of(
-            "Do you offer technical support?",
-            "Yes, we provide 24/7 technical support via email and chat."))
-        .build()
-
-    // 3. Create task that calls Koog agent
-    val task: Task =  { example ->
-        val prompt = "Answer the following customer question concisely: " + example.input()
-        val response = agent().runBlocking(prompt)
-        mapOf("output" to response)
-    }
-
-    // 4. Set up evaluators using Koog's agent as judge
+    // 2-5. Build experiment with Kotlin DSL
     fun judgeAgent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
@@ -57,34 +36,49 @@ fun main() {
     )
     val judge = asJudge(::judgeAgent)
 
-    val evaluators: List<Evaluator> = listOf(
-        ExactMatchEvaluator.builder()
-            .threshold(0.5)
-            .build(),
-        LLMJudgeEvaluator.builder()
-            .name("Answer Quality")
-            .judge(judge)
-            .criteria("Is the answer helpful, accurate, and professionally worded?")
-            .evaluationParams(listOf(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
-            .threshold(0.7)
-            .build(),
-        LLMJudgeEvaluator.builder()
-            .name("Conciseness")
-            .judge(judge)
-            .criteria("Is the answer concise and to the point?")
-            .evaluationParams(listOf(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
-            .threshold(0.6)
-            .build()
-    )
+    val result = experiment {
+        name = "Koog Customer Support Evaluation"
 
-    // 5. Run experiment
-    val result: ExperimentResult = Experiment.builder()
-        .name("Koog Customer Support Evaluation")
-        .dataset(dataset)
-        .task(task)
-        .evaluators(evaluators)
-        .build()
-        .run()
+        dataset {
+            name = "customer-support-koog"
+            example {
+                input = "What is your return policy?"
+                expected = "We offer a 30-day money-back guarantee on all purchases."
+            }
+            example {
+                input = "How long does shipping take?"
+                expected = "Standard shipping takes 5-7 business days."
+            }
+            example {
+                input = "Do you offer technical support?"
+                expected = "Yes, we provide 24/7 technical support via email and chat."
+            }
+        }
+
+        task { example ->
+            val prompt = "Answer the following customer question concisely: ${example.input()}"
+            val response = agent().runBlocking(prompt)
+            mapOf("output" to response)
+        }
+
+        evaluators {
+            exactMatch { threshold = 0.5 }
+
+            llmJudge(judge) {
+                name = "Answer Quality"
+                criteria = "Is the answer helpful, accurate, and professionally worded?"
+                params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+                threshold = 0.7
+            }
+
+            llmJudge(judge) {
+                name = "Conciseness"
+                criteria = "Is the answer concise and to the point?"
+                params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+                threshold = 0.6
+            }
+        }
+    }.run()
 
     // 6. Display results
     println("=".repeat(60))

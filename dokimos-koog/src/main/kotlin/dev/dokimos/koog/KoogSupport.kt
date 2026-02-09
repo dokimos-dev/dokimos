@@ -78,22 +78,6 @@ fun ragTask(
     }
 }
 
-/**
- * Builds an [EvalTestCase] from Koog call inputs/outputs.
- */
-fun EvalTestCase(
-    input: String,
-    output: String,
-    context: List<String> = emptyList(),
-    metadata: Map<String, Any> = emptyMap()
-): EvalTestCase {
-    val inputs = mapOf(INPUT_KEY to input)
-    val actualOutputs = mutableMapOf<String, Any>(OUTPUT_KEY to output)
-    if (context.isNotEmpty()) {
-        actualOutputs[CONTEXT_KEY] = context
-    }
-    return EvalTestCase(inputs, actualOutputs, emptyMap(), metadata)
-}
 
 /**
  * RAG result returned from a Koog call.

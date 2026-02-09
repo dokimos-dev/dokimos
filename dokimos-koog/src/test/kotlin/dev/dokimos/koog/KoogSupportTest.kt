@@ -13,6 +13,7 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import dev.dokimos.core.EvalResult
 import dev.dokimos.core.Example
+import dev.dokimos.kotlin.core.EvalTestCase
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
@@ -50,8 +51,8 @@ class KoogSupportTest {
     fun `toTestCase maps input output and context`() {
         val testCase = EvalTestCase(
                 input = "What is RAG?",
-                output = "Retrieval-Augmented Generation",
-                context = listOf("Doc1", "Doc2"),
+                actualOutput = "Retrieval-Augmented Generation",
+                outputContext = listOf("Doc1", "Doc2"),
                 metadata = mapOf("traceId" to "abc123")
         )
 

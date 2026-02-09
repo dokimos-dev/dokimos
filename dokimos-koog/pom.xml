@@ -23,7 +23,7 @@
     <dependencies>
         <dependency>
             <groupId>dev.dokimos</groupId>
-            <artifactId>dokimos-core</artifactId>
+            <artifactId>dokimos-kotlin</artifactId>
             <version>${project.version}</version>
         </dependency>
 

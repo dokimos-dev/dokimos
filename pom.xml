@@ -41,6 +41,7 @@
         <module>dokimos-langchain4j</module>
         <module>dokimos-spring-ai</module>
         <module>dokimos-koog</module>
+        <module>dokimos-kotlin</module>
         <module>dokimos-server-client</module>
         <module>dokimos-server</module>
         <module>dokimos-examples</module>

@@ -10,9 +10,21 @@
         <version>0.12.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>dokimos-kotlin</artifactId>
-    <name>Dokimos :: DSL :: Kotlin</name>
-    <description>Kotlin DSL for Dokimos builders</description>
+<artifactId>dokimos-kotlin</artifactId>
+<name>Dokimos :: DSL :: Kotlin</name>
+<description>Kotlin DSL for Dokimos builders</description>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-bom</artifactId>
+                <version>${kotlin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -24,6 +36,11 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
         </dependency>
 
         <dependency>

@@ -12,7 +12,7 @@ target/
 *.iws
 *.iml
 *.ipr
-.idea/*
+.idea/
 
 ### Eclipse ###
 .apt_generated
@@ -38,3 +38,4 @@ build/
 
 ### Mac OS ###
 .DS_Store
+/.idea/

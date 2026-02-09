@@ -27,11 +27,11 @@ public class SpringAiEvaluationExample {
                 }
 
                 // 1. Set up Spring AI ChatModel
-                OpenAiApi openAiApi = new OpenAiApi(System.getenv("OPENAI_API_KEY"));
-                ChatModel chatModel = new OpenAiChatModel(openAiApi,
+                OpenAiApi openAiApi = OpenAiApi.builder().apiKey(System.getenv("OPENAI_API_KEY")).build();
+                ChatModel chatModel = OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(
                                 OpenAiChatOptions.builder()
                                                 .model("gpt-5-nano")
-                                                .build());
+                                                .build()).build();
 
                 // 2. Create dataset
                 Dataset dataset = Dataset.builder()
@@ -55,10 +55,10 @@ public class SpringAiEvaluationExample {
                 };
 
                 // 4. Set up evaluators using Spring AI ChatClient as judge
-                ChatModel judgeModel = new OpenAiChatModel(openAiApi,
+                ChatModel judgeModel = OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(
                                 OpenAiChatOptions.builder()
                                                 .model("gpt-5-nano")
-                                                .build());
+                                                .build()).build();
 
                 ChatClient.Builder judgeBuilder = ChatClient.builder(judgeModel);
                 JudgeLM judge = SpringAiSupport.asJudge(judgeBuilder);

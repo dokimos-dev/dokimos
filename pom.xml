@@ -55,9 +55,8 @@
         <junit.version>6.0.1</junit.version>
         <junit.platform.version>6.0.1</junit.platform.version>
 
-        <!-- Keep Kotlin artifacts consistent across modules (Koog + openai-java are Kotlin-based) -->
+        <!-- Keep Kotlin plugin version aligned for Kotlin modules -->
         <kotlin.version>2.3.10</kotlin.version>
-        <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
 
         <!-- Align Apache HttpComponents 5 (required by Ktor apache5 engine) -->
         <httpcomponents5.version>5.5</httpcomponents5.version>
@@ -70,51 +69,9 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
-                <version>3.4.1</version>
+                <version>3.5.10</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-
-            <!-- Kotlin BOM (align stdlib/reflect across the whole build) -->
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-bom</artifactId>
-                <version>${kotlin.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-serialization-core-jvm</artifactId>
-                <version>${kotlinx.serialization.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-serialization-json-jvm</artifactId>
-                <version>${kotlinx.serialization.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-serialization-json-io-jvm</artifactId>
-                <version>${kotlinx.serialization.version}</version>
-            </dependency>
-
-            <!-- Explicitly manage Kotlin runtime artifacts to avoid older transitive pulls -->
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib</artifactId>
-                <version>${kotlin.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib-jdk8</artifactId>
-                <version>${kotlin.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-reflect</artifactId>
-                <version>${kotlin.version}</version>
             </dependency>
 
 
@@ -213,7 +170,7 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
-                    <version>3.4.1</version>
+                    <version>3.5.10</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

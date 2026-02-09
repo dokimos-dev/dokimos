@@ -30,10 +30,15 @@ This compiles the code, runs tests, and installs artifacts to your local Maven r
 
 - **dokimos-core**: Core evaluation framework
 - **dokimos-junit**: JUnit integration
-- **dokimos-langchain4j**: LangChain4j integration
-- **dokimos-examples**: Example implementations
+- **dokimos-langchain4j**: [LangChain4j](https://docs.langchain4j.dev/) integration
+- **dokimos-spring-ai**: [Spring-AI](https://spring.io/projects/spring-ai) integration
+- **dokimos-koog**: [Koog](https://docs.koog.ai/) integration
+- **dokimos-kotlin**: Kotlin DSL for creating experiments
+- **dokimos-examples**: Example implementations for all frameworks
+- **dokimos-server-client**: Java client library for the experiment server
+- **dokimos-server**: Experiment server (backend + frontend)
 
-To skip tests during build:
+- To skip tests during build:
 
 ```bash
 mvn clean install -DskipTests
@@ -43,13 +48,16 @@ mvn clean install -DskipTests
 
 ```
 dokimos/
-├── dokimos-core/          # Core evaluation framework
-│   ├── src/main/java/     # Source code
-│   └── src/test/java/     # Unit and integration tests
-├── dokimos-junit/         # JUnit integration
-├── dokimos-langchain4j/   # LangChain4j integration
-├── dokimos-examples/      # Runnable examples
-└── docs/                  # Documentation site (Docusaurus)
+├── dokimos-core/           # Core evaluation framework
+├── dokimos-junit/          # JUnit integration
+├── dokimos-langchain4j/    # LangChain4j integration
+├── dokimos-spring-ai/      # Spring AI integration
+├── dokimos-koog/           # Koog integration
+├── dokimos-kotlin/         # Kotlin DSL for creating experiments
+├── dokimos-server-client/  # Java client library for the experiment server
+├── dokimos-server/         # Experiment server (backend + frontend)
+├── dokimos-examples/       # Runnable examples
+└── docs/                   # Documentation site (Docusaurus)
 ```
 
 ## Running Tests

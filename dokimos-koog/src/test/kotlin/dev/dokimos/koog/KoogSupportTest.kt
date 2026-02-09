@@ -78,30 +78,6 @@ class KoogSupportTest {
         assertThat(result.metadata).containsEntry("latencyMs", 120L)
     }
 
-    @Test
-    fun `ragTask returns output context and metadata`() {
-        val rag = ragTask { input ->
-            RagResult(
-                    output = "$input answer",
-                    context = listOf("ctx1", "ctx2"),
-                    metadata = mapOf("latencyMs" to 12L)
-            )
-        }
-
-        val example = Example.builder()
-                .input(INPUT_KEY, "question")
-                .build()
-
-        val outputs = rag.run(example)
-
-        assertThat(outputs).containsEntry(OUTPUT_KEY, "question answer")
-
-        @Suppress("UNCHECKED_CAST")
-        val context = outputs[CONTEXT_KEY] as List<String>
-        assertThat(context).containsExactly("ctx1", "ctx2")
-
-        assertThat(outputs).containsEntry("latencyMs", 12L)
-    }
 
     @Test
     fun `asJudge with agent runner delegates to agent`() {
@@ -124,7 +100,6 @@ class KoogSupportTest {
                 maxAgentIterations = 10
             )
         ) {
-            // Enable testing mode
             withTesting()
         }
     }

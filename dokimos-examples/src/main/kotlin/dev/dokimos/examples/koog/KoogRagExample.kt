@@ -36,17 +36,11 @@ suspend fun main() {
             baseEmbedder.diff(embedding1, embedding2)
     }
 
-    val embeddingStorage = InMemoryDocumentEmbeddingStorage(
-        embedder = stringEmbedder,
-    )
-
-    // Ingest knowledge base (three small docs)
-    val refundDoc = "We offer a 30-day money-back guarantee on all purchases. No questions asked."
-    val shippingDoc = "Standard shipping takes 5-7 business days. Express shipping is available for 2-3 days."
-    val warrantyDoc = "All products come with a 1-year manufacturer warranty. Extended warranties available for purchase."
-        embeddingStorage.store(refundDoc)
-        embeddingStorage.store(shippingDoc)
-        embeddingStorage.store(warrantyDoc)
+    val storage = InMemoryDocumentEmbeddingStorage(embedder = stringEmbedder).apply {
+        store("We offer a 30-day money-back guarantee on all purchases. No questions asked.")
+        store("Standard shipping takes 5-7 business days. Express shipping is available for 2-3 days.")
+        store("All products come with a 1-year manufacturer warranty. Extended warranties available for purchase.")
+    }
 
     // Generation agent
     fun agent() = AIAgent(
@@ -86,7 +80,7 @@ suspend fun main() {
         task { example ->
             // Retrieve top-2 relevant docs
             val query = example.input()
-            val ranked: List<String> =  runBlocking {  embeddingStorage.mostRelevantDocuments(query, count = 2).toList() }
+            val ranked: List<String> =  runBlocking {  storage.mostRelevantDocuments(query, count = 2).toList() }
 
             val contextText = ranked.joinToString("\n")
             val prompt = """

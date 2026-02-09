@@ -1,9 +1,7 @@
 package dev.dokimos.koog
 
 import ai.koog.agents.core.agent.AIAgent
-import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.JudgeLM
-import dev.dokimos.core.Task
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlin.coroutines.CoroutineContext
@@ -23,8 +21,16 @@ const val INPUT_KEY: String = "input"
 
 
 /**
- * Creates a [JudgeLM] from any blocking call that accepts a prompt and
- * returns text.
+ * Creates a [JudgeLM] from a suspend function that accepts a prompt and returns text.
+ * 
+ * This function wraps any suspend function that processes a string prompt into a Dokimos [JudgeLM] judge.
+ * The function is executed in a blocking coroutine context each time the judge is invoked.
+ * 
+ * @param agentCall A suspend function that accepts a string prompt and returns a string response.
+ *                  The response must not be blank.
+ * @return A [JudgeLM] that can be used as a judge in Dokimos evaluations.
+ * @throws IllegalArgumentException if the judge response content is blank.
+ *
  */
 fun asJudge(agentCall: suspend (String) -> String): JudgeLM {
     return JudgeLM { prompt ->
@@ -35,7 +41,17 @@ fun asJudge(agentCall: suspend (String) -> String): JudgeLM {
 }
 
 /**
- * Creates a [JudgeLM] from a suspending Koog agent.
+ * Creates a [JudgeLM] from a Koog agent factory.
+ * 
+ * This function wraps a Koog [AIAgent] factory (that produces agents accepting and returning [String])
+ * into a Dokimos [JudgeLM] judge. Each time the judge is invoked, it creates a fresh agent instance
+ * via the provided factory function and runs it with the given prompt.
+ * 
+ * @param agent A factory function that produces an [AIAgent] instance capable of processing
+ *              string input and returning string output.
+ * @return A [JudgeLM] that can be used as a judge in Dokimos evaluations.
+ * 
+ * @see asJudge for creating a judge from a direct suspend function
  */
 fun asJudge(agent:() ->  AIAgent<String, String>): JudgeLM {
      return asJudge { input -> agent().run(input) }
@@ -43,47 +59,14 @@ fun asJudge(agent:() ->  AIAgent<String, String>): JudgeLM {
 
 
 /**
- * Creates a RAG-oriented [Task] using a suspending Koog call that returns
- * both the answer and its retrieved context.
+ * Executes the `run` method of the `AIAgent` in a blocking coroutine context.
+ *
+ * @param input The input of type `I` to be processed by the agent.
+ * @param context The coroutine context to execute this method in. Default is `Dispatchers.Default`.
+ * @return The output of type `O` produced by the agent after processing the input.
  */
-fun ragTask(agentCall: (String) -> RagResult): Task {
-    return ragTask(agentCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY)
-}
-
-fun <I, O> AIAgent<I, O>.runBlocking(input:I, context: CoroutineContext = Dispatchers.Default):O = runBlocking {
+fun <I, O> AIAgent<I, O>.runBlocking(input:I, context: CoroutineContext = Dispatchers.Default):O = runBlocking(context) {
     run(input)
 }
 
-/**
- * Creates a RAG-oriented [Task] with configurable keys.
- */
-fun ragTask(
-    agentCall: (String) -> RagResult,
-    inputKey: String,
-    outputKey: String,
-    contextKey: String
-): Task {
-    return Task { example ->
-        val input = example.inputs()[inputKey] as? String ?: example.input()
-        val result = agentCall(input)
-        buildMap<String, Any> {
-            put(outputKey, result.output)
-            if (result.context.isNotEmpty()) {
-                put(contextKey, result.context)
-            }
-            if (result.metadata.isNotEmpty()) {
-                putAll(result.metadata)
-            }
-        }
-    }
-}
 
-
-/**
- * RAG result returned from a Koog call.
- */
-data class RagResult(
-    val output: String,
-    val context: List<String> = emptyList(),
-    val metadata: Map<String, Any> = emptyMap()
-)

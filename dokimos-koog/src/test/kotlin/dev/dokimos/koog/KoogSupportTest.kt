@@ -84,7 +84,7 @@ class KoogSupportTest {
 
     companion object {
         fun mockAgent(modelResponse:String) = AIAgent(
-            promptExecutor = getMockExecutor() {
+            promptExecutor = getMockExecutor {
                 mockLLMAnswer(modelResponse).asDefaultResponse
             },
             agentConfig = AIAgentConfig(

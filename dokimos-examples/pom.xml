@@ -22,9 +22,12 @@
         <maven.install.skip>true</maven.install.skip>
         <maven.source.skip>true</maven.source.skip>
         <maven.javadoc.skip>true</maven.javadoc.skip>
-        <koog.version>0.6.1</koog.version>
         <spring-ai.version>1.1.2</spring-ai.version>
         <spring-version>3.5.10</spring-version>
+        <langchain4j.version>1.11.0</langchain4j.version>
+        <langchain4j.embeddings.version>1.11.0-beta19</langchain4j.embeddings.version>
+        <koog.version>0.6.1</koog.version>
+        <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
     </properties>
 
     <dependencies>
@@ -60,31 +63,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>ai.koog</groupId>
-            <artifactId>koog-agents-jvm</artifactId>
-            <version>${koog.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-cio-jvm</artifactId>
-            <version>3.2.2</version>
-        </dependency>
-<!--        <dependency>-->
-<!--            <groupId>ai.koog</groupId>-->
-<!--            <artifactId>prompt-executor-openai-client-jvm</artifactId>-->
-<!--            <version>${koog.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>ai.koog</groupId>-->
-<!--            <artifactId>prompt-executor-llms-jvm</artifactId>-->
-<!--            <version>${koog.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>ai.koog</groupId>-->
-<!--            <artifactId>prompt-executor-llms-all-jvm</artifactId>-->
-<!--            <version>${koog.version}</version>-->
-<!--        </dependency>-->
-        <dependency>
             <groupId>dev.dokimos</groupId>
             <artifactId>dokimos-server-client</artifactId>
             <version>${project.version}</version>
@@ -94,22 +72,22 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-core</artifactId>
-            <version>1.9.1</version>
+            <version>${langchain4j.version}</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.9.1</version>
+            <version>${langchain4j.version}</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.9.1</version>
+            <version>${langchain4j.version}</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings-bge-small-en-v15-q</artifactId>
-            <version>1.9.1-beta17</version>
+            <version>${langchain4j.embeddings.version}</version>
         </dependency>
 
         <!-- Spring Boot dependencies -->
@@ -137,6 +115,36 @@
             <version>${spring-ai.version}</version>
         </dependency>
 
+        <!-- Kotlin & Koog dependencies -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ai.koog</groupId>
+            <artifactId>koog-agents-jvm</artifactId>
+            <version>${koog.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-core-jvm</artifactId>
+            <version>${kotlinx.serialization.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-json-jvm</artifactId>
+            <version>${kotlinx.serialization.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-json-io-jvm</artifactId>
+            <version>${kotlinx.serialization.version}</version>
+        </dependency>
+
         <!-- Misc -->
         <dependency>
             <groupId>com.openai</groupId>
@@ -151,6 +159,17 @@
         </dependency>
     </dependencies>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-bom</artifactId>
+                <version>${kotlin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <build>
         <!-- Use Maven defaults for Java (src/main/java, src/test/java) and let Kotlin plugin add Kotlin roots -->
         <plugins>

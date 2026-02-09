@@ -24,7 +24,9 @@ fun EvalTestCase(
     )
 }
 
-
+/**
+ * Builds an [EvalTestCase]
+ */
 fun EvalTestCase(
     input: String,
     actualOutputs: Map<String, Any>,

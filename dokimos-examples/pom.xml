@@ -125,11 +125,6 @@
             <artifactId>kotlin-reflect</artifactId>
         </dependency>
         <dependency>
-            <groupId>ai.koog</groupId>
-            <artifactId>koog-agents-jvm</artifactId>
-            <version>${koog.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-serialization-core-jvm</artifactId>
             <version>${kotlinx.serialization.version}</version>
@@ -144,6 +139,17 @@
             <artifactId>kotlinx-serialization-json-io-jvm</artifactId>
             <version>${kotlinx.serialization.version}</version>
         </dependency>
+        <dependency>
+            <groupId>ai.koog</groupId>
+            <artifactId>koog-agents-jvm</artifactId>
+            <version>${koog.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.koog</groupId>
+            <artifactId>rag-base</artifactId>
+            <version>${koog.version}</version>
+        </dependency>
+
 
         <!-- Misc -->
         <dependency>

@@ -22,7 +22,7 @@ class DokimosDslTest {
                 example {
                     input = "hello"
                     expected = "world"
-                    metadata("traceId", "abc")
+                    metadata("traceId" to "abc", "traceEpocMs" to "123456789")
                 }
             }
 
@@ -38,7 +38,57 @@ class DokimosDslTest {
         assertThat(result.passRate()).isEqualTo(1.0)
         assertThat(result.itemResults()).hasSize(1)
         val item = result.itemResults().first()
-        assertThat(item.example().metadata()).containsEntry("traceId", "abc")
+        assertThat(item.example().metadata()).containsEntry("traceId", "abc").containsEntry("traceEpocMs", "123456789")
+    }
+
+    @Test
+    fun `experiment DSL handles nested IO and metadata`() {
+        val nested = mapOf(
+            "items" to listOf(
+                mapOf("id" to 1, "data" to listOf("x", "y")),
+                mapOf("id" to 2, "data" to listOf("z"))
+            )
+        )
+
+        val result = experiment {
+            name = "nested-experiment"
+            metadata("exp", mapOf("version" to 2))
+
+            dataset {
+                name = "nested-ds"
+                example {
+                    input("payload", nested)
+                    expected("output", nested)
+                    expected("payload", nested)
+                    metadata("exampleMeta", mapOf("section" to "nested"))
+                }
+            }
+
+            task { example ->
+                val expectedOutputs = example.expectedOutputs()
+                mapOf(
+                    "output" to expectedOutputs["output"]!!,
+                    "payload" to expectedOutputs["payload"]!!
+                )
+            }
+
+            evaluators {
+                exactMatch {
+                    name = "Exact"
+                    threshold = 1.0
+                    params(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT)
+                }
+            }
+        }.run()
+
+        assertThat(result.passRate()).isEqualTo(1.0)
+        assertThat(result.metadata()).containsEntry("exp", mapOf("version" to 2))
+        assertThat(result.itemResults()).hasSize(1)
+
+        val item = result.itemResults().first()
+        assertThat(item.actualOutputs()["payload"]).isEqualTo(nested)
+        assertThat(item.example().expectedOutputs()["payload"]).isEqualTo(nested)
+        assertThat(item.example().metadata()["exampleMeta"]).isEqualTo(mapOf("section" to "nested"))
     }
 
     @Test
@@ -77,6 +127,28 @@ class DokimosDslTest {
         assertThat(ex.inputs()).containsEntry("lang", "en")
         assertThat(ex.expectedOutputs()).containsEntry("alt", "alt-answer")
         assertThat(ex.metadata()).containsEntry("source", "dsl")
+    }
+
+    @Test
+    fun `example DSL preserves nested structures`() {
+        val nestedPayload = mapOf(
+            "items" to listOf(
+                mapOf("id" to 1, "data" to listOf("x", "y")),
+                mapOf("id" to 2, "data" to listOf("z"))
+            )
+        )
+
+        val ex: Example = example {
+            input("payload", nestedPayload)
+            expected("payload", nestedPayload)
+            expected("output", nestedPayload)
+            metadata("trace", mapOf("path" to listOf("root", "child")))
+        }
+
+        assertThat(ex.inputs()["payload"]).isEqualTo(nestedPayload)
+        assertThat(ex.expectedOutputs()["payload"]).isEqualTo(nestedPayload)
+        assertThat(ex.expectedOutputs()["output"]).isEqualTo(nestedPayload)
+        assertThat(ex.metadata()["trace"]).isEqualTo(mapOf("path" to listOf("root", "child")))
     }
 
     @Test

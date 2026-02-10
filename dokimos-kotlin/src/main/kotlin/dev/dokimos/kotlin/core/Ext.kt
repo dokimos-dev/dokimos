@@ -30,12 +30,12 @@ fun EvalTestCase(
 fun EvalTestCase(
     input: String,
     actualOutputs: Map<String, Any>,
-    expectedOutput: Map<String, Any>  = emptyMap(),
+    expectedOutputs: Map<String, Any>  = emptyMap(),
     metadata: Map<String, Any> = emptyMap()): EvalTestCase {
     return EvalTestCase(
         mapOf("input" to input),
         actualOutputs,
-        expectedOutput,
+        expectedOutputs,
         metadata
     )
 }

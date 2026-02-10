@@ -244,7 +244,7 @@ class DokimosDslTest {
         val testCase = EvalTestCase(
             input = "query",
             actualOutputs = mapOf("retr" to listOf("DocA", "DocB")),
-            expectedOutput = mapOf("rel" to listOf("doca", "docC"))
+            expectedOutputs = mapOf("rel" to listOf("doca", "docC"))
         )
 
         val recallResult = recallEvaluator.evaluate(testCase)
@@ -265,7 +265,7 @@ class DokimosDslTest {
         val testCase = EvalTestCase(
             input = "query",
             actualOutputs = mapOf("retr" to listOf("DocA", "DocB")),
-            expectedOutput = mapOf("rel" to listOf("doca", "docC"))
+            expectedOutputs = mapOf("rel" to listOf("doca", "docC"))
         )
 
         val precisionResult = precisionEvaluator.evaluate(testCase)

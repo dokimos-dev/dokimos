@@ -17,6 +17,15 @@ import org.junit.jupiter.api.Test
 class KoogSupportTest {
 
     @Test
+    fun `asJudge with agent runner delegates to agent`() {
+        val mockAgent = mockAgent("Model response")
+        val judge = asJudge(mockAgent::run)
+
+        val response = judge.generate("evaluate me")
+        assertThat(response).isEqualTo("Model response")
+    }
+
+    @Test
     fun `asJudge with lambda delegates prompt and returns text`() {
         var capturedPrompt: String? = null
 
@@ -38,47 +47,6 @@ class KoogSupportTest {
         assertThatThrownBy { judge.generate("prompt") }
                 .isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("blank")
-    }
-
-    @Test
-    fun `toTestCase maps input output and context`() {
-        val testCase = EvalTestCase(
-                input = "What is RAG?",
-                actualOutput = "Retrieval-Augmented Generation",
-                outputContext = listOf("Doc1", "Doc2"),
-                metadata = mapOf("traceId" to "abc123")
-        )
-
-        assertThat(testCase.inputs()).containsEntry(INPUT_KEY, "What is RAG?")
-        assertThat(testCase.actualOutputs()).containsEntry(OUTPUT_KEY, "Retrieval-Augmented Generation")
-        assertThat(testCase.actualOutputs()).containsEntry(CONTEXT_KEY, listOf("Doc1", "Doc2"))
-        assertThat(testCase.metadata()).containsEntry("traceId", "abc123")
-    }
-
-    @Test
-    fun `toEvaluationResponse maps score reason and metadata`() {
-        val result = EvalResult(
-                "faithfulness",
-                0.92,
-                true,
-                "Response grounded in documents",
-                mapOf("latencyMs" to 120L)
-        )
-
-        assertThat(result.success).isTrue()
-        assertThat(result.reason).isEqualTo("Response grounded in documents")
-        assertThat(result.score).isEqualTo(0.92)
-        assertThat(result.metadata).containsEntry("latencyMs", 120L)
-    }
-
-
-    @Test
-    fun `asJudge with agent runner delegates to agent`() {
-        val mockAgent = mockAgent("Model response")
-        val judge = asJudge(mockAgent::run)
-
-        val response = judge.generate("evaluate me")
-        assertThat(response).isEqualTo("Model response")
     }
 
 

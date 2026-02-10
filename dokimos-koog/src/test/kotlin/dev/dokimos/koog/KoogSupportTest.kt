@@ -6,8 +6,6 @@ import ai.koog.agents.testing.feature.withTesting
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLModel
-import dev.dokimos.core.EvalResult
-import dev.dokimos.kotlin.core.EvalTestCase
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy

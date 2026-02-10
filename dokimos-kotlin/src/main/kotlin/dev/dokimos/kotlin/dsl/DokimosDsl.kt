@@ -37,6 +37,12 @@ fun example(block: ExampleDsl.() -> Unit): Example =
 
 fun task(block: (Example) -> Map<String, Any>): Task = Task(block)
 
+fun exactMatch(block: ExactMatchEvaluatorDsl.() -> Unit = {}) =
+    ExactMatchEvaluatorDsl().apply(block).build()
+
+fun regex(block: RegexEvaluatorDsl.() -> Unit) =
+    RegexEvaluatorDsl().apply(block).build()
+
 fun llmJudge(judge: JudgeLM, block: LlmJudgeEvaluatorDsl.() -> Unit): LLMJudgeEvaluator =
     LlmJudgeEvaluatorDsl(judge).apply(block).build()
 
@@ -90,8 +96,12 @@ class ExperimentDsl {
         evaluators += EvaluatorsDsl().apply(block).build()
     }
 
-    fun evaluator(evaluator: Evaluator) {
-        evaluators += evaluator
+    fun evaluator(evaluator: List<Evaluator>) {
+        evaluators.addAll(evaluator)
+    }
+
+    fun evaluator(vararg evaluator: Evaluator) {
+        evaluators.addAll(evaluator.toList())
     }
 
     fun metadata(key: String, value: Any) {

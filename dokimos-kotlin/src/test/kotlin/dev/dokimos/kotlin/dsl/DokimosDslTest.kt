@@ -15,6 +15,12 @@ class DokimosDslTest {
 
     @Test
     fun `experiment DSL builds and runs`() {
+        val separateRegexEvaluator = regex{
+            pattern = "wo.*"
+        }
+        val separateExactMatchEvaluator =  exactMatch {
+            threshold = 1.0
+        }
         val result = experiment {
             name = "dsl-experiment"
             dataset {
@@ -31,8 +37,12 @@ class DokimosDslTest {
             }
 
             evaluators {
-                exactMatch { threshold = 1.0 }
+                regex{
+                    pattern = "world"
+                }
             }
+            evaluator(separateRegexEvaluator)
+            evaluator(listOf(separateExactMatchEvaluator, separateRegexEvaluator))
         }.run()
 
         assertThat(result.passRate()).isEqualTo(1.0)

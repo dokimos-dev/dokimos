@@ -1,6 +1,7 @@
 package dev.dokimos.kotlin.core
 
 import dev.dokimos.core.EvalTestCase
+import dev.dokimos.core.EvalResult
 
 /**
  * Builds an [EvalTestCase]
@@ -39,3 +40,16 @@ fun EvalTestCase(
         metadata
     )
 }
+
+/**
+ * Builds an [EvalResult]
+ */
+fun EvalResult(name:String, score:Double, threshold:Double,  reason:String) =
+    EvalResult.of(name, score, threshold, reason)
+
+
+/**
+ * Builds an [EvalResult]
+ */
+fun EvalResult(name:String, score:Double, success: Boolean, reason:String) =
+    if(success) EvalResult.success(name, score, reason) else EvalResult.failure(name, score, reason)

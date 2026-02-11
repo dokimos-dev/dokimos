@@ -1,11 +1,19 @@
 package dev.dokimos.kotlin.dsl.evaluators
 
 import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.core.Evaluator
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
 import dev.dokimos.kotlin.core.EvalTestCase
+import dev.dokimos.kotlin.dsl.contextualRelevance
+import dev.dokimos.kotlin.dsl.evaluators
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.kotlin.dsl.hallucination
+import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.kotlin.dsl.precision
+import dev.dokimos.kotlin.dsl.recall
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -15,7 +23,7 @@ class EvaluatorDslTest {
     fun `llm judge DSL wires judge and params`() {
         val judge = JudgeLM { _ -> """{"score":0.8,"reason":"fine"}""" }
 
-        val evaluator = dev.dokimos.kotlin.dsl.llmJudge(judge) {
+        val evaluator = llmJudge(judge) {
             name = "Quality"
             criteria = "Check quality"
             params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
@@ -36,7 +44,7 @@ class EvaluatorDslTest {
     fun `hallucination DSL evaluates`() {
         val judge = JudgeLM { _ -> """[{"verdict":"yes","reason":"supported"}]""" }
 
-        val evaluator = dev.dokimos.kotlin.dsl.hallucination(judge) {
+        val evaluator = hallucination(judge) {
             contextKey = "ctx"
             threshold = 0.5
         }
@@ -64,7 +72,7 @@ class EvaluatorDslTest {
             }
         }
 
-        val evaluator = dev.dokimos.kotlin.dsl.faithfulness(judge) {
+        val evaluator = faithfulness(judge) {
             contextKey = "ctx"
             params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
         }
@@ -92,7 +100,7 @@ class EvaluatorDslTest {
             }
         }
 
-        val evaluator = dev.dokimos.kotlin.dsl.contextualRelevance(judge) {
+        val evaluator = contextualRelevance(judge) {
             retrievalContextKey = "chunks"
             strictMode = false
         }
@@ -111,7 +119,7 @@ class EvaluatorDslTest {
 
     @Test
     fun `recall DSL evaluate with matching strategy`() {
-        val recallEvaluator = dev.dokimos.kotlin.dsl.recall {
+        val recallEvaluator = recall {
             retrievedKey = "retr"
             expectedKey = "rel"
             matchingStrategy = MatchingStrategy.caseInsensitive()
@@ -131,7 +139,7 @@ class EvaluatorDslTest {
 
     @Test
     fun `precision DSL evaluate with matching strategy`() {
-        val precisionEvaluator = dev.dokimos.kotlin.dsl.precision {
+        val precisionEvaluator = precision {
             retrievedKey = "retr"
             expectedKey = "rel"
             matchingStrategy = MatchingStrategy.caseInsensitive()
@@ -154,7 +162,7 @@ class EvaluatorDslTest {
         val judge = JudgeLM { "{}" }
 
         val customEvaluator = object : Evaluator {
-            override fun evaluate(testCase: dev.dokimos.core.EvalTestCase): EvalResult =
+            override fun evaluate(testCase: EvalTestCase): EvalResult =
                 EvalResult.builder()
                     .name(name())
                     .score(1.0)
@@ -166,7 +174,7 @@ class EvaluatorDslTest {
             override fun threshold(): Double = 0.0
         }
 
-        val evaluators = dev.dokimos.kotlin.dsl.evaluators {
+        val evaluators = evaluators {
             exactMatch {
                 name = "Exact"
                 threshold = 0.9

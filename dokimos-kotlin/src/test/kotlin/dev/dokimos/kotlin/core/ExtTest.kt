@@ -2,21 +2,28 @@ package dev.dokimos.kotlin.core
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNull
 
 class ExtTest {
+
 
     @Test
     fun `EvalTestCase maps input actualOutput, outputContext and metadata`() {
 
         val testCase2 = EvalTestCase(
             input = "Who founded Microsoft?",
-            actualOutputs = mapOf("triples" to listOf(
-                mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft")
-            )),
-            expectedOutputs = mapOf("relevantTriples" to listOf(
-                mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft"),
-                mapOf("subject" to "Paul Allen", "predicate" to "co-founded", "object" to "Microsoft")
-            )))
+            actualOutputs = mapOf(
+                "triples" to listOf(
+                    mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft")
+                )
+            ),
+            expectedOutputs = mapOf(
+                "relevantTriples" to listOf(
+                    mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft"),
+                    mapOf("subject" to "Paul Allen", "predicate" to "co-founded", "object" to "Microsoft")
+                )
+            )
+        )
 
 
         val testCase = EvalTestCase(
@@ -29,7 +36,10 @@ class ExtTest {
         assertThat(testCase.inputs()).containsEntry("input", "What is RAG?")
         assertThat(testCase.actualOutputs()).containsEntry("output", "Retrieval-Augmented Generation")
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1", "Doc2"))
-        assertThat(testCase.metadata()).containsEntry("traceId", mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"))
+        assertThat(testCase.metadata()).containsEntry(
+            "traceId",
+            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")
+        )
     }
 
     @Test
@@ -43,6 +53,42 @@ class ExtTest {
         assertThat(testCase.inputs()).containsEntry("input", "What is RAG?")
         assertThat(testCase.actualOutputs()).containsEntry("output", "Retrieval-Augmented Generation")
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1", "Doc2"))
-        assertThat(testCase.metadata()).containsEntry("traceId", mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"))
+        assertThat(testCase.metadata()).containsEntry(
+            "traceId",
+            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")
+        )
     }
+
+    @Test
+    fun `EvalResult helper builds core EvalResult`() {
+        val result = EvalResult(
+            name = "MyEval",
+            score = 0.75,
+            threshold = 0.7,
+            reason = "Looks good"
+        )
+
+        assertThat(result.name()).isEqualTo("MyEval")
+        assertThat(result.score()).isEqualTo(0.75)
+        assertThat(result.threshold()).isEqualTo(0.7)
+        assertThat(result.reason()).isEqualTo("Looks good")
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `EvalResult helper builds core EvalResult with success`() {
+        val result = EvalResult(
+            name = "MyEval",
+            score = 0.75,
+            success = true,
+            reason = "Looks good"
+        )
+
+        assertThat(result.name()).isEqualTo("MyEval")
+        assertThat(result.score()).isEqualTo(0.75)
+        assertNull(result.threshold())
+        assertThat(result.reason()).isEqualTo("Looks good")
+        assertThat(result.success()).isTrue()
+    }
+
 }

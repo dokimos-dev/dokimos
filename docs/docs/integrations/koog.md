@@ -118,7 +118,7 @@ import dev.dokimos.kotlin.dsl.experiment
 import kotlinx.coroutines.runBlocking
 
 suspend fun main() {
-    val apiKey = System.getenv("OPENAI_API_KEY") ?: return
+    val apiKey = System.getenv("OPENAI_API_KEY") ?: throw IllegalStateException("OPENAI_API_KEY not set")
 
     val baseEmbedder = LLMEmbedder(OpenAILLMClient(apiKey), OpenAIModels.Embeddings.TextEmbeddingAda002)
     val stringEmbedder = object : DocumentEmbedder<String> {

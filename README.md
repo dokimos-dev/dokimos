@@ -40,8 +40,7 @@ It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you
 
 ## Quick Start
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+
 
 Add the dependency to your `pom.xml` (check [Maven Central](https://central.sonatype.com/artifact/dev.dokimos/dokimos-core) for the latest version):
 
@@ -57,8 +56,7 @@ Add the dependency to your `pom.xml` (check [Maven Central](https://central.sona
 
 Evaluate a single response directly:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 Evaluator evaluator = ExactMatchEvaluator.builder()
@@ -73,8 +71,7 @@ System.out.println("Passed: " + result.success());  // true
 System.out.println("Score: " + result.score());     // 1.0
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val evaluator = exactMatch {
@@ -89,15 +86,11 @@ println("Passed: ${result.success()}")  // true
 println("Score: ${result.score()}")     // 1.0
 ```
 
-  </TabItem>
-</Tabs>
-
 ### Write a JUnit test
 
 Use `@DatasetSource` to run evaluations as parameterized tests:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 JudgeLM judgeLM = prompt -> openAiClient.generate(prompt);
@@ -119,8 +112,7 @@ void testQAResponses(Example example) {
 }
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val judgeLM = JudgeLM { prompt -> openAiClient.generate(prompt) }
@@ -143,15 +135,11 @@ class QaTests {
 }
 ```
 
-  </TabItem>
-</Tabs>
-
 ### Evaluate a dataset in bulk
 
 Run experiments across entire datasets with aggregated metrics:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 JudgeLM judgeLM = prompt -> openAiClient.generate(prompt);
@@ -186,8 +174,7 @@ result.exportHtml(Path.of("report.html"));
 result.exportJson(Path.of("results.json"));
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val judgeLM = JudgeLM { prompt -> openAiClient.generate(prompt) }
@@ -225,9 +212,6 @@ println("Correctness avg: ${result.averageScore("Correctness")}")
 result.exportHtml(Path.of("report.html"))
 result.exportJson(Path.of("results.json"))
 ```
-
-  </TabItem>
-</Tabs>
 
 See more patterns in the [dokimos-examples](./dokimos-examples) module.
 
@@ -336,8 +320,7 @@ No additional repository configuration needed.
 
 Use `@DatasetSource` to load test cases and `LLMJudgeEvaluator` with custom criteria:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 // Create a judge from any LLM client
@@ -361,8 +344,7 @@ void testSupportResponses(Example example) {
 }
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val judgeLM = JudgeLM { prompt -> openAiClient.generate(prompt) }
@@ -386,15 +368,11 @@ class SupportTests {
 }
 ```
 
-  </TabItem>
-</Tabs>
-
 ### LangChain4j
 
 Evaluate RAG pipelines and AI assistants built with LangChain4j:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 // Create a judge from any LLM client
@@ -420,8 +398,7 @@ Experiment.builder()
     .run();
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val judgeLM = JudgeLM { prompt -> chatLanguageModel.generate(prompt) }
@@ -444,15 +421,11 @@ val result = experiment {
 }.run()
 ```
 
-  </TabItem>
-</Tabs>
-
 ### Spring AI
 
 Use Spring AI's `ChatModel` as an evaluation judge:
 
-<Tabs groupId="lang" defaultValue="java">
-  <TabItem value="java" label="Java">
+#### Java
 
 ```java
 JudgeLM judge = SpringAiSupport.asJudge(chatModel);
@@ -466,8 +439,7 @@ Evaluator evaluator = LLMJudgeEvaluator.builder()
     .build();
 ```
 
-  </TabItem>
-  <TabItem value="kotlin" label="Kotlin">
+#### Kotlin
 
 ```kotlin
 val judge = SpringAiSupport.asJudge(chatModel)
@@ -480,13 +452,7 @@ val evaluator = llmJudge(judge) {
 }
 ```
 
-  </TabItem>
-</Tabs>
-
-### Koog
-
-<Tabs groupId="lang" defaultValue="kotlin">
-  <TabItem value="kotlin" label="Kotlin">
+### Koog (Kotlin only)
 
 ```kotlin
 // Koog agent as judge
@@ -514,9 +480,6 @@ val result = experiment {
 
 println("Pass rate: ${result.passRate()}")
 ```
-
-  </TabItem>
-</Tabs>
 
 ## Experiment Server
 

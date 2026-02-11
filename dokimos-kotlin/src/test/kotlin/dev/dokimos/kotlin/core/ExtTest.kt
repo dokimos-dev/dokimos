@@ -9,23 +9,6 @@ class ExtTest {
 
     @Test
     fun `EvalTestCase maps input actualOutput, outputContext and metadata`() {
-
-        val testCase2 = EvalTestCase(
-            input = "Who founded Microsoft?",
-            actualOutputs = mapOf(
-                "triples" to listOf(
-                    mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft")
-                )
-            ),
-            expectedOutputs = mapOf(
-                "relevantTriples" to listOf(
-                    mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft"),
-                    mapOf("subject" to "Paul Allen", "predicate" to "co-founded", "object" to "Microsoft")
-                )
-            )
-        )
-
-
         val testCase = EvalTestCase(
             input = "What is RAG?",
             actualOutput = "Retrieval-Augmented Generation",

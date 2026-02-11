@@ -72,8 +72,14 @@ fun main() {
 
         dataset {
             name = "customer-support-koog"
-            example { input = "What is your return policy?"; expected = "30-day money-back guarantee" }
-            example { input = "How long does shipping take?"; expected = "5-7 business days" }
+            example { 
+                input = "What is your return policy?"
+                expected = "30-day money-back guarantee" 
+            }
+            example { 
+                input = "How long does shipping take?"
+                expected = "5-7 business days" 
+            }
         }
 
         task { example ->
@@ -150,8 +156,14 @@ suspend fun main() {
 
         dataset {
             name = "customer-qa-rag-koog"
-            example { input = "What is the refund policy?"; expected = "30-day money-back guarantee" }
-            example { input = "How long does shipping take?"; expected = "5-7 business days" }
+            example { 
+                input = "What is the refund policy?"
+                expected = "30-day money-back guarantee" 
+            }
+            example { 
+                input = "How long does shipping take?"
+                expected = "5-7 business days" 
+            }
         }
 
         task { example ->
@@ -161,7 +173,7 @@ suspend fun main() {
                 Answer using the context below.
 
                 Context:
-                ${'$'}{contextDocs.joinToString("\n")}
+                ${contextDocs.joinToString("\n")}
 
                 Question: $query
                 Answer:

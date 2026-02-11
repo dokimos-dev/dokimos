@@ -195,7 +195,7 @@ suspend fun main() {
 ## Best Practices
 
 - Prefer Kotlin DSL (`experiment { ... }`, `llmJudge`, `faithfulness`) instead of Java builders when working in Kotlin modules.
-- Keep judge and generation agents separate—use a stronger or more reliable model for judging when possible.
+- Keep judge and generation agents separate and use a stronger or more reliable model for judging when possible.
 - Include context in outputs when evaluating RAG so `FaithfulnessEvaluator` can ground its checks.
 - Use `runBlocking` from `dev.dokimos.koog` to call Koog agents inside tasks without leaking coroutines.
 

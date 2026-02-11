@@ -10,7 +10,7 @@ Dokimos works with [Koog](https://github.com/koog-ai/koog) so you can evaluate K
 
 **One-line judge conversion**: Turn any Koog `AIAgent` (or suspending call) into a Dokimos `JudgeLM` with `asJudge`.
 
-**Kotlin-first experiments**: Build datasets, tasks, and evaluators with the Dokimos Kotlin DSL—no Java builders needed.
+**Kotlin-first experiments**: Build datasets, tasks, and evaluators with the Dokimos Kotlin DSL. No Java are builders needed.
 
 ## Setup
 

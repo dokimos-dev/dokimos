@@ -42,6 +42,32 @@ fun EvalTestCase(
 }
 
 /**
+ * Builds an [EvalTestCase]
+ */
+fun EvalTestCase(
+    input: String,
+    actualOutput: String,
+    actualOutputs: Map<String, Any> = emptyMap(),
+    expectedOutputs: Map<String, Any>  = emptyMap(),
+    metadata: Map<String, Any> = emptyMap()): EvalTestCase {
+    return EvalTestCase(
+        mapOf("input" to input),
+        actualOutputs + mapOf("output" to actualOutput),
+        expectedOutputs,
+        metadata
+    )
+}
+
+/**
+ * Builds an [EvalTestCase]
+ */
+fun EvalTestCase(
+    actualOutputs: Map<String, Any>): EvalTestCase =
+    EvalTestCase.builder().actualOutputs(actualOutputs).build()
+
+
+
+/**
  * Builds an [EvalResult]
  */
 fun EvalResult(name:String, score:Double, threshold:Double,  reason:String) =

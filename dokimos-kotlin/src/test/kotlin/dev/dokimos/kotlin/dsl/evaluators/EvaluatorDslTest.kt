@@ -31,7 +31,7 @@ class EvaluatorDslTest {
             scoreRange(min = 0.0, max = 1.0)
         }
 
-        val testCase = EvalTestCase("q", "a")
+        val testCase = EvalTestCase(input = "q", actualOutput = "a", outputContext = emptyList())
         val result = evaluator.evaluate(testCase)
 
         assertThat(result.name()).isEqualTo("Quality")

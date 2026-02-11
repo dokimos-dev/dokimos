@@ -1,111 +1,21 @@
-package dev.dokimos.kotlin.dsl
+package dev.dokimos.kotlin.dsl.evaluators
 
-import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.core.EvalResult
-import dev.dokimos.core.EvalTestCase
-import dev.dokimos.core.Example
+import dev.dokimos.core.EvalTestCaseParam
+import dev.dokimos.core.Evaluator
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
-import dev.dokimos.core.Evaluator
 import dev.dokimos.kotlin.core.EvalTestCase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class DokimosDslTest {
-
-    @Test
-    fun `experiment DSL builds and runs`() {
-        val separateRegexEvaluator = regex{
-            pattern = "wo.*"
-        }
-        val separateExactMatchEvaluator =  exactMatch {
-            threshold = 1.0
-        }
-        val result = experiment {
-            name = "dsl-experiment"
-            dataset {
-                name = "ds"
-                example {
-                    input = "hello"
-                    expected = "world"
-                    metadata("traceId" to "abc", "traceEpocMs" to "123456789")
-                }
-            }
-
-            task { example ->
-                mapOf("output" to example.expectedOutput())
-            }
-
-            evaluators {
-                regex{
-                    pattern = "world"
-                }
-            }
-            evaluator(separateRegexEvaluator)
-            evaluator(listOf(separateExactMatchEvaluator, separateRegexEvaluator))
-        }.run()
-
-        assertThat(result.passRate()).isEqualTo(1.0)
-        assertThat(result.itemResults()).hasSize(1)
-        val item = result.itemResults().first()
-        assertThat(item.example().metadata()).containsEntry("traceId", "abc").containsEntry("traceEpocMs", "123456789")
-    }
-
-    @Test
-    fun `experiment DSL handles nested IO and metadata`() {
-        val nested = mapOf(
-            "items" to listOf(
-                mapOf("id" to 1, "data" to listOf("x", "y")),
-                mapOf("id" to 2, "data" to listOf("z"))
-            )
-        )
-
-        val result = experiment {
-            name = "nested-experiment"
-            metadata("exp", mapOf("version" to 2))
-
-            dataset {
-                name = "nested-ds"
-                example {
-                    input("payload", nested)
-                    expected("output", nested)
-                    expected("payload", nested)
-                    metadata("exampleMeta", mapOf("section" to "nested"))
-                }
-            }
-
-            task { example ->
-                val expectedOutputs = example.expectedOutputs()
-                mapOf(
-                    "output" to expectedOutputs["output"]!!,
-                    "payload" to expectedOutputs["payload"]!!
-                )
-            }
-
-            evaluators {
-                exactMatch {
-                    name = "Exact"
-                    threshold = 1.0
-                    params(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT)
-                }
-            }
-        }.run()
-
-        assertThat(result.passRate()).isEqualTo(1.0)
-        assertThat(result.metadata()).containsEntry("exp", mapOf("version" to 2))
-        assertThat(result.itemResults()).hasSize(1)
-
-        val item = result.itemResults().first()
-        assertThat(item.actualOutputs()["payload"]).isEqualTo(nested)
-        assertThat(item.example().expectedOutputs()["payload"]).isEqualTo(nested)
-        assertThat(item.example().metadata()["exampleMeta"]).isEqualTo(mapOf("section" to "nested"))
-    }
+class EvaluatorDslTest {
 
     @Test
     fun `llm judge DSL wires judge and params`() {
         val judge = JudgeLM { _ -> """{"score":0.8,"reason":"fine"}""" }
 
-        val evaluator = llmJudge(judge) {
+        val evaluator = dev.dokimos.kotlin.dsl.llmJudge(judge) {
             name = "Quality"
             criteria = "Check quality"
             params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
@@ -123,56 +33,17 @@ class DokimosDslTest {
     }
 
     @Test
-    fun `example DSL assignment populates maps`() {
-        val ex: Example = example {
-            input = "prompt"
-            expected = "answer"
-            input("lang", "en")
-            expected("alt", "alt-answer")
-            metadata("source", "dsl")
-        }
-
-        assertThat(ex.input()).isEqualTo("prompt")
-        assertThat(ex.expectedOutput()).isEqualTo("answer")
-        assertThat(ex.inputs()).containsEntry("lang", "en")
-        assertThat(ex.expectedOutputs()).containsEntry("alt", "alt-answer")
-        assertThat(ex.metadata()).containsEntry("source", "dsl")
-    }
-
-    @Test
-    fun `example DSL preserves nested structures`() {
-        val nestedPayload = mapOf(
-            "items" to listOf(
-                mapOf("id" to 1, "data" to listOf("x", "y")),
-                mapOf("id" to 2, "data" to listOf("z"))
-            )
-        )
-
-        val ex: Example = example {
-            input("payload", nestedPayload)
-            expected("payload", nestedPayload)
-            expected("output", nestedPayload)
-            metadata("trace", mapOf("path" to listOf("root", "child")))
-        }
-
-        assertThat(ex.inputs()["payload"]).isEqualTo(nestedPayload)
-        assertThat(ex.expectedOutputs()["payload"]).isEqualTo(nestedPayload)
-        assertThat(ex.expectedOutputs()["output"]).isEqualTo(nestedPayload)
-        assertThat(ex.metadata()["trace"]).isEqualTo(mapOf("path" to listOf("root", "child")))
-    }
-
-    @Test
     fun `hallucination DSL evaluates`() {
         val judge = JudgeLM { _ -> """[{"verdict":"yes","reason":"supported"}]""" }
 
-        val evaluator = hallucination(judge) {
+        val evaluator = dev.dokimos.kotlin.dsl.hallucination(judge) {
             contextKey = "ctx"
             threshold = 0.5
         }
 
         val testCase = EvalTestCase(
             input = "question",
-            actualOutputs = mapOf("output" to  "answer", "ctx" to "context text")
+            actualOutputs = mapOf("output" to "answer", "ctx" to "context text")
         )
 
         val result = evaluator.evaluate(testCase)
@@ -187,17 +58,13 @@ class DokimosDslTest {
             when {
                 prompt.contains("Extract the factual truths") -> "[\"Fact A\", \"Fact B\"]"
                 prompt.contains("break it down into individual claims", ignoreCase = true) -> "[\"Fact A\"]"
-                prompt.contains(
-                    "Compare each CLAIM",
-                    ignoreCase = true
-                ) -> """[{"verdict":"Yes","reasoning":"Matches"}]"""
-
+                prompt.contains("Compare each CLAIM", ignoreCase = true) -> """[{"verdict":"Yes","reasoning":"Matches"}]"""
                 prompt.contains("Summarize the faithfulness", ignoreCase = true) -> "All claims supported."
                 else -> "{}"
             }
         }
 
-        val evaluator = faithfulness(judge) {
+        val evaluator = dev.dokimos.kotlin.dsl.faithfulness(judge) {
             contextKey = "ctx"
             params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
         }
@@ -225,7 +92,7 @@ class DokimosDslTest {
             }
         }
 
-        val evaluator = contextualRelevance(judge) {
+        val evaluator = dev.dokimos.kotlin.dsl.contextualRelevance(judge) {
             retrievalContextKey = "chunks"
             strictMode = false
         }
@@ -244,8 +111,7 @@ class DokimosDslTest {
 
     @Test
     fun `recall DSL evaluate with matching strategy`() {
-
-        val recallEvaluator = recall {
+        val recallEvaluator = dev.dokimos.kotlin.dsl.recall {
             retrievedKey = "retr"
             expectedKey = "rel"
             matchingStrategy = MatchingStrategy.caseInsensitive()
@@ -265,8 +131,7 @@ class DokimosDslTest {
 
     @Test
     fun `precision DSL evaluate with matching strategy`() {
-
-        val precisionEvaluator = precision {
+        val precisionEvaluator = dev.dokimos.kotlin.dsl.precision {
             retrievedKey = "retr"
             expectedKey = "rel"
             matchingStrategy = MatchingStrategy.caseInsensitive()
@@ -284,13 +149,12 @@ class DokimosDslTest {
         assertThat(precisionResult.success()).isTrue()
     }
 
-
     @Test
     fun `evaluators DSL builds every evaluator method`() {
         val judge = JudgeLM { "{}" }
 
         val customEvaluator = object : Evaluator {
-            override fun evaluate(testCase: EvalTestCase): EvalResult =
+            override fun evaluate(testCase: dev.dokimos.core.EvalTestCase): EvalResult =
                 EvalResult.builder()
                     .name(name())
                     .score(1.0)
@@ -302,7 +166,7 @@ class DokimosDslTest {
             override fun threshold(): Double = 0.0
         }
 
-        val evaluators = evaluators {
+        val evaluators = dev.dokimos.kotlin.dsl.evaluators {
             exactMatch {
                 name = "Exact"
                 threshold = 0.9
@@ -348,7 +212,6 @@ class DokimosDslTest {
             }
             evaluator(customEvaluator)
         }
-
 
         assertThat(evaluators).hasSize(9)
         assertThat(evaluators.map { it.name() }).containsExactly(

@@ -1,4 +1,4 @@
-package dev.dokimos.kotlin.dsl
+package dev.dokimos.kotlin.dsl.conversation
 
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.conversation.AggregationStrategy
@@ -10,11 +10,11 @@ import dev.dokimos.core.conversation.LLMSimulatedUser
 import dev.dokimos.core.conversation.Message
 import dev.dokimos.core.conversation.SimulatedUser
 import dev.dokimos.core.conversation.TrajectoryEvaluator
+import dev.dokimos.kotlin.dsl.DokimosDsl
 import java.util.function.Predicate
 
 /**
  * Top-level DSL entrypoints for conversation simulation primitives.
- * Mirrors the style used for the evaluator and experiment DSLs.
  */
 fun trajectory(block: ConversationTrajectoryDsl.() -> Unit): ConversationTrajectory =
     ConversationTrajectoryDsl().apply(block).build()
@@ -60,10 +60,6 @@ class ConversationTrajectoryDsl {
 
     fun message(message: Message) {
         messages += message
-    }
-
-    fun messages(vararg message: Message) {
-        messages.addAll(message.toList())
     }
 
     fun messages(values: List<Message>) {
@@ -168,10 +164,6 @@ class TrajectoryEvaluatorDsl(private val judge: JudgeLM) {
 
     fun criterion(criterion: EvaluationCriterion) {
         criteria += criterion
-    }
-
-    fun criteria(vararg values: EvaluationCriterion) {
-        criteria += values
     }
 
     fun criteria(values: List<EvaluationCriterion>) {

@@ -1,4 +1,4 @@
-package dev.dokimos.kotlin.dsl
+package dev.dokimos.kotlin.dsl.conversation
 
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.conversation.AggregationStrategy
@@ -24,7 +24,7 @@ class ConversationDslTest {
             user("hi")
             assistant("hello")
             system("sys")
-            messages(userMessage("another"))
+            messages(listOf(userMessage("another")))
         }
 
         assertThat(trajectory.scenario()).isEqualTo("sample")

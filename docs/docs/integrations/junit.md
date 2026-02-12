@@ -4,6 +4,9 @@ sidebar_position: 1
 
 # JUnit Integration
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Dokimos integrates with JUnit's parameterized tests so you can test LLM applications the same way you test regular code - with fast-failing tests that catch regressions.
 
 ## Why Use JUnit Integration?
@@ -49,6 +52,9 @@ Add the JUnit integration dependency:
 
 Load datasets with the `@DatasetSource` annotation:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.*;
@@ -67,6 +73,36 @@ void shouldAnswerSupportQuestions(Example example) {
     Assertions.assertEval(testCase, evaluators);
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.Example
+import dev.dokimos.core.eval.EvalTestCaseParam
+import dev.dokimos.junit.DatasetSource
+import org.junit.jupiter.params.ParameterizedTest
+
+class SupportTests {
+    private val correctness = llmJudge(judgeLM) {
+        name = "Helpfulness"
+        criteria = "Is the response helpful and addresses the customer's issue?"
+        params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+        threshold = 0.7
+    }
+
+    @ParameterizedTest
+    @DatasetSource("classpath:datasets/support-qa.json")
+    fun shouldAnswerSupportQuestions(example: Example) {
+        val answer = supportBot.generate(example.input())
+        val testCase = example.toTestCase(answer)
+        Assertions.assertEval(testCase, listOf(correctness))
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
 
 JUnit runs this test once for each example in the dataset. If any evaluator doesn't pass its threshold, the test fails.
 
@@ -120,6 +156,9 @@ Reason: The answer is incomplete and doesn't mention the 30-day policy.
 
 ## Complete Example
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.*;
@@ -162,11 +201,68 @@ class CustomerSupportTest {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.Example
+import dev.dokimos.core.Evaluator
+import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.evaluators.RegexEvaluator
+import dev.dokimos.core.evaluators.llm.LLMJudgeEvaluator
+import dev.dokimos.junit.DatasetSource
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.params.ParameterizedTest
+
+class CustomerSupportTest {
+
+    companion object {
+        private lateinit var evaluators: List<Evaluator>
+        private lateinit var supportBot: CustomerSupportBot
+
+        @JvmStatic
+        @BeforeAll
+        fun setup() {
+            supportBot = CustomerSupportBot(apiKey)
+            val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
+
+            evaluators = 
+                evaluators {
+                    llmJudge(judge) {
+                        name = "Answer Quality"
+                        criteria = "Is the answer helpful and addresses the user's question?"
+                        threshold = 0.80
+                    }
+                    regex {
+                        name = "No Placeholders"
+                        pattern = """.*\[.*\].*"""  // Catch [PLACEHOLDER] text
+                        threshold = 0.0                // Should NOT match
+                    }
+                }
+        }
+    }
+
+    @ParameterizedTest(name = "[{index}] {0}")
+    @DatasetSource("classpath:datasets/support-qa-v3.json")
+    fun shouldAnswerSupportQuestions(example: Example) {
+        val response = supportBot.generate(example.input())
+        val testCase = example.toTestCase(response)
+        Assertions.assertEval(testCase, evaluators)
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Advanced Usage
 
 ### Testing RAG Systems
 
 For RAG applications, include the retrieved context in your test case:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 @ParameterizedTest
@@ -201,9 +297,52 @@ void shouldAnswerFromDocumentation(Example example) {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@ParameterizedTest
+@DatasetSource("classpath:datasets/product-docs-qa.json")
+fun shouldAnswerFromDocumentation(example: Example) {
+    // Retrieve relevant documents
+    val docs = vectorStore.search(example.input(), topK = 5)
+
+    // Generate answer with RAG
+    val answer = ragSystem.generate(example.input(), docs)
+
+    // Include context in test case
+    val testCase = example.toTestCase(
+        mapOf(
+            "output" to answer,
+            "retrievedContext" to docs
+        )
+    )
+
+    // Check both quality and faithfulness
+    val answerQuality = llmJudge(judge) {
+        name = "Answer Quality"
+        criteria = "Is the answer helpful?"
+        threshold = 0.8
+    }
+
+    val faithfulness = faithfulness(judge) {
+        threshold = 0.85
+        contextKey = "retrievedContext"
+    }
+
+    Assertions.assertEval(testCase, listOf(answerQuality, faithfulness))
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Readable Test Names
 
 Customize how tests appear in output:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 @ParameterizedTest(name = "{index}: {0}")
@@ -212,6 +351,20 @@ void shouldAnswerQuestions(Example example) {
     // Output: "1: How do I reset my password?"
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@ParameterizedTest(name = "{index}: {0}")
+@DatasetSource("classpath:datasets/support-qa.json")
+fun shouldAnswerQuestions(example: Example) {
+    // Output: "1: How do I reset my password?"
+}
+```
+
+  </TabItem>
+</Tabs>
 
 ## CI/CD Integration
 
@@ -285,6 +438,9 @@ junit.jupiter.execution.parallel.config.fixed.parallelism=4
 
 Parameterized tests using `@DatasetSource` automatically benefit from parallel execution:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 @ParameterizedTest
 @DatasetSource("classpath:datasets/qa-dataset.json")
@@ -294,6 +450,22 @@ void shouldAnswerCorrectly(Example example) {
     Assertions.assertEval(testCase, evaluators);
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@ParameterizedTest
+@DatasetSource("classpath:datasets/qa-dataset.json")
+fun shouldAnswerCorrectly(example: Example) {
+    val answer = assistant.answer(example.input())
+    val testCase = example.toTestCase(answer)
+    Assertions.assertEval(testCase, evaluators)
+}
+```
+
+  </TabItem>
+</Tabs>
 
 With parallelism enabled, JUnit runs multiple examples concurrently.
 

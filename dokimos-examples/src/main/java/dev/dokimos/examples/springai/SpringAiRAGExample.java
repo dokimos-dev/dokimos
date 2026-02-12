@@ -35,11 +35,10 @@ public class SpringAiRAGExample {
                 }
 
                 // 1. Set up Spring AI components
-                OpenAiApi openAiApi = new OpenAiApi(System.getenv("OPENAI_API_KEY"));
+                OpenAiApi openAiApi = OpenAiApi.builder().apiKey(System.getenv("OPENAI_API_KEY")).build();
 
                 EmbeddingModel embeddingModel = new OpenAiEmbeddingModel(openAiApi);
-                @SuppressWarnings("removal")
-                VectorStore vectorStore = new SimpleVectorStore(embeddingModel);
+                VectorStore vectorStore = SimpleVectorStore.builder(embeddingModel).build();
 
                 // 2. Ingest documents into vector store
                 List<Document> documents = List.of(
@@ -53,10 +52,10 @@ public class SpringAiRAGExample {
                 vectorStore.add(documents);
 
                 // 3. Set up the ChatModel for generation
-                ChatModel chatModel = new OpenAiChatModel(openAiApi,
+                ChatModel chatModel = OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(
                                 OpenAiChatOptions.builder()
                                                 .model("gpt-5-nano")
-                                                .build());
+                                                .build()).build();
 
                 ChatClient chatClient = ChatClient.builder(chatModel).build();
 
@@ -108,10 +107,10 @@ public class SpringAiRAGExample {
                 };
 
                 // 6. Set up evaluators with judge model
-                ChatModel judgeModel = new OpenAiChatModel(openAiApi,
+                ChatModel judgeModel = OpenAiChatModel.builder().openAiApi(openAiApi).defaultOptions(
                                 OpenAiChatOptions.builder()
                                                 .model("gpt-5-nano")
-                                                .build());
+                                                .build()).build();
 
                 JudgeLM judge = SpringAiSupport.asJudge(judgeModel);
 

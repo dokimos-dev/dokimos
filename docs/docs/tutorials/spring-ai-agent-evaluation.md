@@ -4,7 +4,10 @@ sidebar_position: 1
 
 # LLM Evaluation with Spring AI and Dokimos: Building and Evaluating an AI Agent
 
-This tutorial walks you through building a complete AI agent with Spring AI and systematically evaluating its performance using Dokimos in Java. You will create a knowledge assistant that retrieves documents from a vector store and generates contextual answers, then evaluate it across multiple quality dimensions.
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+This tutorial walks you through building a complete AI agent with Spring AI and systematically evaluating its performance using Dokimos in Java and Kotlin. You will create a knowledge assistant that retrieves documents from a vector store and generates contextual answers, then evaluate it across multiple quality dimensions.
 
 By the end of this tutorial, you will have:
 - A working Spring AI agent with RAG (Retrieval-Augmented Generation) capabilities
@@ -81,6 +84,13 @@ Create a new Spring Boot project and add the following dependencies:
         <version>${dokimos.version}</version>
     </dependency>
 
+    <!-- Dokimos Kotlin Integration (Optional) -->
+    <dependency>
+        <groupId>dev.dokimos</groupId>
+        <artifactId>dokimos-kotlin</artifactId>
+        <version>${dokimos.version}</version>
+    </dependency>
+
     <!-- For JUnit integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
@@ -106,6 +116,7 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
     implementation 'dev.dokimos:dokimos-core:${dokimosVersion}'
     implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
+    implementation 'dev.dokimos:dokimos-kotlin:${dokimosVersion}' //optional for Kotlin projects
     testImplementation 'dev.dokimos:dokimos-junit:${dokimosVersion}'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
@@ -133,6 +144,9 @@ We start by building our knowledge assistant. This is a simple RAG pipeline that
 ### Setting Up the Vector Store
 
 First, we need a vector store to hold our company documents. For this tutorial, we will use Spring AI's `SimpleVectorStore`, which stores embeddings in-memory.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import org.springframework.ai.document.Document;
@@ -186,9 +200,68 @@ public class VectorStoreConfig {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import org.springframework.ai.document.Document
+import org.springframework.ai.embedding.EmbeddingModel
+import org.springframework.ai.vectorstore.SimpleVectorStore
+import org.springframework.ai.vectorstore.VectorStore
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+
+@Configuration
+class VectorStoreConfig {
+
+    @Bean
+    fun vectorStore(embeddingModel: EmbeddingModel): VectorStore {
+        val store = SimpleVectorStore.builder(embeddingModel).build()
+
+        // Load our company documents
+        val documents = listOf(
+            Document(
+                "Our return policy allows customers to return any product within 30 days " +
+                "of purchase for a full refund. Items must be in original condition with " +
+                "tags attached. Refunds are processed within 5 business days."
+            ),
+            Document(
+                "Premium members receive free shipping on all orders, 20% discount on " +
+                "all products, early access to new releases, and priority customer support. " +
+                "Premium membership costs $99 per year."
+            ),
+            Document(
+                "Our customer support team is available Monday through Friday from 9 AM " +
+                "to 6 PM Eastern Time. You can reach us by email at support@example.com " +
+                "or by phone at 1-800-EXAMPLE."
+            ),
+            Document(
+                "We offer three shipping options: Standard (5-7 business days, $5.99), " +
+                "Express (2-3 business days, $12.99), and Next Day ($24.99). " +
+                "Orders over $50 qualify for free standard shipping."
+            ),
+            Document(
+                "Gift cards are available in denominations of $25, $50, $100, and $200. " +
+                "Gift cards never expire and can be used for any purchase on our website. " +
+                "They cannot be redeemed for cash."
+            )
+        )
+
+        store.add(documents)
+        return store
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Creating the Knowledge Assistant
 
 Now we create our AI agent that combines retrieval with generation:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import org.springframework.ai.chat.client.ChatClient;
@@ -252,9 +325,70 @@ public class KnowledgeAssistant {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import org.springframework.ai.chat.client.ChatClient
+import org.springframework.ai.document.Document
+import org.springframework.ai.vectorstore.SearchRequest
+import org.springframework.ai.vectorstore.VectorStore
+import org.springframework.stereotype.Service
+
+@Service
+class KnowledgeAssistant(
+    chatClientBuilder: ChatClient.Builder,
+    private val vectorStore: VectorStore
+) {
+    private val chatClient: ChatClient = chatClientBuilder.build()
+
+    fun answer(question: String): AssistantResponse {
+        // Step 1: Retrieve relevant documents
+        val retrievedDocs: List<Document> = vectorStore.similaritySearch(
+            SearchRequest.builder()
+                .query(question)
+                .topK(3)
+                .build()
+        )
+
+        // Step 2: Build context from retrieved documents
+        val context = retrievedDocs.joinToString(separator = "\n\n") { it.text }
+
+        // Step 3: Generate response using context
+        val systemPrompt = """
+            You are a helpful customer service assistant. Answer the user's question
+            based ONLY on the provided context. If the context does not contain
+            enough information to answer the question, say so clearly.
+
+            Context:
+            %s
+        """.trimIndent().format(context)
+
+        val response = chatClient.prompt()
+            .system(systemPrompt)
+            .user(question)
+            .call()
+            .content()
+
+        return AssistantResponse(response, retrievedDocs)
+    }
+
+    data class AssistantResponse(
+        val answer: String,
+        val retrievedDocuments: List<Document>
+    )
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Exposing the Assistant as a REST API
 
 To make the assistant usable as a real service, expose it via a REST endpoint:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import org.springframework.http.ResponseEntity;
@@ -292,6 +426,37 @@ public class KnowledgeAssistantController {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping("/api")
+class KnowledgeAssistantController(
+    private val assistant: KnowledgeAssistant
+) {
+
+    @PostMapping("/chat")
+    fun chat(@RequestBody request: ChatRequest): ResponseEntity<ChatResponse> {
+        val response = assistant.answer(request.question)
+        val sources = response.retrievedDocuments.map { it.text }
+        return ResponseEntity.ok(ChatResponse(response.answer, sources))
+    }
+
+    data class ChatRequest(val question: String)
+    data class ChatResponse(val answer: String, val sources: List<String>)
+}
+```
+
+  </TabItem>
+</Tabs>
+
 You can now interact with your assistant:
 
 ```bash
@@ -307,6 +472,9 @@ Now that we have a working assistant, we can evaluate it systematically. We crea
 ### Creating the Evaluation Dataset
 
 First, create a dataset with questions and expected behaviors:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.Dataset;
@@ -357,6 +525,61 @@ Dataset dataset = Dataset.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.dataset
+import dev.dokimos.kotlin.dsl.example
+
+val dataset = dataset {
+    name = "Knowledge Assistant Evaluation"
+    example {
+        input = "What is your return policy?"
+        expected = "30 days, full refund, original condition"
+        metadata("category", "returns")
+    }
+    example {
+        input = "How much does premium membership cost?"
+        expected = "$99 per year"
+        metadata("category", "membership")
+    }
+    example {
+        input = "What are your customer support hours?"
+        expected = "Monday through Friday, 9 AM to 6 PM Eastern"
+        metadata("category", "support")
+    }
+    example {
+        input = "Do gift cards expire?"
+        expected = "Gift cards never expire"
+        metadata("category", "gift-cards")
+    }
+    example {
+        input = "How can I get free shipping?"
+        expected = "Orders over $50 or premium membership"
+        metadata("category", "shipping")
+    }
+    example {
+        input = "What is the fastest shipping option?"
+        expected = "Next Day shipping for $24.99"
+        metadata("category", "shipping")
+    }
+    example {
+        input = "Can I return a product after 60 days?"
+        expected = "No, returns must be within 30 days"
+        metadata("category", "returns")
+    }
+    example {
+        input = "What benefits do premium members get?"
+        expected = "Free shipping, 20% discount, early access, priority support"
+        metadata("category", "membership")
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 Alternatively, you can also load datasets from JSON files for easier maintenance:
 
 ```json
@@ -377,13 +600,31 @@ Alternatively, you can also load datasets from JSON files for easier maintenance
 }
 ```
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 Dataset dataset = Dataset.fromJson(Paths.get("src/test/resources/datasets/qa-dataset.json"));
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import java.nio.file.Paths
+
+val dataset = Dataset.fromJson(Paths.get("src/test/resources/datasets/qa-dataset.json"))
+```
+
+  </TabItem>
+</Tabs>
+
 ### Defining the Evaluation Task
 
 The Task interface bridges your application with Dokimos. It takes an example and returns the outputs that evaluators will check:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.Task;
@@ -406,11 +647,38 @@ Task evaluationTask = example -> {
 };
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.task
+
+val evaluationTask = task { example ->
+    // Run our assistant
+    val response = assistant.answer(example.input())
+
+    // Extract context texts for evaluation
+    val contextTexts = response.retrievedDocuments.map { it.text }
+
+    // Return outputs for evaluators to check
+    mapOf(
+        "output" to response.answer,
+        "context" to contextTexts
+    )
+}
+```
+
+  </TabItem>
+</Tabs>
+
 The key insight here is that we return both the answer and the retrieved context. This allows evaluators to check not just what the agent said, but whether it was grounded in the documents it retrieved.
 
 ### Setting Up the LLM Judge
 
 Dokimos uses the LLM as Judge pattern for semantic evaluation. We will use Spring AI's `ChatModel` as our judge:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.JudgeLM;
@@ -424,9 +692,30 @@ private ChatModel chatModel;
 JudgeLM judge = SpringAiSupport.asJudge(chatModel);
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.JudgeLM
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.model.ChatModel
+import org.springframework.beans.factory.annotation.Autowired
+
+@Autowired
+val chatModel: ChatModel
+
+val judge: JudgeLM = SpringAiSupport.asJudge(chatModel)
+```
+
+  </TabItem>
+</Tabs>
+
 :::tip Using a Different Model for Judging
 
 For better evaluation quality, consider using a more capable model as your judge. You can configure a separate ChatModel bean specifically for evaluation:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 @Bean
@@ -438,6 +727,21 @@ public ChatModel judgeModel() {
         .build();
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Bean
+@Qualifier("judgeModel")
+fun judgeModel(): ChatModel = OpenAiChatModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .model("gpt-5.2")
+    .build()
+```
+
+  </TabItem>
+</Tabs>
 
 :::
 
@@ -455,6 +759,9 @@ LLM based evaluators (FaithfulnessEvaluator, HallucinationEvaluator, LLMJudgeEva
 
 The FaithfulnessEvaluator checks whether the response is grounded in the retrieved context. This is crucial for RAG systems where you want to ensure the agent is not making things up.
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.core.evaluators.FaithfulnessEvaluator;
 
@@ -465,6 +772,20 @@ Evaluator faithfulness = FaithfulnessEvaluator.builder()
     .includeReason(true)    // Get explanation for the score
     .build();
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val faithfulness = faithfulness(judge) {
+    threshold = 0.8
+    contextKey = "context"  // Key where we stored retrieved documents
+    includeReason = true     // Get explanation for the score
+}
+```
+
+  </TabItem>
+</Tabs>
 
 The evaluator works by:
 1. Breaking down the response into individual claims
@@ -477,6 +798,9 @@ A score of 0.8 means 80% of the claims in the response are supported by the cont
 
 While faithfulness measures how much is grounded, the HallucinationEvaluator specifically measures the proportion of fabricated content:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.core.evaluators.HallucinationEvaluator;
 
@@ -488,11 +812,28 @@ Evaluator hallucination = HallucinationEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val hallucination = hallucination(judge) {
+    threshold = 0.2  // Allow at most 20% hallucinated content
+    contextKey = "context"
+    includeReason = true
+}
+```
+
+  </TabItem>
+</Tabs>
+
 **Important:** For this evaluator, lower scores are better. A score of 0.0 means no hallucinations were detected. The evaluator passes when `score <= threshold`.
 
 ### Answer Quality Evaluator
 
 The LLMJudgeEvaluator lets you define custom evaluation criteria in natural language:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
@@ -516,9 +857,33 @@ Evaluator answerQuality = LLMJudgeEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val answerQuality = llmJudge(judge) {
+    name = "Answer Quality"
+    criteria = """
+        Evaluate the answer based on these criteria:
+        1. Does it directly address the user's question?
+        2. Is it clear and easy to understand?
+        3. Does it provide specific, actionable information?
+        4. Is it appropriately concise without missing key details?
+    """.trimIndent()
+    params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+    threshold = 0.7
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Contextual Relevance Evaluator
 
 This evaluator checks whether the retriever is finding relevant documents for each query:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.evaluators.ContextualRelevanceEvaluator;
@@ -531,11 +896,28 @@ Evaluator contextRelevance = ContextualRelevanceEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val contextRelevance = contextualRelevance(judge) {
+    threshold = 0.6
+    retrievalContextKey = "context"
+    includeReason = true
+}
+```
+
+  </TabItem>
+</Tabs>
+
 The evaluator scores each retrieved chunk independently and calculates the mean. This helps identify when your retriever is returning irrelevant documents that could confuse the LLM.
 
 ### Combining All Evaluators
 
 Put all evaluators together:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 List<Evaluator> evaluators = List.of(
@@ -577,9 +959,51 @@ List<Evaluator> evaluators = List.of(
 );
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val evaluators = evaluators {
+    // Check if response is grounded in context
+    faithfulness(judge) {
+        threshold = 0.8
+        contextKey = "context"
+        includeReason = true
+    }
+
+    // Check for hallucinated content
+    hallucination(judge) {
+        threshold = 0.2
+        contextKey = "context"
+        includeReason = true
+    }
+
+    // Check answer quality
+    llmJudge(judge) {
+        name = "Answer Quality"
+        criteria = "Is the answer helpful, clear, and directly addresses the question?"
+        params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+        threshold = 0.7
+    }
+
+    // Check retrieval quality
+    contextualRelevance(judge) {
+        threshold = 0.6
+        retrievalContextKey = "context"
+        includeReason = true
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Part 4: Running the Evaluation Experiment
 
 With our dataset, task, and evaluators ready, we can run a full evaluation experiment:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.Experiment;
@@ -598,9 +1022,33 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.experiment
+
+val result = experiment {
+    name = "Knowledge Assistant v1.0 Evaluation"
+    description = "Evaluating the RAG based knowledge assistant"
+    dataset(dataset)
+    task(evaluationTask)
+    evaluators(evaluators)
+    metadata("model", "gpt-5-nano")
+    metadata("retrievalTopK", 3)
+    metadata("timestamp", Instant.now().toString())
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
 ### Analyzing Results
 
 The experiment returns aggregate metrics and detailed per example results:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 // Overall metrics
@@ -619,9 +1067,35 @@ System.out.println("Answer Quality: " + String.format("%.2f", result.averageScor
 System.out.println("Contextual Relevance: " + String.format("%.2f", result.averageScore("ContextualRelevance")));
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Overall metrics
+println("=== Experiment Results ===")
+println("Name: ${result.name()}")
+println("Total examples: ${result.totalCount()}")
+println("Passed: ${result.passCount()}")
+println("Failed: ${result.failCount()}")
+println("Pass rate: ${"%.1f".format(result.passRate() * 100)}%")
+
+// Per evaluator metrics
+println("\n=== Average Scores by Evaluator ===")
+println("Faithfulness: ${"%.2f".format(result.averageScore("Faithfulness"))}")
+println("Hallucination: ${"%.2f".format(result.averageScore("Hallucination"))}")
+println("Answer Quality: ${"%.2f".format(result.averageScore("Answer Quality"))}")
+println("Contextual Relevance: ${"%.2f".format(result.averageScore("ContextualRelevance"))}")
+```
+
+  </TabItem>
+</Tabs>
+
 ### Investigating Failures
 
 When tests fail, you can dig into the details:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 System.out.println("\n=== Failed Cases ===");
@@ -644,6 +1118,32 @@ for (ItemResult item : result.itemResults()) {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+println("\n=== Failed Cases ===")
+result.itemResults().forEach { item ->
+    if (!item.success()) {
+        println("\nQuestion: ${item.example().input()}")
+        println("Expected: ${item.example().expectedOutput()}")
+        println("Actual: ${item.actualOutputs()["output"]}")
+
+        println("Evaluator Results:")
+        item.evalResults().forEach { eval ->
+            val status = if (eval.success()) "PASS" else "FAIL"
+            println("  ${eval.name()}: $status (score: ${"%.2f".format(eval.score())})")
+            if (!eval.success() && eval.reason() != null) {
+                println("    Reason: ${eval.reason()}")
+            }
+        }
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Part 5: Integrating with JUnit
 
 For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit integration.
@@ -651,6 +1151,9 @@ For continuous integration, you can run evaluations as part of your test suite u
 ### Organizing Evaluators
 
 In a real application, you will want to organize your evaluators in a reusable way. Create a factory class that encapsulates your evaluation configuration:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 package com.example.evaluation;
@@ -725,11 +1228,60 @@ public final class QAEvaluators {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+package com.example.evaluation
+
+import dev.dokimos.core.Evaluator
+import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.EvalTestCaseParam
+import dev.dokimos.kotlin.dsl.contextualRelevance
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.kotlin.dsl.hallucination
+import dev.dokimos.kotlin.dsl.llmJudge
+
+object QAEvaluators {
+    const val CONTEXT_KEY = "context"
+
+    fun standard(judge: JudgeLM): List<Evaluator> = listOf(
+        faithfulness(judge) {
+            threshold = 0.8
+            contextKey = CONTEXT_KEY
+            includeReason = true
+        },
+        hallucination(judge) {
+            threshold = 0.2
+            contextKey = CONTEXT_KEY
+            includeReason = true
+        },
+        llmJudge(judge) {
+            name = "Answer Quality"
+            criteria = "Is the answer helpful, clear, and directly addresses the question?"
+            params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+            threshold = 0.7
+        },
+        contextualRelevance(judge) {
+            threshold = 0.6
+            retrievalContextKey = CONTEXT_KEY
+            includeReason = true
+        }
+    )
+}
+```
+
+  </TabItem>
+</Tabs>
+
 This approach keeps your evaluation logic separate from your application code and makes it easy to reuse across different tests.
 
 ### Writing the Evaluation Test
 
 Now write a clean test that uses the evaluator factory:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.Assertions;
@@ -786,6 +1338,60 @@ class KnowledgeAssistantEvaluationTest {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.Assertions
+import dev.dokimos.core.EvalTestCase
+import dev.dokimos.core.Evaluator
+import dev.dokimos.core.Example
+import dev.dokimos.core.JudgeLM
+import dev.dokimos.junit.DatasetSource
+import dev.dokimos.springai.SpringAiSupport
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.params.ParameterizedTest
+import org.springframework.ai.chat.model.ChatModel
+import org.springframework.boot.test.context.SpringBootTest
+
+@SpringBootTest
+class KnowledgeAssistantEvaluationTest {
+
+    @Autowired
+    private lateinit var assistant: KnowledgeAssistant
+
+    @Autowired
+    private lateinit var chatModel: ChatModel
+
+    private lateinit var evaluators: List<Evaluator>
+
+    @BeforeEach
+    fun setup() {
+        val judge: JudgeLM = SpringAiSupport.asJudge(chatModel)
+        evaluators = QAEvaluators.standard(judge)
+    }
+
+    @ParameterizedTest
+    @DatasetSource("classpath:datasets/qa-dataset.json")
+    fun shouldProvideQualityAnswers(example: Example) {
+        val response = assistant.answer(example.input())
+
+        val contextTexts = response.retrievedDocuments.map { it.text }
+
+        val testCase =EvalTestCase(
+            input = example.input(),
+            actualOutput = response.answer,
+            actualOutputs = mapOf(QAEvaluators.CONTEXT_KEY, contextTexts),
+            expectedOutput = example.expectedOutput())
+
+        Assertions.assertEval(testCase, evaluators)
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Running in CI/CD
 
 Add this to your GitHub Actions workflow:
@@ -837,6 +1443,9 @@ The server will be available at `http://localhost:8080`.
 
 Use `DokimosServerReporter` to send experiment results to the server:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.server.client.DokimosServerReporter;
 
@@ -855,6 +1464,30 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.server.client.DokimosServerReporter
+
+val reporter = DokimosServerReporter.builder()
+    .serverUrl("http://localhost:8080")
+    .projectName("knowledge-assistant")
+    .build()
+
+val result = experiment {
+    name = "Knowledge Assistant v1.0"
+    dataset(dataset)
+    task(evaluationTask)
+    evaluators(evaluators)
+    reporter(reporter)
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
 The reporter batches results and sends them to the server during experiment execution. After the experiment completes, you can view the results in the web UI.
 
 The server stores results and lets you:
@@ -865,7 +1498,10 @@ The server stores results and lets you:
 
 ## Part 7: Creating Custom Evaluators
 
-Sometimes the built in evaluators do not cover your specific needs. You can create custom evaluators by extending `BaseEvaluator`. Place these in your evaluation package alongside `QAEvaluators`:
+Sometimes the built-in evaluators do not cover your specific needs. You can create custom evaluators by extending `BaseEvaluator`. Place these in your evaluation package alongside `QAEvaluators`:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 package com.example.evaluation;
@@ -913,7 +1549,50 @@ public class ResponseLengthEvaluator extends BaseEvaluator {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+package com.example.evaluation
+
+import dev.dokimos.core.BaseEvaluator
+import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
+import dev.dokimos.core.EvalTestCaseParam
+
+/**
+ * Custom evaluator that checks if the response length is within acceptable bounds.
+ * This demonstrates a deterministic evaluator that does not require an LLM judge.
+ */
+class ResponseLengthEvaluator(
+    private val minWords: Int,
+    private val maxWords: Int
+) : BaseEvaluator("Response Length", 1.0, listOf(EvalTestCaseParam.ACTUAL_OUTPUT)) {
+
+    override fun runEvaluation(testCase: EvalTestCase): EvalResult {
+        val output = testCase.actualOutput()
+        val wordCount = output.split("\s+".toRegex()).size
+
+        val withinBounds = wordCount in minWords..maxWords
+        val score = if (withinBounds) 1.0 else 0.0
+        val reason = "Response has $wordCount words (expected $minWords-$maxWords)"
+
+        return EvalResult(
+            name = name(),
+            score = score,
+            threshold = threshold(),
+            reason = reason)
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 You can then add it to your evaluator factory:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 // In QAEvaluators.java
@@ -922,11 +1601,25 @@ public static Evaluator responseLength(int minWords, int maxWords) {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// In QAEvaluators.kt
+fun responseLength(minWords: Int, maxWords: Int): Evaluator = ResponseLengthEvaluator(minWords, maxWords)
+```
+
+  </TabItem>
+</Tabs>
+
 ## Part 8: Advanced Evaluation Patterns
 
 ### Evaluating Precision and Recall
 
 For RAG systems where you have ground truth labels for relevant documents, you can measure traditional IR (Information Retrieval) metrics, such as precision and recall:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.evaluators.PrecisionEvaluator;
@@ -969,9 +1662,55 @@ Evaluator recall = RecallEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.evaluators.MatchingStrategy
+import dev.dokimos.kotlin.dsl.precision
+import dev.dokimos.kotlin.dsl.recall
+
+val example = example {
+    input = "What is your return policy?"
+    expected("relevantDocs", listOf("doc-returns-1", "doc-returns-2"))
+}
+
+val taskWithDocIds = task { ex ->
+    val response = assistant.answer(ex.input())
+    val retrievedIds = response.retrievedDocuments.map { it.metadata["id"].toString() }
+
+    mapOf(
+        "output" to response.answer,
+        "retrievedDocs" to retrievedIds
+    )
+}
+
+val precision: Evaluator = precision {
+    name = "Retrieval Precision"
+    retrievedKey = "retrievedDocs"
+    expectedKey = "relevantDocs"
+    matchingStrategy = MatchingStrategy.byEquality()
+    threshold = 0.8
+}
+
+val recall: Evaluator = recall {
+    name = "Retrieval Recall"
+    retrievedKey = "retrievedDocs"
+    expectedKey = "relevantDocs"
+    matchingStrategy = MatchingStrategy.byEquality()
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Flexible Matching Strategies
 
 Dokimos provides various matching strategies for comparing retrieved items:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 // Case insensitive matching
@@ -994,9 +1733,39 @@ MatchingStrategy.anyOf(strategy1, strategy2)  // OR
 MatchingStrategy.allOf(strategy1, strategy2)  // AND
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Case insensitive matching
+MatchingStrategy.caseInsensitive()
+
+// Match by a specific field in objects
+MatchingStrategy.byField("id")
+
+// Match by multiple fields
+MatchingStrategy.byFields("subject", "predicate", "object")
+
+// Substring containment
+MatchingStrategy.byContainment(normalize = true)
+
+// LLM based semantic matching (most flexible)
+MatchingStrategy.llmBased(judge)
+
+// Combine strategies
+MatchingStrategy.anyOf(strategy1, strategy2)  // OR
+MatchingStrategy.allOf(strategy1, strategy2)  // AND
+```
+
+  </TabItem>
+</Tabs>
+
 ### Async Evaluation
 
 For large datasets, you can run evaluations asynchronously:
+
+<Tabs groupId="lang" defaultValue="java">
+<TabItem value="java" label="Java">
 
 ```java
 // Single evaluator async
@@ -1007,9 +1776,24 @@ ExecutorService executor = Executors.newFixedThreadPool(4);
 CompletableFuture<EvalResult> future = evaluator.evaluateAsync(testCase, executor);
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Single evaluator async
+val evalResult: EvalResult = evaluator.evaluateAsync(testCase).await()
+
+// With custom executor for parallel evaluation
+val executor = Executors.newFixedThreadPool(4)
+val evalResult2: EvalResult = evaluator.evaluateAsync(testCase, executor).await()
+```
+
+  </TabItem>
+</Tabs>
+
 ## Best Practices
 
-### Start with a Small, High Quality Dataset
+### Start with a Small, High-Quality Dataset
 
 Do not try to build a huge dataset upfront. Start with 10 to 20 carefully crafted examples that cover your main use cases. Add more examples as you discover edge cases and failures.
 

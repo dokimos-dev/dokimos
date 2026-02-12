@@ -4,6 +4,9 @@ sidebar_position: 4
 
 # Evaluators
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Evaluators check the quality of your LLM's outputs. Each one gives a score between 0.0 and 1.0, and decides whether the output passes based on a threshold you set.
 
 You can use built-in evaluators for common checks (exact matches, regex patterns, LLM-based judging) or create custom ones for your specific needs.
@@ -11,6 +14,9 @@ You can use built-in evaluators for common checks (exact matches, regex patterns
 ## The Evaluator Interface
 
 All evaluators implement the `Evaluator` interface:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 public interface Evaluator {
@@ -20,7 +26,24 @@ public interface Evaluator {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+interface Evaluator {
+    fun evaluate(testCase: EvalTestCase): EvalResult
+    fun name(): String
+    fun threshold(): Double
+}
+```
+
+  </TabItem>
+</Tabs>
+
 Evaluators extending `BaseEvaluator` also support **async evaluation**:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 // Async using common fork-join pool
@@ -30,6 +53,21 @@ CompletableFuture<EvalResult> future = evaluator.evaluateAsync(testCase);
 ExecutorService executor = Executors.newFixedThreadPool(4);
 CompletableFuture<EvalResult> future = evaluator.evaluateAsync(testCase, executor);
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Async using common fork-join pool
+val evalResult = evaluator.evaluateAsync(testCase).await()
+
+// Async with custom executor
+val executor = Executors.newFixedThreadPool(4)
+val evalResult2 = evaluator.evaluateAsync(testCase, executor).await()
+```
+
+  </TabItem>
+</Tabs>
 
 An `EvalResult` contains:
 - **score**: Numeric score (0.0 to 1.0)
@@ -43,12 +81,28 @@ An `EvalResult` contains:
 
 Checks if the output matches the expected result exactly. Useful for deterministic outputs where there's only one correct answer.
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 Evaluator evaluator = ExactMatchEvaluator.builder()
     .name("Exact Match")
     .threshold(1.0)
     .build();
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val evaluator = exactMatch {
+    name = "Exact Match"
+    threshold = 1.0
+}
+```
+
+  </TabItem>
+</Tabs>
 
 Returns score `1.0` if they match, `0.0` otherwise.
 
@@ -57,6 +111,9 @@ Returns score `1.0` if they match, `0.0` otherwise.
 ### RegexEvaluator
 
 Checks if the output matches a pattern. Useful for validating format without caring about the exact content.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 Evaluator dateFormat = RegexEvaluator.builder()
@@ -73,11 +130,35 @@ Evaluator emailFormat = RegexEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val dateFormat = regex {
+    name = "Date Format"
+    pattern = "\\d{4}-\\d{2}-\\d{2}"  // YYYY-MM-DD
+    threshold = 1.0
+}
+
+val emailFormat = regex {
+    name = "Email Format"
+    pattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+    ignoreCase = true
+    threshold = 1.0
+}
+```
+
+  </TabItem>
+</Tabs>
+
 **When to use:** Validating dates, emails, phone numbers, IDs, URLs, or any structured format where the exact value varies but the pattern should be consistent.
 
 ### LLMJudgeEvaluator
 
 Uses another LLM to evaluate outputs based on criteria you define in natural language. This is powerful for subjective quality checks that are hard to automate with rules.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 JudgeLM judge = prompt -> judgeModel.generate(prompt);
@@ -94,6 +175,23 @@ Evaluator helpfulness = LLMJudgeEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
+
+val helpfulness: Evaluator = llmJudge(judge) {
+    name = "Helpfulness"
+    criteria = "Is the answer helpful and complete? Does it actually solve the user's problem?"
+    params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
+
 The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1.
 
 **When to use:** Checking semantic correctness, helpfulness, tone, clarity, or any quality dimension that's easier to describe in words than code.
@@ -101,6 +199,9 @@ The evaluator sends your criteria along with the test case to the judge model, w
 ### FaithfulnessEvaluator
 
 Checks if the output is grounded in the provided context. This is essential for RAG systems where you need to ensure the LLM isn't making things up.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 JudgeLM judge = prompt -> judgeModel.generate(prompt);
@@ -113,6 +214,22 @@ Evaluator faithfulness = FaithfulnessEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
+
+val faithfulness: Evaluator = faithfulness(judge) {
+    threshold = 0.8
+    contextKey = "retrievedContext"  // Where to find the context in outputs
+    includeReason = true
+}
+```
+
+  </TabItem>
+</Tabs>
+
 The evaluator:
 1. Breaks down the output into individual claims
 2. Checks each claim against the retrieved context
@@ -124,6 +241,9 @@ The evaluator:
 
 Detects when the output contains information not supported by the provided context. Unlike FaithfulnessEvaluator which measures how much is grounded, this evaluator specifically measures the proportion of hallucinated content.
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 JudgeLM judge = prompt -> judgeModel.generate(prompt);
 
@@ -134,6 +254,22 @@ Evaluator hallucination = HallucinationEvaluator.builder()
     .includeReason(true)
     .build();
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
+
+val hallucination: Evaluator = hallucination(judge) {
+    threshold = 0.3  // Allow at most 30% hallucinated content
+    contextKey = "context"
+    includeReason = true
+}
+```
+
+  </TabItem>
+</Tabs>
 
 The evaluator:
 1. Breaks down the output into individual statements
@@ -147,6 +283,9 @@ The evaluator:
 ### ContextualRelevanceEvaluator
 
 Measures how relevant retrieved context chunks are to a user's query. This is essential for evaluating retrieval quality in RAG systems.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 JudgeLM judge = prompt -> judgeModel.generate(prompt);
@@ -175,16 +314,55 @@ var testCase = EvalTestCase.builder()
     ))
     .build();
 
-EvalResult result = evaluator.evaluate(testCase);
+EvalResult result = relevance.evaluate(testCase);
 // result.score() ≈ 0.63 (average of individual scores)
 // result.metadata().get("contextScores") contains per-chunk details
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
+
+val relevance: Evaluator = contextualRelevance(judge) {
+    threshold = 0.5
+    retrievalContextKey = "retrievalContext"
+    includeReason = true
+    strictMode = false  // Set to true for threshold of 1.0
+}
+```
+
+The evaluator:
+1. Scores each context chunk independently (0.0 to 1.0) for relevance to the query
+2. Calculates final score as the mean average of all chunk scores
+3. Stores individual chunk scores in the result metadata for transparency
+
+```kotlin
+val testCase = EvalTestCase(
+    input = "What are symptoms of dehydration?",
+    actualOutputs = mapOf("retrievalContext" to listOf(
+        "Dehydration symptoms include thirst and fatigue.",  // Highly relevant
+        "The Pacific Ocean is the largest ocean.",           // Irrelevant
+        "Severe dehydration can cause dizziness."            // Highly relevant
+    )))
+
+val result = relevance.evaluate(testCase)
+// result.score() ≈ 0.63 (average of individual scores)
+// result.metadata()["contextScores"] contains per-chunk details
+```
+
+  </TabItem>
+</Tabs>
 
 **When to use:** Evaluating retrieval quality in RAG pipelines. Helps identify when your retriever is returning irrelevant documents that could confuse the LLM or dilute answer quality.
 
 ### PrecisionEvaluator
 
 Measures what fraction of retrieved items are actually relevant. Requires ground truth labels.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 Evaluator precision = PrecisionEvaluator.builder()
@@ -196,6 +374,22 @@ Evaluator precision = PrecisionEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val precision: Evaluator = precision {
+    name = "retrieval-precision"
+    retrievedKey = "retrievedDocs"   // Key in actualOutputs
+    expectedKey = "relevantDocs"     // Key in expectedOutputs (ground truth)
+    matchingStrategy = MatchingStrategy.byEquality()
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
+
 **Formula:** `precision = |relevant ∩ retrieved| / |retrieved|`
 
 A precision of 1.0 means every retrieved item was relevant (no false positives).
@@ -205,6 +399,9 @@ A precision of 1.0 means every retrieved item was relevant (no false positives).
 ### RecallEvaluator
 
 Measures what fraction of relevant items were actually retrieved. Requires ground truth labels.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 Evaluator recall = RecallEvaluator.builder()
@@ -216,6 +413,22 @@ Evaluator recall = RecallEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val recall: Evaluator = recall {
+    name = "retrieval-recall"
+    retrievedKey = "retrievedDocs"
+    expectedKey = "relevantDocs"
+    matchingStrategy = MatchingStrategy.byEquality()
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
+
 **Formula:** `recall = |relevant ∩ retrieved| / |relevant|`
 
 A recall of 1.0 means all relevant items were found (no false negatives).
@@ -225,6 +438,9 @@ A recall of 1.0 means all relevant items were found (no false negatives).
 ### Matching Strategies
 
 Both Precision and Recall evaluators support flexible matching strategies for comparing retrieved items to ground truth:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 // Simple equality (default, for string IDs)
@@ -250,7 +466,40 @@ MatchingStrategy.anyOf(strategy1, strategy2)  // OR
 MatchingStrategy.allOf(strategy1, strategy2)  // AND
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Simple equality (default, for string IDs)
+MatchingStrategy.byEquality()
+
+// Case-insensitive string matching
+MatchingStrategy.caseInsensitive()
+
+// Match by a specific field (for Map/JSON objects)
+MatchingStrategy.byField("id")
+
+// Match by multiple fields (e.g., knowledge graph triples)
+MatchingStrategy.byFields("subject", "predicate", "object")
+
+// Substring containment matching
+MatchingStrategy.byContainment(normalize = true)
+
+// LLM-based semantic matching (most flexible, most expensive)
+MatchingStrategy.llmBased(judge)
+
+// Combine strategies
+MatchingStrategy.anyOf(strategy1, strategy2)  // OR
+MatchingStrategy.allOf(strategy1, strategy2)  // AND
+```
+
+  </TabItem>
+</Tabs>
+
 **Example with knowledge graph triples:**
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 var precision = PrecisionEvaluator.builder()
@@ -271,21 +520,74 @@ var testCase = EvalTestCase.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val precision = precision {
+    retrievedKey = "triples"
+    expectedKey = "relevantTriples"
+    matchingStrategy = MatchingStrategy.byFields("subject", "predicate", "object")
+}
+
+val testCase = EvalTestCase(
+    input = "Who founded Microsoft?",
+    actualOutputs = mapOf("triples" to listOf(
+      mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft")
+    )),
+    expectedOutputs = mapOf("relevantTriples" to listOf(
+      mapOf("subject" to "Bill Gates", "predicate" to "founded", "object" to "Microsoft"),
+      mapOf("subject" to "Paul Allen", "predicate" to "co-founded", "object" to "Microsoft")
+    )))
+```
+
+  </TabItem>
+</Tabs>
+
 ## Common Configuration
 
 All evaluators have these settings:
 
 **Name**: How the evaluator shows up in results:
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 .name("Answer Quality")
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+name = "Answer Quality"
+```
+
+  </TabItem>
+</Tabs>
+
 **Threshold**: Minimum score needed to pass:
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 .threshold(0.8)  // Needs 80% or higher
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+threshold = 0.8  // Needs 80% or higher
+```
+
+  </TabItem>
+</Tabs>
+
 **Evaluation Parameters**: What information to include for evaluators:
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 .evaluationParams(List.of(
     EvalTestCaseParam.INPUT,           // The user's question
@@ -294,9 +596,26 @@ All evaluators have these settings:
 ))
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+params(
+    EvalTestCaseParam.INPUT,           // The user's question
+    EvalTestCaseParam.EXPECTED_OUTPUT, // What you expect
+    EvalTestCaseParam.ACTUAL_OUTPUT,   // What the LLM actually said
+)
+```
+
+  </TabItem>
+</Tabs>
+
 ## Creating Custom Evaluators
 
 When the built-in evaluators don't fit your needs, create your own by extending `BaseEvaluator`:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 public class ResponseLengthEvaluator extends BaseEvaluator {
@@ -333,11 +652,48 @@ public class ResponseLengthEvaluator extends BaseEvaluator {
 Evaluator lengthCheck = new ResponseLengthEvaluator("Length Check", 50, 200);
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+class ResponseLengthEvaluator(
+    private val minLength: Int,
+    private val maxLength: Int,
+    private val evaluatorName: String = "Length Check"
+) : BaseEvaluator(evaluatorName, 1.0, listOf(EvalTestCaseParam.ACTUAL_OUTPUT)) {
+
+    override fun runEvaluation(testCase: EvalTestCase): EvalResult {
+        val output = testCase.actualOutput()
+        val length = output.length
+
+        val withinBounds = length in minLength..maxLength
+        val score = if (withinBounds) 1.0 else 0.0
+        val reason = "Output length $length (expected $minLength-$maxLength)"
+
+        return EvalResult(
+          name = name(),
+          score = score,
+          threshold = threshold(),
+          reason = reason,
+        )
+    }
+}
+
+// Usage
+val lengthCheck: Evaluator = ResponseLengthEvaluator(50, 200)
+```
+
+  </TabItem>
+</Tabs>
+
 For very simple checks, you can also implement the `Evaluator` interface directly.
 
 ## Combining Multiple Evaluators
 
 Most applications need to pass multiple quality checks. You can use several evaluators together:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 List<Evaluator> evaluators = List.of(
@@ -365,6 +721,36 @@ List<Evaluator> evaluators = List.of(
 );
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val evaluators: List<Evaluator> = evaluators {
+    // Check if the answer is correct
+    llmJudge(judge) {
+        name = "Correctness"
+        criteria = "Is the answer factually correct?"
+        threshold = 0.85
+    }
+
+    // Check if it's grounded in retrieved docs (RAG)
+    faithfulness(judge) {
+        threshold = 0.80
+        contextKey = "retrievedContext"
+    }
+
+    // Check if it follows the required format
+    regex {
+        name = "Format Check"
+        pattern = "^[A-Z].*\\.$"  // Must start with capital and end with period
+        threshold = 1.0
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 An output only passes if it meets **all** the thresholds. This lets you enforce multiple quality dimensions at once.
 
 ## Best Practices
@@ -388,6 +774,9 @@ Don't aim for perfection right away. Start with thresholds around 0.7-0.8 and ti
 
 Be clear about what you're evaluating:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 // Good (specific and measurable)
 .criteria("Does the answer correctly explain the refund process and mention the 30-day policy?")
@@ -396,6 +785,20 @@ Be clear about what you're evaluating:
 .criteria("Is this good?")
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Good (specific and measurable)
+criteria = "Does the answer correctly explain the refund process and mention the 30-day policy?"
+
+// Bad (too vague)
+criteria = "Is this good?"
+```
+
+  </TabItem>
+</Tabs>
+
 ### Use multiple evaluators for important outputs
 
 Check different aspects independently: correctness, format, grounding, tone, etc. This gives you more insight into where things go wrong.
@@ -403,6 +806,9 @@ Check different aspects independently: correctness, format, grounding, tone, etc
 ### Test your evaluators
 
 Make sure your evaluators work as expected on known examples before relying on them:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 @Test
@@ -419,9 +825,33 @@ void faithfulnessEvaluatorShouldCatchHallucination() {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@Test
+fun faithfulnessEvaluatorShouldCatchHallucination() {
+    val testCase = EvalTestCase(
+        actualOutputs = "The product costs $500",  // Made up
+        metadata = mapOf("context" to listOf("The product costs $100"))
+    )
+
+    val result = faithfulnessEvaluator.evaluate(testCase)
+
+    // Should fail because claim isn't in context
+    assertFalse(result.success())
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Using Evaluator Results
 
 Evaluators return `EvalResult` objects with score, success status, and explanation:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 EvalResult result = evaluator.evaluate(testCase);
@@ -431,7 +861,24 @@ System.out.println("Passed: " + result.success());
 System.out.println("Reason: " + result.reason());
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val result = evaluator.evaluate(testCase)
+
+println("Score: ${result.score()}")
+println("Passed: ${result.success()}")
+println("Reason: ${result.reason()}")
+```
+
+  </TabItem>
+</Tabs>
+
 In experiments, you can analyze results across all examples:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 ExperimentResult experimentResult = experiment.run();
@@ -450,7 +897,33 @@ for (ItemResult item : experimentResult.itemResults()) {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val experimentResult = experiment.run()
+
+// Average scores per evaluator
+val avgCorrectness = experimentResult.averageScore("Correctness")
+val avgFaithfulness = experimentResult.averageScore("Faithfulness")
+
+// Dig into individual results
+experimentResult.itemResults().forEach { item ->
+    item.evalResults()
+        .filterNot { eval -> eval.success() }
+        .forEach { eval ->
+            println("Failed: ${eval.name()} (${eval.reason()})")
+        }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 In JUnit tests, evaluators fail the test if they don't pass:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 @ParameterizedTest
@@ -463,3 +936,21 @@ void shouldProduceQualityAnswers(Example example) {
     Assertions.assertEval(testCase, evaluators);
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+@ParameterizedTest
+@DatasetSource("classpath:datasets/qa.json")
+fun shouldProduceQualityAnswers(example: Example) {
+    val answer = aiService.generate(example.input())
+    val testCase = example.toTestCase(answer)
+
+    // Fails test if evaluators don't pass
+    Assertions.assertEval(testCase, evaluators)
+}
+```
+
+  </TabItem>
+</Tabs>

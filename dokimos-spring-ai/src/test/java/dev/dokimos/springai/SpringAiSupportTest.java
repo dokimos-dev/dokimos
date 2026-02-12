@@ -51,7 +51,7 @@ class SpringAiSupportTest {
                 final String[] capturedUserText = { null };
 
                 ChatModel mockModel = prompt -> {
-                        capturedUserText[0] = prompt.getInstructions().get(0).getContent();
+                        capturedUserText[0] = prompt.getInstructions().get(0).getText();
                         return new ChatResponse(
                                         List.of(new Generation(new AssistantMessage("Response"))));
                 };

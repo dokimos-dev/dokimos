@@ -4,6 +4,9 @@ sidebar_position: 3
 
 # Spring AI Integration
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Dokimos works with [Spring AI](https://spring.io/projects/spring-ai) so you can evaluate your AI applications using Spring AI's `ChatClient` and `ChatModel`.
 
 ## Why Use This Integration?
@@ -40,6 +43,9 @@ implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
 
 Convert a Spring AI `ChatClient` to a `JudgeLM` for evaluation:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.*;
@@ -60,9 +66,36 @@ Evaluator correctness = LLMJudgeEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.client.ChatClient
+
+val clientBuilder: ChatClient.Builder = ChatClient.builder(chatModel)
+
+// Convert to JudgeLM
+val judge = SpringAiSupport.asJudge(clientBuilder)
+
+// Use in evaluators
+val correctness = llmJudge(judge) {
+    name = "Answer Correctness"
+    criteria = "Is the answer factually correct?"
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Using ChatModel as LLM Judge
 
 You can also convert a `ChatModel` directly:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -85,11 +118,39 @@ Evaluator faithfulness = FaithfulnessEvaluator.builder()
     .build();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.openai.OpenAiChatModel
+
+val chatModel = OpenAiChatModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .model("gpt-5.2")
+    .build()
+
+// Convert to JudgeLM
+val judge = SpringAiSupport.asJudge(chatModel)
+
+// Use in evaluators
+val faithfulness = faithfulness(judge) {
+    threshold = 0.7
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Evaluating Spring AI Applications
 
 ### Converting Between Spring AI and Dokimos
 
 Convert Spring AI `EvaluationRequest` to Dokimos `EvalTestCase`:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -124,7 +185,50 @@ System.out.println("Score: " + response.getMetadata().get("score"));
 System.out.println("Feedback: " + response.getFeedback());
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.document.Document
+import org.springframework.ai.evaluation.EvaluationRequest
+
+// Create Spring AI EvaluationRequest
+val retrievedDocs = listOf(
+    Document("30-day money-back guarantee"),
+    Document("Contact support for refunds")
+)
+
+val request = EvaluationRequest(
+    "What is the refund policy?",   // user text
+    retrievedDocs,                   // retrieved documents
+    "We offer a 30-day refund policy." // response content
+)
+
+// Convert to Dokimos EvalTestCase
+val testCase: EvalTestCase = SpringAiSupport.toTestCase(request)
+
+// Run evaluation
+val result: EvalResult = faithfulnessEvaluator.evaluate(testCase)
+
+// Convert back to Spring AI EvaluationResponse
+val response = SpringAiSupport.toEvaluationResponse(result)
+
+// Check results
+println("Passed: ${response.isPass}")
+println("Score: ${response.metadata["score"]}")
+println("Feedback: ${response.feedback}")
+```
+
+  </TabItem>
+</Tabs>
+
 ### Complete Evaluation Example
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -198,6 +302,77 @@ public class SpringAiEvaluation {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.dataset
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.core.evaluators.ExactMatchEvaluator
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.openai.OpenAiChatModel
+
+object SpringAiEvaluation {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        // 1. Set up ChatModel
+        val chatModel = OpenAiChatModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .model("gpt-5.2")
+            .build()
+
+        // 2. Create a dataset
+        val dataset = dataset {
+            name = "customer-qa"
+            example {
+                input = "What is your return policy?"
+                expected = "30-day money-back guarantee"
+            }
+            example {
+                input = "How can I contact support?"
+                expected = "Email support@example.com"
+            }
+        }
+
+        // 3. Create Task
+        val task = task { example ->
+            val response = chatModel.call(example.input())
+            mapOf("output" to response)
+        }
+
+        // 4. Set up evaluators with Spring AI judge
+        val judgeModel = OpenAiChatModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .modelName("gpt-4o")
+            .build()
+
+        val judge = SpringAiSupport.asJudge(judgeModel)
+
+        val result = experiment {
+            name = "Spring AI Evaluation"
+            dataset(dataset)
+            task(task)
+            evaluators {
+                llmJudge(judge) {
+                    name = "Answer Quality"
+                    criteria = "Is the answer helpful and accurate?"
+                    threshold = 0.8
+                }
+                evaluator(ExactMatchEvaluator())
+            }
+        }.run()
+
+        // 6. Display results
+        println("Pass rate: ${"%.0f".format(result.passRate() * 100)}%")
+        println("Answer Quality: ${"%.2f".format(result.averageScore("Answer Quality"))}")
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 :::tip
 
 Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluation/evaluators) documentation for more details on creating and loading datasets, and using evaluators.
@@ -208,9 +383,12 @@ Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluatio
 
 If you're using Spring AI's built-in evaluators and want to integrate with Dokimos:
 
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
 ```java
-import dev.cokimos.core.*;
-import dev.cokimos.core.evaluators.*;
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.evaluation.RelevancyEvaluator;
 
@@ -250,9 +428,58 @@ Evaluator dokimosEvaluator = new BaseEvaluator("relevancy") {
 };
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.BaseEvaluator
+import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.evaluation.RelevancyEvaluator
+
+// Spring AI evaluator
+val springAiEvaluator = RelevancyEvaluator(ChatClient.builder(chatModel))
+
+// Create Spring AI EvaluationRequest
+val request = EvaluationRequest(
+    userQuestion,
+    retrievedDocuments,
+    generatedResponse
+)
+
+// Evaluate with Spring AI
+val springAiResponse = springAiEvaluator.evaluate(request)
+
+// Convert to Dokimos for tracking in experiments
+val testCase: EvalTestCase = SpringAiSupport.toTestCase(request)
+
+// Custom Dokimos evaluator wrapping Spring AI evaluator
+val dokimosEvaluator = object : BaseEvaluator("relevancy", 1.0, listOf()) {
+    override fun runEvaluation(testCase: EvalTestCase): EvalResult {
+        // Convert Dokimos -> Spring AI -> evaluate -> convert back
+        val req: EvaluationRequest = /* build from testCase */ request
+        val resp: EvaluationResponse = springAiEvaluator.evaluate(req)
+
+        return EvalResult(
+             name = name(),
+             score = resp.metadata["score"] as Double,
+             success = resp.isPass,
+             reason = resp.feedback
+        )
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## Working with RAG in Spring AI
 
 When evaluating RAG systems built with Spring AI:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -313,6 +540,63 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.kotlin.dsl.task
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.client.ChatClient
+import org.springframework.ai.document.Document
+import org.springframework.ai.vectorstore.VectorStore
+
+// Your RAG setup
+val vectorStore: VectorStore = /* your vector store */
+val chatClient: ChatClient = ChatClient.builder(chatModel)
+    .defaultAdvisors(QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
+    .build()
+
+// Create evaluation task
+val ragTask = task { example ->
+    val query = example.input()
+
+    // Retrieve documents
+    val retrieved: List<Document> = vectorStore.similaritySearch(
+        SearchRequest.query(query).withTopK(3)
+    )
+
+    // Generate response
+    val response = chatClient.prompt()
+        .user(query)
+        .call()
+        .content()
+
+    val context = retrieved.map { it.text }
+
+    mapOf(
+        "output" to response,
+        "context" to context
+    )
+}
+
+// Evaluate faithfulness
+val judge = SpringAiSupport.asJudge(chatModel)
+
+val result = experiment {
+    dataset(dataset)
+    task(ragTask)
+    evaluators {
+        faithfulness(judge) {
+            threshold = 0.8
+        }
+    }
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
 ## Field Mappings
 
 ### EvaluationRequest -> EvalTestCase
@@ -339,6 +623,9 @@ When converting from Dokimos back to Spring AI:
 ## Best Practices
 
 **Combine with Spring Boot**: In a Spring Boot application, you can inject your ChatModel beans and use them directly for evaluation:
+
+<Tabs groupId="lang" defaultValue="java">
+<TabItem value="java" label="Java">
 
 ```java
 @Component
@@ -367,9 +654,44 @@ public class AiEvaluationService {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.model.ChatModel
+import org.springframework.stereotype.Component
+
+@Component
+class AiEvaluationService(private val chatModel: ChatModel) {
+
+    fun evaluate(dataset: Dataset, task: Task): ExperimentResult {
+        val judge = SpringAiSupport.asJudge(chatModel)
+
+        return experiment {
+            dataset(dataset)
+            task(task)
+            evaluators {
+                faithfulness(judge) {
+                    
+                }
+            }
+        }.run()
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ## JUnit Integration
 
 Combine with [JUnit](./junit) for testing:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.junit.DatasetSource;
@@ -396,6 +718,39 @@ void chatResponseShouldBeAccurate(Example example) {
 }
 ```
 
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.junit.DatasetSource
+import org.junit.jupiter.params.ParameterizedTest
+
+class ChatAccuracyTests {
+    @ParameterizedTest
+    @DatasetSource("classpath:datasets/qa-dataset-v1.json")
+    fun chatResponseShouldBeAccurate(example: Example) {
+        // Generate response with Spring AI
+        val response = chatClient.prompt()
+            .user(example.input())
+            .call()
+            .content()
+
+        // Create test case
+        val testCase = EvalTestCase(
+            input = example.input(),
+            actualOutput = response,
+            expectedOutput = example.expectedOutput()
+        )
+
+        // Assert with evaluator
+        Assertions.assertEval(testCase, exactMatchEvaluator)
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
+
 ### Threshold-Based Quality Assertions
 
 The parameterized test above fails if *any single example* fails evaluation. For many use cases, you may want to assert that the *average score* across all examples meets a quality threshold instead. This is useful when:
@@ -403,6 +758,9 @@ The parameterized test above fails if *any single example* fails evaluation. For
 - Individual examples may occasionally score below the threshold, but overall quality should be high
 - You want to set different thresholds for different evaluators
 - You're running quality gates in CI/CD pipelines
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -453,6 +811,56 @@ void experimentMeetsQualityThresholds() {
     );
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.ExperimentResult
+import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.evaluators.ContextualRelevanceEvaluator
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.faithfulness
+import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.springai.SpringAiSupport
+import org.junit.jupiter.api.Test
+import kotlin.test.assertTrue
+
+class ThresholdAssertions {
+
+    @Test
+    fun experimentMeetsQualityThresholds() {
+        val dataset = DatasetResolverRegistry.getInstance()
+            .resolve("classpath:datasets/qa-dataset.json")
+
+        val judge: JudgeLM = SpringAiSupport.asJudge(chatModel)
+
+        val result: ExperimentResult = experiment {
+            name = "Agent Evaluation"
+            dataset(dataset)
+            task(task)
+            evaluators {
+                faithfulness(judge) {
+                    contextKey = "context"
+                }
+                contextualRelevance(judge) {
+                    retrievalContextKey = "context"
+                }
+                llmJudge(judge) {
+                    name = "Answer Quality"
+                    criteria = "Is the answer helpful, clear, and accurate?"
+                }
+            }
+        }.run()
+
+        assertTrue(result.averageScore("Answer Quality") >= 0.7)
+        assertTrue(result.averageScore("Faithfulness") >= 0.75)
+    }
+}
+```
+
+  </TabItem>
+</Tabs>
 
 :::tip
 

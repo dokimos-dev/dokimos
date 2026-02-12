@@ -12,7 +12,7 @@ Evaluation is important for improving the performance, reliability, and safety o
 
 ## Core Concepts in Dokimos
 
-Dokimos provides a flexible framework for evaluating LLM applications in Java. At the moment it supports offline evaluation, which can be used for evaluating the application with a curated dataset, which is useful for benchmarking and regression testing during development. This setup can also typically be part of a CI/CD pipeline to measure the current performance of a system and to catch regressions.
+Dokimos provides a flexible framework for evaluating LLM applications in Java and Kotlin. At the moment it supports offline evaluation, which can be used for evaluating the application with a curated dataset, which is useful for benchmarking and regression testing during development. This setup can also typically be part of a CI/CD pipeline to measure the current performance of a system and to catch regressions.
 
 The core concepts in Dokimos are:
 - **Datasets**: Datasets are collections of data points used for evaluation. Dokimos supports different ways to load datasets, including programmatically, from files, or custom sources.

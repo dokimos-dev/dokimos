@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Dokimos Overview
 
-Dokimos is an open-source Evaluation Framework for LLM applications in Java. It works with AI frameworks (Spring AI, LangChain4j, or plain Java) and helps you:
+Dokimos is an open-source Evaluation Framework for LLM applications in Java and Kotlin. It works with AI frameworks (Spring AI, LangChain4j, or plain Java) and helps you:
 
 1. Build and manage datasets programatically, from files, or with custom sources
 2. Run experiments with built-in evaluators, or your own custom evaluators

@@ -4,6 +4,9 @@ sidebar_position: 2
 
 # Getting Started
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Get the Dokimos server running in under a minute. No building, no cloning—just Docker.
 
 ## Start the Server
@@ -37,6 +40,9 @@ Add the client dependency to your project:
 ```
 
 Create an experiment that reports to the server:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 import dev.dokimos.core.*;
@@ -79,6 +85,60 @@ public class MyFirstServerExperiment {
     }
 }
 ```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.dataset
+import dev.dokimos.kotlin.dsl.exactMatch
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.task
+import dev.dokimos.server.client.DokimosServerReporter
+
+fun main() {
+    // Create dataset
+    val dataset = dataset {
+        name = "Capital Cities"
+        example {
+            input = "What is the capital of France?"
+            expected = "Paris"
+        }
+        example {
+            input = "What is the capital of Japan?"
+            expected = "Tokyo"
+        }
+    }
+
+    // Connect to the local server
+    val reporter = DokimosServerReporter.builder()
+        .serverUrl("http://localhost:8080")
+        .projectName("my-first-project")
+        .build()
+
+    // Run experiment
+    val result = experiment {
+        name = "capitals-qa"
+        dataset(dataset)
+        task {
+            val answer = callYourLLM(input())
+            mapOf("output" to answer)
+        }
+        evaluators {
+            exactMatch {
+                name = "exact-match"
+                threshold = 1.0
+            }
+        }
+        reporter(reporter)
+    }.run()
+
+    println("Pass rate: ${result.passRate()}")
+}
+```
+
+  </TabItem>
+</Tabs>
 
 ## View Results in the UI
 

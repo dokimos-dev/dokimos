@@ -15,6 +15,7 @@
         <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
         <mockk.version>1.14.6</mockk.version>
         <kotlin.version>2.3.10</kotlin.version>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
     <artifactId>dokimos-koog</artifactId>
@@ -98,6 +99,20 @@
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
+            <plugin>
+                <groupId>org.jetbrains.dokka</groupId>
+                <artifactId>dokka-maven-plugin</artifactId>
+                <version>2.1.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>javadocJar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>

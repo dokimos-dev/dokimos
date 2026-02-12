@@ -40,8 +40,6 @@ It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you
 
 ## Quick Start
 
-
-
 Add the dependency to your `pom.xml` (check [Maven Central](https://central.sonatype.com/artifact/dev.dokimos/dokimos-core) for the latest version):
 
 ```xml

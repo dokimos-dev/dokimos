@@ -1,0 +1,68 @@
+{
+  "name": "dokimos",
+  "owner": {
+    "name": "Dokimos Contributors"
+  },
+  "metadata": {
+    "description": "Official plugins for the Dokimos LLM evaluation framework",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "create-evaluator",
+      "source": "./plugins/create-evaluator",
+      "description": "Scaffold a new Evaluator implementation following Dokimos conventions",
+      "version": "0.1.0",
+      "category": "scaffolding",
+      "tags": ["evaluator", "scaffold", "java"]
+    },
+    {
+      "name": "create-dataset",
+      "source": "./plugins/create-dataset",
+      "description": "Create evaluation datasets in JSON, CSV, or JSONL format for Dokimos",
+      "version": "0.1.0",
+      "category": "scaffolding",
+      "tags": ["dataset", "json", "csv"]
+    },
+    {
+      "name": "create-tests",
+      "source": "./plugins/create-tests",
+      "description": "Scaffold eval-driven tests using dokimos-junit with @DatasetSource and Assertions.assertEval()",
+      "version": "0.1.0",
+      "category": "scaffolding",
+      "tags": ["testing", "junit", "scaffold"]
+    },
+    {
+      "name": "create-experiment",
+      "source": "./plugins/create-experiment",
+      "description": "Scaffold a Dokimos Experiment with dataset, task, evaluators, and reporter",
+      "version": "0.1.0",
+      "category": "scaffolding",
+      "tags": ["experiment", "scaffold", "java"]
+    },
+    {
+      "name": "evaluate-koog",
+      "source": "./plugins/evaluate-koog",
+      "description": "Set up evaluation of Koog AI agents using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["koog", "kotlin", "agent", "evaluation"]
+    },
+    {
+      "name": "evaluate-langchain4j",
+      "source": "./plugins/evaluate-langchain4j",
+      "description": "Set up evaluation of LangChain4j applications and RAG pipelines using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["langchain4j", "rag", "evaluation"]
+    },
+    {
+      "name": "evaluate-spring-ai",
+      "source": "./plugins/evaluate-spring-ai",
+      "description": "Set up evaluation of Spring AI applications using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["spring-ai", "spring", "evaluation"]
+    }
+  ]
+}

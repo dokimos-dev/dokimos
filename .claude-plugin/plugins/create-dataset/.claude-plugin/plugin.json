@@ -1,0 +1,13 @@
+{
+  "name": "create-dataset",
+  "version": "0.1.0",
+  "description": "Create evaluation datasets for the Dokimos LLM evaluation framework in JSON, CSV, or JSONL format. Supports simple and structured example formats with inputs, expected outputs, and metadata.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/evaluation/datasets",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": ["dokimos", "dataset", "llm-evaluation", "json", "csv", "jsonl"]
+}

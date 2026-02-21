@@ -1,0 +1,20 @@
+{
+  "name": "create-evaluator",
+  "version": "0.1.0",
+  "description": "Scaffold a new Evaluator implementation for the Dokimos LLM evaluation framework. Creates evaluator classes extending BaseEvaluator with the builder pattern, supporting both simple evaluators and LLM-judged evaluators using JudgeLM.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/evaluation/evaluators",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "evaluator",
+    "llm-evaluation",
+    "scaffold",
+    "java",
+    "builder-pattern"
+  ]
+}

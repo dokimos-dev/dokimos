@@ -1,0 +1,20 @@
+{
+  "name": "create-experiment",
+  "version": "0.1.0",
+  "description": "Scaffold a Dokimos Experiment that wires together a dataset, task, evaluators, and optional reporter. Supports parallelism, multiple runs for variance reduction, and server-based reporting.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/evaluation/experiments",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "experiment",
+    "llm-evaluation",
+    "scaffold",
+    "java",
+    "eval-pipeline"
+  ]
+}

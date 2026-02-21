@@ -1,11 +1,8 @@
 {
   "name": "dokimos",
   "owner": {
-    "name": "Dokimos Contributors"
-  },
-  "metadata": {
-    "description": "Official plugins for the Dokimos LLM evaluation framework",
-    "pluginRoot": "./plugins"
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
   },
   "plugins": [
     {

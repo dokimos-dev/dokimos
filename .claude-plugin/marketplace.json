@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Official plugins for the Dokimos LLM evaluation framework",
-    "pluginRoot": ".claude-plugin/plugins"
+    "pluginRoot": "./plugins"
   },
   "plugins": [
     {

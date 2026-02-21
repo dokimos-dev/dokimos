@@ -1,0 +1,20 @@
+{
+  "name": "create-tests",
+  "version": "0.1.0",
+  "description": "Scaffold eval-driven tests using dokimos-junit. Creates JUnit parameterized tests with @DatasetSource and Assertions.assertEval() for running Dokimos evaluations as unit tests in CI.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/integrations/junit",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "junit",
+    "eval-driven-development",
+    "parameterized-test",
+    "dataset-source",
+    "llm-evaluation"
+  ]
+}

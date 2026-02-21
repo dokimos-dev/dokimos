@@ -70,19 +70,26 @@ Add to your project's `.claude/settings.json` to auto-enable for all team member
 
 ```
 .claude-plugin/
-├── marketplace.json                       ← Marketplace catalog
-└── plugins/
-    ├── README.md                          ← This file
-    └── create-evaluator/
-        ├── .claude-plugin/
-        │   └── plugin.json                ← Plugin manifest
-        ├── skills/
-        │   └── create-evaluator/
-        │       ├── SKILL.md               ← Main skill file
-        │       ├── REFERENCE.md           ← API reference
-        │       ├── PATTERNS.md            ← Usage patterns
-        │       └── TROUBLESHOOTING.md     ← Debugging guide
-        └── README.md                      ← Plugin documentation
+└── marketplace.json                           ← Marketplace catalog
+plugins/
+├── README.md                                  ← Plugin directory overview
+├── create-evaluator/
+│   ├── .claude-plugin/
+│   │   └── plugin.json                        ← Plugin manifest
+│   ├── skills/
+│   │   └── create-evaluator/
+│   │       ├── SKILL.md                       ← Main skill file
+│   │       ├── REFERENCE.md                   ← API reference
+│   │       ├── PATTERNS.md                    ← Usage patterns
+│   │       └── TROUBLESHOOTING.md             ← Debugging guide
+│   └── README.md                              ← Plugin documentation
+├── create-dataset/
+│   ├── .claude-plugin/
+│   │   └── plugin.json
+│   ├── skills/
+│   │   └── create-dataset/
+│   │       └── SKILL.md
+│   └── README.md
 ```
 
 ## Contributing

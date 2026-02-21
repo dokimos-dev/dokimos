@@ -50,7 +50,7 @@
     },
     {
       "name": "evaluate-langchain4j",
-      "source": ".evaluate-langchain4j",
+      "source": "evaluate-langchain4j",
       "description": "Set up evaluation of LangChain4j applications and RAG pipelines using Dokimos",
       "version": "0.1.0",
       "category": "integration",
@@ -58,7 +58,7 @@
     },
     {
       "name": "evaluate-spring-ai",
-      "source": ".evaluate-spring-ai",
+      "source": "evaluate-spring-ai",
       "description": "Set up evaluation of Spring AI applications using Dokimos",
       "version": "0.1.0",
       "category": "integration",

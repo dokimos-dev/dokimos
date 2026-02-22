@@ -12,6 +12,12 @@ import dev.dokimos.core.evaluators.LLMJudgeEvaluator
 import dev.dokimos.core.evaluators.PrecisionEvaluator
 import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
+import dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator
+import dev.dokimos.core.evaluators.agents.ToolArgumentHallucinationEvaluator
+import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
+import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
+import dev.dokimos.core.evaluators.agents.ToolDescriptionReliabilityEvaluator
+import dev.dokimos.core.evaluators.agents.ToolNameReliabilityEvaluator
 import dev.dokimos.kotlin.dsl.DokimosDsl
 
 @DokimosDsl
@@ -48,6 +54,30 @@ class EvaluatorsDsl {
 
     fun recall(block: RecallEvaluatorDsl.() -> Unit = {}) {
         evaluators += RecallEvaluatorDsl().apply(block).build()
+    }
+
+    fun taskCompletion(judge: JudgeLM, block: TaskCompletionEvaluatorDsl.() -> Unit = {}) {
+        evaluators += TaskCompletionEvaluatorDsl(judge).apply(block).build()
+    }
+
+    fun toolCallValidity(block: ToolCallValidityEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolCallValidityEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolCorrectness(block: ToolCorrectnessEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolCorrectnessEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolArgumentHallucination(judge: JudgeLM, block: ToolArgumentHallucinationEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolArgumentHallucinationEvaluatorDsl(judge).apply(block).build()
+    }
+
+    fun toolNameReliability(block: ToolNameReliabilityEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolNameReliabilityEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolDescriptionReliability(block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
     }
 
     fun evaluator(evaluator: Evaluator) {
@@ -247,4 +277,144 @@ class RecallEvaluatorDsl {
             .matchingStrategy(matchingStrategy)
             .evaluationParams(evaluationParams)
             .build()
+}
+
+// --- Agent Evaluator DSL classes ---
+
+@DokimosDsl
+class TaskCompletionEvaluatorDsl(private val judge: JudgeLM) {
+    var name: String = "Task Completion"
+    var threshold: Double = 0.5
+    var tasksKey: String = "tasks"
+    var constraintsKey: String = "constraints"
+    var dialogKey: String = "input"
+    var evaluationParams: List<EvalTestCaseParam> = listOf(EvalTestCaseParam.INPUT)
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): TaskCompletionEvaluator = TaskCompletionEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .tasksKey(tasksKey)
+            .constraintsKey(constraintsKey)
+            .dialogKey(dialogKey)
+            .evaluationParams(evaluationParams)
+            .judge(judge)
+            .build()
+}
+
+@DokimosDsl
+class ToolCallValidityEvaluatorDsl {
+    var name: String = "Tool Call Validity"
+    var threshold: Double = 1.0
+    var toolCallsKey: String = "toolCalls"
+    var toolsKey: String = "tools"
+    var strictMode: Boolean = false
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ToolCallValidityEvaluator = ToolCallValidityEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+            .toolsKey(toolsKey)
+            .strictMode(strictMode)
+            .evaluationParams(evaluationParams)
+            .build()
+}
+
+@DokimosDsl
+class ToolCorrectnessEvaluatorDsl {
+    var name: String = "Tool Correctness"
+    var threshold: Double = 1.0
+    var toolCallsKey: String = "toolCalls"
+    var expectedToolCallsKey: String = "toolCalls"
+    var matchMode: ToolCorrectnessEvaluator.MatchMode = ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ToolCorrectnessEvaluator = ToolCorrectnessEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+            .expectedToolCallsKey(expectedToolCallsKey)
+            .matchMode(matchMode)
+            .evaluationParams(evaluationParams)
+            .build()
+}
+
+@DokimosDsl
+class ToolArgumentHallucinationEvaluatorDsl(private val judge: JudgeLM) {
+    var name: String = "Tool Argument Hallucination"
+    var threshold: Double = 0.8
+    var toolCallsKey: String = "toolCalls"
+    var evaluationParams: List<EvalTestCaseParam> = listOf(EvalTestCaseParam.INPUT)
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ToolArgumentHallucinationEvaluator = ToolArgumentHallucinationEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+            .evaluationParams(evaluationParams)
+            .judge(judge)
+            .build()
+}
+
+@DokimosDsl
+class ToolNameReliabilityEvaluatorDsl {
+    var name: String = "Tool Name Reliability"
+    var threshold: Double = 0.8
+    var toolsKey: String = "tools"
+    var judge: JudgeLM? = null
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ToolNameReliabilityEvaluator {
+        val builder = ToolNameReliabilityEvaluator.builder()
+                .name(name)
+                .threshold(threshold)
+                .toolsKey(toolsKey)
+                .evaluationParams(evaluationParams)
+        judge?.let { builder.judge(it) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class ToolDescriptionReliabilityEvaluatorDsl {
+    var name: String = "Tool Description Reliability"
+    var threshold: Double = 0.8
+    var toolsKey: String = "tools"
+    var judge: JudgeLM? = null
+    var maxOptionalArgs: Int = 3
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): ToolDescriptionReliabilityEvaluator {
+        val builder = ToolDescriptionReliabilityEvaluator.builder()
+                .name(name)
+                .threshold(threshold)
+                .toolsKey(toolsKey)
+                .maxOptionalArgs(maxOptionalArgs)
+                .evaluationParams(evaluationParams)
+        judge?.let { builder.judge(it) }
+        return builder.build()
+    }
 }

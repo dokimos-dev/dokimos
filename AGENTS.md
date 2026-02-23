@@ -105,6 +105,11 @@ When working on the core framework, understand these central types in `dokimos-c
 - **`Reporter`** — Reports experiment results (local logging or server-based).
 - **`JudgeLM`** — Functional interface for an LLM used as a judge in evaluations.
 
+- **`ToolCall`** — Record representing a single tool invocation (name, arguments, result, metadata). In `dev.dokimos.core.agents`.
+- **`ToolDefinition`** — Record describing a tool's contract (name, description, JSON schema). In `dev.dokimos.core.agents`.
+- **`AgentTrace`** — Wraps a complete agent execution trace. Use `toOutputMap()` to produce the map format evaluators expect. In `dev.dokimos.core.agents`.
+- **Agent evaluators** — Six evaluators in `dev.dokimos.core.evaluators.agents`: `ToolCallValidityEvaluator`, `ToolCorrectnessEvaluator`, `TaskCompletionEvaluator`, `ToolArgumentHallucinationEvaluator`, `ToolNameReliabilityEvaluator`, `ToolDescriptionReliabilityEvaluator`. Agent evaluators use custom `EvalTestCase` map keys (`"toolCalls"`, `"tools"`, `"tasks"`) and set `evaluationParams = List.of()` to skip standard key validation.
+
 ## Module-Specific Notes
 
 ### dokimos-server

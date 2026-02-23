@@ -544,6 +544,12 @@ val testCase = EvalTestCase(
   </TabItem>
 </Tabs>
 
+### Agent Evaluators
+
+Dokimos includes specialized evaluators for AI agents that use tools. These cover task completion, tool call validation, argument hallucination detection, and tool definition quality.
+
+See the dedicated **[Agent Evaluation](./agent-evaluation)** guide for full documentation.
+
 ## Common Configuration
 
 All evaluators have these settings:
@@ -764,6 +770,7 @@ An output only passes if it meets **all** the thresholds. This lets you enforce 
 - Use **Hallucination** to specifically measure and limit fabricated content
 - Use **ContextualRelevance** to evaluate retrieval quality without ground truth
 - Use **Precision/Recall** when you have ground truth labels for relevant items
+- Use **[Agent evaluators](./agent-evaluation)** to evaluate AI agents that use tools (task completion, tool validity, argument hallucination, tool reliability)
 - Build **custom evaluators** for domain-specific requirements
 
 ### Start with looser thresholds

@@ -21,7 +21,7 @@ Lean more about what you can build with `dokimos` by exploring the [examples mod
 
 We're actively working on expanding Dokimos with features that make evaluation in Java easier and more powerful:
 
-- **More built-in evaluators**: Additional evaluators for common patterns like misuse, contextual relevance, multi-turn conversations of AI agents, and more
+- **More built-in evaluators**: Additional evaluators for common patterns like misuse detection and more
 - **Test Data Generation**: Use LLMs to generate synthetic test datasets for evaluation
 - **Server-side datasets**: Store and version datasets centrally, making them easier to share across teams
 - **SPI (Service Provider Interface)**: Plug in custom implementations for storage, metrics, and reporting

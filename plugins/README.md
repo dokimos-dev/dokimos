@@ -17,6 +17,7 @@ Official Claude Code plugins for the Dokimos LLM evaluation framework.
 
 | Plugin | Description |
 |--------|-------------|
+| [evaluate-agent](./evaluate-agent/) | Evaluate AI agents with tool call validation, correctness, and task completion |
 | [evaluate-koog](./evaluate-koog/) | Evaluate Koog AI agents with Dokimos |
 | [evaluate-langchain4j](./evaluate-langchain4j/) | Evaluate LangChain4j apps and RAG pipelines |
 | [evaluate-spring-ai](./evaluate-spring-ai/) | Evaluate Spring AI applications |

@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 AI agents autonomously use tools, reason through multi-step problems, and interact with external APIs. Evaluating them requires more than checking a single response — you need to assess **what tools they used**, **how they used them**, and **whether they accomplished the task**.
 
-Dokimos provides six agent evaluators that work with any agent framework by using a portable data model for tool calls and tool definitions.
+Dokimos provides a framework-agnostic agent evaluation system with six evaluators and a portable data model for tool calls and tool definitions.
 
 ## Quick Start
 
@@ -243,7 +243,7 @@ evaluators {
 
 ## Running as an Experiment
 
-To evaluate an agent across a dataset:
+To evaluate an agent across a dataset, put tool definitions and task lists in each **Example's metadata** — this is where evaluators look for them at runtime.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -255,6 +255,19 @@ List<ToolDefinition> tools = List.of(
     ToolDefinition.of("search_flights", "Search for flights", flightSchema),
     ToolDefinition.of("book_hotel", "Book a hotel room", hotelSchema)
 );
+
+// Tools and tasks go in each Example's metadata
+Dataset dataset = Dataset.of(List.of(
+    Example.builder()
+        .input("input", "Find flights to Paris and book a hotel for 5 nights")
+        .expectedOutput("toolCalls", List.of(
+            ToolCall.of("search_flights", Map.of()),
+            ToolCall.of("book_hotel", Map.of())
+        ))
+        .metadata("tools", tools)
+        .metadata("tasks", List.of("Search flights", "Book hotel"))
+        .build()
+));
 
 ExperimentResult result = Experiment.builder()
     .name("Travel Agent Evaluation")
@@ -269,7 +282,6 @@ ExperimentResult result = Experiment.builder()
         TaskCompletionEvaluator.builder().judge(judge).build(),
         ToolArgumentHallucinationEvaluator.builder().judge(judge).build()
     ))
-    .metadata(Map.of("tools", tools))
     .build()
     .run();
 ```
@@ -279,6 +291,24 @@ ExperimentResult result = Experiment.builder()
 
 ```kotlin
 val judge = JudgeLM { prompt -> openAiClient.generate(prompt) }
+
+val tools = listOf(
+    ToolDefinition.of("search_flights", "Search for flights", flightSchema),
+    ToolDefinition.of("book_hotel", "Book a hotel room", hotelSchema)
+)
+
+// Tools and tasks go in each Example's metadata
+val dataset = Dataset.of(listOf(
+    Example.builder()
+        .input("input", "Find flights to Paris and book a hotel for 5 nights")
+        .expectedOutput("toolCalls", listOf(
+            ToolCall.of("search_flights", mapOf()),
+            ToolCall.of("book_hotel", mapOf())
+        ))
+        .metadata("tools", tools)
+        .metadata("tasks", listOf("Search flights", "Book hotel"))
+        .build()
+))
 
 val result = experiment {
     name = "Travel Agent Evaluation"
@@ -292,8 +322,6 @@ val result = experiment {
         toolCorrectness { }
         taskCompletion(judge) { }
         toolArgumentHallucination(judge) { }
-        toolNameReliability { }
-        toolDescriptionReliability { }
     }
 }.run()
 ```

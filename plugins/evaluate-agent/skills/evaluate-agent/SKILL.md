@@ -11,23 +11,33 @@ Set up Dokimos agent evaluation for an AI agent that uses tools. The user will d
 
 - **Agent data model**: `dokimos-core/src/main/java/dev/dokimos/core/agents/` — `ToolCall.java`, `ToolDefinition.java`, `AgentTrace.java`
 - **Agent evaluators**: `dokimos-core/src/main/java/dev/dokimos/core/evaluators/agents/`
+- **Kotlin DSL**: `dokimos-kotlin/src/main/kotlin/dev/dokimos/kotlin/dsl/evaluators/EvaluatorDsl.kt` and `CoreDsl.kt`
 - **Example**: `dokimos-examples/src/main/java/dev/dokimos/examples/basic/AgentEvaluationExample.java`
-- **Maven dependency**: `dev.dokimos:dokimos-core`
+- **Integration tests**: `dokimos-core/src/test/java/dev/dokimos/core/integration/AgentEvaluatorIT.java`
+- **Maven dependency**: `dev.dokimos:dokimos-core` (agent evaluation is built in, no extra dependencies)
 
-Before writing code, read the data model files and any relevant evaluator files.
+Before writing code, read the data model files and any relevant evaluator files to understand exact APIs.
 
 ## Available evaluators
 
 | Evaluator | What it checks | LLM required? | Default threshold |
 |-----------|---------------|:---:|:---:|
-| `ToolCallValidityEvaluator` | Tool calls match JSON schema (names, required params, types) | No | 1.0 |
+| `ToolCallValidityEvaluator` | Tool calls match JSON schema (names, required params, types, enums) | No | 1.0 |
 | `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
 | `TaskCompletionEvaluator` | Agent completed the user's tasks | Yes | 0.5 |
 | `ToolArgumentHallucinationEvaluator` | Arguments are grounded in user input | Yes | 0.8 |
-| `ToolNameReliabilityEvaluator` | Tool names follow conventions | Optional | 0.8 |
-| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted | Optional | 0.8 |
+| `ToolNameReliabilityEvaluator` | Tool names follow conventions (snake_case, verb-prefixed, 2-64 chars) | Optional | 0.8 |
+| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (non-empty, params documented, clarity) | Optional | 0.8 |
+
+## Data model essentials
+
+- **`ToolCall`**: A tool invocation record (name, arguments map, optional result string, optional metadata). Create with `ToolCall.of(name, args)` or `ToolCall.builder()`.
+- **`ToolDefinition`**: A tool's contract (name, description, JSON Schema map for arguments). Create with `ToolDefinition.of(name, desc, schema)`. The schema must follow JSON Schema format with `"type": "object"`, `"properties"`, and optional `"required"`.
+- **`AgentTrace`**: Wraps a full agent execution (tool calls, reasoning steps, final response). Build with `AgentTrace.builder().addToolCall(...).finalResponse(...).build()`. Call `toOutputMap()` to get a map with keys `"output"`, `"toolCalls"`, `"reasoningSteps"` for use in `EvalTestCase`.
 
 ## EvalTestCase key conventions
+
+Evaluators read from specific keys in `EvalTestCase` maps:
 
 | Map | Key | Type | Used by |
 |-----|-----|------|---------|
@@ -38,36 +48,73 @@ Before writing code, read the data model files and any relevant evaluator files.
 | `metadata` | `"tasks"` | `List<String>` | Task Completion |
 | `metadata` | `"constraints"` | `String` | Task Completion |
 
-## Minimal pattern
+**IMPORTANT**: In an Experiment, evaluators read metadata from the `Example`, NOT from the `Experiment`. Put `"tools"` and `"tasks"` in each Example's metadata (in the dataset), not on the Experiment builder.
+
+## Evaluator configuration
 
 ```java
-// 1. Define tools
+// Rule-based — just use defaults or set threshold/strictMode
+ToolCallValidityEvaluator.builder().strictMode(true).threshold(1.0).build();
+ToolCorrectnessEvaluator.builder().matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY).build();
+
+// LLM-based — require a JudgeLM
+JudgeLM judge = prompt -> openAiClient.generate(prompt);
+TaskCompletionEvaluator.builder().judge(judge).threshold(0.5).build();
+ToolArgumentHallucinationEvaluator.builder().judge(judge).threshold(0.8).build();
+
+// Tool reliability — optional JudgeLM for semantic checks
+ToolNameReliabilityEvaluator.builder().judge(judge).threshold(0.8).build();
+ToolDescriptionReliabilityEvaluator.builder().maxOptionalArgs(3).judge(judge).build();
+```
+
+`ToolCorrectnessEvaluator` match modes: `NAMES_ONLY` (default, F1 score), `NAMES_AND_ORDER` (LCS similarity), `NAMES_AND_ARGS` (full structural comparison).
+
+## Minimal pattern — single test case
+
+```java
 List<ToolDefinition> tools = List.of(
-    ToolDefinition.of("search_flights", "Search for flights", flightSchema),
-    ToolDefinition.of("book_hotel", "Book a hotel room", hotelSchema)
+    ToolDefinition.of("search_flights", "Search for flights", Map.of(
+        "type", "object",
+        "properties", Map.of(
+            "origin", Map.of("type", "string", "description", "Origin airport code"),
+            "destination", Map.of("type", "string", "description", "Destination airport code")
+        ),
+        "required", List.of("origin", "destination")
+    ))
 );
 
-// 2. Capture agent trace
 AgentTrace trace = AgentTrace.builder()
     .addToolCall(ToolCall.of("search_flights", Map.of("origin", "JFK", "destination", "CDG")))
-    .addToolCall(ToolCall.of("book_hotel", Map.of("city", "Paris", "nights", 5)))
-    .finalResponse("Found flights and booked your hotel.")
+    .finalResponse("Found flights to Paris.")
     .build();
 
-// 3. Build test case and evaluate
 var testCase = EvalTestCase.builder()
-    .input("Find flights to Paris and book a hotel for 5 nights")
+    .input("Find flights from NYC to Paris")
     .actualOutput("toolCalls", trace.toolCalls())
+    .actualOutput("output", trace.finalResponse())
     .metadata("tools", tools)
     .build();
 
 var result = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
 ```
 
-## As an experiment
+## Experiment pattern — across a dataset
 
 ```java
 JudgeLM judge = prompt -> openAiClient.generate(prompt);
+
+// Tools and tasks go in each Example's metadata
+Dataset dataset = Dataset.of(List.of(
+    Example.builder()
+        .input("input", "Find flights to Paris and book a hotel")
+        .expectedOutput("toolCalls", List.of(
+            ToolCall.of("search_flights", Map.of()),
+            ToolCall.of("book_hotel", Map.of())
+        ))
+        .metadata("tools", tools)
+        .metadata("tasks", List.of("Search flights", "Book hotel"))
+        .build()
+));
 
 ExperimentResult result = Experiment.builder()
     .name("Agent Evaluation")
@@ -82,17 +129,36 @@ ExperimentResult result = Experiment.builder()
         TaskCompletionEvaluator.builder().judge(judge).build(),
         ToolArgumentHallucinationEvaluator.builder().judge(judge).build()
     ))
-    .metadata(Map.of("tools", tools))
     .build()
     .run();
+```
+
+## Kotlin DSL
+
+```kotlin
+val judge = JudgeLM { prompt -> openAiClient.generate(prompt) }
+
+// Standalone evaluator
+val validity = toolCallValidity { threshold = 1.0 }
+
+// In an experiment
+evaluators {
+    toolCallValidity { strictMode = true }
+    toolCorrectness { matchMode = ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY }
+    taskCompletion(judge) { threshold = 0.5 }
+    toolArgumentHallucination(judge) { threshold = 0.8 }
+    toolNameReliability { judge = judgeLM }
+    toolDescriptionReliability { maxOptionalArgs = 3 }
+}
 ```
 
 ## Steps
 
 1. Understand from `$ARGUMENTS` what the agent does, what tools it uses, and the evaluation goals
-2. Determine which evaluators are needed based on the table above
-3. Define `ToolDefinition` objects for each tool the agent can use
-4. Create a dataset with examples (input queries and optionally expected tool calls)
-5. Build the `Task` using `AgentTrace.toOutputMap()` to capture tool calls
-6. Wire evaluators and run the experiment
-7. Start with rule-based evaluators first, add LLM-based ones once basics pass
+2. Read the data model files (`ToolCall.java`, `ToolDefinition.java`, `AgentTrace.java`) and any relevant evaluator source files
+3. Determine which evaluators are needed based on the table above
+4. Define `ToolDefinition` objects for each tool the agent can use (with JSON Schema for arguments including `"type"`, `"properties"`, `"required"`)
+5. Create a dataset with examples — each Example should include `metadata("tools", tools)` and optionally `metadata("tasks", taskList)` and `expectedOutput("toolCalls", expectedCalls)`
+6. Build the `Task` using `AgentTrace.toOutputMap()` to capture tool calls and reasoning
+7. Wire evaluators and run the experiment
+8. Start with rule-based evaluators (`ToolCallValidityEvaluator`, `ToolCorrectnessEvaluator`) first — they don't need an LLM and give fast deterministic feedback. Add LLM-based evaluators once basics pass.

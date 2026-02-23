@@ -223,7 +223,7 @@ Load test cases from JSON, CSV, or build them programmatically. Version your dat
 Ready to use evaluators for hallucination detection, faithfulness, contextual relevance, and LLM as a judge patterns.
 
 **Agent evaluation**
-Evaluate AI agents that use tools: validate tool call correctness, check task completion, detect argument hallucinations, and assess tool definition quality. Works with any agent framework.
+Evaluate AI agents that use tools: validate tool call correctness, check task completion, detect argument hallucinations, and assess tool definition quality.
 
 **Experiment tracking**
 Aggregate results across runs, calculate pass rates, and export to JSON, HTML, Markdown, or CSV.

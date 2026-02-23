@@ -7,6 +7,9 @@ import dev.dokimos.core.Evaluator
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
 import dev.dokimos.kotlin.core.EvalTestCase
+import dev.dokimos.core.agents.ToolCall
+import dev.dokimos.core.agents.ToolDefinition
+import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
 import dev.dokimos.kotlin.dsl.contextualRelevance
 import dev.dokimos.kotlin.dsl.evaluators
 import dev.dokimos.kotlin.dsl.faithfulness
@@ -14,6 +17,10 @@ import dev.dokimos.kotlin.dsl.hallucination
 import dev.dokimos.kotlin.dsl.llmJudge
 import dev.dokimos.kotlin.dsl.precision
 import dev.dokimos.kotlin.dsl.recall
+import dev.dokimos.kotlin.dsl.toolCallValidity
+import dev.dokimos.kotlin.dsl.toolCorrectness
+import dev.dokimos.kotlin.dsl.toolNameReliability
+import dev.dokimos.kotlin.dsl.toolDescriptionReliability
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -218,10 +225,35 @@ class EvaluatorDslTest {
                 expectedKey = "rel"
                 threshold = 0.7
             }
+            toolCallValidity {
+                name = "Validity"
+                threshold = 1.0
+            }
+            toolCorrectness {
+                name = "Correctness"
+                matchMode = ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY
+                threshold = 1.0
+            }
+            taskCompletion(judge) {
+                name = "Completion"
+                threshold = 0.5
+            }
+            toolArgumentHallucination(judge) {
+                name = "ArgHalluc"
+                threshold = 0.8
+            }
+            toolNameReliability {
+                name = "NameReliab"
+                threshold = 0.8
+            }
+            toolDescriptionReliability {
+                name = "DescReliab"
+                threshold = 0.8
+            }
             evaluator(customEvaluator)
         }
 
-        assertThat(evaluators).hasSize(9)
+        assertThat(evaluators).hasSize(15)
         assertThat(evaluators.map { it.name() }).containsExactly(
             "Exact",
             "Regex",
@@ -231,10 +263,102 @@ class EvaluatorDslTest {
             "Context",
             "Precision",
             "Recall",
+            "Validity",
+            "Correctness",
+            "Completion",
+            "ArgHalluc",
+            "NameReliab",
+            "DescReliab",
             "Custom Eval"
         )
-        assertThat(evaluators.map { it.threshold() }).containsSequence(
-            0.9, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.0
-        )
+    }
+
+    @Test
+    fun `toolCallValidity standalone DSL evaluates correctly`() {
+        val tool = ToolDefinition.of("search_flights", "Search flights", mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "origin" to mapOf("type" to "string"),
+                "destination" to mapOf("type" to "string")
+            ),
+            "required" to listOf("origin", "destination")
+        ))
+
+        val evaluator = toolCallValidity {
+            threshold = 1.0
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("toolCalls", listOf(ToolCall.of("search_flights", mapOf("origin" to "NYC", "destination" to "LAX"))))
+            .metadata("tools", listOf(tool))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(1.0)
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `toolCorrectness standalone DSL evaluates correctly`() {
+        val evaluator = toolCorrectness {
+            matchMode = ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY
+            threshold = 1.0
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("toolCalls", listOf(ToolCall.of("search", mapOf<String, Any>())))
+            .expectedOutput("toolCalls", listOf(ToolCall.of("search", mapOf<String, Any>())))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(1.0)
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `toolNameReliability standalone DSL evaluates correctly`() {
+        val tool = ToolDefinition.of("search_flights", "Search for available flights", mapOf(
+            "type" to "object",
+            "properties" to mapOf("origin" to mapOf("type" to "string"))
+        ))
+
+        val evaluator = toolNameReliability {
+            threshold = 0.5
+        }
+
+        val testCase = EvalTestCase.builder()
+            .metadata("tools", listOf(tool))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isGreaterThan(0.0)
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `toolDescriptionReliability standalone DSL evaluates correctly`() {
+        val tool = ToolDefinition.of("search_flights", "Search for available flights between airports", mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "origin" to mapOf("type" to "string", "description" to "Origin airport code")
+            ),
+            "required" to listOf("origin")
+        ))
+
+        val evaluator = toolDescriptionReliability {
+            threshold = 0.5
+        }
+
+        val testCase = EvalTestCase.builder()
+            .metadata("tools", listOf(tool))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isGreaterThan(0.0)
+        assertThat(result.success()).isTrue()
     }
 }

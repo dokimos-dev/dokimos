@@ -175,6 +175,66 @@ class ToolCorrectnessEvaluatorTest {
     }
 
     @Test
+    void shouldDeduplicateToolNamesInNamesOnlyMode() {
+        var evaluator = ToolCorrectnessEvaluator.builder().build();
+
+        // Agent calls search_flights 3 times, expected once
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(
+                        ToolCall.of("search_flights", Map.of("origin", "NYC")),
+                        ToolCall.of("search_flights", Map.of("origin", "LAX")),
+                        ToolCall.of("search_flights", Map.of("origin", "SFO"))
+                ))
+                .expectedOutput("toolCalls", List.of(
+                        ToolCall.of("search_flights", Map.of())
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // NAMES_ONLY uses sets, so {search_flights} == {search_flights} => F1 = 1.0
+        assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void shouldMatchNestedArgsInNamesAndArgsMode() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))
+                ))
+                .expectedOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void shouldHandleEmptyActualWithNonEmptyExpectedInOrderMode() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ORDER)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of())
+                .expectedOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of())
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(0.0);
+    }
+
+    @Test
     void shouldThrowWhenActualToolCallsMissing() {
         var evaluator = ToolCorrectnessEvaluator.builder().build();
 

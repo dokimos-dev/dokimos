@@ -1,5 +1,6 @@
 package dev.dokimos.core.agents;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,7 +25,7 @@ public record ToolCall(
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Tool call name must not be null or blank");
         }
-        arguments = arguments != null ? Map.copyOf(arguments) : Map.of();
+        arguments = arguments != null ? Collections.unmodifiableMap(new HashMap<>(arguments)) : Map.of();
         metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
     }
 
@@ -53,7 +54,8 @@ public record ToolCall(
         Map<String, Object> arguments = map.containsKey("arguments")
                 ? (Map<String, Object>) map.get("arguments")
                 : Map.of();
-        String result = map.containsKey("result") ? String.valueOf(map.get("result")) : null;
+        Object rawResult = map.get("result");
+        String result = rawResult != null ? rawResult.toString() : null;
         Map<String, Object> metadata = map.containsKey("metadata")
                 ? (Map<String, Object>) map.get("metadata")
                 : Map.of();

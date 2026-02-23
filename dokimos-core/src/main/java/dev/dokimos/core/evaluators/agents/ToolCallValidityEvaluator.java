@@ -153,7 +153,11 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
 
     private void validateType(String paramName, Object value, Map<String, Object> schema, List<String> errors) {
         Object schemaType = schema.get("type");
-        if (schemaType == null || value == null) return;
+        if (schemaType == null) return;
+        if (value == null) {
+            errors.add("Parameter '%s' expected type '%s' but got null".formatted(paramName, schemaType));
+            return;
+        }
 
         String type = schemaType.toString();
         boolean valid = switch (type) {

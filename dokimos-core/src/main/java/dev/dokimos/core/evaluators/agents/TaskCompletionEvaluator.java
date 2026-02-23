@@ -116,14 +116,19 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
             List<Map<String, Object>> taskResults = (List<Map<String, Object>>) parsed.get("tasks");
 
             if (taskResults == null) {
-                return EvalResult.failure(name, 0.0, "Judge response missing 'tasks' field.");
+                return EvalResult.builder()
+                        .name(name)
+                        .score(0.0)
+                        .threshold(threshold)
+                        .reason("Judge response missing 'tasks' field.")
+                        .build();
             }
 
             long completed = taskResults.stream()
                     .filter(t -> Boolean.TRUE.equals(t.get("completed")))
                     .count();
 
-            double score = (double) completed / totalTasks;
+            double score = Math.min(1.0, (double) completed / totalTasks);
             String reason = String.format("%d/%d tasks completed.", completed, totalTasks);
 
             return EvalResult.builder()
@@ -134,8 +139,12 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
                     .metadata(Map.of("taskResults", taskResults))
                     .build();
         } catch (Exception e) {
-            return EvalResult.failure(name, 0.0,
-                    "Failed to parse judge response: " + e.getMessage());
+            return EvalResult.builder()
+                    .name(name)
+                    .score(0.0)
+                    .threshold(threshold)
+                    .reason("Failed to parse judge response: " + e.getMessage())
+                    .build();
         }
     }
 

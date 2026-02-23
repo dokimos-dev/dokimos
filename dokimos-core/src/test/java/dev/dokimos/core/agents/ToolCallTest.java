@@ -2,6 +2,7 @@ package dev.dokimos.core.agents;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.*;
@@ -91,5 +92,29 @@ class ToolCallTest {
 
         assertThat(call.arguments()).isEmpty();
         assertThat(call.metadata()).isEmpty();
+    }
+
+    @Test
+    void shouldHandleExplicitNullResultInFromMap() {
+        var map = new HashMap<String, Object>();
+        map.put("name", "get_weather");
+        map.put("result", null);
+
+        var call = ToolCall.fromMap(map);
+
+        assertThat(call.result()).isNull();
+    }
+
+    @Test
+    void shouldHandleNestedArguments() {
+        var call = ToolCall.of("search", Map.of(
+                "filter", Map.of("price", Map.of("max", 500, "currency", "USD")),
+                "sort", "price_asc"
+        ));
+
+        assertThat(call.arguments()).containsKey("filter");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> filter = (Map<String, Object>) call.arguments().get("filter");
+        assertThat(filter).containsKey("price");
     }
 }

@@ -2,6 +2,7 @@ package dev.dokimos.kotlin.dsl
 
 import dev.dokimos.core.*
 import dev.dokimos.core.evaluators.*
+import dev.dokimos.core.evaluators.agents.*
 import dev.dokimos.kotlin.dsl.evaluators.*
 
 @DslMarker
@@ -33,6 +34,24 @@ fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}): PrecisionEvaluator 
 
 fun recall(block: RecallEvaluatorDsl.() -> Unit = {}): RecallEvaluator =
     RecallEvaluatorDsl().apply(block).build()
+
+fun taskCompletion(judge: JudgeLM, block: TaskCompletionEvaluatorDsl.() -> Unit = {}): TaskCompletionEvaluator =
+    TaskCompletionEvaluatorDsl(judge).apply(block).build()
+
+fun toolCallValidity(block: ToolCallValidityEvaluatorDsl.() -> Unit = {}): ToolCallValidityEvaluator =
+    ToolCallValidityEvaluatorDsl().apply(block).build()
+
+fun toolCorrectness(block: ToolCorrectnessEvaluatorDsl.() -> Unit = {}): ToolCorrectnessEvaluator =
+    ToolCorrectnessEvaluatorDsl().apply(block).build()
+
+fun toolArgumentHallucination(judge: JudgeLM, block: ToolArgumentHallucinationEvaluatorDsl.() -> Unit = {}): ToolArgumentHallucinationEvaluator =
+    ToolArgumentHallucinationEvaluatorDsl(judge).apply(block).build()
+
+fun toolNameReliability(block: ToolNameReliabilityEvaluatorDsl.() -> Unit = {}): ToolNameReliabilityEvaluator =
+    ToolNameReliabilityEvaluatorDsl().apply(block).build()
+
+fun toolDescriptionReliability(block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {}): ToolDescriptionReliabilityEvaluator =
+    ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
 
 // Experiment, dataset, example, task DSLs remain in root for familiarity
 fun experiment(block: ExperimentDsl.() -> Unit): Experiment =

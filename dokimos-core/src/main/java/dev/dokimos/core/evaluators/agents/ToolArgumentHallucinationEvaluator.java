@@ -80,7 +80,13 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
         sb.append("TOOL CALLS:\n");
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall call = toolCalls.get(i);
-            sb.append(i + 1).append(". ").append(call.name()).append("(").append(call.arguments()).append(")\n");
+            String argsJson;
+            try {
+                argsJson = OBJECT_MAPPER.writeValueAsString(call.arguments());
+            } catch (Exception e) {
+                argsJson = call.arguments().toString();
+            }
+            sb.append(i + 1).append(". ").append(call.name()).append("(").append(argsJson).append(")\n");
         }
         sb.append("\nFor each tool call, determine if the argument values are grounded in the user input.\n");
         sb.append("Respond ONLY as a JSON array (no markdown):\n");
@@ -97,7 +103,7 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     .filter(v -> Boolean.TRUE.equals(v.get("grounded")))
                     .count();
 
-            double score = (double) grounded / totalCalls;
+            double score = Math.min(1.0, (double) grounded / totalCalls);
             String reason = String.format("%d/%d tool calls have grounded arguments.", grounded, totalCalls);
 
             return EvalResult.builder()
@@ -108,8 +114,12 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     .metadata(Map.of("verdicts", verdicts))
                     .build();
         } catch (Exception e) {
-            return EvalResult.failure(name, 0.0,
-                    "Failed to parse judge response: " + e.getMessage());
+            return EvalResult.builder()
+                    .name(name)
+                    .score(0.0)
+                    .threshold(threshold)
+                    .reason("Failed to parse judge response: " + e.getMessage())
+                    .build();
         }
     }
 

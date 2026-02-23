@@ -167,8 +167,8 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
         }
 
         double score = f1Score(matched, actual.size(), expected.size());
-        String reason = String.format("%d/%d tool calls matched (with arguments).", matched,
-                Math.max(actual.size(), expected.size()));
+        String reason = String.format("%d of %d actual and %d of %d expected tool calls matched (with arguments).",
+                matched, actual.size(), matched, expected.size());
 
         return EvalResult.builder()
                 .name(name)

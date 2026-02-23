@@ -155,6 +155,107 @@ class ToolArgumentHallucinationEvaluatorTest {
     }
 
     @Test
+    void shouldHandleNestedArguments() {
+        JudgeLM mockJudge = prompt -> """
+                [{"toolName": "search", "grounded": true, "reason": "All args from input"}]
+                """;
+
+        var evaluator = ToolArgumentHallucinationEvaluator.builder()
+                .judge(mockJudge)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Search flights under $500 in economy")
+                .actualOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of(
+                                "filter", Map.of("maxPrice", 500, "class", "economy"),
+                                "sort", "price_asc"
+                        ))
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void shouldCapScoreAtOneWhenJudgeReturnsExtraItems() {
+        // Judge returns 3 verdicts for 1 tool call — all grounded
+        JudgeLM mockJudge = prompt -> """
+                [
+                    {"toolName": "search", "grounded": true, "reason": "ok"},
+                    {"toolName": "extra1", "grounded": true, "reason": "ok"},
+                    {"toolName": "extra2", "grounded": true, "reason": "ok"}
+                ]
+                """;
+
+        var evaluator = ToolArgumentHallucinationEvaluator.builder()
+                .judge(mockJudge)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Search flights")
+                .actualOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of("q", "flights"))
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // Score should be capped at 1.0, not 3.0
+        assertThat(result.score()).isLessThanOrEqualTo(1.0);
+    }
+
+    @Test
+    void shouldIncludeThresholdInParseFailureResult() {
+        JudgeLM mockJudge = prompt -> "not json at all";
+
+        var evaluator = ToolArgumentHallucinationEvaluator.builder()
+                .judge(mockJudge)
+                .threshold(0.8)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Search flights")
+                .actualOutput("toolCalls", List.of(
+                        ToolCall.of("search", Map.of("q", "flights"))
+                ))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(0.0);
+        assertThat(result.threshold()).isEqualTo(0.8);
+    }
+
+    @Test
+    void shouldAcceptToolCallsAsListOfMaps() {
+        JudgeLM mockJudge = prompt -> """
+                [{"toolName": "search", "grounded": true, "reason": "ok"}]
+                """;
+
+        var evaluator = ToolArgumentHallucinationEvaluator.builder()
+                .judge(mockJudge)
+                .build();
+
+        // Tool calls as maps (simulating JSON deserialization)
+        var toolCallMap = Map.<String, Object>of(
+                "name", "search",
+                "arguments", Map.of("q", "flights")
+        );
+
+        var testCase = EvalTestCase.builder()
+                .input("Search flights")
+                .actualOutput("toolCalls", List.of(toolCallMap))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
     void shouldRespectCustomThreshold() {
         JudgeLM mockJudge = prompt -> """
                 [{"toolName": "search", "grounded": true, "reason": "ok"}]

@@ -136,7 +136,8 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
     private int countOptionalParams(ToolDefinition tool) {
         Set<String> allParams = tool.parameterNames();
         List<String> required = tool.requiredParameters();
-        return allParams.size() - required.size();
+        long requiredInProperties = required.stream().filter(allParams::contains).count();
+        return Math.max(0, allParams.size() - (int) requiredInProperties);
     }
 
     private boolean llmCheckClarity(ToolDefinition tool) {

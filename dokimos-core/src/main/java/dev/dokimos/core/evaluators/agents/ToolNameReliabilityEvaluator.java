@@ -114,12 +114,14 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
         // 3. Verb-prefixed check
         checks.put("verbPrefixed", isVerbPrefixed(tool.name()));
 
-        // 4. No ambiguity check (rule-based fallback + optional LLM)
-        boolean notGeneric = !GENERIC_NAMES.contains(tool.name());
-        if (notGeneric && judge != null) {
-            notGeneric = llmCheckNotAmbiguous(tool);
+        // 4. No ambiguity check (LLM has final say if provided, else rule-based)
+        boolean notAmbiguous;
+        if (judge != null) {
+            notAmbiguous = llmCheckNotAmbiguous(tool);
+        } else {
+            notAmbiguous = !GENERIC_NAMES.contains(tool.name());
         }
-        checks.put("notAmbiguous", notGeneric);
+        checks.put("notAmbiguous", notAmbiguous);
 
         // 5. Descriptive check (optional LLM)
         if (judge != null) {

@@ -104,8 +104,9 @@ var result = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
 JudgeLM judge = prompt -> openAiClient.generate(prompt);
 
 // Tools and tasks go in each Example's metadata
-Dataset dataset = Dataset.of(List.of(
-    Example.builder()
+Dataset dataset = Dataset.builder()
+    .name("Agent Evaluation")
+    .addExample(Example.builder()
         .input("input", "Find flights to Paris and book a hotel")
         .expectedOutput("toolCalls", List.of(
             ToolCall.of("search_flights", Map.of()),
@@ -113,8 +114,8 @@ Dataset dataset = Dataset.of(List.of(
         ))
         .metadata("tools", tools)
         .metadata("tasks", List.of("Search flights", "Book hotel"))
-        .build()
-));
+        .build())
+    .build();
 
 ExperimentResult result = Experiment.builder()
     .name("Agent Evaluation")

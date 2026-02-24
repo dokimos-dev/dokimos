@@ -257,8 +257,9 @@ List<ToolDefinition> tools = List.of(
 );
 
 // Tools and tasks go in each Example's metadata
-Dataset dataset = Dataset.of(List.of(
-    Example.builder()
+Dataset dataset = Dataset.builder()
+    .name("Travel Agent")
+    .addExample(Example.builder()
         .input("input", "Find flights to Paris and book a hotel for 5 nights")
         .expectedOutput("toolCalls", List.of(
             ToolCall.of("search_flights", Map.of()),
@@ -266,8 +267,8 @@ Dataset dataset = Dataset.of(List.of(
         ))
         .metadata("tools", tools)
         .metadata("tasks", List.of("Search flights", "Book hotel"))
-        .build()
-));
+        .build())
+    .build();
 
 ExperimentResult result = Experiment.builder()
     .name("Travel Agent Evaluation")
@@ -298,8 +299,9 @@ val tools = listOf(
 )
 
 // Tools and tasks go in each Example's metadata
-val dataset = Dataset.of(listOf(
-    Example.builder()
+val dataset = Dataset.builder()
+    .name("Travel Agent")
+    .addExample(Example.builder()
         .input("input", "Find flights to Paris and book a hotel for 5 nights")
         .expectedOutput("toolCalls", listOf(
             ToolCall.of("search_flights", mapOf()),
@@ -307,8 +309,8 @@ val dataset = Dataset.of(listOf(
         ))
         .metadata("tools", tools)
         .metadata("tasks", listOf("Search flights", "Book hotel"))
-        .build()
-))
+        .build())
+    .build()
 
 val result = experiment {
     name = "Travel Agent Evaluation"

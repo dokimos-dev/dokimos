@@ -83,11 +83,18 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
     }
 
     private String resolveDialog(EvalTestCase testCase) {
-        // Try the dialogKey in inputs first, then fall back to the standard "input" key
         Object dialog = testCase.inputs().get(dialogKey);
-        if (dialog != null) return dialog.toString();
-        if (testCase.input() != null) return testCase.input();
-        throw new EvaluationException("TaskCompletionEvaluator requires dialog in inputs");
+        String userInput = dialog != null ? dialog.toString()
+                : (testCase.input() != null ? testCase.input() : null);
+        if (userInput == null) {
+            throw new EvaluationException("TaskCompletionEvaluator requires dialog in inputs");
+        }
+
+        String agentOutput = testCase.actualOutput();
+        if (agentOutput != null && !agentOutput.isBlank()) {
+            return "User: " + userInput + "\n\nAgent: " + agentOutput;
+        }
+        return userInput;
     }
 
     private String buildPrompt(String dialog, List<String> tasks, String constraints) {

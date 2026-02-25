@@ -26,8 +26,8 @@ Before writing code, read the data model files and any relevant evaluator files 
 | `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
 | `TaskCompletionEvaluator` | Agent completed the user's tasks | Yes | 0.5 |
 | `ToolArgumentHallucinationEvaluator` | Arguments are grounded in user input | Yes | 0.8 |
-| `ToolNameReliabilityEvaluator` | Tool names follow conventions (snake_case, verb-prefixed, 2-64 chars) | Optional | 0.8 |
-| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (non-empty, params documented, clarity) | Optional | 0.8 |
+| `ToolNameReliabilityEvaluator` | Tool names follow conventions (snake_case, conciseness, clarity, ordering, intent) | Optional | 0.8 |
+| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (structure, clarity, args documented, examples, usage notes) | Optional | 0.8 |
 
 ## Data model essentials
 
@@ -64,7 +64,7 @@ ToolArgumentHallucinationEvaluator.builder().judge(judge).threshold(0.8).build()
 
 // Tool reliability — optional JudgeLM for semantic checks
 ToolNameReliabilityEvaluator.builder().judge(judge).threshold(0.8).build();
-ToolDescriptionReliabilityEvaluator.builder().maxOptionalArgs(3).judge(judge).build();
+ToolDescriptionReliabilityEvaluator.builder().maxInputArgs(5).maxOptionalArgs(3).judge(judge).build();
 ```
 
 `ToolCorrectnessEvaluator` match modes: `NAMES_ONLY` (default, F1 score), `NAMES_AND_ORDER` (LCS similarity), `NAMES_AND_ARGS` (full structural comparison).
@@ -149,7 +149,7 @@ evaluators {
     taskCompletion(judge) { threshold = 0.5 }
     toolArgumentHallucination(judge) { threshold = 0.8 }
     toolNameReliability { judge = judgeLM }
-    toolDescriptionReliability { maxOptionalArgs = 3 }
+    toolDescriptionReliability { maxInputArgs = 5; maxOptionalArgs = 3 }
 }
 ```
 

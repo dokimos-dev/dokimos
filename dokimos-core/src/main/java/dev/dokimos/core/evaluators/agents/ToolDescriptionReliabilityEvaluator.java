@@ -9,30 +9,56 @@ import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
- * Evaluates tool description quality using a mix of rule-based and optional LLM checks.
+ * Evaluates tool description quality using a mix of rule-based checks and optional LLM checks.
  * <p>
- * This is a glass-box evaluator for tool reliability. Checks include:
+ * Performs 13 checks across two categories:
+ * <p>
+ * <b>Rule-based (always run):</b>
  * <ul>
- *   <li>Non-empty: Description is not blank</li>
- *   <li>Length: Description between 10–500 characters</li>
- *   <li>Input args documented: All required parameters have descriptions in the schema</li>
- *   <li>Max optional args: No more than N optional parameters (default: 3)</li>
- *   <li>Clarity: Description is clear and unambiguous (LLM-assisted if judge provided)</li>
+ *   <li>{@code input_arguments_clarity}: Each parameter has a "description" key</li>
+ *   <li>{@code input_arguments_types}: Each parameter has a "type" key</li>
+ *   <li>{@code max_num_input_arguments}: Total params ≤ maxInputArgs (default 5)</li>
+ *   <li>{@code max_optional_input_arguments}: Optional params ≤ maxOptionalArgs (default 3)</li>
  * </ul>
+ * <p>
+ * <b>LLM-based (require judge):</b>
+ * <ul>
+ *   <li>{@code general_structure}: Description includes purpose, inputs, and output</li>
+ *   <li>{@code has_examples}: Description includes usage examples</li>
+ *   <li>{@code has_usage_notes}: Description includes notes/limitations/caveats</li>
+ *   <li>{@code intent_over_implementation}: Communicates what, not how</li>
+ *   <li>{@code clarity}: Avoids obscure/ambiguous terms</li>
+ *   <li>{@code redundancy}: Avoids redundant information</li>
+ *   <li>{@code input_arguments_enum}: Applicable args include enumeration values</li>
+ *   <li>{@code input_arguments_format}: Applicable args include format specs</li>
+ *   <li>{@code return_statement_quality}: Output information is clearly described</li>
+ * </ul>
+ * <p>
+ * Without a judge LLM, only the 4 rule-based checks run.
+ * Score is based on checks that actually ran.
  */
 public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
+
+    private static final List<String> LLM_CHECK_KEYS = List.of(
+            "general_structure", "has_examples", "has_usage_notes",
+            "intent_over_implementation", "clarity", "redundancy",
+            "input_arguments_enum", "input_arguments_format", "return_statement_quality"
+    );
 
     private final String toolsKey;
     private final JudgeLM judge;
     private final int maxOptionalArgs;
+    private final int maxInputArgs;
 
     private ToolDescriptionReliabilityEvaluator(Builder builder) {
         super(builder.name, builder.threshold, builder.evaluationParams);
         this.toolsKey = builder.toolsKey;
         this.judge = builder.judge;
         this.maxOptionalArgs = builder.maxOptionalArgs;
+        this.maxInputArgs = builder.maxInputArgs;
     }
 
     /**
@@ -67,13 +93,16 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
         double totalScore = 0;
 
         for (ToolDefinition tool : tools) {
-            Map<String, Object> checks = evaluateToolDescription(tool);
-            perToolResults.add(checks);
+            Map<String, Object> result = evaluateToolDescription(tool);
+            perToolResults.add(result);
 
             @SuppressWarnings("unchecked")
-            Map<String, Boolean> checkResults = (Map<String, Boolean>) checks.get("checks");
-            long passed = checkResults.values().stream().filter(v -> v).count();
-            totalScore += (double) passed / checkResults.size();
+            Map<String, Object> checks = (Map<String, Object>) result.get("checks");
+            long ran = checks.values().stream().filter(v -> v instanceof Boolean).count();
+            long passed = checks.values().stream()
+                    .filter(v -> v instanceof Boolean b && b)
+                    .count();
+            totalScore += ran > 0 ? (double) passed / ran : 1.0;
         }
 
         double score = totalScore / tools.size();
@@ -90,28 +119,32 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
     }
 
     private Map<String, Object> evaluateToolDescription(ToolDefinition tool) {
-        Map<String, Boolean> checks = new LinkedHashMap<>();
+        Map<String, Object> checks = new LinkedHashMap<>();
 
-        // 1. Non-empty
-        checks.put("nonEmpty", tool.description() != null && !tool.description().isBlank());
+        // Rule-based checks (always run)
 
-        // 2. Length: 10–500 characters
-        int descLen = tool.description() != null ? tool.description().length() : 0;
-        checks.put("lengthOk", descLen >= 10 && descLen <= 500);
+        // 1. input_arguments_clarity: every parameter has a "description"
+        checks.put("input_arguments_clarity", allParamsHaveKey(tool, "description"));
 
-        // 3. Input args documented: required parameters have descriptions in schema
-        checks.put("argsDocumented", areRequiredParamsDocumented(tool));
+        // 2. input_arguments_types: every parameter has a "type"
+        checks.put("input_arguments_types", allParamsHaveKey(tool, "type"));
 
-        // 4. Max optional args
-        checks.put("maxOptionalArgs", countOptionalParams(tool) <= maxOptionalArgs);
+        // 3. max_num_input_arguments: total params <= maxInputArgs
+        checks.put("max_num_input_arguments", tool.parameterNames().size() <= maxInputArgs);
 
-        // 5. Clarity (LLM-assisted or simple heuristic)
+        // 4. max_optional_input_arguments: optional params <= maxOptionalArgs
+        checks.put("max_optional_input_arguments", countOptionalParams(tool) <= maxOptionalArgs);
+
+        // LLM-based checks
         if (judge != null) {
-            checks.put("clarity", llmCheckClarity(tool));
+            Map<String, Integer> llmResults = batchLlmChecks(tool);
+            for (String key : LLM_CHECK_KEYS) {
+                checks.put(key, llmResults.getOrDefault(key, 0) == 1);
+            }
         } else {
-            // Heuristic: description contains at least 2 words
-            checks.put("clarity", tool.description() != null
-                    && tool.description().trim().split("\\s+").length >= 2);
+            for (String key : LLM_CHECK_KEYS) {
+                checks.put(key, "skipped");
+            }
         }
 
         return Map.of(
@@ -120,13 +153,13 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
         );
     }
 
-    private boolean areRequiredParamsDocumented(ToolDefinition tool) {
-        List<String> required = tool.requiredParameters();
-        if (required.isEmpty()) return true;
+    private boolean allParamsHaveKey(ToolDefinition tool, String key) {
+        Set<String> paramNames = tool.parameterNames();
+        if (paramNames.isEmpty()) return true;
 
-        for (String param : required) {
+        for (String param : paramNames) {
             Map<String, Object> schema = tool.parameterSchema(param);
-            if (schema.isEmpty() || !schema.containsKey("description")) {
+            if (schema.isEmpty() || !schema.containsKey(key)) {
                 return false;
             }
         }
@@ -140,15 +173,51 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
         return Math.max(0, allParams.size() - (int) requiredInProperties);
     }
 
-    private boolean llmCheckClarity(ToolDefinition tool) {
+    private Map<String, Integer> batchLlmChecks(ToolDefinition tool) {
+        String schemaJson = tool.inputSchema().toString();
         String prompt = String.format(
-                "Is the following tool description clear and unambiguous?\n"
-                        + "Tool name: '%s'\nDescription: '%s'\n"
-                        + "Answer with ONLY 'yes' or 'no'. 'yes' means it IS clear.",
-                tool.name(), tool.description()
+                "Evaluate this tool specification against quality criteria.\n"
+                        + "Tool name: '%s'\n"
+                        + "Description: '%s'\n"
+                        + "Input schema: %s\n\n"
+                        + "For each criterion, respond with pass (1) or fail (0):\n"
+                        + "1. general_structure: Does the description include the tool's purpose, its input arguments, and the expected output?\n"
+                        + "2. has_examples: Does the description include examples of how to use the tool?\n"
+                        + "3. has_usage_notes: Does the description include notes on how/when to use the tool (e.g. limitations, caveats)?\n"
+                        + "4. intent_over_implementation: Does the description communicate what the tool does, not how it does it or other implementation details?\n"
+                        + "5. clarity: Does the description avoid obscure or ambiguous terms, low-level or very specific identifiers?\n"
+                        + "6. redundancy: Does the description avoid redundant information that is not useful to understand what the tool does, how to use it and how to call it?\n"
+                        + "7. input_arguments_enum: Do input arguments include enumeration values where applicable?\n"
+                        + "8. input_arguments_format: Do input arguments include format specification where applicable (e.g. for dates, ids, urls)?\n"
+                        + "9. return_statement_quality: Does the description make clear what information the output will contain?\n\n"
+                        + "Respond ONLY as JSON (no markdown): "
+                        + "{\"general_structure\": 0/1, \"has_examples\": 0/1, \"has_usage_notes\": 0/1, "
+                        + "\"intent_over_implementation\": 0/1, \"clarity\": 0/1, \"redundancy\": 0/1, "
+                        + "\"input_arguments_enum\": 0/1, \"input_arguments_format\": 0/1, \"return_statement_quality\": 0/1}",
+                tool.name(), tool.description(), schemaJson
         );
-        String response = judge.generate(prompt).trim().toLowerCase();
-        return response.startsWith("yes");
+
+        String response = judge.generate(prompt).trim();
+        return parseLlmJson(response);
+    }
+
+    static Map<String, Integer> parseLlmJson(String response) {
+        Map<String, Integer> results = new HashMap<>();
+        // Strip markdown fences if present
+        String cleaned = response;
+        if (cleaned.contains("```")) {
+            cleaned = cleaned.replaceAll("```json\\s*", "").replaceAll("```\\s*", "");
+        }
+        cleaned = cleaned.trim();
+
+        for (String key : LLM_CHECK_KEYS) {
+            String pattern = "\"" + key + "\"\\s*:\\s*([01])";
+            var matcher = Pattern.compile(pattern).matcher(cleaned);
+            if (matcher.find()) {
+                results.put(key, Integer.parseInt(matcher.group(1)));
+            }
+        }
+        return results;
     }
 
     @SuppressWarnings("unchecked")
@@ -177,6 +246,7 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
         private String toolsKey = "tools";
         private JudgeLM judge;
         private int maxOptionalArgs = 3;
+        private int maxInputArgs = 5;
 
         /**
          * Sets the evaluator name.
@@ -223,8 +293,8 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
         }
 
         /**
-         * Sets an optional judge LLM for semantic clarity checks.
-         * If not provided, only rule-based checks are run.
+         * Sets an optional judge LLM for semantic checks.
+         * Without a judge, only rule-based checks run (4 out of 13).
          *
          * @param judge the judge LLM
          * @return this builder
@@ -236,12 +306,25 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
 
         /**
          * Sets the maximum number of optional parameters allowed per tool.
+         * Default: 3.
          *
          * @param maxOptionalArgs the maximum count
          * @return this builder
          */
         public Builder maxOptionalArgs(int maxOptionalArgs) {
             this.maxOptionalArgs = maxOptionalArgs;
+            return this;
+        }
+
+        /**
+         * Sets the maximum number of total input parameters allowed per tool.
+         * Default: 5.
+         *
+         * @param maxInputArgs the maximum count
+         * @return this builder
+         */
+        public Builder maxInputArgs(int maxInputArgs) {
+            this.maxInputArgs = maxInputArgs;
             return this;
         }
 

@@ -90,8 +90,8 @@ val result = experiment {
 | `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
 | `TaskCompletionEvaluator` | Agent completed the user's requested tasks | Yes | 0.5 |
 | `ToolArgumentHallucinationEvaluator` | Tool call arguments are grounded in user input | Yes | 0.8 |
-| `ToolNameReliabilityEvaluator` | Tool names follow naming conventions (format, length, verb-prefix) | Optional | 0.8 |
-| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (non-empty, documented params, clarity) | Optional | 0.8 |
+| `ToolNameReliabilityEvaluator` | Tool names follow naming conventions (snake_case, conciseness, clarity, ordering, intent) | Optional | 0.8 |
+| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (structure, clarity, args documented, examples, usage notes) | Optional | 0.8 |
 
 ### ToolCallValidityEvaluator
 
@@ -121,11 +121,15 @@ Uses a judge LLM to check whether each tool call's argument values can be derive
 
 ### ToolNameReliabilityEvaluator
 
-Rule-based checks: `snake_case`/`camelCase` format, 2-64 char length, verb-prefixed. Optional LLM checks: no ambiguity, descriptive naming.
+Evaluates tool names with 5 checks. Rule-based checks (always run): `snakecase_format` (strict snake_case), `conciseness` (≤ 7 segments), `intent_over_implementation` (blocklist for patterns like `_with_llm`, `_via_api`). LLM checks (require judge): `clarity` (purpose clear from name alone), `name_order` (follows operation_system_entity_data ordering), plus semantic `intent_over_implementation`.
+
+Without a judge, only the 3 rule-based checks run. Score is based on checks that actually ran.
 
 ### ToolDescriptionReliabilityEvaluator
 
-Rule-based checks: non-empty, 10-500 chars, required params documented, max optional args (default 3). Optional LLM check: clarity.
+Evaluates tool descriptions with 13 checks. Rule-based checks (always run): `input_arguments_clarity` (params have descriptions), `input_arguments_types` (params have types), `max_num_input_arguments` (≤ 5 by default), `max_optional_input_arguments` (≤ 3 by default). LLM checks (require judge): `general_structure`, `has_examples`, `has_usage_notes`, `intent_over_implementation`, `clarity`, `redundancy`, `input_arguments_enum`, `input_arguments_format`, `return_statement_quality`.
+
+Without a judge, only the 4 rule-based checks run. Score is based on checks that actually ran.
 
 ## Data Model
 
@@ -218,8 +222,9 @@ ToolNameReliabilityEvaluator.builder()
     .build();
 
 ToolDescriptionReliabilityEvaluator.builder()
-    .maxOptionalArgs(3)
-    .judge(judgeLM)  // optional
+    .maxInputArgs(5)    // default 5
+    .maxOptionalArgs(3) // default 3
+    .judge(judgeLM)     // optional, enables 9 additional LLM checks
     .threshold(0.8)
     .build();
 ```
@@ -234,7 +239,7 @@ evaluators {
     taskCompletion(judge) { threshold = 0.5 }
     toolArgumentHallucination(judge) { threshold = 0.8 }
     toolNameReliability { judge = judgeLM }
-    toolDescriptionReliability { maxOptionalArgs = 3; judge = judgeLM }
+    toolDescriptionReliability { maxInputArgs = 5; maxOptionalArgs = 3; judge = judgeLM }
 }
 ```
 

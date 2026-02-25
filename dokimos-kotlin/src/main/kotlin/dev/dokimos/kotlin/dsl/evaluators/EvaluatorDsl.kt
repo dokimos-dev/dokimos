@@ -401,6 +401,7 @@ class ToolDescriptionReliabilityEvaluatorDsl {
     var toolsKey: String = "tools"
     var judge: JudgeLM? = null
     var maxOptionalArgs: Int = 3
+    var maxInputArgs: Int = 5
     var evaluationParams: List<EvalTestCaseParam> = listOf()
 
     fun params(vararg params: EvalTestCaseParam) {
@@ -413,6 +414,7 @@ class ToolDescriptionReliabilityEvaluatorDsl {
                 .threshold(threshold)
                 .toolsKey(toolsKey)
                 .maxOptionalArgs(maxOptionalArgs)
+                .maxInputArgs(maxInputArgs)
                 .evaluationParams(evaluationParams)
         judge?.let { builder.judge(it) }
         return builder.build()

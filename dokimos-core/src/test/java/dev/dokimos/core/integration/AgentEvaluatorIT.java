@@ -165,6 +165,7 @@ class AgentEvaluatorIT {
 
         var testCase = EvalTestCase.builder()
                 .input("I want to fly from New York to Paris on March 15 and stay for 5 nights. Can you search for flights and book a hotel?")
+                .actualOutput("output", GOOD_TRACE.finalResponse())
                 .metadata("tasks", List.of(
                         "Search for flights from New York to Paris",
                         "Book a hotel in Paris for 5 nights"

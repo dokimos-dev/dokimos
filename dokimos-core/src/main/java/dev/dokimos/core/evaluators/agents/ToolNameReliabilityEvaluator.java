@@ -81,10 +81,8 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> checks = (Map<String, Object>) result.get("checks");
-            long ran = checks.values().stream().filter(v -> v instanceof Boolean).count();
-            long passed = checks.values().stream()
-                    .filter(v -> v instanceof Boolean b && b)
-                    .count();
+            long ran = checks.values().stream().filter(Boolean.class::isInstance).count();
+            long passed = checks.values().stream().filter(Boolean.TRUE::equals).count();
             totalScore += ran > 0 ? (double) passed / ran : 1.0;
         }
 

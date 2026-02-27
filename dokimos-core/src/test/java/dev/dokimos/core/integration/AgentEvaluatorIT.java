@@ -164,7 +164,7 @@ class AgentEvaluatorIT {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .input("I want to fly from New York to Paris on March 15 and stay for 5 nights. Can you search for flights and book a hotel?")
+                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
                 .actualOutput("output", GOOD_TRACE.finalResponse())
                 .metadata("tasks", List.of(
                         "Search for flights from New York to Paris",
@@ -188,14 +188,15 @@ class AgentEvaluatorIT {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .input("I want to fly from New York to Paris on March 15 for 5 nights, just me traveling alone.")
+                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
                 .actualOutput("toolCalls", GOOD_TRACE.toolCalls())
                 .build();
 
         var result = evaluator.evaluate(testCase);
 
         assertThat(result.score())
-                .as("All arguments are grounded in user input, score should be high")
+                .as("All arguments are grounded in user input, score should be high. Reason: %s, metadata: %s",
+                        result.reason(), result.metadata())
                 .isGreaterThanOrEqualTo(0.5);
     }
 
@@ -207,13 +208,13 @@ class AgentEvaluatorIT {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .input("I want to fly from New York to Paris on March 15 for 5 nights, traveling alone.")
+                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15.")
                 .actualOutput("toolCalls", HALLUCINATED_TRACE.toolCalls())
                 .build();
 
         var result = evaluator.evaluate(testCase);
 
-        // Should detect that "3 passengers" and "London" are not grounded
+        // Should detect that passengers=3 (user said 1) and city=London (user said Paris) are hallucinated
         assertThat(result.score())
                 .as("Some arguments are hallucinated, score should be lower")
                 .isLessThan(1.0);
@@ -244,7 +245,7 @@ class AgentEvaluatorIT {
         Map<String, Object> outputs = GOOD_TRACE.toOutputMap();
 
         var testCase = EvalTestCase.builder()
-                .input("I want to fly from New York to Paris on March 15 and stay for 5 nights.")
+                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
                 .actualOutput("toolCalls", outputs.get("toolCalls"))
                 .actualOutput("output", outputs.get("output"))
                 .expectedOutput("toolCalls", List.of(
@@ -263,7 +264,11 @@ class AgentEvaluatorIT {
 
         assertThat(validityResult.score()).isEqualTo(1.0);
         assertThat(correctnessResult.score()).isEqualTo(1.0);
-        assertThat(completionResult.score()).isGreaterThanOrEqualTo(0.5);
-        assertThat(hallucinationResult.score()).isGreaterThanOrEqualTo(0.5);
+        assertThat(completionResult.score())
+                .as("Completion reason: %s, metadata: %s", completionResult.reason(), completionResult.metadata())
+                .isGreaterThanOrEqualTo(0.5);
+        assertThat(hallucinationResult.score())
+                .as("Hallucination reason: %s, metadata: %s", hallucinationResult.reason(), hallucinationResult.metadata())
+                .isGreaterThanOrEqualTo(0.5);
     }
 }

@@ -96,7 +96,8 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response, int totalCalls) {
         try {
-            List<Map<String, Object>> verdicts = OBJECT_MAPPER.readValue(response,
+            String json = extractJsonArray(response);
+            List<Map<String, Object>> verdicts = OBJECT_MAPPER.readValue(json,
                     new TypeReference<List<Map<String, Object>>>() {});
 
             long grounded = verdicts.stream()
@@ -121,6 +122,16 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     .reason("Failed to parse judge response: " + e.getMessage())
                     .build();
         }
+    }
+
+    private static String extractJsonArray(String response) {
+        // Find the first '[' and last ']' to extract the JSON array
+        int start = response.indexOf('[');
+        int end = response.lastIndexOf(']');
+        if (start >= 0 && end > start) {
+            return response.substring(start, end + 1);
+        }
+        return response;
     }
 
     @SuppressWarnings("unchecked")

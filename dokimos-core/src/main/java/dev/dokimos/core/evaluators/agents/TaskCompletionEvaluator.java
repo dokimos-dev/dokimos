@@ -116,7 +116,8 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response, int totalTasks) {
         try {
-            Map<String, Object> parsed = OBJECT_MAPPER.readValue(response,
+            String json = extractJsonObject(response);
+            Map<String, Object> parsed = OBJECT_MAPPER.readValue(json,
                     new TypeReference<Map<String, Object>>() {});
 
             @SuppressWarnings("unchecked")
@@ -153,6 +154,15 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
                     .reason("Failed to parse judge response: " + e.getMessage())
                     .build();
         }
+    }
+
+    private static String extractJsonObject(String response) {
+        int start = response.indexOf('{');
+        int end = response.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return response.substring(start, end + 1);
+        }
+        return response;
     }
 
     /**

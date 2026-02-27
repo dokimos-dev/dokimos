@@ -576,6 +576,7 @@ interface Evaluator {
 - `RegexEvaluator` – Pattern matching
 - `LLMJudgeEvaluator` – Uses another LLM to judge
 - `FaithfulnessEvaluator` – Checks if answer is grounded in context
+- [Agent evaluators](./agent-evaluation) – Tool call validation, task completion, argument hallucination, and tool reliability
 
 **Custom evaluator example:**
 
@@ -643,6 +644,9 @@ Most attributes use `Map<String, Object>` for flexibility. Here are the common k
 | `"output"` | outputs | Primary output text |
 | `"context"` | outputs | Retrieved documents (for RAG) |
 | `"query"` | inputs | Search query (for RAG) |
+| `"toolCalls"` | outputs / expected | Tool calls made by an agent (for [agent evaluation](./agent-evaluation)) |
+| `"tools"` | metadata | Available tool definitions (for [agent evaluation](./agent-evaluation)) |
+| `"tasks"` | metadata | Task list for agent completion evaluation |
 
 **Example with context:**
 

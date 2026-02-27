@@ -33,6 +33,7 @@ It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you
 - **JUnit integration**: Run evaluations as parameterized tests in your existing test suite.
 - **Framework agnostic**: Works with LangChain4j, Spring AI, Koog or any LLM client. Powered by any LLM.
 - **Built in evaluators**: Hallucination detection, faithfulness, contextual relevance, LLM as a judge, and more.
+- **Agent evaluation**: Evaluate AI agents with tool call validation, task completion, argument hallucination detection, and tool reliability checks.
 - **Custom evaluators**: Build your own metrics by extending `BaseEvaluator` or using `LLMJudgeEvaluator`.
 - **Dataset support**: Load test cases from JSON, CSV, or define them programmatically.
 - **CI/CD ready**: Runs locally or in any CI/CD environment. Fail builds when quality drops.
@@ -220,6 +221,9 @@ Load test cases from JSON, CSV, or build them programmatically. Version your dat
 
 **Built in evaluators**
 Ready to use evaluators for hallucination detection, faithfulness, contextual relevance, and LLM as a judge patterns.
+
+**Agent evaluation**
+Evaluate AI agents that use tools: validate tool call correctness, check task completion, detect argument hallucinations, and assess tool definition quality.
 
 **Experiment tracking**
 Aggregate results across runs, calculate pass rates, and export to JSON, HTML, Markdown, or CSV.
@@ -494,7 +498,7 @@ See the [server documentation](https://dokimos.dev/server/overview) for deployme
 
 ## Roadmap
 
-- More built in evaluators: multi turn conversations, agent tool use, misuse detection
+- More built in evaluators: misuse detection
 - CLI for running evaluations outside of tests
 - Server-side Dataset versioning and management
 

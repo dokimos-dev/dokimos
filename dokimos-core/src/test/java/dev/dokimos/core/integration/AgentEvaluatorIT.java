@@ -110,7 +110,7 @@ class AgentEvaluatorIT {
         judge = prompt -> {
             var params = ChatCompletionCreateParams.builder()
                     .addUserMessage(prompt)
-                    .model(ChatModel.GPT_5_NANO)
+                    .model(ChatModel.GPT_5_1_MINI)
                     .build();
             return client.chat().completions().create(params)
                     .choices().get(0).message().content().orElse("");

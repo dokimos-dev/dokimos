@@ -1,5 +1,13 @@
 package dev.dokimos.server.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import dev.dokimos.server.dto.v1.ExperimentSummary;
 import dev.dokimos.server.dto.v1.TrendData;
 import dev.dokimos.server.entity.Experiment;
@@ -9,26 +17,17 @@ import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
@@ -112,8 +111,7 @@ class ExperimentServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project))
-                .thenReturn(List.of(experiment));
+        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
         when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
                 .thenReturn(Optional.of(run));
         when(itemResultRepository.countByRun(run)).thenReturn(10L);
@@ -133,8 +131,7 @@ class ExperimentServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project))
-                .thenReturn(List.of(experiment));
+        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
         when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
                 .thenReturn(Optional.empty());
 
@@ -150,8 +147,7 @@ class ExperimentServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project))
-                .thenReturn(List.of(experiment));
+        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
         when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
                 .thenReturn(Optional.of(run));
 

@@ -1,11 +1,10 @@
 package dev.dokimos.core.conversation;
 
-import dev.dokimos.core.JudgeLM;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
+
+import dev.dokimos.core.JudgeLM;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class LLMSimulatedUserTest {
 
@@ -100,9 +99,7 @@ class LLMSimulatedUserTest {
             return "Response";
         };
 
-        SimulatedUser user = LLMSimulatedUser.builder()
-                .judge(capturingJudge)
-                .build();
+        SimulatedUser user = LLMSimulatedUser.builder().judge(capturingJudge).build();
 
         ConversationTrajectory trajectory = ConversationTrajectory.builder()
                 .userMessage("Hello")
@@ -124,9 +121,7 @@ class LLMSimulatedUserTest {
             return "Response";
         };
 
-        SimulatedUser user = LLMSimulatedUser.builder()
-                .judge(capturingJudge)
-                .build();
+        SimulatedUser user = LLMSimulatedUser.builder().judge(capturingJudge).build();
 
         ConversationTrajectory trajectory = ConversationTrajectory.builder()
                 .scenario("Product return request")
@@ -158,11 +153,8 @@ class LLMSimulatedUserTest {
 
     @Test
     void shouldRequireJudge() {
-        assertThatThrownBy(() ->
-                LLMSimulatedUser.builder()
-                        .persona("test")
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> LLMSimulatedUser.builder().persona("test").build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JudgeLM");
     }
 
@@ -170,9 +162,7 @@ class LLMSimulatedUserTest {
     void shouldTrimLLMResponse() {
         JudgeLM mockJudge = prompt -> "  Response with whitespace  \n";
 
-        SimulatedUser user = LLMSimulatedUser.builder()
-                .judge(mockJudge)
-                .build();
+        SimulatedUser user = LLMSimulatedUser.builder().judge(mockJudge).build();
 
         Message message = user.generateMessage(ConversationTrajectory.empty());
 

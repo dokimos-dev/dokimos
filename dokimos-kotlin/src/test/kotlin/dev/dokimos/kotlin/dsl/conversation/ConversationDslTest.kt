@@ -34,7 +34,7 @@ class ConversationDslTest {
             Message.Role.USER,
             Message.Role.ASSISTANT,
             Message.Role.SYSTEM,
-            Message.Role.USER
+            Message.Role.USER,
         )
     }
 
@@ -124,7 +124,7 @@ class ConversationDslTest {
         val trajectory = conversation(userMessage("hi"), assistantMessage("hello"))
         val testCase = EvalTestCase(
             input = "q",
-            actualOutputs = mapOf("trajectory" to trajectory)
+            actualOutputs = mapOf("trajectory" to trajectory),
         )
 
         val result = evaluator.evaluate(testCase)

@@ -6,14 +6,13 @@ import org.junit.jupiter.api.assertNull
 
 class ExtTest {
 
-
     @Test
     fun `EvalTestCase maps input actualOutput, outputContext and metadata`() {
         val testCase = EvalTestCase(
             input = "What is RAG?",
             actualOutput = "Retrieval-Augmented Generation",
             outputContext = listOf("Doc1", "Doc2"),
-            metadata = mapOf("traceId" to mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"))
+            metadata = mapOf("traceId" to mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")),
         )
 
         assertThat(testCase.inputs()).containsEntry("input", "What is RAG?")
@@ -21,7 +20,7 @@ class ExtTest {
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1", "Doc2"))
         assertThat(testCase.metadata()).containsEntry(
             "traceId",
-            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")
+            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"),
         )
     }
 
@@ -30,7 +29,7 @@ class ExtTest {
         val testCase = EvalTestCase(
             input = "What is RAG?",
             actualOutputs = mapOf("output" to "Retrieval-Augmented Generation", "context" to listOf("Doc1", "Doc2")),
-            metadata = mapOf("traceId" to mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"))
+            metadata = mapOf("traceId" to mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")),
         )
 
         assertThat(testCase.inputs()).containsEntry("input", "What is RAG?")
@@ -38,7 +37,7 @@ class ExtTest {
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1", "Doc2"))
         assertThat(testCase.metadata()).containsEntry(
             "traceId",
-            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832")
+            mapOf("traceRef" to "abc123", "traceEpocMs" to "102029393832"),
         )
     }
 
@@ -48,7 +47,7 @@ class ExtTest {
             name = "MyEval",
             score = 0.75,
             threshold = 0.7,
-            reason = "Looks good"
+            reason = "Looks good",
         )
 
         assertThat(result.name()).isEqualTo("MyEval")
@@ -64,7 +63,7 @@ class ExtTest {
             name = "MyEval",
             score = 0.75,
             success = true,
-            reason = "Looks good"
+            reason = "Looks good",
         )
 
         assertThat(result.name()).isEqualTo("MyEval")
@@ -81,7 +80,7 @@ class ExtTest {
             actualOutput = "Retrieval-Augmented Generation",
             actualOutputs = mapOf("context" to listOf("Doc1", "Doc2"), "model" to "gpt"),
             expectedOutputs = mapOf("output" to "Retrieval-Augmented Generation"),
-            metadata = mapOf("traceId" to "abc123")
+            metadata = mapOf("traceId" to "abc123"),
         )
 
         assertThat(testCase.inputs()).containsEntry("input", "What is RAG?")
@@ -97,12 +96,11 @@ class ExtTest {
         val testCase = EvalTestCase(
             actualOutputs = mapOf(
                 "output" to "answer",
-                "context" to listOf("Doc1")
-            )
+                "context" to listOf("Doc1"),
+            ),
         )
 
         assertThat(testCase.actualOutputs()).containsEntry("output", "answer")
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1"))
     }
-
 }

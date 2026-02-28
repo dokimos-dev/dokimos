@@ -3,12 +3,11 @@ package dev.dokimos.junit;
 import dev.dokimos.core.Dataset;
 import dev.dokimos.core.DatasetResolutionException;
 import dev.dokimos.core.DatasetResolverRegistry;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
-
-import java.util.stream.Stream;
 
 /**
  * JUnit ArgumentsProvider that loads {@code Example}s from a {@code Dataset}.
@@ -29,8 +28,7 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
         Dataset dataset = loadDataset();
-        return dataset.examples().stream()
-                .map(Arguments::of);
+        return dataset.examples().stream().map(Arguments::of);
     }
 
     private Dataset loadDataset() {
@@ -46,6 +44,7 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
             return DatasetResolverRegistry.getInstance().resolve(uri);
         }
 
-        throw new DatasetResolutionException("Either `value()`, `json()`, or `jsonl()` must be specified in @DatasetSource");
+        throw new DatasetResolutionException(
+                "Either `value()`, `json()`, or `jsonl()` must be specified in @DatasetSource");
     }
 }

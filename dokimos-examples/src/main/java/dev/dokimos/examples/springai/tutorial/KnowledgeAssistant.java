@@ -1,12 +1,11 @@
 package dev.dokimos.examples.springai.tutorial;
 
+import java.util.List;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * Knowledge assistant that combines retrieval with generation.
@@ -26,15 +25,10 @@ public class KnowledgeAssistant {
     public AssistantResponse answer(String question) {
         // Step 1: Retrieve relevant documents
         List<Document> retrievedDocs = vectorStore.similaritySearch(
-                SearchRequest.builder()
-                        .query(question)
-                        .topK(3)
-                        .build());
+                SearchRequest.builder().query(question).topK(3).build());
 
         // Step 2: Build context from retrieved documents
-        String context = retrievedDocs.stream()
-                .map(Document::getText)
-                .reduce("", (a, b) -> a + "\n\n" + b);
+        String context = retrievedDocs.stream().map(Document::getText).reduce("", (a, b) -> a + "\n\n" + b);
 
         // Step 3: Generate response using context
         String systemPrompt = """
@@ -46,18 +40,12 @@ public class KnowledgeAssistant {
                 %s
                 """.formatted(context);
 
-        String response = chatClient.prompt()
-                .system(systemPrompt)
-                .user(question)
-                .call()
-                .content();
+        String response =
+                chatClient.prompt().system(systemPrompt).user(question).call().content();
 
         // Return both the response and retrieved context for evaluation
         return new AssistantResponse(response, retrievedDocs);
     }
 
-    public record AssistantResponse(
-            String answer,
-            List<Document> retrievedDocuments) {
-    }
+    public record AssistantResponse(String answer, List<Document> retrievedDocuments) {}
 }

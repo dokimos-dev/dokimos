@@ -30,8 +30,9 @@ public class FileDatasetResolver implements DatasetResolver {
                 case ".json" -> Dataset.fromJson(path);
                 case ".jsonl" -> Dataset.fromJsonl(path);
                 case ".csv" -> Dataset.fromCsv(path);
-                default -> throw new DatasetResolutionException(
-                        "Unsupported file type: " + pathname + ". Supported types: .json, .jsonl, .csv");
+                default ->
+                    throw new DatasetResolutionException(
+                            "Unsupported file type: " + pathname + ". Supported types: .json, .jsonl, .csv");
             };
         } catch (IOException e) {
             throw new DatasetResolutionException("Failed to load dataset from file: " + pathname, e);
@@ -42,6 +43,4 @@ public class FileDatasetResolver implements DatasetResolver {
         int dotIdx = pathname.lastIndexOf('.');
         return dotIdx >= 0 ? pathname.substring(dotIdx) : "";
     }
-
-
 }

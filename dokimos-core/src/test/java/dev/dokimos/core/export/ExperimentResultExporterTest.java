@@ -1,5 +1,8 @@
 package dev.dokimos.core.export;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,18 +11,14 @@ import dev.dokimos.core.Example;
 import dev.dokimos.core.ExperimentResult;
 import dev.dokimos.core.ItemResult;
 import dev.dokimos.core.RunResult;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class ExperimentResultExporterTest {
 
@@ -125,8 +124,7 @@ class ExperimentResultExporterTest {
         String json = ExperimentResultExporter.toJson(result);
 
         // Parse back to verify structure
-        Map<String, Object> parsed = MAPPER.readValue(json, new TypeReference<>() {
-        });
+        Map<String, Object> parsed = MAPPER.readValue(json, new TypeReference<>() {});
 
         assertThat(parsed.get("experimentName")).isEqualTo("test-experiment");
         assertThat(parsed.get("version")).isEqualTo(1);
@@ -238,14 +236,23 @@ class ExperimentResultExporterTest {
                 "",
                 Map.of(),
                 List.of(
-                        new RunResult(0, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                        new RunResult(
+                                0,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "Wrong"),
                                         List.of(EvalResult.failure("accuracy", 0.3, "Failed"))))),
-                        new RunResult(1, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                        new RunResult(
+                                1,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "Wrong"),
                                         List.of(EvalResult.failure("accuracy", 0.2, "Failed"))))),
-                        new RunResult(2, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "Wrong"),
+                        new RunResult(
+                                2,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "Wrong"),
                                         List.of(EvalResult.failure("accuracy", 0.4, "Failed")))))));
 
         String md = ExperimentResultExporter.toMarkdown(result);
@@ -264,16 +271,22 @@ class ExperimentResultExporterTest {
                 "",
                 Map.of(),
                 List.of(
-                        new RunResult(0, List.of(
-                                new ItemResult(Example.of("Flaky question", "Expected"),
+                        new RunResult(
+                                0,
+                                List.of(new ItemResult(
+                                        Example.of("Flaky question", "Expected"),
                                         Map.of("output", "Correct in run 0"),
                                         List.of(EvalResult.success("accuracy", 0.9, "Passed"))))),
-                        new RunResult(1, List.of(
-                                new ItemResult(Example.of("Flaky question", "Expected"),
+                        new RunResult(
+                                1,
+                                List.of(new ItemResult(
+                                        Example.of("Flaky question", "Expected"),
                                         Map.of("output", "Wrong in run 1"),
                                         List.of(EvalResult.failure("accuracy", 0.3, "Failed in run 1"))))),
-                        new RunResult(2, List.of(
-                                new ItemResult(Example.of("Flaky question", "Expected"),
+                        new RunResult(
+                                2,
+                                List.of(new ItemResult(
+                                        Example.of("Flaky question", "Expected"),
                                         Map.of("output", "Wrong in run 2"),
                                         List.of(EvalResult.failure("accuracy", 0.4, "Failed in run 2")))))));
 
@@ -395,8 +408,8 @@ class ExperimentResultExporterTest {
 
         // Should have averageScore for multi-run
         assertThat(evaluation.has("averageScore")).isTrue();
-        assertThat(evaluation.get("averageScore").asDouble()).isCloseTo(0.8,
-                org.assertj.core.api.Assertions.within(0.01));
+        assertThat(evaluation.get("averageScore").asDouble())
+                .isCloseTo(0.8, org.assertj.core.api.Assertions.within(0.01));
 
         // Should have stdDev for multi-run
         assertThat(evaluation.has("stdDev")).isTrue();
@@ -426,8 +439,7 @@ class ExperimentResultExporterTest {
                 "no-evaluators",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(Example.of("Q1", "A1"), Map.of(), List.of())))));
+                List.of(new RunResult(0, List.of(new ItemResult(Example.of("Q1", "A1"), Map.of(), List.of())))));
 
         assertThatCode(() -> ExperimentResultExporter.toJson(result)).doesNotThrowAnyException();
         assertThatCode(() -> ExperimentResultExporter.toCsv(result)).doesNotThrowAnyException();
@@ -439,9 +451,10 @@ class ExperimentResultExporterTest {
                 "null-reason",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(Example.of("Q1", "A1"), Map.of(),
-                                List.of(EvalResult.of("test", 0.8, 0.5, null)))))));
+                List.of(new RunResult(
+                        0,
+                        List.of(new ItemResult(
+                                Example.of("Q1", "A1"), Map.of(), List.of(EvalResult.of("test", 0.8, 0.5, null)))))));
 
         String json = ExperimentResultExporter.toJson(result);
         assertThat(json).contains("\"reason\" : \"\"");
@@ -453,9 +466,10 @@ class ExperimentResultExporterTest {
                 "null-threshold",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(Example.of("Q1", "A1"), Map.of(),
-                                List.of(EvalResult.success("test", 0.8, "OK")))))));
+                List.of(new RunResult(
+                        0,
+                        List.of(new ItemResult(
+                                Example.of("Q1", "A1"), Map.of(), List.of(EvalResult.success("test", 0.8, "OK")))))));
 
         String json = ExperimentResultExporter.toJson(result);
         JsonNode root = MAPPER.readTree(json);
@@ -494,8 +508,9 @@ class ExperimentResultExporterTest {
                 "multi-key-output",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(
+                List.of(new RunResult(
+                        0,
+                        List.of(new ItemResult(
                                 Example.of("question", "expected answer"),
                                 Map.of(
                                         "output", "The actual response text",
@@ -555,15 +570,17 @@ class ExperimentResultExporterTest {
                 "test-experiment",
                 "A test experiment",
                 Map.of("version", "1.0"),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(
-                                Example.of("What is 2+2?", "4"),
-                                Map.of("output", "4"),
-                                List.of(EvalResult.success("correctness", 0.9, "Correct"))),
-                        new ItemResult(
-                                Example.of("What is 3*3?", "9"),
-                                Map.of("output", "10"),
-                                List.of(EvalResult.failure("correctness", 0.3, "Wrong answer")))))));
+                List.of(new RunResult(
+                        0,
+                        List.of(
+                                new ItemResult(
+                                        Example.of("What is 2+2?", "4"),
+                                        Map.of("output", "4"),
+                                        List.of(EvalResult.success("correctness", 0.9, "Correct"))),
+                                new ItemResult(
+                                        Example.of("What is 3*3?", "9"),
+                                        Map.of("output", "10"),
+                                        List.of(EvalResult.failure("correctness", 0.3, "Wrong answer")))))));
     }
 
     private ExperimentResult createMultiRunResult() {
@@ -572,14 +589,23 @@ class ExperimentResultExporterTest {
                 "",
                 Map.of(),
                 List.of(
-                        new RunResult(0, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "A1"),
+                        new RunResult(
+                                0,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "A1"),
                                         List.of(EvalResult.success("accuracy", 0.8, "Good"))))),
-                        new RunResult(1, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "A1"),
+                        new RunResult(
+                                1,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "A1"),
                                         List.of(EvalResult.success("accuracy", 0.7, "OK"))))),
-                        new RunResult(2, List.of(
-                                new ItemResult(Example.of("Q1", "A1"), Map.of("output", "A1"),
+                        new RunResult(
+                                2,
+                                List.of(new ItemResult(
+                                        Example.of("Q1", "A1"),
+                                        Map.of("output", "A1"),
                                         List.of(EvalResult.success("accuracy", 0.9, "Great")))))));
     }
 
@@ -588,19 +614,21 @@ class ExperimentResultExporterTest {
                 "mixed-outcomes",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(
-                                Example.of("Capital of France?", "Paris"),
-                                Map.of("output", "Paris"),
-                                List.of(EvalResult.success("correctness", 0.9, "Correct"))),
-                        new ItemResult(
-                                Example.of("Capital of Germany?", "Berlin"),
-                                Map.of("output", "Berlin"),
-                                List.of(EvalResult.success("correctness", 0.8, "Correct"))),
-                        new ItemResult(
-                                Example.of("Capital of Italy?", "Rome"),
-                                Map.of("output", "Milan"),
-                                List.of(EvalResult.failure("correctness", 0.3, "Said Milan")))))));
+                List.of(new RunResult(
+                        0,
+                        List.of(
+                                new ItemResult(
+                                        Example.of("Capital of France?", "Paris"),
+                                        Map.of("output", "Paris"),
+                                        List.of(EvalResult.success("correctness", 0.9, "Correct"))),
+                                new ItemResult(
+                                        Example.of("Capital of Germany?", "Berlin"),
+                                        Map.of("output", "Berlin"),
+                                        List.of(EvalResult.success("correctness", 0.8, "Correct"))),
+                                new ItemResult(
+                                        Example.of("Capital of Italy?", "Rome"),
+                                        Map.of("output", "Milan"),
+                                        List.of(EvalResult.failure("correctness", 0.3, "Said Milan")))))));
     }
 
     private ExperimentResult createResultWithSpecialChars(String input) {
@@ -608,8 +636,9 @@ class ExperimentResultExporterTest {
                 "special-chars",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(
+                List.of(new RunResult(
+                        0,
+                        List.of(new ItemResult(
                                 Example.of(input, "expected"),
                                 Map.of("output", "actual"),
                                 List.of(EvalResult.success("test", 0.9, "OK")))))));
@@ -620,8 +649,9 @@ class ExperimentResultExporterTest {
                 "multi-evaluator",
                 "",
                 Map.of(),
-                List.of(new RunResult(0, List.of(
-                        new ItemResult(
+                List.of(new RunResult(
+                        0,
+                        List.of(new ItemResult(
                                 Example.of("How to reset password?", "Go to settings"),
                                 Map.of("output", "Click settings"),
                                 List.of(

@@ -8,9 +8,7 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
-
 import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,18 +45,26 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
 
     private String buildPrompt(EvalTestCase testCase) {
         var sb = new StringBuilder();
-        sb.append("Evaluate the following based on this criteria: ").append(criteria).append("\n\n");
+        sb.append("Evaluate the following based on this criteria: ")
+                .append(criteria)
+                .append("\n\n");
 
         for (var param : evaluationParams) {
             switch (param) {
                 case INPUT -> sb.append("Input: ").append(testCase.input()).append("\n");
-                case ACTUAL_OUTPUT -> sb.append("Actual Output: ").append(testCase.actualOutput()).append("\n");
-                case EXPECTED_OUTPUT -> sb.append("Expected Output: ").append(testCase.expectedOutput()).append("\n");
+                case ACTUAL_OUTPUT ->
+                    sb.append("Actual Output: ").append(testCase.actualOutput()).append("\n");
+                case EXPECTED_OUTPUT ->
+                    sb.append("Expected Output: ")
+                            .append(testCase.expectedOutput())
+                            .append("\n");
             }
         }
 
         sb.append("Provide a score between ")
-                .append(minScore).append(" and ").append(maxScore)
+                .append(minScore)
+                .append(" and ")
+                .append(maxScore)
                 .append(", and a brief reasoning.");
         // TODO: Structured outputs?
         sb.append("Respond in JSON format: {\"score\": <number>, \"reason\": \"<explanation>\"}");
@@ -171,8 +177,7 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
             if (evaluationParams.isEmpty()) {
                 throw new IllegalStateException("LLM Judge requires at least one evaluation param");
             }
-            if (judge == null)
-                throw new IllegalStateException("JudgeLM is required");
+            if (judge == null) throw new IllegalStateException("JudgeLM is required");
             return new LLMJudgeEvaluator(this);
         }
     }

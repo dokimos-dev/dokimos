@@ -1,17 +1,16 @@
 package dev.dokimos.core;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.evaluators.ContextualRelevanceEvaluator;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ContextualRelevanceEvaluatorTest {
 
@@ -34,10 +33,11 @@ class ContextualRelevanceEvaluatorTest {
 
         var testCase = EvalTestCase.builder()
                 .input("What are symptoms of dehydration?")
-                .actualOutput("retrievalContext", List.of(
-                        "Dehydration symptoms include thirst, dry mouth, and fatigue.",
-                        "Severe dehydration can cause dizziness and confusion."
-                ))
+                .actualOutput(
+                        "retrievalContext",
+                        List.of(
+                                "Dehydration symptoms include thirst, dry mouth, and fatigue.",
+                                "Severe dehydration can cause dizziness and confusion."))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -65,7 +65,8 @@ class ContextualRelevanceEvaluatorTest {
                 .withScoreResponse(2, """
                         {"score": 0.90, "reason": "Covers severe dehydration symptoms"}
                         """)
-                .withSummary("Two contexts are highly relevant while one is irrelevant, resulting in a moderate overall score.");
+                .withSummary(
+                        "Two contexts are highly relevant while one is irrelevant, resulting in a moderate overall score.");
 
         var evaluator = ContextualRelevanceEvaluator.builder()
                 .judge(mockJudge)
@@ -74,11 +75,12 @@ class ContextualRelevanceEvaluatorTest {
 
         var testCase = EvalTestCase.builder()
                 .input("What are symptoms of dehydration?")
-                .actualOutput("retrievalContext", List.of(
-                        "Dehydration symptoms include thirst, dry mouth, and fatigue.",
-                        "The Pacific Ocean is the largest ocean on Earth.",
-                        "Severe dehydration can cause dizziness and confusion."
-                ))
+                .actualOutput(
+                        "retrievalContext",
+                        List.of(
+                                "Dehydration symptoms include thirst, dry mouth, and fatigue.",
+                                "The Pacific Ocean is the largest ocean on Earth.",
+                                "Severe dehydration can cause dizziness and confusion."))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -105,10 +107,7 @@ class ContextualRelevanceEvaluatorTest {
 
         var testCase = EvalTestCase.builder()
                 .input("What is machine learning?")
-                .actualOutput("retrievalContext", List.of(
-                        "Cooking recipes for beginners",
-                        "History of ancient Rome"
-                ))
+                .actualOutput("retrievalContext", List.of("Cooking recipes for beginners", "History of ancient Rome"))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -128,9 +127,7 @@ class ContextualRelevanceEvaluatorTest {
                         """)
                 .withSummary("Mixed relevance.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -152,8 +149,7 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldDisableReasoningWhenConfigured() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.9, "reason": "Relevant"}
                         """);
 
@@ -174,11 +170,9 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldUseStrictModeWithThresholdOne() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.95, "reason": "Very relevant"}
-                        """)
-                .withSummary("High relevance.");
+                        """).withSummary("High relevance.");
 
         var evaluator = ContextualRelevanceEvaluator.builder()
                 .judge(mockJudge)
@@ -199,11 +193,9 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldPassInStrictModeWithPerfectScore() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 1.0, "reason": "Perfect relevance"}
-                        """)
-                .withSummary("Perfect relevance.");
+                        """).withSummary("Perfect relevance.");
 
         var evaluator = ContextualRelevanceEvaluator.builder()
                 .judge(mockJudge)
@@ -223,11 +215,9 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldUseCustomRetrievalContextKey() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.85, "reason": "Relevant"}
-                        """)
-                .withSummary("Relevant context.");
+                        """).withSummary("Relevant context.");
 
         var evaluator = ContextualRelevanceEvaluator.builder()
                 .judge(mockJudge)
@@ -247,15 +237,11 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldHandleSingleStringContext() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.75, "reason": "Mostly relevant"}
-                        """)
-                .withSummary("Single relevant context.");
+                        """).withSummary("Single relevant context.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -271,9 +257,7 @@ class ContextualRelevanceEvaluatorTest {
     void shouldThrowExceptionWhenRetrievalContextMissing() {
         JudgeLM mockJudge = prompt -> "{}";
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -296,9 +280,8 @@ class ContextualRelevanceEvaluatorTest {
     void shouldHandleMalformedJsonResponse() {
         JudgeLM brokenJudge = prompt -> "This is not valid JSON";
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(brokenJudge)
-                .build();
+        var evaluator =
+                ContextualRelevanceEvaluator.builder().judge(brokenJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -312,17 +295,14 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldHandleMarkdownWrappedJsonResponses() {
-        JudgeLM judgeWithMarkdown = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM judgeWithMarkdown = new MockJudge().withScoreResponse(0, """
                         ```json
                         {"score": 0.85, "reason": "Relevant context"}
                         ```
-                        """)
-                .withSummary("Relevant context.");
+                        """).withSummary("Relevant context.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(judgeWithMarkdown)
-                .build();
+        var evaluator =
+                ContextualRelevanceEvaluator.builder().judge(judgeWithMarkdown).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -346,9 +326,7 @@ class ContextualRelevanceEvaluatorTest {
                         """)
                 .withSummary("Scores clamped.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -365,9 +343,7 @@ class ContextualRelevanceEvaluatorTest {
     void shouldReturnZeroScoreWithEmptyContextList() {
         JudgeLM mockJudge = prompt -> "{}";
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -383,15 +359,11 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldEvaluateAsynchronously() throws Exception {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.9, "reason": "Relevant"}
-                        """)
-                .withSummary("Async test.");
+                        """).withSummary("Async test.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -408,15 +380,11 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldEvaluateAsyncWithCustomExecutor() throws Exception {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.8, "reason": "Relevant"}
-                        """)
-                .withSummary("Custom executor test.");
+                        """).withSummary("Custom executor test.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")
@@ -436,11 +404,9 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldUseCustomThreshold() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": 0.6, "reason": "Somewhat relevant"}
-                        """)
-                .withSummary("Custom threshold test.");
+                        """).withSummary("Custom threshold test.");
 
         var evaluator = ContextualRelevanceEvaluator.builder()
                 .judge(mockJudge)
@@ -461,15 +427,11 @@ class ContextualRelevanceEvaluatorTest {
 
     @Test
     void shouldHandleScoreAsString() {
-        JudgeLM mockJudge = new MockJudge()
-                .withScoreResponse(0, """
+        JudgeLM mockJudge = new MockJudge().withScoreResponse(0, """
                         {"score": "0.75", "reason": "Score as string"}
-                        """)
-                .withSummary("String score test.");
+                        """).withSummary("String score test.");
 
-        var evaluator = ContextualRelevanceEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = ContextualRelevanceEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("test query")

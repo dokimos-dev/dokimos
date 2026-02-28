@@ -10,8 +10,7 @@ import java.util.List;
  */
 public class Assertions {
 
-    private Assertions() {
-    }
+    private Assertions() {}
 
     /**
      * Asserts that the test case passes all evaluators.
@@ -24,10 +23,8 @@ public class Assertions {
         for (var evaluator : evaluators) {
             var result = evaluator.evaluate(testCase);
             if (!result.success()) {
-                throw new AssertionError(
-                        "Evaluation '%s' failed: score=%.2f (threshold=%.2f), reason=%s"
-                                .formatted(result.name(), result.score(), evaluator.threshold(), result.reason())
-                );
+                throw new AssertionError("Evaluation '%s' failed: score=%.2f (threshold=%.2f), reason=%s"
+                        .formatted(result.name(), result.score(), evaluator.threshold(), result.reason()));
             }
         }
     }
@@ -42,5 +39,4 @@ public class Assertions {
     public static void assertEval(EvalTestCase testCase, Evaluator... evaluators) {
         assertEval(testCase, List.of(evaluators));
     }
-
 }

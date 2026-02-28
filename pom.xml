@@ -54,6 +54,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>6.0.1</junit.version>
         <junit.platform.version>6.0.1</junit.platform.version>
+        <spotless.version>3.2.1</spotless.version>
+        <palantir.version>2.86.0</palantir.version>
+        <ktlint.version>1.5.0</ktlint.version>
     </properties>
 
     <dependencyManagement>
@@ -179,6 +182,35 @@
                         <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${spotless.version}</version>
+                    <configuration>
+                        <java>
+                            <palantirJavaFormat>
+                                <version>${palantir.version}</version>
+                                <style>PALANTIR</style>
+                            </palantirJavaFormat>
+                            <removeUnusedImports/>
+                            <importOrder/>
+                        </java>
+                        <kotlin>
+                            <includes>
+                                <include>src/main/kotlin/**/*.kt</include>
+                                <include>src/test/kotlin/**/*.kt</include>
+                            </includes>
+                            <ktlint>
+                                <version>${ktlint.version}</version>
+                                <editorConfigOverride>
+                                    <ktlint_code_style>intellij_idea</ktlint_code_style>
+                                    <ktlint_standard_function-naming>disabled</ktlint_standard_function-naming>
+                                    <ktlint_standard_no-wildcard-imports>disabled</ktlint_standard_no-wildcard-imports>
+                                </editorConfigOverride>
+                            </ktlint>
+                        </kotlin>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -190,6 +222,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
             </plugin>
             <plugin>
                 <!-- source JAR -->

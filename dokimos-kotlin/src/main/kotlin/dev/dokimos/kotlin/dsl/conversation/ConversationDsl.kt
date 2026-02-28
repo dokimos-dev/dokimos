@@ -44,7 +44,7 @@ fun systemMessage(content: String, metadata: Map<String, Any> = emptyMap()): Mes
 fun conversation(
     vararg messages: Message,
     scenario: String = "",
-    metadata: Map<String, Any> = emptyMap()
+    metadata: Map<String, Any> = emptyMap(),
 ): ConversationTrajectory = ConversationTrajectory.builder()
     .scenario(scenario)
     .messages(messages.toList())

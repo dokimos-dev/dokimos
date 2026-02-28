@@ -4,7 +4,6 @@ import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -29,10 +28,7 @@ public class RegexEvaluator extends BaseEvaluator {
 
     @Override
     protected EvalResult runEvaluation(EvalTestCase testCase) {
-        String actualOutput = Objects.requireNonNull(
-                testCase.actualOutput(),
-                "`actualOutput` cannot be null"
-        );
+        String actualOutput = Objects.requireNonNull(testCase.actualOutput(), "`actualOutput` cannot be null");
 
         int flags = ignoreCase ? Pattern.CASE_INSENSITIVE : 0;
         Pattern compiledPattern = Pattern.compile(pattern, flags);
@@ -62,9 +58,7 @@ public class RegexEvaluator extends BaseEvaluator {
         private String pattern;
         private boolean ignoreCase = false;
         private double threshold = 1.0;
-        private List<EvalTestCaseParam> evaluationParams = List.of(
-                EvalTestCaseParam.ACTUAL_OUTPUT
-        );
+        private List<EvalTestCaseParam> evaluationParams = List.of(EvalTestCaseParam.ACTUAL_OUTPUT);
 
         /**
          * Sets the evaluator name.
@@ -130,5 +124,4 @@ public class RegexEvaluator extends BaseEvaluator {
             return new RegexEvaluator(this);
         }
     }
-
 }

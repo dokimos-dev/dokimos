@@ -1,4 +1,4 @@
-.PHONY: help clean compile test test-all build install package verify deps tree fmt check
+.PHONY: help clean compile test test-all build install package verify deps tree fmt fmt-check check setup
 
 # Default target
 help:
@@ -19,9 +19,11 @@ help:
 	@echo "Utility targets:"
 	@echo "  make deps         - Download dependencies"
 	@echo "  make tree         - Show dependency tree"
-	@echo "  make fmt          - Format code (if formatter configured)"
+	@echo "  make fmt          - Format all Java and Kotlin code"
+	@echo "  make fmt-check    - Check formatting without modifying files"
 	@echo "  make check        - Validate POM and check for updates"
 	@echo "  make javadoc      - Generate Javadoc"
+	@echo "  make setup        - Install git hooks and configure repo"
 	@echo ""
 	@echo "Module-specific (use MODULE=dokimos-core, etc.):"
 	@echo "  make test-module  - Run tests for a specific module"
@@ -63,7 +65,10 @@ tree:
 	mvn dependency:tree
 
 fmt:
-	mvn fmt:format 2>/dev/null || echo "No formatter plugin configured"
+	mvn spotless:apply
+
+fmt-check:
+	mvn spotless:check
 
 check:
 	mvn validate
@@ -82,6 +87,11 @@ test-module:
 
 build-module:
 	mvn install -DskipTests -pl $(MODULE) -am
+
+# Setup
+setup:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed."
 
 # Release targets
 release:

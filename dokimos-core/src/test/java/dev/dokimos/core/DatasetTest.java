@@ -1,14 +1,13 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DatasetTest {
 
@@ -31,10 +30,8 @@ class DatasetTest {
         var example1 = Example.of("1+1", "2");
         var example2 = Example.of("2+2", "4");
 
-        var dataset = Dataset.builder()
-                .addExample(example1)
-                .addExample(example2)
-                .build();
+        var dataset =
+                Dataset.builder().addExample(example1).addExample(example2).build();
 
         assertThat(dataset).hasSize(2);
         assertThat(dataset).containsExactly(example1, example2);

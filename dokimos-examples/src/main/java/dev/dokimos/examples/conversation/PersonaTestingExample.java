@@ -4,7 +4,6 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.conversation.*;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,14 +48,13 @@ public class PersonaTestingExample {
                 .criteria(List.of(
                         TrajectoryEvaluationCriteria.userSatisfaction(),
                         TrajectoryEvaluationCriteria.helpfulness(),
-                        TrajectoryEvaluationCriteria.professionalTone()
-                ))
+                        TrajectoryEvaluationCriteria.professionalTone()))
                 .aggregationStrategy(AggregationStrategy.MEAN)
                 .build();
 
         // Test against each persona
         System.out.println("Testing chatbot against different user personas...\n");
-        System.out.println("=" .repeat(60));
+        System.out.println("=".repeat(60));
 
         Map<String, EvalResult> results = new LinkedHashMap<>();
 
@@ -79,8 +77,9 @@ public class PersonaTestingExample {
 
             // Print brief conversation
             System.out.println("Conversation (" + trajectory.turnCount() + " turns):");
-            trajectory.messages().forEach(msg ->
-                    System.out.println("  " + msg.role() + ": " + truncate(msg.content(), 60)));
+            trajectory
+                    .messages()
+                    .forEach(msg -> System.out.println("  " + msg.role() + ": " + truncate(msg.content(), 60)));
 
             // Evaluate
             EvalTestCase testCase = EvalTestCase.builder()
@@ -90,8 +89,8 @@ public class PersonaTestingExample {
             EvalResult result = evaluator.evaluate(testCase);
             results.put(personaName, result);
 
-            System.out.println("Score: " + String.format("%.2f", result.score()) +
-                    (result.success() ? " (PASS)" : " (FAIL)"));
+            System.out.println(
+                    "Score: " + String.format("%.2f", result.score()) + (result.success() ? " (PASS)" : " (FAIL)"));
         }
 
         // Print summary
@@ -106,10 +105,8 @@ public class PersonaTestingExample {
 
         for (Map.Entry<String, EvalResult> entry : results.entrySet()) {
             EvalResult result = entry.getValue();
-            System.out.printf("%-25s %10.2f %10s%n",
-                    entry.getKey(),
-                    result.score(),
-                    result.success() ? "PASS" : "FAIL");
+            System.out.printf(
+                    "%-25s %10.2f %10s%n", entry.getKey(), result.score(), result.success() ? "PASS" : "FAIL");
             totalScore += result.score();
             if (result.success()) passed++;
         }
@@ -193,23 +190,23 @@ public class PersonaTestingExample {
 
             String response;
             if (userMsg.contains("don't understand") || userMsg.contains("explain")) {
-                response = "Of course! Let me break this down step by step. " +
-                        "First, you'll want to check your order status in your account. " +
-                        "Would you like me to walk you through that?";
+                response = "Of course! Let me break this down step by step. "
+                        + "First, you'll want to check your order status in your account. "
+                        + "Would you like me to walk you through that?";
             } else if (userMsg.contains("now") || userMsg.contains("too long")) {
-                response = "I completely understand your urgency and I'm working as fast as I can. " +
-                        "I've escalated this to our priority queue. " +
-                        "Is there anything specific I can address immediately?";
+                response = "I completely understand your urgency and I'm working as fast as I can. "
+                        + "I've escalated this to our priority queue. "
+                        + "Is there anything specific I can address immediately?";
             } else if (userMsg.contains("error code") || userMsg.contains("api")) {
-                response = "Good technical question! The error code indicates a timeout. " +
-                        "We're using API v2.3 which has improved retry logic. " +
-                        "Have you checked the connection pool settings?";
+                response = "Good technical question! The error code indicates a timeout. "
+                        + "We're using API v2.3 which has improved retry logic. "
+                        + "Have you checked the connection pool settings?";
             } else if (userMsg.contains("thank")) {
-                response = "You're very welcome! I'm glad I could help. " +
-                        "Is there anything else you'd like assistance with today?";
+                response = "You're very welcome! I'm glad I could help. "
+                        + "Is there anything else you'd like assistance with today?";
             } else {
-                response = "I'd be happy to help you with that. " +
-                        "Could you provide me with a few more details about your issue?";
+                response = "I'd be happy to help you with that. "
+                        + "Could you provide me with a few more details about your issue?";
             }
 
             return Message.assistant(response);

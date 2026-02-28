@@ -37,8 +37,9 @@ public class ClasspathDatasetResolver implements DatasetResolver {
                 case ".json" -> Dataset.fromJson(content);
                 case ".jsonl" -> Dataset.fromJsonl(content, name);
                 case ".csv" -> Dataset.fromCsv(content, name);
-                default -> throw new DatasetResolutionException(
-                        "Unsupported resource type: " + resourcePath + ". Supported types: .json, .jsonl, .csv");
+                default ->
+                    throw new DatasetResolutionException(
+                            "Unsupported resource type: " + resourcePath + ". Supported types: .json, .jsonl, .csv");
             };
         } catch (IOException e) {
             throw new DatasetResolutionException("Failed to load dataset from classpath: " + resourcePath, e);

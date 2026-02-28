@@ -1,25 +1,23 @@
 package dev.dokimos.core.evaluators.agents;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ToolDescriptionReliabilityEvaluatorTest {
 
     private static final Map<String, Object> GOOD_SCHEMA = Map.of(
             "type", "object",
-            "properties", Map.of(
-                    "origin", Map.of("type", "string", "description", "Origin airport code"),
-                    "destination", Map.of("type", "string", "description", "Destination airport code")
-            ),
-            "required", List.of("origin", "destination")
-    );
+            "properties",
+                    Map.of(
+                            "origin", Map.of("type", "string", "description", "Origin airport code"),
+                            "destination", Map.of("type", "string", "description", "Destination airport code")),
+            "required", List.of("origin", "destination"));
 
     // --- input_arguments_clarity ---
 
@@ -28,9 +26,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -43,15 +39,18 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "origin", Map.of("type", "string") // no description
-                                ),
-                                "required", List.of("origin")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "search_flights",
+                                "Search for flights",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "origin", Map.of("type", "string") // no description
+                                                        ),
+                                        "required", List.of("origin")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -66,15 +65,19 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "origin", Map.of("description", "Origin airport code") // no type
-                                ),
-                                "required", List.of("origin")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "search_flights",
+                                "Search for flights",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "origin",
+                                                        Map.of("description", "Origin airport code") // no type
+                                                        ),
+                                        "required", List.of("origin")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -86,22 +89,24 @@ class ToolDescriptionReliabilityEvaluatorTest {
 
     @Test
     void shouldFailWhenTooManyInputArgs() {
-        var evaluator = ToolDescriptionReliabilityEvaluator.builder()
-                .maxInputArgs(2)
-                .build();
+        var evaluator =
+                ToolDescriptionReliabilityEvaluator.builder().maxInputArgs(2).build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "origin", Map.of("type", "string", "description", "Origin"),
-                                        "destination", Map.of("type", "string", "description", "Destination"),
-                                        "date", Map.of("type", "string", "description", "Date")
-                                ),
-                                "required", List.of("origin", "destination", "date")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "search_flights",
+                                "Search for flights",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "origin", Map.of("type", "string", "description", "Origin"),
+                                                        "destination",
+                                                                Map.of("type", "string", "description", "Destination"),
+                                                        "date", Map.of("type", "string", "description", "Date")),
+                                        "required", List.of("origin", "destination", "date")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -116,9 +121,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
 
         // 2 params, well within default of 5
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -130,23 +133,25 @@ class ToolDescriptionReliabilityEvaluatorTest {
 
     @Test
     void shouldFailWhenTooManyOptionalArgs() {
-        var evaluator = ToolDescriptionReliabilityEvaluator.builder()
-                .maxOptionalArgs(1)
-                .build();
+        var evaluator =
+                ToolDescriptionReliabilityEvaluator.builder().maxOptionalArgs(1).build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "origin", Map.of("type", "string", "description", "Origin"),
-                                        "destination", Map.of("type", "string", "description", "Destination"),
-                                        "date", Map.of("type", "string", "description", "Date"),
-                                        "class", Map.of("type", "string", "description", "Class")
-                                ),
-                                "required", List.of("origin", "destination")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "search_flights",
+                                "Search for flights",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "origin", Map.of("type", "string", "description", "Origin"),
+                                                        "destination",
+                                                                Map.of("type", "string", "description", "Destination"),
+                                                        "date", Map.of("type", "string", "description", "Date"),
+                                                        "class", Map.of("type", "string", "description", "Class")),
+                                        "required", List.of("origin", "destination")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -162,9 +167,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -198,9 +201,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -221,9 +222,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA)))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -239,16 +238,20 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA),
-                        ToolDefinition.of("book_hotel", "Book a hotel", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "city", Map.of("type", "string") // missing description
-                                ),
-                                "required", List.of("city")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(
+                                ToolDefinition.of("search_flights", "Search for flights", GOOD_SCHEMA),
+                                ToolDefinition.of(
+                                        "book_hotel",
+                                        "Book a hotel",
+                                        Map.of(
+                                                "type", "object",
+                                                "properties",
+                                                        Map.of(
+                                                                "city", Map.of("type", "string") // missing description
+                                                                ),
+                                                "required", List.of("city")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -264,9 +267,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
     void shouldReturnFullScoreForEmptyToolList() {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
-        var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of())
-                .build();
+        var testCase = EvalTestCase.builder().metadata("tools", List.of()).build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -289,9 +290,7 @@ class ToolDescriptionReliabilityEvaluatorTest {
         var evaluator = ToolDescriptionReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_time", "Get current time", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("get_time", "Get current time", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -302,20 +301,22 @@ class ToolDescriptionReliabilityEvaluatorTest {
 
     @Test
     void shouldRespectCustomThreshold() {
-        var evaluator = ToolDescriptionReliabilityEvaluator.builder()
-                .threshold(0.3)
-                .build();
+        var evaluator =
+                ToolDescriptionReliabilityEvaluator.builder().threshold(0.3).build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of(
-                                "type", "object",
-                                "properties", Map.of(
-                                        "origin", Map.of("type", "string") // missing description
-                                ),
-                                "required", List.of("origin")
-                        ))
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "search_flights",
+                                "Search for flights",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "origin", Map.of("type", "string") // missing description
+                                                        ),
+                                        "required", List.of("origin")))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -333,7 +334,8 @@ class ToolDescriptionReliabilityEvaluatorTest {
                         + "\"intent_over_implementation\": 1, \"clarity\": 0, \"redundancy\": 1, "
                         + "\"input_arguments_enum\": 0, \"input_arguments_format\": 1, \"return_statement_quality\": 0}");
 
-        assertThat(result).containsEntry("general_structure", 1)
+        assertThat(result)
+                .containsEntry("general_structure", 1)
                 .containsEntry("has_examples", 0)
                 .containsEntry("has_usage_notes", 1)
                 .containsEntry("intent_over_implementation", 1)

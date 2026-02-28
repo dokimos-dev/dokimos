@@ -5,7 +5,6 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.MatchingStrategy;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +13,7 @@ import java.util.Map;
  * Evaluator that measures retrieval precision.
  * <p>
  * Precision is the fraction of retrieved items that are relevant:
- * 
+ *
  * <pre>
  * precision = |relevant ∩ retrieved| / |retrieved|
  * </pre>
@@ -27,7 +26,7 @@ import java.util.Map;
  * including knowledge graph triples, API responses, and semantic matching.
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * var evaluator = PrecisionEvaluator.builder()
  *         .name("retrieval-precision")
@@ -109,8 +108,7 @@ public class PrecisionEvaluator extends BaseEvaluator {
     private Collection<?> extractCollection(Map<String, Object> source, String key, String sourceName) {
         Object value = source.get(key);
         if (value == null) {
-            throw new EvaluationException(
-                    "Precision evaluator requires '%s' in %s".formatted(key, sourceName));
+            throw new EvaluationException("Precision evaluator requires '%s' in %s".formatted(key, sourceName));
         }
         if (value instanceof Collection<?> collection) {
             return collection;

@@ -7,7 +7,6 @@ import dev.dokimos.core.ItemResult;
 import dev.dokimos.core.Reporter;
 import dev.dokimos.core.RunHandle;
 import dev.dokimos.core.RunStatus;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,7 +21,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,10 +65,9 @@ public class DokimosServerReporter implements Reporter {
         this.projectName = builder.projectName;
         this.apiVersion = builder.apiVersion != null ? builder.apiVersion : DEFAULT_API_VERSION;
         this.apiKey = builder.apiKey;
-        this.httpClient = builder.httpClient != null ? builder.httpClient
-                : HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofSeconds(10))
-                        .build();
+        this.httpClient = builder.httpClient != null
+                ? builder.httpClient
+                : HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
         this.objectMapper = new ObjectMapper();
         this.queue = new LinkedBlockingQueue<>();
@@ -115,9 +112,7 @@ public class DokimosServerReporter implements Reporter {
             throw new IllegalStateException("DOKIMOS_PROJECT_NAME environment variable is not set");
         }
 
-        Builder builder = builder()
-                .serverUrl(serverUrl)
-                .projectName(projectName);
+        Builder builder = builder().serverUrl(serverUrl).projectName(projectName);
 
         if (apiVersion != null && !apiVersion.isBlank()) {
             builder.apiVersion(apiVersion);
@@ -237,9 +232,10 @@ public class DokimosServerReporter implements Reporter {
                     batch.add(item);
                 }
 
-                boolean shouldSend = !batch.isEmpty() && (batch.size() >= MAX_BATCH_SIZE ||
-                        (item == null && !batch.isEmpty()) ||
-                        (System.currentTimeMillis() - batchStartTime) >= BATCH_TIMEOUT_MS);
+                boolean shouldSend = !batch.isEmpty()
+                        && (batch.size() >= MAX_BATCH_SIZE
+                                || (item == null && !batch.isEmpty())
+                                || (System.currentTimeMillis() - batchStartTime) >= BATCH_TIMEOUT_MS);
 
                 if (shouldSend) {
                     sendBatch(batch);
@@ -280,7 +276,8 @@ public class DokimosServerReporter implements Reporter {
         // Group items by run handle
         Map<String, List<ItemResult>> itemsByRun = new java.util.HashMap<>();
         for (QueuedItem item : batch) {
-            itemsByRun.computeIfAbsent(item.handle.runId(), k -> new ArrayList<>())
+            itemsByRun
+                    .computeIfAbsent(item.handle.runId(), k -> new ArrayList<>())
                     .add(item.result);
         }
 
@@ -289,9 +286,8 @@ public class DokimosServerReporter implements Reporter {
             List<ItemResult> items = entry.getValue();
 
             String url = serverUrl + "/api/" + apiVersion + "/runs/" + runId + "/items";
-            List<Map<String, Object>> itemsPayload = items.stream()
-                    .map(this::itemResultToMap)
-                    .toList();
+            List<Map<String, Object>> itemsPayload =
+                    items.stream().map(this::itemResultToMap).toList();
 
             Map<String, Object> body = Map.of("items", itemsPayload);
 
@@ -313,9 +309,8 @@ public class DokimosServerReporter implements Reporter {
                 "inputs", result.example().inputs(),
                 "expectedOutputs", result.example().expectedOutputs(),
                 "actualOutputs", result.actualOutputs(),
-                "evalResults", result.evalResults().stream()
-                        .map(this::evalResultToMap)
-                        .toList(),
+                "evalResults",
+                        result.evalResults().stream().map(this::evalResultToMap).toList(),
                 "success", result.success());
     }
 
@@ -336,8 +331,8 @@ public class DokimosServerReporter implements Reporter {
         // Wait until all items for this specific run are processed
         long deadline = System.currentTimeMillis() + 30000;
         while (System.currentTimeMillis() < deadline) {
-            boolean hasItemsForRun = queue.stream()
-                    .anyMatch(item -> item.handle().equals(handle));
+            boolean hasItemsForRun =
+                    queue.stream().anyMatch(item -> item.handle().equals(handle));
             if (!hasItemsForRun) {
                 // Give a short time for any in-flight batch containing this run to complete
                 synchronized (flushLock) {
@@ -349,8 +344,7 @@ public class DokimosServerReporter implements Reporter {
                     }
                 }
                 // Check again after the wait
-                hasItemsForRun = queue.stream()
-                        .anyMatch(item -> item.handle().equals(handle));
+                hasItemsForRun = queue.stream().anyMatch(item -> item.handle().equals(handle));
                 if (!hasItemsForRun) {
                     return;
                 }
@@ -384,12 +378,18 @@ public class DokimosServerReporter implements Reporter {
                     requestBuilder.header("Authorization", "Bearer " + apiKey);
                 }
 
-                HttpRequest request = switch (method) {
-                    case "POST" -> requestBuilder.POST(HttpRequest.BodyPublishers.ofString(jsonBody)).build();
-                    case "PATCH" ->
-                        requestBuilder.method("PATCH", HttpRequest.BodyPublishers.ofString(jsonBody)).build();
-                    default -> throw new IllegalArgumentException("Unsupported method: " + method);
-                };
+                HttpRequest request =
+                        switch (method) {
+                            case "POST" ->
+                                requestBuilder
+                                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                                        .build();
+                            case "PATCH" ->
+                                requestBuilder
+                                        .method("PATCH", HttpRequest.BodyPublishers.ofString(jsonBody))
+                                        .build();
+                            default -> throw new IllegalArgumentException("Unsupported method: " + method);
+                        };
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -429,8 +429,7 @@ public class DokimosServerReporter implements Reporter {
         return null;
     }
 
-    private record QueuedItem(RunHandle handle, ItemResult result) {
-    }
+    private record QueuedItem(RunHandle handle, ItemResult result) {}
 
     /**
      * Builder for {@link DokimosServerReporter}.
@@ -442,8 +441,7 @@ public class DokimosServerReporter implements Reporter {
         private String apiKey;
         private HttpClient httpClient;
 
-        private Builder() {
-        }
+        private Builder() {}
 
         /**
          * Sets the Dokimos server URL.

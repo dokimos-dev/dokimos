@@ -1,10 +1,10 @@
 package dev.dokimos.core;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.evaluators.EvaluationException;
 import dev.dokimos.core.evaluators.HallucinationEvaluator;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.*;
 
 class HallucinationEvaluatorTest {
 
@@ -51,10 +51,8 @@ class HallucinationEvaluatorTest {
                         """)
                 .withReason("One statement about population is not supported by the context.");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .threshold(0.5)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(mockJudge).threshold(0.5).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Tell me about Paris")
@@ -80,10 +78,8 @@ class HallucinationEvaluatorTest {
                         """)
                 .withReason("All statements contradict or are not supported by the context.");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .threshold(0.5)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(mockJudge).threshold(0.5).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Tell me about France")
@@ -100,15 +96,11 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldReturnZeroScoreWhenNoStatementsFound() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         []
-                        """)
-                .withReason("No statements were found to evaluate.");
+                        """).withReason("No statements were found to evaluate.");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = HallucinationEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("some input")
@@ -124,8 +116,7 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldDisableReasoningWhenConfigured() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [{"verdict": "yes", "reason": "ok"}]
                         """);
 
@@ -147,11 +138,9 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldUseCustomContextKey() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [{"verdict": "yes", "reason": "Supported by retrieved docs"}]
-                        """)
-                .withReason("All statements are factual.");
+                        """).withReason("All statements are factual.");
 
         var evaluator = HallucinationEvaluator.builder()
                 .contextKey("retrieved_docs")
@@ -172,20 +161,16 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldRespectCustomThreshold() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [
                             {"verdict": "yes", "reason": "ok"},
                             {"verdict": "yes", "reason": "ok"},
                             {"verdict": "no", "reason": "not supported"}
                         ]
-                        """)
-                .withReason("One statement not supported");
+                        """).withReason("One statement not supported");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .threshold(0.3)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(mockJudge).threshold(0.3).build();
 
         var testCase = EvalTestCase.builder()
                 .input("some input")
@@ -201,19 +186,15 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldPassWhenScoreEqualsThreshold() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [
                             {"verdict": "yes", "reason": "ok"},
                             {"verdict": "no", "reason": "hallucinated"}
                         ]
-                        """)
-                .withReason("ok");
+                        """).withReason("ok");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .threshold(0.5)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(mockJudge).threshold(0.5).build();
 
         var testCase = EvalTestCase.builder()
                 .input("some input")
@@ -229,19 +210,15 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldHandleCaseInsensitiveVerdicts() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [
                             {"verdict": "YES", "reason": "ok"},
                             {"verdict": "No", "reason": "not ok"},
                             {"verdict": "  yes  ", "reason": "ok with spaces"}
                         ]
-                        """)
-                .withReason("Mixed case verdicts");
+                        """).withReason("Mixed case verdicts");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = HallucinationEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("some input")
@@ -277,9 +254,7 @@ class HallucinationEvaluatorTest {
     void shouldHandleMalformedVerdictsJson() {
         JudgeLM brokenJudge = prompt -> "This is not valid JSON";
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(brokenJudge)
-                .build();
+        var evaluator = HallucinationEvaluator.builder().judge(brokenJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("some input")
@@ -294,20 +269,17 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldHandleMarkdownWrappedJsonResponses() {
-        JudgeLM judgeWithMarkdown = new MockJudge()
-                .withVerdicts("""
+        JudgeLM judgeWithMarkdown = new MockJudge().withVerdicts("""
                         ```json
                         [
                             {"verdict": "yes", "reason": "Matches context"},
                             {"verdict": "no", "reason": "Not in context"}
                         ]
                         ```
-                        """)
-                .withReason("Some hallucination detected");
+                        """).withReason("Some hallucination detected");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(judgeWithMarkdown)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(judgeWithMarkdown).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Tell me about Paris")
@@ -323,17 +295,14 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldHandleMarkdownWithoutJsonLabel() {
-        JudgeLM judgeWithMarkdown = new MockJudge()
-                .withVerdicts("""
+        JudgeLM judgeWithMarkdown = new MockJudge().withVerdicts("""
                         ```
                         [{"verdict": "yes", "reason": "ok"}]
                         ```
-                        """)
-                .withReason("ok");
+                        """).withReason("ok");
 
-        var evaluator = HallucinationEvaluator.builder()
-                .judge(judgeWithMarkdown)
-                .build();
+        var evaluator =
+                HallucinationEvaluator.builder().judge(judgeWithMarkdown).build();
 
         var testCase = EvalTestCase.builder()
                 .input("input")
@@ -355,11 +324,9 @@ class HallucinationEvaluatorTest {
 
     @Test
     void shouldUseCustomName() {
-        JudgeLM mockJudge = new MockJudge()
-                .withVerdicts("""
+        JudgeLM mockJudge = new MockJudge().withVerdicts("""
                         [{"verdict": "yes", "reason": "ok"}]
-                        """)
-                .withReason("ok");
+                        """).withReason("ok");
 
         var evaluator = HallucinationEvaluator.builder()
                 .name("custom-hallucination")

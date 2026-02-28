@@ -8,7 +8,6 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
-
 import java.util.*;
 
 /**
@@ -39,12 +38,11 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
     protected EvalResult runEvaluation(EvalTestCase testCase) {
         Object context = testCase.actualOutputs().get(contextKey);
         if (context == null) {
-            throw new EvaluationException(
-                    "Faithfulness requires '%s' in actualOutputs".formatted(contextKey)
-            );
+            throw new EvaluationException("Faithfulness requires '%s' in actualOutputs".formatted(contextKey));
         }
 
-        List<String> truths = extractTruths(testCase.actualOutputs().get(contextKey).toString());
+        List<String> truths =
+                extractTruths(testCase.actualOutputs().get(contextKey).toString());
         List<String> claims = extractClaims(testCase.actualOutput());
         List<ClaimVerdict> verdicts = generateVerdicts(claims, truths);
 
@@ -82,8 +80,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {
-            });
+            return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Failed to parse verdict response from LLM judge", e);
         }
@@ -122,8 +119,7 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
-            });
+            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Could not parse JSON response to extract truths", e);
         }
@@ -145,25 +141,20 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {
-            });
+            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Could not parse JSON response to extract statements", e);
         }
     }
 
-
-    private record ClaimVerdict(String verdict, String reasoning) {
-    }
+    private record ClaimVerdict(String verdict, String reasoning) {}
 
     public static class Builder {
         private String name = "Faithfulness";
         private String contextKey = "context";
         private double threshold = 0.8;
-        private List<EvalTestCaseParam> evaluationParams = List.of(
-                EvalTestCaseParam.INPUT,
-                EvalTestCaseParam.ACTUAL_OUTPUT
-        );
+        private List<EvalTestCaseParam> evaluationParams =
+                List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT);
         private JudgeLM judge;
         private boolean includeReason = true;
 
@@ -237,5 +228,4 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
             return new FaithfulnessEvaluator(this);
         }
     }
-
 }

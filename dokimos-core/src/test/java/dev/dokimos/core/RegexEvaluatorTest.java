@@ -1,23 +1,19 @@
 package dev.dokimos.core;
 
-import dev.dokimos.core.evaluators.RegexEvaluator;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
+
+import dev.dokimos.core.evaluators.RegexEvaluator;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class RegexEvaluatorTest {
 
     @Test
     void shouldReturnFullScoreWhenPatternMatches() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("quick.*fox")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("quick.*fox").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("The quick brown fox jumps")
-                .build();
+        var testCase =
+                EvalTestCase.builder().actualOutput("The quick brown fox jumps").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -28,13 +24,10 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldReturnZeroWhenPatternDoesNotMatch() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("\\d{3}-\\d{4}")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("\\d{3}-\\d{4}").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("Call me at 555-HELP")
-                .build();
+        var testCase =
+                EvalTestCase.builder().actualOutput("Call me at 555-HELP").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -45,13 +38,9 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldRespectCaseSensitiveMatchingByDefault() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("HELLO")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("HELLO").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("hello world")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("hello world").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -61,14 +50,10 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldMatchCaseInsensitivelyWhenConfigured() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("HELLO")
-                .ignoreCase(true)
-                .build();
+        var evaluator =
+                RegexEvaluator.builder().pattern("HELLO").ignoreCase(true).build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("hello world")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("hello world").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -110,12 +95,9 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldThrowExceptionWhenActualOutputIsNull() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("test")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("test").build();
 
-        var testCase = EvalTestCase.builder()
-                .build();
+        var testCase = EvalTestCase.builder().build();
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -129,9 +111,7 @@ class RegexEvaluatorTest {
                 .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
                 .build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("test output")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("test output").build();
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -140,14 +120,10 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldSupportCustomName() {
-        var evaluator = RegexEvaluator.builder()
-                .name("Email Validator")
-                .pattern("@")
-                .build();
+        var evaluator =
+                RegexEvaluator.builder().name("Email Validator").pattern("@").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("test@dokimos.com")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("test@dokimos.com").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -156,13 +132,9 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldUseDefaultName() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("test")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("test").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("test")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("test").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -171,9 +143,7 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldMatchPartialString() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern("fox")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern("fox").build();
 
         var testCase = EvalTestCase.builder()
                 .actualOutput("The quick brown fox jumps over the lazy dog")
@@ -187,18 +157,13 @@ class RegexEvaluatorTest {
 
     @Test
     void shouldHandleEmptyString() {
-        var evaluator = RegexEvaluator.builder()
-                .pattern(".*")
-                .build();
+        var evaluator = RegexEvaluator.builder().pattern(".*").build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("")
-                .build();
+        var testCase = EvalTestCase.builder().actualOutput("").build();
 
         var result = evaluator.evaluate(testCase);
 
         assertThat(result.score()).isEqualTo(1.0);
         assertThat(result.success()).isTrue();
     }
-
 }

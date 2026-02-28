@@ -53,8 +53,8 @@ class CoreDslTest {
         val nested = mapOf(
             "items" to listOf(
                 mapOf("id" to 1, "data" to listOf("x", "y")),
-                mapOf("id" to 2, "data" to listOf("z"))
-            )
+                mapOf("id" to 2, "data" to listOf("z")),
+            ),
         )
 
         val result = experiment {
@@ -75,7 +75,7 @@ class CoreDslTest {
                 val expectedOutputs = example.expectedOutputs()
                 mapOf(
                     "output" to expectedOutputs["output"]!!,
-                    "payload" to expectedOutputs["payload"]!!
+                    "payload" to expectedOutputs["payload"]!!,
                 )
             }
 
@@ -120,8 +120,8 @@ class CoreDslTest {
         val nestedPayload = mapOf(
             "items" to listOf(
                 mapOf("id" to 1, "data" to listOf("x", "y")),
-                mapOf("id" to 2, "data" to listOf("z"))
-            )
+                mapOf("id" to 2, "data" to listOf("z")),
+            ),
         )
 
         val ex: Example = example {

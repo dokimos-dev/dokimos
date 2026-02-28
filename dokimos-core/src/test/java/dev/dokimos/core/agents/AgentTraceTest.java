@@ -1,11 +1,10 @@
 package dev.dokimos.core.agents;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class AgentTraceTest {
 
@@ -74,22 +73,16 @@ class AgentTraceTest {
 
         assertThatThrownBy(() -> trace.toolCalls().add(ToolCall.of("hack", Map.of())))
                 .isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> trace.reasoningSteps().add("hack"))
-                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> trace.reasoningSteps().add("hack")).isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> trace.metadata().put("hack", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     void shouldSetToolCallsFromList() {
-        var calls = List.of(
-                ToolCall.of("a", Map.of()),
-                ToolCall.of("b", Map.of())
-        );
+        var calls = List.of(ToolCall.of("a", Map.of()), ToolCall.of("b", Map.of()));
 
-        var trace = AgentTrace.builder()
-                .toolCalls(calls)
-                .build();
+        var trace = AgentTrace.builder().toolCalls(calls).build();
 
         assertThat(trace.toolCalls()).hasSize(2);
     }

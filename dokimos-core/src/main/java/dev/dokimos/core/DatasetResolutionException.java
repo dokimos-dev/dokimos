@@ -12,5 +12,4 @@ public class DatasetResolutionException extends RuntimeException {
     public DatasetResolutionException(String message, Throwable cause) {
         super(message, cause);
     }
-
 }

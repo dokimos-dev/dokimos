@@ -13,15 +13,14 @@ import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RunService {
@@ -30,7 +29,8 @@ public class RunService {
     private final ItemResultRepository itemResultRepository;
     private final ObjectMapper objectMapper;
 
-    public RunService(ExperimentRunRepository runRepository,
+    public RunService(
+            ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
             ObjectMapper objectMapper) {
         this.runRepository = runRepository;
@@ -84,9 +84,7 @@ public class RunService {
     @Transactional(readOnly = true)
     public List<RunSummary> listRuns(Experiment experiment) {
         List<ExperimentRun> runs = runRepository.findByExperimentOrderByStartedAtDesc(experiment);
-        return runs.stream()
-                .map(this::toRunSummary)
-                .toList();
+        return runs.stream().map(this::toRunSummary).toList();
     }
 
     @Transactional(readOnly = true)
@@ -120,8 +118,7 @@ public class RunService {
         if (runId == null) {
             throw new IllegalArgumentException("Run ID cannot be null");
         }
-        return runRepository.findById(runId)
-                .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
+        return runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
     }
 
     private RunSummary toRunSummary(ExperimentRun run) {
@@ -143,12 +140,7 @@ public class RunService {
     private RunDetails.ItemSummary toItemSummary(ItemResult item) {
         List<RunDetails.EvalSummary> evalSummaries = item.getEvalResults().stream()
                 .map(e -> new RunDetails.EvalSummary(
-                        e.getId(),
-                        e.getEvaluatorName(),
-                        e.getScore(),
-                        e.getThreshold(),
-                        e.isSuccess(),
-                        e.getReason()))
+                        e.getId(), e.getEvaluatorName(), e.getScore(), e.getThreshold(), e.isSuccess(), e.getReason()))
                 .toList();
 
         return new RunDetails.ItemSummary(

@@ -1,14 +1,13 @@
 package dev.dokimos.core.evaluators.agents;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ToolNameReliabilityEvaluatorTest {
 
@@ -19,9 +18,8 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for available flights", Map.of())
-                ))
+                .metadata(
+                        "tools", List.of(ToolDefinition.of("search_flights", "Search for available flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -34,9 +32,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("searchFlights", "Search for flights", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("searchFlights", "Search for flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -50,9 +46,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("Search_flights", "Search for flights", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("Search_flights", "Search for flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -68,9 +62,7 @@ class ToolNameReliabilityEvaluatorTest {
 
         // 3 segments: well within limit
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_user_profile", "Get user profile", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("get_user_profile", "Get user profile", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -84,10 +76,10 @@ class ToolNameReliabilityEvaluatorTest {
 
         // 8 segments: exceeds the 7-segment limit
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_user_profile_data_from_main_database_cache",
-                                "Get user profile data", Map.of())
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "get_user_profile_data_from_main_database_cache", "Get user profile data", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -101,10 +93,10 @@ class ToolNameReliabilityEvaluatorTest {
 
         // Exactly 7 segments: should pass
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_booking_property_name_by_id_v2",
-                                "Get booking property name", Map.of())
-                ))
+                .metadata(
+                        "tools",
+                        List.of(ToolDefinition.of(
+                                "get_booking_property_name_by_id_v2", "Get booking property name", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -119,9 +111,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_data_via_api", "Get data", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("get_data_via_api", "Get data", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -134,9 +124,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("summarize_with_llm", "Summarize text", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("summarize_with_llm", "Summarize text", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -149,9 +137,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("summarize_text", "Summarize text", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("summarize_text", "Summarize text", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -166,9 +152,7 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -195,9 +179,8 @@ class ToolNameReliabilityEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for available flights", Map.of())
-                ))
+                .metadata(
+                        "tools", List.of(ToolDefinition.of("search_flights", "Search for available flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -213,9 +196,7 @@ class ToolNameReliabilityEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("search_flights", "Search for flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -232,9 +213,7 @@ class ToolNameReliabilityEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("get_data_via_api", "Get data from the API", Map.of())
-                ))
+                .metadata("tools", List.of(ToolDefinition.of("get_data_via_api", "Get data from the API", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -251,10 +230,12 @@ class ToolNameReliabilityEvaluatorTest {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of(
-                        ToolDefinition.of("search_flights", "Search for flights", Map.of()),    // all pass
-                        ToolDefinition.of("searchFlights", "Search for flights", Map.of())       // snakecase fails
-                ))
+                .metadata(
+                        "tools",
+                        List.of(
+                                ToolDefinition.of("search_flights", "Search for flights", Map.of()), // all pass
+                                ToolDefinition.of("searchFlights", "Search for flights", Map.of()) // snakecase fails
+                                ))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -270,9 +251,7 @@ class ToolNameReliabilityEvaluatorTest {
     void shouldReturnFullScoreForEmptyToolList() {
         var evaluator = ToolNameReliabilityEvaluator.builder().build();
 
-        var testCase = EvalTestCase.builder()
-                .metadata("tools", List.of())
-                .build();
+        var testCase = EvalTestCase.builder().metadata("tools", List.of()).build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -297,7 +276,8 @@ class ToolNameReliabilityEvaluatorTest {
         var result = ToolNameReliabilityEvaluator.parseLlmJson(
                 "{\"clarity\": 1, \"name_order\": 0, \"intent_over_implementation\": 1}");
 
-        assertThat(result).containsEntry("clarity", 1)
+        assertThat(result)
+                .containsEntry("clarity", 1)
                 .containsEntry("name_order", 0)
                 .containsEntry("intent_over_implementation", 1);
     }
@@ -307,7 +287,8 @@ class ToolNameReliabilityEvaluatorTest {
         var result = ToolNameReliabilityEvaluator.parseLlmJson(
                 "```json\n{\"clarity\": 1, \"name_order\": 1, \"intent_over_implementation\": 0}\n```");
 
-        assertThat(result).containsEntry("clarity", 1)
+        assertThat(result)
+                .containsEntry("clarity", 1)
                 .containsEntry("name_order", 1)
                 .containsEntry("intent_over_implementation", 0);
     }

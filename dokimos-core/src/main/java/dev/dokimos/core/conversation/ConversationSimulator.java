@@ -13,7 +13,7 @@ import java.util.function.Predicate;
  * and captures the complete interaction trajectory for evaluation.
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * ConversationSimulator simulator = ConversationSimulator.builder()
  *         .simulatedUser(UserPersonas.aggressiveCustomer(judgeLM))
@@ -69,9 +69,8 @@ public class ConversationSimulator {
      * @return the complete conversation trajectory
      */
     public ConversationTrajectory simulate() {
-        ConversationTrajectory trajectory = ConversationTrajectory.builder()
-                .scenario(scenario)
-                .build();
+        ConversationTrajectory trajectory =
+                ConversationTrajectory.builder().scenario(scenario).build();
 
         for (int turn = 0; turn < maxTurns; turn++) {
             // Generate user message
@@ -206,7 +205,7 @@ public class ConversationSimulator {
          * when a conversation goal has been achieved.
          * <p>
          * Example:
-         * 
+         *
          * <pre>{@code
          * .stoppingCondition(trajectory -> {
          *     Message last = trajectory.lastAssistantMessage();

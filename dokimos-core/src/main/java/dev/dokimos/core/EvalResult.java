@@ -13,13 +13,7 @@ import java.util.Map;
  * @param metadata  additional result metadata
  */
 public record EvalResult(
-        String name,
-        double score,
-        Double threshold,
-        boolean success,
-        String reason,
-        Map<String, Object> metadata
-) {
+        String name, double score, Double threshold, boolean success, String reason, Map<String, Object> metadata) {
     public EvalResult {
         metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
     }

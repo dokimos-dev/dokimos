@@ -11,16 +11,15 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "experiments", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "project_id", "name" })
-})
+@Table(
+        name = "experiments",
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"project_id", "name"})})
 public class Experiment {
 
     @Id
@@ -40,8 +39,7 @@ public class Experiment {
     @OneToMany(mappedBy = "experiment")
     private List<ExperimentRun> runs = new ArrayList<>();
 
-    protected Experiment() {
-    }
+    protected Experiment() {}
 
     public Experiment(Project project, String name) {
         this.project = project;

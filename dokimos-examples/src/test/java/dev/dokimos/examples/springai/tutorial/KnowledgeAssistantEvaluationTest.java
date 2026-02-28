@@ -8,6 +8,7 @@ import dev.dokimos.core.JudgeLM;
 import dev.dokimos.examples.springai.tutorial.evaluation.QAEvaluators;
 import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.springai.SpringAiSupport;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,8 +16,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.List;
 
 /**
  * Evaluation tests for the Knowledge Assistant using Dokimos.
@@ -28,7 +27,7 @@ import java.util.List;
  *
  * <p>
  * This test is skipped by default. Run with:
- * 
+ *
  * <pre>
  * RUN_EVAL_TESTS=true OPENAI_API_KEY='your-key' mvn test -Dtest=KnowledgeAssistantEvaluationTest
  * </pre>
@@ -56,9 +55,8 @@ class KnowledgeAssistantEvaluationTest {
     void shouldProvideQualityAnswers(Example example) {
         var response = assistant.answer(example.input());
 
-        List<String> contextTexts = response.retrievedDocuments().stream()
-                .map(Document::getText)
-                .toList();
+        List<String> contextTexts =
+                response.retrievedDocuments().stream().map(Document::getText).toList();
 
         EvalTestCase testCase = EvalTestCase.builder()
                 .input(example.input())

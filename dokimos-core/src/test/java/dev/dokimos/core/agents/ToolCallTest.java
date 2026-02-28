@@ -1,11 +1,10 @@
 package dev.dokimos.core.agents;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ToolCallTest {
 
@@ -39,11 +38,14 @@ class ToolCallTest {
     @Test
     void shouldCreateFromMap() {
         var map = Map.<String, Object>of(
-                "name", "search_flights",
-                "arguments", Map.of("origin", "NYC", "destination", "LAX"),
-                "result", "Found 5 flights",
-                "metadata", Map.of("tokens", 42)
-        );
+                "name",
+                "search_flights",
+                "arguments",
+                Map.of("origin", "NYC", "destination", "LAX"),
+                "result",
+                "Found 5 flights",
+                "metadata",
+                Map.of("tokens", 42));
 
         var call = ToolCall.fromMap(map);
 
@@ -107,10 +109,9 @@ class ToolCallTest {
 
     @Test
     void shouldHandleNestedArguments() {
-        var call = ToolCall.of("search", Map.of(
-                "filter", Map.of("price", Map.of("max", 500, "currency", "USD")),
-                "sort", "price_asc"
-        ));
+        var call = ToolCall.of(
+                "search",
+                Map.of("filter", Map.of("price", Map.of("max", 500, "currency", "USD")), "sort", "price_asc"));
 
         assertThat(call.arguments()).containsKey("filter");
         @SuppressWarnings("unchecked")

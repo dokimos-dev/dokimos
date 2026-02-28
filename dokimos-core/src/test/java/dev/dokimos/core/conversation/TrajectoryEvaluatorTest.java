@@ -1,15 +1,14 @@
 package dev.dokimos.core.conversation;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class TrajectoryEvaluatorTest {
 
@@ -33,9 +32,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("You're welcome!")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -73,9 +71,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Done")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -113,9 +110,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -141,8 +137,7 @@ class TrajectoryEvaluatorTest {
                 .name("Strict")
                 .judge(mockJudge)
                 .criteria(List.of(
-                        EvaluationCriterion.of("High", "High scoring"),
-                        EvaluationCriterion.of("Low", "Low scoring")))
+                        EvaluationCriterion.of("High", "High scoring"), EvaluationCriterion.of("Low", "Low scoring")))
                 .aggregationStrategy(AggregationStrategy.MIN)
                 .build();
 
@@ -151,9 +146,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -178,15 +172,15 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
         assertThat(result.metadata()).containsKey("criterionScores");
         @SuppressWarnings("unchecked")
-        Map<String, Object> criterionScores = (Map<String, Object>) result.metadata().get("criterionScores");
+        Map<String, Object> criterionScores =
+                (Map<String, Object>) result.metadata().get("criterionScores");
         assertThat(criterionScores).containsKey("User Satisfaction");
     }
 
@@ -208,9 +202,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -253,9 +246,8 @@ class TrajectoryEvaluatorTest {
                 .trajectoryKey("conversation")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("wrongKey", "value")
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("wrongKey", "value").build();
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase))
                 .isInstanceOf(EvaluationException.class)
@@ -264,12 +256,11 @@ class TrajectoryEvaluatorTest {
 
     @Test
     void shouldRequireJudge() {
-        assertThatThrownBy(() ->
-                TrajectoryEvaluator.builder()
+        assertThatThrownBy(() -> TrajectoryEvaluator.builder()
                         .name("Test")
                         .criterion(TrajectoryEvaluationCriteria.userSatisfaction())
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JudgeLM");
     }
 
@@ -279,12 +270,11 @@ class TrajectoryEvaluatorTest {
                 {"score": 0.5, "reason": "Test"}
                 """;
 
-        assertThatThrownBy(() ->
-                TrajectoryEvaluator.builder()
+        assertThatThrownBy(() -> TrajectoryEvaluator.builder()
                         .name("Test")
                         .judge(mockJudge)
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("criterion");
     }
 
@@ -306,9 +296,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -330,9 +319,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("Response")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -359,9 +347,8 @@ class TrajectoryEvaluatorTest {
                 .assistantMessage("A2")
                 .build();
 
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 

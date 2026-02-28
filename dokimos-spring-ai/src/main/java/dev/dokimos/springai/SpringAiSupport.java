@@ -3,15 +3,14 @@ package dev.dokimos.springai;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.evaluation.EvaluationRequest;
 import org.springframework.ai.evaluation.EvaluationResponse;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Utilities for integrating with Spring AI.
@@ -22,7 +21,7 @@ import java.util.Map;
  * evaluation framework.
  *
  * <h2>Using Spring AI ChatClient as a Judge</h2>
- * 
+ *
  * <pre>{@code
  * ChatClient.Builder clientBuilder = ChatClient.builder(chatModel);
  * JudgeLM judge = SpringAiSupport.asJudge(clientBuilder);
@@ -33,7 +32,7 @@ import java.util.Map;
  * }</pre>
  *
  * <h2>Converting Spring AI Evaluation Objects</h2>
- * 
+ *
  * <pre>{@code
  * // Convert Spring AI EvaluationRequest to Dokimos EvalTestCase
  * EvaluationRequest request = ...;
@@ -63,8 +62,7 @@ public final class SpringAiSupport {
      */
     public static final String INPUT_KEY = "input";
 
-    private SpringAiSupport() {
-    }
+    private SpringAiSupport() {}
 
     /**
      * Creates a {@link JudgeLM} from a Spring AI {@link ChatClient.Builder}.
@@ -75,7 +73,7 @@ public final class SpringAiSupport {
      *
      * <p>
      * Example:
-     * 
+     *
      * <pre>{@code
      * ChatClient.Builder clientBuilder = ChatClient.builder(chatModel);
      * JudgeLM judge = SpringAiSupport.asJudge(clientBuilder);
@@ -95,10 +93,7 @@ public final class SpringAiSupport {
             if (prompt == null) {
                 throw new IllegalArgumentException("Prompt cannot be null");
             }
-            String content = client.prompt()
-                    .user(prompt)
-                    .call()
-                    .content();
+            String content = client.prompt().user(prompt).call().content();
 
             if (content == null) {
                 throw new IllegalStateException("Judge response content was null");
@@ -116,7 +111,7 @@ public final class SpringAiSupport {
      *
      * <p>
      * Example:
-     * 
+     *
      * <pre>{@code
      * ChatModel chatModel = OpenAiChatModel.builder()...build();
      * JudgeLM judge = SpringAiSupport.asJudge(chatModel);
@@ -150,7 +145,7 @@ public final class SpringAiSupport {
      *
      * <p>
      * Example:
-     * 
+     *
      * <pre>{@code
      * EvaluationRequest request = new EvaluationRequest(
      *         userText,
@@ -174,9 +169,8 @@ public final class SpringAiSupport {
         // Extract context from retrieved documents
         List<Document> documents = request.getDataList();
         if (documents != null && !documents.isEmpty()) {
-            List<String> contextTexts = documents.stream()
-                    .map(Document::getText)
-                    .toList();
+            List<String> contextTexts =
+                    documents.stream().map(Document::getText).toList();
             actualOutputs.put(CONTEXT_KEY, contextTexts);
         }
 
@@ -215,9 +209,6 @@ public final class SpringAiSupport {
         Map<String, Object> metadata = new HashMap<>(result.metadata());
         metadata.put("score", (float) result.score());
 
-        return new EvaluationResponse(
-                result.success(),
-                result.reason(),
-                metadata);
+        return new EvaluationResponse(result.success(), result.reason(), metadata);
     }
 }

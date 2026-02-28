@@ -1,5 +1,11 @@
 package dev.dokimos.server.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
@@ -12,6 +18,11 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,18 +33,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
@@ -137,13 +136,12 @@ class RunServiceTest {
         when(runRepository.findById(runId)).thenReturn(Optional.of(run));
         when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        AddItemsRequest request = new AddItemsRequest(List.of(
-                new AddItemsRequest.ItemData(
-                        Map.of("input", "What is 2+2?"),
-                        Map.of("output", "4"),
-                        Map.of("output", "4"),
-                        List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", Map.of())),
-                        true)));
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "What is 2+2?"),
+                Map.of("output", "4"),
+                Map.of("output", "4"),
+                List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", Map.of())),
+                true)));
 
         runService.addItems(runId, request);
 
@@ -166,13 +164,8 @@ class RunServiceTest {
         when(runRepository.findById(runId)).thenReturn(Optional.of(run));
         when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        AddItemsRequest request = new AddItemsRequest(List.of(
-                new AddItemsRequest.ItemData(
-                        Map.of("input", "test"),
-                        Map.of("output", "expected"),
-                        Map.of("output", "actual"),
-                        null,
-                        false)));
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "test"), Map.of("output", "expected"), Map.of("output", "actual"), null, false)));
 
         runService.addItems(runId, request);
 
@@ -188,8 +181,7 @@ class RunServiceTest {
         ExperimentRun run1 = createRun(experiment, RunStatus.SUCCESS);
         ExperimentRun run2 = createRun(experiment, RunStatus.FAILED);
 
-        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment))
-                .thenReturn(List.of(run1, run2));
+        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run1, run2));
         when(itemResultRepository.countByRun(run1)).thenReturn(10L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run1)).thenReturn(8L);
         when(itemResultRepository.countByRun(run2)).thenReturn(5L);
@@ -210,8 +202,7 @@ class RunServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
 
-        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment))
-                .thenReturn(List.of(run));
+        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run));
         when(itemResultRepository.countByRun(run)).thenReturn(0L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(0L);
 

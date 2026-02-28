@@ -1,11 +1,10 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class AssertionsTest {
 
@@ -34,9 +33,7 @@ class AssertionsTest {
         };
 
         // Should not throw
-        assertThatNoException().isThrownBy(() ->
-                Assertions.assertEval(testCase, passingEvaluator)
-        );
+        assertThatNoException().isThrownBy(() -> Assertions.assertEval(testCase, passingEvaluator));
     }
 
     @Test
@@ -72,10 +69,8 @@ class AssertionsTest {
 
     @Test
     void shouldRunMultipleEvaluators() {
-        var testCase = EvalTestCase.builder()
-                .input("test")
-                .actualOutput("output")
-                .build();
+        var testCase =
+                EvalTestCase.builder().input("test").actualOutput("output").build();
 
         var counter = new AtomicInteger(0);
 
@@ -122,10 +117,8 @@ class AssertionsTest {
 
     @Test
     void shouldStopAtFirstFailure() {
-        var testCase = EvalTestCase.builder()
-                .input("test")
-                .actualOutput("output")
-                .build();
+        var testCase =
+                EvalTestCase.builder().input("test").actualOutput("output").build();
 
         var secondCalled = new AtomicBoolean(false);
 
@@ -169,5 +162,4 @@ class AssertionsTest {
 
         assertThat(secondCalled.get()).isFalse();
     }
-
 }

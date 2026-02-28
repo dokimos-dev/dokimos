@@ -1,7 +1,6 @@
 package dev.dokimos.core;
 
 import dev.dokimos.core.export.ExperimentResultExporter;
-
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -22,10 +21,7 @@ import java.util.stream.Collectors;
  * @param runResults  results for each run of the experiment
  */
 public record ExperimentResult(
-        String name,
-        String description,
-        Map<String, Object> metadata,
-        List<RunResult> runResults) {
+        String name, String description, Map<String, Object> metadata, List<RunResult> runResults) {
     private static final double PRECISION_SCALE = 1_000_000.0; // 6 decimal places
 
     public ExperimentResult {
@@ -46,9 +42,7 @@ public record ExperimentResult(
      * @return all item results flattened across runs
      */
     public List<ItemResult> itemResults() {
-        return runResults.stream()
-                .flatMap(run -> run.itemResults().stream())
-                .toList();
+        return runResults.stream().flatMap(run -> run.itemResults().stream()).toList();
     }
 
     /**
@@ -87,10 +81,8 @@ public record ExperimentResult(
      * @return the average pass count
      */
     public double passCount() {
-        return round(runResults.stream()
-                .mapToLong(RunResult::passCount)
-                .average()
-                .orElse(0.0));
+        return round(
+                runResults.stream().mapToLong(RunResult::passCount).average().orElse(0.0));
     }
 
     /**
@@ -108,10 +100,8 @@ public record ExperimentResult(
      * @return the pass rate between 0.0 and 1.0
      */
     public double passRate() {
-        return round(runResults.stream()
-                .mapToDouble(RunResult::passRate)
-                .average()
-                .orElse(0.0));
+        return round(
+                runResults.stream().mapToDouble(RunResult::passRate).average().orElse(0.0));
     }
 
     /**

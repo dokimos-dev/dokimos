@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-
 import java.util.UUID;
 
 @Entity
@@ -38,8 +37,7 @@ public class EvalResult {
     @Column(columnDefinition = "text")
     private String reason;
 
-    protected EvalResult() {
-    }
+    protected EvalResult() {}
 
     public EvalResult(String evaluatorName, double score, Double threshold, boolean success, String reason) {
         this.evaluatorName = evaluatorName;

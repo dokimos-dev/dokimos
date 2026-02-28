@@ -5,7 +5,6 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.MatchingStrategy;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +13,7 @@ import java.util.Map;
  * Evaluator that measures retrieval recall.
  * <p>
  * Recall is the fraction of relevant items that were retrieved:
- * 
+ *
  * <pre>
  * recall = |relevant ∩ retrieved| / |relevant|
  * </pre>
@@ -26,7 +25,7 @@ import java.util.Map;
  * including knowledge graph triples, API responses, and semantic matching.
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * var evaluator = RecallEvaluator.builder()
  *         .name("retrieval-recall")
@@ -108,8 +107,7 @@ public class RecallEvaluator extends BaseEvaluator {
     private Collection<?> extractCollection(Map<String, Object> source, String key, String sourceName) {
         Object value = source.get(key);
         if (value == null) {
-            throw new EvaluationException(
-                    "Recall evaluator requires '%s' in %s".formatted(key, sourceName));
+            throw new EvaluationException("Recall evaluator requires '%s' in %s".formatted(key, sourceName));
         }
         if (value instanceof Collection<?> collection) {
             return collection;

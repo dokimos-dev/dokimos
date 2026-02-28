@@ -98,13 +98,11 @@ public class Experiment {
         ExecutorService executor = Executors.newFixedThreadPool(parallelism);
         try {
             List<CompletableFuture<ItemResult>> futures = dataset.examples().stream()
-                    .map(example -> CompletableFuture.supplyAsync(
-                            () -> runSingleExample(example), executor))
+                    .map(example -> CompletableFuture.supplyAsync(() -> runSingleExample(example), executor))
                     .toList();
 
-            List<ItemResult> results = futures.stream()
-                    .map(CompletableFuture::join)
-                    .toList();
+            List<ItemResult> results =
+                    futures.stream().map(CompletableFuture::join).toList();
 
             // Report items after completion to maintain ordering in reports
             results.forEach(itemResult -> reporter.reportItem(runHandle, itemResult));
@@ -301,5 +299,4 @@ public class Experiment {
             return new Experiment(this);
         }
     }
-
 }

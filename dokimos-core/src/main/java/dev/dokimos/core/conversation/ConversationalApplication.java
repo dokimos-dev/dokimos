@@ -11,7 +11,7 @@ package dev.dokimos.core.conversation;
  * or LLM service.
  * <p>
  * Example usage with Spring AI:
- * 
+ *
  * <pre>{@code
  * ConversationalApplication app = trajectory -> {
  *     String response = chatClient.prompt()

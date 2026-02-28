@@ -8,14 +8,12 @@ import dev.dokimos.kotlin.dsl.evaluators.*
 @DslMarker
 annotation class DokimosDsl
 
-fun evaluators(block: EvaluatorsDsl.() -> Unit): List<Evaluator> =
-    EvaluatorsDsl().apply(block).build()
+fun evaluators(block: EvaluatorsDsl.() -> Unit): List<Evaluator> = EvaluatorsDsl().apply(block).build()
 
 fun exactMatch(block: ExactMatchEvaluatorDsl.() -> Unit = {}): ExactMatchEvaluator =
     ExactMatchEvaluatorDsl().apply(block).build()
 
-fun regex(block: RegexEvaluatorDsl.() -> Unit): RegexEvaluator =
-    RegexEvaluatorDsl().apply(block).build()
+fun regex(block: RegexEvaluatorDsl.() -> Unit): RegexEvaluator = RegexEvaluatorDsl().apply(block).build()
 
 fun llmJudge(judge: JudgeLM, block: LlmJudgeEvaluatorDsl.() -> Unit): LLMJudgeEvaluator =
     LlmJudgeEvaluatorDsl(judge).apply(block).build()
@@ -26,14 +24,15 @@ fun hallucination(judge: JudgeLM, block: HallucinationEvaluatorDsl.() -> Unit): 
 fun faithfulness(judge: JudgeLM, block: FaithfulnessEvaluatorDsl.() -> Unit): FaithfulnessEvaluator =
     FaithfulnessEvaluatorDsl(judge).apply(block).build()
 
-fun contextualRelevance(judge: JudgeLM, block: ContextualRelevanceEvaluatorDsl.() -> Unit): ContextualRelevanceEvaluator =
-    ContextualRelevanceEvaluatorDsl(judge).apply(block).build()
+fun contextualRelevance(
+    judge: JudgeLM,
+    block: ContextualRelevanceEvaluatorDsl.() -> Unit,
+): ContextualRelevanceEvaluator = ContextualRelevanceEvaluatorDsl(judge).apply(block).build()
 
 fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}): PrecisionEvaluator =
     PrecisionEvaluatorDsl().apply(block).build()
 
-fun recall(block: RecallEvaluatorDsl.() -> Unit = {}): RecallEvaluator =
-    RecallEvaluatorDsl().apply(block).build()
+fun recall(block: RecallEvaluatorDsl.() -> Unit = {}): RecallEvaluator = RecallEvaluatorDsl().apply(block).build()
 
 fun taskCompletion(judge: JudgeLM, block: TaskCompletionEvaluatorDsl.() -> Unit = {}): TaskCompletionEvaluator =
     TaskCompletionEvaluatorDsl(judge).apply(block).build()
@@ -44,24 +43,26 @@ fun toolCallValidity(block: ToolCallValidityEvaluatorDsl.() -> Unit = {}): ToolC
 fun toolCorrectness(block: ToolCorrectnessEvaluatorDsl.() -> Unit = {}): ToolCorrectnessEvaluator =
     ToolCorrectnessEvaluatorDsl().apply(block).build()
 
-fun toolArgumentHallucination(judge: JudgeLM, block: ToolArgumentHallucinationEvaluatorDsl.() -> Unit = {}): ToolArgumentHallucinationEvaluator =
-    ToolArgumentHallucinationEvaluatorDsl(judge).apply(block).build()
+fun toolArgumentHallucination(
+    judge: JudgeLM,
+    block: ToolArgumentHallucinationEvaluatorDsl.() -> Unit = {
+    },
+): ToolArgumentHallucinationEvaluator = ToolArgumentHallucinationEvaluatorDsl(judge).apply(block).build()
 
 fun toolNameReliability(block: ToolNameReliabilityEvaluatorDsl.() -> Unit = {}): ToolNameReliabilityEvaluator =
     ToolNameReliabilityEvaluatorDsl().apply(block).build()
 
-fun toolDescriptionReliability(block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {}): ToolDescriptionReliabilityEvaluator =
-    ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
+fun toolDescriptionReliability(
+    block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {
+    },
+): ToolDescriptionReliabilityEvaluator = ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
 
 // Experiment, dataset, example, task DSLs remain in root for familiarity
-fun experiment(block: ExperimentDsl.() -> Unit): Experiment =
-    ExperimentDsl().apply(block).build()
+fun experiment(block: ExperimentDsl.() -> Unit): Experiment = ExperimentDsl().apply(block).build()
 
-fun dataset(block: DatasetDsl.() -> Unit): Dataset =
-    DatasetDsl().apply(block).build()
+fun dataset(block: DatasetDsl.() -> Unit): Dataset = DatasetDsl().apply(block).build()
 
-fun example(block: ExampleDsl.() -> Unit): Example =
-    ExampleDsl().apply(block).build()
+fun example(block: ExampleDsl.() -> Unit): Example = ExampleDsl().apply(block).build()
 
 fun task(block: (Example) -> Map<String, Any>): Task = Task(block)
 
@@ -123,15 +124,15 @@ class ExperimentDsl {
         val selectedTask = task ?: error("task must be set")
 
         val builder = Experiment.builder()
-                .name(name)
-                .description(description)
-                .dataset(selectedDataset)
-                .task(selectedTask)
-                .evaluators(evaluators)
-                .metadata(metadata)
-                .reporter(reporter)
-                .parallelism(parallelism)
-                .runs(runs)
+            .name(name)
+            .description(description)
+            .dataset(selectedDataset)
+            .task(selectedTask)
+            .evaluators(evaluators)
+            .metadata(metadata)
+            .reporter(reporter)
+            .parallelism(parallelism)
+            .runs(runs)
 
         return builder.build()
     }
@@ -156,13 +157,11 @@ class DatasetDsl {
         examples += values
     }
 
-    fun build(): Dataset {
-        return Dataset.builder()
-                .name(name)
-                .description(description)
-                .addExamples(examples)
-                .build()
-    }
+    fun build(): Dataset = Dataset.builder()
+        .name(name)
+        .description(description)
+        .addExamples(examples)
+        .build()
 }
 
 @DokimosDsl

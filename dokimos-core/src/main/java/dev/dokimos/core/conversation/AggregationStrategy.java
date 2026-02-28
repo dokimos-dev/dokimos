@@ -18,10 +18,7 @@ public enum AggregationStrategy {
             if (scores.isEmpty()) {
                 return 0.0;
             }
-            return scores.stream()
-                    .mapToDouble(Map.Entry::getValue)
-                    .average()
-                    .orElse(0.0);
+            return scores.stream().mapToDouble(Map.Entry::getValue).average().orElse(0.0);
         }
     },
 
@@ -35,9 +32,8 @@ public enum AggregationStrategy {
             if (scores.isEmpty()) {
                 return 0.0;
             }
-            double totalWeight = scores.stream()
-                    .mapToDouble(e -> e.getKey().weight())
-                    .sum();
+            double totalWeight =
+                    scores.stream().mapToDouble(e -> e.getKey().weight()).sum();
             if (totalWeight == 0) {
                 return MEAN.aggregate(scores);
             }
@@ -56,10 +52,7 @@ public enum AggregationStrategy {
     MIN {
         @Override
         public double aggregate(List<Map.Entry<EvaluationCriterion, Double>> scores) {
-            return scores.stream()
-                    .mapToDouble(Map.Entry::getValue)
-                    .min()
-                    .orElse(0.0);
+            return scores.stream().mapToDouble(Map.Entry::getValue).min().orElse(0.0);
         }
     },
 
@@ -70,10 +63,7 @@ public enum AggregationStrategy {
     MAX {
         @Override
         public double aggregate(List<Map.Entry<EvaluationCriterion, Double>> scores) {
-            return scores.stream()
-                    .mapToDouble(Map.Entry::getValue)
-                    .max()
-                    .orElse(0.0);
+            return scores.stream().mapToDouble(Map.Entry::getValue).max().orElse(0.0);
         }
     };
 

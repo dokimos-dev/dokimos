@@ -4,7 +4,6 @@ import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -51,10 +50,8 @@ public class ExactMatchEvaluator extends BaseEvaluator {
     public static class Builder {
         private String name = "Exact Match";
         private double threshold = 1.0;
-        private List<EvalTestCaseParam> evaluationParams = List.of(
-                EvalTestCaseParam.ACTUAL_OUTPUT,
-                EvalTestCaseParam.EXPECTED_OUTPUT
-        );
+        private List<EvalTestCaseParam> evaluationParams =
+                List.of(EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT);
 
         /**
          * Sets the evaluator name.
@@ -93,5 +90,4 @@ public class ExactMatchEvaluator extends BaseEvaluator {
             return new ExactMatchEvaluator(this);
         }
     }
-
 }

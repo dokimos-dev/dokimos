@@ -5,6 +5,8 @@ import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.service.RunService;
 import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -17,9 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/v1/runs")
 public class RunController {
@@ -31,22 +30,19 @@ public class RunController {
     }
 
     @GetMapping("/{runId}")
-    public RunDetails getRunDetails(@PathVariable UUID runId,
-            @PageableDefault(size = 50) Pageable pageable) {
+    public RunDetails getRunDetails(@PathVariable UUID runId, @PageableDefault(size = 50) Pageable pageable) {
         return runService.getRunDetails(runId, pageable);
     }
 
     @PostMapping("/{runId}/items")
     @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, String> addItems(@PathVariable UUID runId,
-            @Valid @RequestBody AddItemsRequest request) {
+    public Map<String, String> addItems(@PathVariable UUID runId, @Valid @RequestBody AddItemsRequest request) {
         runService.addItems(runId, request);
         return Map.of("status", "ok");
     }
 
     @PatchMapping("/{runId}")
-    public Map<String, String> updateRun(@PathVariable UUID runId,
-            @Valid @RequestBody UpdateRunRequest request) {
+    public Map<String, String> updateRun(@PathVariable UUID runId, @Valid @RequestBody UpdateRunRequest request) {
         runService.updateRun(runId, request);
         return Map.of("status", "updated");
     }

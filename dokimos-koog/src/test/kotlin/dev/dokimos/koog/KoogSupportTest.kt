@@ -11,7 +11,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-
 class KoogSupportTest {
 
     @Test
@@ -43,24 +42,22 @@ class KoogSupportTest {
         val judge = asJudge { _ -> "" }
 
         assertThatThrownBy { judge.generate("prompt") }
-                .isInstanceOf(IllegalArgumentException::class.java)
-                .hasMessageContaining("blank")
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("blank")
     }
 
-
     companion object {
-        fun mockAgent(modelResponse:String) = AIAgent(
+        fun mockAgent(modelResponse: String) = AIAgent(
             promptExecutor = getMockExecutor {
                 mockLLMAnswer(modelResponse).asDefaultResponse
             },
             agentConfig = AIAgentConfig(
-                prompt = prompt("test-agent"){},
+                prompt = prompt("test-agent") {},
                 model = mockk<LLModel>(relaxed = true),
-                maxAgentIterations = 10
-            )
+                maxAgentIterations = 10,
+            ),
         ) {
             withTesting()
         }
     }
-
 }

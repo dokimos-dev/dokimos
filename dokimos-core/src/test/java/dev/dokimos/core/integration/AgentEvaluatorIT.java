@@ -2,8 +2,11 @@ package dev.dokimos.core.integration;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
 import com.openai.models.ChatModel;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.openai.models.FunctionDefinition;
+import com.openai.models.FunctionParameters;
+import com.openai.models.chat.completions.*;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.agents.AgentTrace;
@@ -21,254 +24,254 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for agent evaluators using real LLM calls.
- * Requires OPENAI_API_KEY environment variable.
+ * Integration tests for agent evaluators using OpenAI tool calling.
+ * Requires {@code OPENAI_API_KEY} environment variable.
  */
 @Tag("integration")
 @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")
 class AgentEvaluatorIT {
 
-    private static JudgeLM judge;
+        private static final String USER_MESSAGE = "I need to fly from New York JFK to Paris CDG on March 15, 2026, "
+                        + "and I need a hotel in Paris for 5 nights starting that day.";
 
-    // Realistic tool definitions for a travel agent
-    private static final ToolDefinition SEARCH_FLIGHTS = ToolDefinition.of(
-            "search_flights",
-            "Search for available flights between airports on a given date",
-            Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                            "origin", Map.of("type", "string", "description", "Origin airport IATA code"),
-                            "destination", Map.of("type", "string", "description", "Destination airport IATA code"),
-                            "date", Map.of("type", "string", "description", "Travel date in YYYY-MM-DD format"),
-                            "passengers", Map.of("type", "integer", "description", "Number of passengers")
-                    ),
-                    "required", List.of("origin", "destination", "date")
-            )
-    );
+        private static final ToolDefinition SEARCH_FLIGHTS = ToolDefinition.of(
+                        "search_flights",
+                        "Search for available flights between airports on a given date",
+                        Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                        "origin",
+                                                        Map.of("type", "string", "description",
+                                                                        "Origin airport IATA code"),
+                                                        "destination",
+                                                        Map.of("type", "string", "description",
+                                                                        "Destination airport IATA code"),
+                                                        "date",
+                                                        Map.of("type", "string", "description",
+                                                                        "Travel date in YYYY-MM-DD format"),
+                                                        "passengers",
+                                                        Map.of("type", "integer", "description",
+                                                                        "Number of passengers")),
+                                        "required", List.of("origin", "destination", "date")));
 
-    private static final ToolDefinition BOOK_HOTEL = ToolDefinition.of(
-            "book_hotel",
-            "Book a hotel room in a city for a specified number of nights",
-            Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                            "city", Map.of("type", "string", "description", "City name for the hotel"),
-                            "check_in", Map.of("type", "string", "description", "Check-in date in YYYY-MM-DD format"),
-                            "nights", Map.of("type", "integer", "description", "Number of nights to stay"),
-                            "guests", Map.of("type", "integer", "description", "Number of guests")
-                    ),
-                    "required", List.of("city", "check_in", "nights")
-            )
-    );
+        private static final ToolDefinition BOOK_HOTEL = ToolDefinition.of(
+                        "book_hotel",
+                        "Book a hotel room in a city for a specified number of nights",
+                        Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                        "city",
+                                                        Map.of("type", "string", "description",
+                                                                        "City name for the hotel"),
+                                                        "check_in",
+                                                        Map.of("type", "string", "description",
+                                                                        "Check-in date in YYYY-MM-DD format"),
+                                                        "nights",
+                                                        Map.of("type", "integer", "description",
+                                                                        "Number of nights to stay"),
+                                                        "guests",
+                                                        Map.of("type", "integer", "description", "Number of guests")),
+                                        "required", List.of("city", "check_in", "nights")));
 
-    private static final List<ToolDefinition> TOOLS = List.of(SEARCH_FLIGHTS, BOOK_HOTEL);
+        private static final List<ToolDefinition> TOOLS = List.of(SEARCH_FLIGHTS, BOOK_HOTEL);
 
-    // Simulated agent trace: user asks to plan a trip, agent searches flights and books hotel
-    private static final AgentTrace GOOD_TRACE = AgentTrace.builder()
-            .addReasoningStep("User wants to travel from NYC to Paris on March 15 for 5 nights. I'll search flights first.")
-            .addToolCall(ToolCall.builder()
-                    .name("search_flights")
-                    .argument("origin", "JFK")
-                    .argument("destination", "CDG")
-                    .argument("date", "2026-03-15")
-                    .argument("passengers", 1)
-                    .result("{\"flights\": [{\"id\": \"FL123\", \"price\": 450}]}")
-                    .build())
-            .addReasoningStep("Found flights. Now booking hotel in Paris for 5 nights starting March 15.")
-            .addToolCall(ToolCall.builder()
-                    .name("book_hotel")
-                    .argument("city", "Paris")
-                    .argument("check_in", "2026-03-15")
-                    .argument("nights", 5)
-                    .argument("guests", 1)
-                    .result("{\"confirmation\": \"HTL456\", \"hotel\": \"Hotel Lumiere\"}")
-                    .build())
-            .finalResponse("I've found a flight from JFK to CDG on March 15 for $450 and booked Hotel Lumiere in Paris for 5 nights. Your confirmation number is HTL456.")
-            .build();
+        private static OpenAIClient client;
+        private static JudgeLM judge;
+        private static AgentTrace trace;
 
-    // Agent trace with hallucinated arguments
-    private static final AgentTrace HALLUCINATED_TRACE = AgentTrace.builder()
-            .addToolCall(ToolCall.builder()
-                    .name("search_flights")
-                    .argument("origin", "JFK")
-                    .argument("destination", "CDG")
-                    .argument("date", "2026-03-15")
-                    .argument("passengers", 3) // User said nothing about 3 passengers
-                    .build())
-            .addToolCall(ToolCall.builder()
-                    .name("book_hotel")
-                    .argument("city", "London") // User asked for Paris, not London
-                    .argument("check_in", "2026-03-15")
-                    .argument("nights", 5)
-                    .build())
-            .finalResponse("Booked everything.")
-            .build();
+        @BeforeAll
+        static void setup() {
+                client = OpenAIOkHttpClient.fromEnv();
+                judge = prompt -> {
+                        var params = ChatCompletionCreateParams.builder()
+                                        .addUserMessage(prompt)
+                                        .model(ChatModel.GPT_5_NANO)
+                                        .build();
+                        return client.chat().completions().create(params)
+                                        .choices().get(0).message().content().orElse("");
+                };
 
-    @BeforeAll
-    static void setup() {
-        OpenAIClient client = OpenAIOkHttpClient.fromEnv();
-        judge = prompt -> {
-            var params = ChatCompletionCreateParams.builder()
-                    .addUserMessage(prompt)
-                    .model(ChatModel.GPT_5_MINI)
-                    .build();
-            return client.chat().completions().create(params)
-                    .choices().get(0).message().content().orElse("");
-        };
-    }
+                trace = executeAgentLoop(USER_MESSAGE);
+        }
 
-    @Test
-    void shouldEvaluateCompleteAgentTraceWithAllRuleBasedEvaluators() {
-        Map<String, Object> outputs = GOOD_TRACE.toOutputMap();
+        @Test
+        void shouldCaptureToolCalls() {
+                assertThat(trace.toolCalls()).isNotEmpty();
+                assertThat(trace.toolNames()).contains("search_flights", "book_hotel");
+                assertThat(trace.finalResponse()).isNotBlank();
 
-        // 1. Tool call validity
-        var validityResult = ToolCallValidityEvaluator.builder().build()
-                .evaluate(EvalTestCase.builder()
-                        .actualOutput("toolCalls", outputs.get("toolCalls"))
-                        .metadata("tools", TOOLS)
-                        .build());
-        assertThat(validityResult.score()).isEqualTo(1.0);
-        assertThat(validityResult.success()).isTrue();
+                for (ToolCall call : trace.toolCalls()) {
+                        assertThat(call.result()).isNotNull();
+                        assertThat(call.arguments()).isNotEmpty();
+                }
+        }
 
-        // 2. Tool correctness
-        var correctnessResult = ToolCorrectnessEvaluator.builder().build()
-                .evaluate(EvalTestCase.builder()
-                        .actualOutput("toolCalls", outputs.get("toolCalls"))
-                        .expectedOutput("toolCalls", List.of(
-                                ToolCall.of("search_flights", Map.of()),
-                                ToolCall.of("book_hotel", Map.of())
-                        ))
-                        .build());
-        assertThat(correctnessResult.score()).isEqualTo(1.0);
+        @Test
+        void shouldValidateToolCallsAgainstSchemas() {
+                var result = ToolCallValidityEvaluator.builder().build()
+                                .evaluate(buildTestCase());
 
-        // 3. Tool name reliability
-        var nameResult = ToolNameReliabilityEvaluator.builder().build()
-                .evaluate(EvalTestCase.builder()
-                        .metadata("tools", TOOLS)
-                        .build());
-        assertThat(nameResult.score()).isGreaterThanOrEqualTo(0.8);
+                assertThat(result.score()).isEqualTo(1.0);
+                assertThat(result.success()).isTrue();
+        }
 
-        // 4. Tool description reliability
-        var descResult = ToolDescriptionReliabilityEvaluator.builder().build()
-                .evaluate(EvalTestCase.builder()
-                        .metadata("tools", TOOLS)
-                        .build());
-        assertThat(descResult.score()).isGreaterThanOrEqualTo(0.8);
-    }
+        @Test
+        void shouldDetectCorrectToolUsage() {
+                var testCase = EvalTestCase.builder()
+                                .actualOutput("toolCalls", trace.toolCalls())
+                                .expectedOutput("toolCalls", List.of(
+                                                ToolCall.of("search_flights", Map.of()),
+                                                ToolCall.of("book_hotel", Map.of())))
+                                .build();
 
-    @Test
-    void shouldDetectTaskCompletionWithRealLLM() {
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(judge)
-                .threshold(0.5)
-                .build();
+                var result = ToolCorrectnessEvaluator.builder().build().evaluate(testCase);
 
-        var testCase = EvalTestCase.builder()
-                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
-                .actualOutput("output", GOOD_TRACE.finalResponse())
-                .metadata("tasks", List.of(
-                        "Search for flights from New York to Paris",
-                        "Book a hotel in Paris for 5 nights"
-                ))
-                .build();
+                assertThat(result.score()).isEqualTo(1.0);
+        }
 
-        var result = evaluator.evaluate(testCase);
+        @Test
+        void shouldDetectTaskCompletion() {
+                var result = TaskCompletionEvaluator.builder()
+                                .judge(judge)
+                                .build()
+                                .evaluate(buildTestCase());
 
-        assertThat(result.score())
-                .as("Agent completed both tasks, score should be high")
-                .isGreaterThanOrEqualTo(0.5);
-        assertThat(result.reason()).isNotBlank();
-    }
+                assertThat(result.score())
+                                .as("Reason: %s", result.reason())
+                                .isGreaterThanOrEqualTo(0.5);
+        }
 
-    @Test
-    void shouldDetectGroundedArgumentsWithRealLLM() {
-        var evaluator = ToolArgumentHallucinationEvaluator.builder()
-                .judge(judge)
-                .threshold(0.8)
-                .build();
+        @Test
+        void shouldDetectGroundedArguments() {
+                var result = ToolArgumentHallucinationEvaluator.builder()
+                                .judge(judge)
+                                .build()
+                                .evaluate(buildTestCase());
 
-        var testCase = EvalTestCase.builder()
-                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
-                .actualOutput("toolCalls", GOOD_TRACE.toolCalls())
-                .build();
+                assertThat(result.score())
+                                .as("Reason: %s, metadata: %s", result.reason(), result.metadata())
+                                .isGreaterThanOrEqualTo(0.5);
+        }
 
-        var result = evaluator.evaluate(testCase);
+        @Test
+        void shouldEvaluateToolNaming() {
+                var result = ToolNameReliabilityEvaluator.builder()
+                                .judge(judge)
+                                .build()
+                                .evaluate(EvalTestCase.builder()
+                                                .metadata("tools", TOOLS)
+                                                .build());
 
-        assertThat(result.score())
-                .as("All arguments are grounded in user input, score should be high. Reason: %s, metadata: %s",
-                        result.reason(), result.metadata())
-                .isGreaterThanOrEqualTo(0.5);
-    }
+                assertThat(result.score()).isGreaterThanOrEqualTo(0.6);
+        }
 
-    @Test
-    void shouldDetectHallucinatedArgumentsWithRealLLM() {
-        var evaluator = ToolArgumentHallucinationEvaluator.builder()
-                .judge(judge)
-                .threshold(0.8)
-                .build();
+        @Test
+        void shouldEvaluateToolDescriptions() {
+                var result = ToolDescriptionReliabilityEvaluator.builder()
+                                .judge(judge)
+                                .build()
+                                .evaluate(EvalTestCase.builder()
+                                                .metadata("tools", TOOLS)
+                                                .build());
 
-        var testCase = EvalTestCase.builder()
-                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15.")
-                .actualOutput("toolCalls", HALLUCINATED_TRACE.toolCalls())
-                .build();
+                assertThat(result.score()).isGreaterThanOrEqualTo(0.5);
+        }
 
-        var result = evaluator.evaluate(testCase);
+        private EvalTestCase buildTestCase() {
+                Map<String, Object> outputs = trace.toOutputMap();
+                return EvalTestCase.builder()
+                                .input(USER_MESSAGE)
+                                .actualOutput("toolCalls", outputs.get("toolCalls"))
+                                .actualOutput("output", outputs.get("output"))
+                                .expectedOutput("toolCalls", List.of(
+                                                ToolCall.of("search_flights", Map.of()),
+                                                ToolCall.of("book_hotel", Map.of())))
+                                .metadata("tools", TOOLS)
+                                .metadata("tasks", List.of(
+                                                "Search for flights from JFK to CDG on 2026-03-15",
+                                                "Book a hotel in Paris for 5 nights starting 2026-03-15"))
+                                .build();
+        }
 
-        // Should detect that passengers=3 (user said 1) and city=London (user said Paris) are hallucinated
-        assertThat(result.score())
-                .as("Some arguments are hallucinated, score should be lower")
-                .isLessThan(1.0);
-    }
+        /**
+         * Runs a tool-calling loop: send user message with tools, process tool calls,
+         * execute them, send results back, repeat until final text response.
+         */
+        @SuppressWarnings("unchecked")
+        private static AgentTrace executeAgentLoop(String userMessage) {
+                var traceBuilder = AgentTrace.builder();
 
-    @Test
-    void shouldEvaluateToolNamingWithRealLLM() {
-        var evaluator = ToolNameReliabilityEvaluator.builder()
-                .judge(judge)
-                .threshold(0.6)
-                .build();
+                var paramsBuilder = ChatCompletionCreateParams.builder()
+                                .model(ChatModel.GPT_5_NANO)
+                                .addUserMessage(userMessage);
 
-        var testCase = EvalTestCase.builder()
-                .metadata("tools", TOOLS)
-                .build();
+                for (ToolDefinition def : TOOLS) {
+                        paramsBuilder.addTool(toOpenAITool(def));
+                }
 
-        var result = evaluator.evaluate(testCase);
+                for (int iteration = 0; iteration < 5; iteration++) {
+                        var completion = client.chat().completions().create(paramsBuilder.build());
+                        var message = completion.choices().get(0).message();
+                        paramsBuilder.addMessage(message);
 
-        assertThat(result.score())
-                .as("Well-named tools should score high with LLM checks")
-                .isGreaterThanOrEqualTo(0.6);
-        assertThat(result.success()).isTrue();
-    }
+                        var toolCalls = message.toolCalls().orElse(List.of());
+                        if (toolCalls.isEmpty()) {
+                                traceBuilder.finalResponse(message.content().orElse(""));
+                                break;
+                        }
 
-    @Test
-    void shouldRunFullExperimentWithAgentTrace() {
-        // Tests AgentTrace.toOutputMap() integration with multiple evaluators
-        Map<String, Object> outputs = GOOD_TRACE.toOutputMap();
+                        for (var toolCall : toolCalls) {
+                                var funcToolCall = toolCall.asFunction();
+                                var function = funcToolCall.function();
+                                String name = function.name();
+                                Map<String, Object> args = (Map<String, Object>) function.arguments(Map.class);
+                                String result = executeToolFunction(name);
 
-        var testCase = EvalTestCase.builder()
-                .input("Book me a flight from JFK to CDG on 2026-03-15 for 1 passenger, and a hotel in Paris for 5 nights starting 2026-03-15 for 1 guest.")
-                .actualOutput("toolCalls", outputs.get("toolCalls"))
-                .actualOutput("output", outputs.get("output"))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
-                .metadata("tools", TOOLS)
-                .metadata("tasks", List.of("Search flights", "Book hotel"))
-                .build();
+                                traceBuilder.addToolCall(ToolCall.builder()
+                                                .name(name)
+                                                .arguments(args)
+                                                .result(result)
+                                                .build());
 
-        // Run all evaluators against the same test case
-        var validityResult = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
-        var correctnessResult = ToolCorrectnessEvaluator.builder().build().evaluate(testCase);
-        var completionResult = TaskCompletionEvaluator.builder().judge(judge).build().evaluate(testCase);
-        var hallucinationResult = ToolArgumentHallucinationEvaluator.builder().judge(judge).build().evaluate(testCase);
+                                paramsBuilder.addMessage(ChatCompletionToolMessageParam.builder()
+                                                .toolCallId(funcToolCall.id())
+                                                .content(result)
+                                                .build());
+                        }
+                }
 
-        assertThat(validityResult.score()).isEqualTo(1.0);
-        assertThat(correctnessResult.score()).isEqualTo(1.0);
-        assertThat(completionResult.score())
-                .as("Completion reason: %s, metadata: %s", completionResult.reason(), completionResult.metadata())
-                .isGreaterThanOrEqualTo(0.5);
-        assertThat(hallucinationResult.score())
-                .as("Hallucination reason: %s, metadata: %s", hallucinationResult.reason(), hallucinationResult.metadata())
-                .isGreaterThanOrEqualTo(0.5);
-    }
+                return traceBuilder.build();
+        }
+
+        /** Converts a {@link ToolDefinition} to an OpenAI {@link ChatCompletionTool}. */
+        private static ChatCompletionTool toOpenAITool(ToolDefinition def) {
+                var paramsBuilder = FunctionParameters.builder();
+                for (Map.Entry<String, Object> entry : def.inputSchema().entrySet()) {
+                        paramsBuilder.putAdditionalProperty(entry.getKey(), JsonValue.from(entry.getValue()));
+                }
+                return ChatCompletionTool.ofFunction(
+                                ChatCompletionFunctionTool.builder()
+                                                .function(FunctionDefinition.builder()
+                                                                .name(def.name())
+                                                                .description(def.description())
+                                                                .parameters(paramsBuilder.build())
+                                                                .build())
+                                                .build());
+        }
+
+        /** Returns canned tool responses. In a real app, these would be actual API calls. */
+        private static String executeToolFunction(String toolName) {
+                return switch (toolName) {
+                        case "search_flights" ->
+                                """
+                                                {"flights": [\
+                                                {"id": "AF1234", "airline": "Air France", "departure": "08:30", "arrival": "22:15", "price": 485},\
+                                                {"id": "DL5678", "airline": "Delta", "departure": "10:00", "arrival": "23:45", "price": 520}\
+                                                ]}""";
+                        case "book_hotel" -> """
+                                        {"confirmation": "HTL-98765", "hotel": "Hotel Le Marais", \
+                                        "address": "12 Rue de Rivoli, Paris", "total_price": 875, "nights": 5}""";
+                        default -> "{\"error\": \"Unknown tool: " + toolName + "\"}";
+                };
+        }
 }

@@ -336,6 +336,100 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
+## OpenAI Integration
+
+Here's a complete example showing how to capture tool calls from an OpenAI agent and evaluate them. The key bridge points are:
+
+1. Convert your `ToolDefinition` to OpenAI's `ChatCompletionTool` format
+2. Extract tool call names and arguments from the OpenAI response
+3. Build an `AgentTrace` from the captured execution
+
+```java
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
+import com.openai.models.*;
+import com.openai.models.chat.completions.*;
+import dev.dokimos.core.agents.*;
+
+OpenAIClient client = OpenAIOkHttpClient.fromEnv();
+
+// Define tools once — used for both OpenAI and evaluation
+List<ToolDefinition> tools = List.of(
+    ToolDefinition.of("search_flights", "Search for flights", flightSchema),
+    ToolDefinition.of("book_hotel", "Book a hotel room", hotelSchema)
+);
+
+// Convert to OpenAI format
+ChatCompletionTool toOpenAITool(ToolDefinition def) {
+    var params = FunctionParameters.builder();
+    for (var entry : def.inputSchema().entrySet()) {
+        params.putAdditionalProperty(entry.getKey(), JsonValue.from(entry.getValue()));
+    }
+    return ChatCompletionTool.ofFunction(
+        ChatCompletionFunctionTool.builder()
+            .function(FunctionDefinition.builder()
+                .name(def.name())
+                .description(def.description())
+                .parameters(params.build())
+                .build())
+            .build());
+}
+
+// Run the tool-calling loop
+var traceBuilder = AgentTrace.builder();
+var paramsBuilder = ChatCompletionCreateParams.builder()
+    .model(ChatModel.GPT_5_NANO)
+    .addUserMessage("Find flights to Paris and book a hotel for 5 nights");
+tools.forEach(t -> paramsBuilder.addTool(toOpenAITool(t)));
+
+for (int i = 0; i < 10; i++) {
+    var completion = client.chat().completions().create(paramsBuilder.build());
+    var message = completion.choices().get(0).message();
+    paramsBuilder.addMessage(message);
+
+    var toolCalls = message.toolCalls().orElse(List.of());
+    if (toolCalls.isEmpty()) {
+        traceBuilder.finalResponse(message.content().orElse(""));
+        break;
+    }
+
+    for (var toolCall : toolCalls) {
+        var func = toolCall.asFunction();
+        var function = func.function();
+        String result = yourApp.executeTool(function.name(), function.arguments(Map.class));
+
+        traceBuilder.addToolCall(ToolCall.builder()
+            .name(function.name())
+            .arguments(function.arguments(Map.class))
+            .result(result)
+            .build());
+
+        paramsBuilder.addMessage(ChatCompletionToolMessageParam.builder()
+            .toolCallId(func.id())
+            .content(result)
+            .build());
+    }
+}
+
+AgentTrace trace = traceBuilder.build();
+
+// Evaluate
+var testCase = EvalTestCase.builder()
+    .input("Find flights to Paris and book a hotel for 5 nights")
+    .actualOutput("toolCalls", trace.toolCalls())
+    .actualOutput("output", trace.finalResponse())
+    .metadata("tools", tools)
+    .metadata("tasks", List.of("Search for flights", "Book a hotel"))
+    .build();
+
+var result = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
+```
+
+The loop runs up to 10 iterations because the model may call tools across multiple turns — for example, searching first and then booking based on those results. Each iteration is one API round-trip, and the loop exits when the model produces a final text response instead of tool calls.
+
+> See [`OpenAIAgentEvaluationExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/basic/OpenAIAgentEvaluationExample.java) for a complete runnable example.
+
 ## Best Practices
 
 - **Start with rule-based evaluators.** `ToolCallValidityEvaluator` and `ToolCorrectnessEvaluator` don't need an LLM and give fast, deterministic feedback. Add LLM-based evaluators once the basics pass.

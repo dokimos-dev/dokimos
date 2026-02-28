@@ -1,5 +1,6 @@
 package dev.dokimos.core.evaluators.agents;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -41,6 +42,8 @@ import java.util.regex.Pattern;
  * Score is based on checks that actually ran.
  */
 public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final List<String> LLM_CHECK_KEYS = List.of(
             "general_structure", "has_examples", "has_usage_notes",
@@ -172,7 +175,12 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
     }
 
     private Map<String, Integer> batchLlmChecks(ToolDefinition tool) {
-        String schemaJson = tool.inputSchema().toString();
+        String schemaJson;
+        try {
+            schemaJson = OBJECT_MAPPER.writeValueAsString(tool.inputSchema());
+        } catch (Exception e) {
+            schemaJson = tool.inputSchema().toString();
+        }
         String prompt = String.format(
                 "Evaluate this tool specification against quality criteria.\n"
                         + "Tool name: '%s'\n"

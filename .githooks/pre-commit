@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs Spotless on staged Java/Kotlin files.
+# Formats in-place and re-stages so the commit contains clean code.
+
+set -euo pipefail
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d | grep -E '\.(java|kt)$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+# Build regex pattern for spotlessFiles (matches against absolute paths)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PATTERN=$(echo "$STAGED_FILES" | sed "s|.*|${REPO_ROOT}/&|" | paste -sd '|' -)
+
+echo "Formatting $(echo "$STAGED_FILES" | wc -l | tr -d ' ') staged file(s)..."
+mvn -B -q spotless:apply "-DspotlessFiles=${PATTERN}" 2>/dev/null || true
+
+echo "$STAGED_FILES" | xargs git add
+
+exit 0

@@ -79,7 +79,7 @@ class AgentEvaluatorIT {
         judge = prompt -> {
             var params = ChatCompletionCreateParams.builder()
                     .addUserMessage(prompt)
-                    .model(ChatModel.GPT_5_MINI)
+                    .model(ChatModel.GPT_4O_MINI)
                     .build();
             return client.chat()
                     .completions()
@@ -92,6 +92,10 @@ class AgentEvaluatorIT {
         };
 
         trace = executeAgentLoop(USER_MESSAGE);
+        assertThat(trace.toolCalls())
+                .as(
+                        "Model did not return any tool calls — the agent loop may need a stronger prompt or different model")
+                .isNotEmpty();
     }
 
     @Test
@@ -193,8 +197,11 @@ class AgentEvaluatorIT {
     private static AgentTrace executeAgentLoop(String userMessage) {
         var traceBuilder = AgentTrace.builder();
 
-        var paramsBuilder =
-                ChatCompletionCreateParams.builder().model(ChatModel.GPT_5_MINI).addUserMessage(userMessage);
+        var paramsBuilder = ChatCompletionCreateParams.builder()
+                .model(ChatModel.GPT_4O_MINI)
+                .addSystemMessage("You are a travel assistant. Use the provided tools to fulfill the user's request. "
+                        + "Do not answer without calling the appropriate tools first.")
+                .addUserMessage(userMessage);
 
         for (ToolDefinition def : TOOLS) {
             paramsBuilder.addTool(toOpenAITool(def));

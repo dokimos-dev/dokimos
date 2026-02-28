@@ -79,7 +79,7 @@ class AgentEvaluatorIT {
         judge = prompt -> {
             var params = ChatCompletionCreateParams.builder()
                     .addUserMessage(prompt)
-                    .model(ChatModel.GPT_5_NANO)
+                    .model(ChatModel.GPT_5_MINI)
                     .build();
             return client.chat()
                     .completions()
@@ -194,7 +194,7 @@ class AgentEvaluatorIT {
         var traceBuilder = AgentTrace.builder();
 
         var paramsBuilder =
-                ChatCompletionCreateParams.builder().model(ChatModel.GPT_5_NANO).addUserMessage(userMessage);
+                ChatCompletionCreateParams.builder().model(ChatModel.GPT_5_MINI).addUserMessage(userMessage);
 
         for (ToolDefinition def : TOOLS) {
             paramsBuilder.addTool(toOpenAITool(def));

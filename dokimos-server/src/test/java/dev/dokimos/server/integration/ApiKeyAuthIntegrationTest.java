@@ -1,5 +1,11 @@
 package dev.dokimos.server.integration;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,12 +15,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SuppressWarnings("null")
 class ApiKeyAuthIntegrationTest {
@@ -33,15 +33,14 @@ class ApiKeyAuthIntegrationTest {
 
         @Test
         void getRequestsWorkWithoutAuth() throws Exception {
-            mockMvc.perform(get("/api/v1/projects"))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get("/api/v1/projects")).andExpect(status().isOk());
         }
 
         @Test
         void postRequestsFailWithoutAuth() throws Exception {
             mockMvc.perform(post("/api/v1/projects/test-project/runs")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
                             {
                                 "experimentName": "test-experiment",
                                 "metadata": {}
@@ -54,9 +53,9 @@ class ApiKeyAuthIntegrationTest {
         @Test
         void postRequestsFailWithWrongApiKey() throws Exception {
             mockMvc.perform(post("/api/v1/projects/test-project/runs")
-                    .header("Authorization", "Bearer wrong-key")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
+                            .header("Authorization", "Bearer wrong-key")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
                             {
                                 "experimentName": "test-experiment",
                                 "metadata": {}
@@ -70,9 +69,9 @@ class ApiKeyAuthIntegrationTest {
         void postRequestsSucceedWithCorrectApiKey() throws Exception {
             // This should pass auth and hit the controller
             mockMvc.perform(post("/api/v1/projects/test-project/runs")
-                    .header("Authorization", "Bearer " + TEST_API_KEY)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
+                            .header("Authorization", "Bearer " + TEST_API_KEY)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
                             {
                                 "experimentName": "test-experiment",
                                 "metadata": {"model": "gpt-4"}
@@ -85,8 +84,8 @@ class ApiKeyAuthIntegrationTest {
         @Test
         void patchRequestsFailWithoutAuth() throws Exception {
             mockMvc.perform(patch("/api/v1/runs/00000000-0000-0000-0000-000000000001")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
                             {
                                 "status": "SUCCESS"
                             }
@@ -107,16 +106,15 @@ class ApiKeyAuthIntegrationTest {
 
         @Test
         void getRequestsWork() throws Exception {
-            mockMvc.perform(get("/api/v1/projects"))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get("/api/v1/projects")).andExpect(status().isOk());
         }
 
         @Test
         void postRequestsWorkWithoutAuth() throws Exception {
             // This should pass through without auth and hit the controller
             mockMvc.perform(post("/api/v1/projects/test-project/runs")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
                             {
                                 "experimentName": "test-experiment",
                                 "metadata": {}

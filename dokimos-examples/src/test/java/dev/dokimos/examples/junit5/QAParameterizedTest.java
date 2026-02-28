@@ -1,13 +1,12 @@
 package dev.dokimos.examples.junit5;
 
+import static dev.dokimos.core.Assertions.assertEval;
+
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.ExactMatchEvaluator;
 import dev.dokimos.junit.DatasetSource;
-import org.junit.jupiter.params.ParameterizedTest;
-
 import java.util.List;
-
-import static dev.dokimos.core.Assertions.assertEval;
+import org.junit.jupiter.params.ParameterizedTest;
 
 /**
  * JUnit parameterized test example that demonstates how to:
@@ -30,10 +29,7 @@ public class QAParameterizedTest {
 
         // Define evaluators
         List<Evaluator> evaluators = List.of(
-                ExactMatchEvaluator.builder()
-                        .name("Exact Match")
-                        .threshold(1.0)
-                        .build());
+                ExactMatchEvaluator.builder().name("Exact Match").threshold(1.0).build());
 
         // Assert evaluation passes - will fail the test if evaluation fails
         assertEval(testCase, evaluators);

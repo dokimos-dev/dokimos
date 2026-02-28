@@ -39,6 +39,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Check formatting
+        run: mvn -B spotless:check
+
       - name: Build and test
         run: mvn -B -U test javadoc:aggregate
 

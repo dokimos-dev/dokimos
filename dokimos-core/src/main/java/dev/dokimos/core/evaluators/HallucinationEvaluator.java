@@ -8,7 +8,6 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
-
 import java.util.List;
 
 /**
@@ -48,9 +47,7 @@ public class HallucinationEvaluator extends BaseEvaluator {
                     "Hallucination evaluator requires '%s' in actualOutputs".formatted(contextKey));
         }
 
-        List<HallucinationVerdict> verdicts = generateVerdicts(
-                testCase.actualOutput(),
-                context.toString());
+        List<HallucinationVerdict> verdicts = generateVerdicts(testCase.actualOutput(), context.toString());
 
         double score = calculateScore(verdicts);
         final String reason = includeReason ? generateReason(verdicts, score) : "Reasoning was disabled";
@@ -80,14 +77,12 @@ public class HallucinationEvaluator extends BaseEvaluator {
 
                 Example:
                 [{"verdict": "yes", "reason": "..."}, {"verdict": "no", "reason": "..."}]
-                """
-                .formatted(context, actualOutput);
+                """.formatted(context, actualOutput);
 
         String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<HallucinationVerdict>>() {
-            });
+            return OBJECT_MAPPER.readValue(response, new TypeReference<List<HallucinationVerdict>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Failed to parse verdict response from LLM judge", e);
         }
@@ -115,12 +110,10 @@ public class HallucinationEvaluator extends BaseEvaluator {
 
         for (var verdict : verdicts) {
             if ("yes".equalsIgnoreCase(verdict.verdict().strip())) {
-                if (factualAlignments.length() > 0)
-                    factualAlignments.append("; ");
+                if (factualAlignments.length() > 0) factualAlignments.append("; ");
                 factualAlignments.append(verdict.reason());
             } else {
-                if (contradictions.length() > 0)
-                    contradictions.append("; ");
+                if (contradictions.length() > 0) contradictions.append("; ");
                 contradictions.append(verdict.reason());
             }
         }
@@ -135,24 +128,21 @@ public class HallucinationEvaluator extends BaseEvaluator {
 
                 One-sentence summary:
                 """.formatted(
-                factualAlignments.length() > 0 ? factualAlignments.toString() : "None",
-                contradictions.length() > 0 ? contradictions.toString() : "None",
-                score);
+                        factualAlignments.length() > 0 ? factualAlignments.toString() : "None",
+                        contradictions.length() > 0 ? contradictions.toString() : "None",
+                        score);
 
         return judge.generate(prompt).trim();
     }
 
-
-    private record HallucinationVerdict(String verdict, String reason) {
-    }
+    private record HallucinationVerdict(String verdict, String reason) {}
 
     public static class Builder {
         private String name = "Hallucination";
         private String contextKey = "context";
         private double threshold = 0.5;
-        private List<EvalTestCaseParam> evaluationParams = List.of(
-                EvalTestCaseParam.INPUT,
-                EvalTestCaseParam.ACTUAL_OUTPUT);
+        private List<EvalTestCaseParam> evaluationParams =
+                List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT);
         private JudgeLM judge;
         private boolean includeReason = true;
 

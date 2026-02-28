@@ -8,15 +8,13 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
 import dev.dokimos.core.evaluators.EvaluationException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Evaluates complete conversation trajectories using LLM-as-judge patterns.
@@ -28,7 +26,7 @@ import java.util.Map;
  * It processes the entire conversation history rather than individual turns.
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
  *         .name("Customer Service Quality")
@@ -98,9 +96,11 @@ public class TrajectoryEvaluator extends BaseEvaluator {
             criterionScores.add(new AbstractMap.SimpleEntry<>(criterion, result.score()));
 
             if (includePerCriterionScores) {
-                criterionDetails.put(criterion.name(), Map.of(
-                        "score", result.score(),
-                        "reason", result.reason()));
+                criterionDetails.put(
+                        criterion.name(),
+                        Map.of(
+                                "score", result.score(),
+                                "reason", result.reason()));
             }
         }
 
@@ -139,8 +139,8 @@ public class TrajectoryEvaluator extends BaseEvaluator {
             return trajectory;
         }
 
-        throw new EvaluationException(
-                "Expected ConversationTrajectory but got %s".formatted(trajectoryObj.getClass().getName()));
+        throw new EvaluationException("Expected ConversationTrajectory but got %s"
+                .formatted(trajectoryObj.getClass().getName()));
     }
 
     private CriterionResult evaluateCriterion(ConversationTrajectory trajectory, EvaluationCriterion criterion) {
@@ -181,10 +181,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
 
                 Respond in JSON format only:
                 {"score": <number between 0.0 and 1.0>, "reason": "<brief explanation>"}
-                """.formatted(
-                criterion.name(),
-                criterion.description(),
-                formatConversation(trajectory));
+                """.formatted(criterion.name(), criterion.description(), formatConversation(trajectory));
     }
 
     private String formatConversation(ConversationTrajectory trajectory) {
@@ -193,7 +190,10 @@ public class TrajectoryEvaluator extends BaseEvaluator {
             sb.append("Scenario: ").append(trajectory.scenario()).append("\n\n");
         }
         for (Message message : trajectory.messages()) {
-            sb.append(message.role().name()).append(": ").append(message.content()).append("\n\n");
+            sb.append(message.role().name())
+                    .append(": ")
+                    .append(message.content())
+                    .append("\n\n");
         }
         return sb.toString().trim();
     }
@@ -211,12 +211,10 @@ public class TrajectoryEvaluator extends BaseEvaluator {
                 "Evaluated %d criteria using %s aggregation. ".formatted(criteria.size(), aggregationStrategy.name()));
 
         // Find highest and lowest scoring criteria
-        Map.Entry<EvaluationCriterion, Double> highest = criterionScores.stream()
-                .max(Map.Entry.comparingByValue())
-                .orElse(null);
-        Map.Entry<EvaluationCriterion, Double> lowest = criterionScores.stream()
-                .min(Map.Entry.comparingByValue())
-                .orElse(null);
+        Map.Entry<EvaluationCriterion, Double> highest =
+                criterionScores.stream().max(Map.Entry.comparingByValue()).orElse(null);
+        Map.Entry<EvaluationCriterion, Double> lowest =
+                criterionScores.stream().min(Map.Entry.comparingByValue()).orElse(null);
 
         if (highest != null && lowest != null && !highest.getKey().equals(lowest.getKey())) {
             sb.append("Strongest: %s (%.2f). ".formatted(highest.getKey().name(), highest.getValue()));
@@ -226,8 +224,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         return sb.toString();
     }
 
-    private record CriterionResult(double score, String reason) {
-    }
+    private record CriterionResult(double score, String reason) {}
 
     /**
      * Builder for constructing trajectory evaluators.

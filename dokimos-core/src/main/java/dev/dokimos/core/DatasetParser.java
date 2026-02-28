@@ -2,7 +2,6 @@ package dev.dokimos.core;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -19,13 +18,11 @@ public final class DatasetParser {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private DatasetParser() {
-    }
+    private DatasetParser() {}
 
     public static Dataset parseJson(String json) {
         try {
-            Map<String, Object> root = MAPPER.readValue(json, new TypeReference<>() {
-            });
+            Map<String, Object> root = MAPPER.readValue(json, new TypeReference<>() {});
 
             String name = (String) root.getOrDefault("name", "unnamed");
             String description = (String) root.getOrDefault("description", "");
@@ -37,9 +34,8 @@ public final class DatasetParser {
                 throw new IllegalArgumentException("JSON dataset must contain 'examples' array!");
             }
 
-            List<Example> examples = rawExamples.stream()
-                    .map(DatasetParser::parseExample)
-                    .toList();
+            List<Example> examples =
+                    rawExamples.stream().map(DatasetParser::parseExample).toList();
 
             return Dataset.builder()
                     .name(name)
@@ -105,12 +101,10 @@ public final class DatasetParser {
 
         while ((line = reader.readLine()) != null) {
             lineNumber++;
-            if (line.isBlank())
-                continue;
+            if (line.isBlank()) continue;
 
             try {
-                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {
-                });
+                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
                 examples.add(parseExample(raw));
             } catch (IOException e) {
                 throw new IllegalArgumentException(
@@ -122,10 +116,7 @@ public final class DatasetParser {
             throw new IllegalArgumentException("JSONL dataset contains no examples");
         }
 
-        return Dataset.builder()
-                .name(name)
-                .addExamples(examples)
-                .build();
+        return Dataset.builder().name(name).addExamples(examples).build();
     }
 
     public static Dataset parseCsv(String csv, String name) {
@@ -150,8 +141,7 @@ public final class DatasetParser {
             List<Example> examples = new ArrayList<>();
             String line;
             while ((line = reader.readLine()) != null) {
-                if (line.isBlank())
-                    continue;
+                if (line.isBlank()) continue;
 
                 String[] values = parseCsvLine(line, delimiter);
 
@@ -175,10 +165,7 @@ public final class DatasetParser {
                 examples.add(new Example(inputs, expectedOutputs, metadata));
             }
 
-            return Dataset.builder()
-                    .name(name)
-                    .addExamples(examples)
-                    .build();
+            return Dataset.builder().name(name).addExamples(examples).build();
 
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to parse CSV dataset", e);

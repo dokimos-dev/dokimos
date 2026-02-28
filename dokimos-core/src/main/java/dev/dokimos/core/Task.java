@@ -12,5 +12,4 @@ public interface Task {
      * @return the actual outputs produced by the task
      */
     Map<String, Object> run(Example example);
-
 }

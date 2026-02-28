@@ -1,11 +1,10 @@
 package dev.dokimos.core;
 
-import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
+
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class LLMJudgeEvaluatorTest {
 
@@ -51,10 +50,8 @@ class LLMJudgeEvaluatorTest {
                 .judge(mockJudge)
                 .build();
 
-        var testCase = EvalTestCase.builder()
-                .input("q")
-                .actualOutput("wrong answer")
-                .build();
+        var testCase =
+                EvalTestCase.builder().input("q").actualOutput("wrong answer").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -64,7 +61,7 @@ class LLMJudgeEvaluatorTest {
 
     @Test
     void shouldBuildPromptWithSelectedParams() {
-        var capturedPrompt = new String[]{null};
+        var capturedPrompt = new String[] {null};
 
         JudgeLM capturingJudge = prompt -> {
             capturedPrompt[0] = prompt;
@@ -88,10 +85,7 @@ class LLMJudgeEvaluatorTest {
 
         evaluator.evaluate(testCase);
 
-        assertThat(capturedPrompt[0])
-                .contains("my input")
-                .contains("my output")
-                .doesNotContain("should not appear");
+        assertThat(capturedPrompt[0]).contains("my input").contains("my output").doesNotContain("should not appear");
     }
 
     @Test
@@ -105,10 +99,7 @@ class LLMJudgeEvaluatorTest {
                 .judge(brokenJudge)
                 .build();
 
-        var testCase = EvalTestCase.builder()
-                .input("q")
-                .actualOutput("a")
-                .build();
+        var testCase = EvalTestCase.builder().input("q").actualOutput("a").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -118,19 +109,18 @@ class LLMJudgeEvaluatorTest {
 
     @Test
     void shouldRequireJudge() {
-        assertThatThrownBy(() ->
-                LLMJudgeEvaluator.builder()
+        assertThatThrownBy(() -> LLMJudgeEvaluator.builder()
                         .name("test")
                         .criteria("Test")
                         .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT))
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("JudgeLM");
     }
 
     @Test
     void shouldCaptureCustomScoreRange() {
-        var capturedPrompt = new String[]{null};
+        var capturedPrompt = new String[] {null};
 
         JudgeLM mockJudge = prompt -> {
             capturedPrompt[0] = prompt;
@@ -148,10 +138,8 @@ class LLMJudgeEvaluatorTest {
                 .judge(mockJudge)
                 .build();
 
-        var testCase = EvalTestCase.builder()
-                .input("question")
-                .actualOutput("answer")
-                .build();
+        var testCase =
+                EvalTestCase.builder().input("question").actualOutput("answer").build();
 
         var result = evaluator.evaluate(testCase);
 
@@ -212,15 +200,13 @@ class LLMJudgeEvaluatorTest {
     void shouldRequireAtLeastOneEvalParamOnBuild() {
         JudgeLM mockJudge = prompt -> "";
 
-        assertThatThrownBy(() ->
-                LLMJudgeEvaluator.builder()
+        assertThatThrownBy(() -> LLMJudgeEvaluator.builder()
                         .name("test")
                         .criteria("Test")
                         .judge(mockJudge)
                         .evaluationParams(List.of())
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least one evaluation param");
     }
-
 }

@@ -35,11 +35,7 @@ public record EvalTestCase(
      * @return a new test case
      */
     public static EvalTestCase of(String input, String actualOutput) {
-        return new EvalTestCase(
-                Map.of("input", input),
-                Map.of("output", actualOutput),
-                Map.of(),
-                Map.of());
+        return new EvalTestCase(Map.of("input", input), Map.of("output", actualOutput), Map.of(), Map.of());
     }
 
     /**
@@ -52,10 +48,7 @@ public record EvalTestCase(
      */
     public static EvalTestCase of(String input, String actualOutput, String expectedOutput) {
         return new EvalTestCase(
-                Map.of("input", input),
-                Map.of("output", actualOutput),
-                Map.of("output", expectedOutput),
-                Map.of());
+                Map.of("input", input), Map.of("output", actualOutput), Map.of("output", expectedOutput), Map.of());
     }
 
     /**

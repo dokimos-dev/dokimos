@@ -9,7 +9,6 @@ import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.List;
 import java.util.Map;
 
@@ -51,8 +50,7 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
     protected EvalResult runEvaluation(EvalTestCase testCase) {
         Object rawTasks = testCase.metadata().get(tasksKey);
         if (rawTasks == null) {
-            throw new EvaluationException(
-                    "TaskCompletionEvaluator requires '%s' in metadata".formatted(tasksKey));
+            throw new EvaluationException("TaskCompletionEvaluator requires '%s' in metadata".formatted(tasksKey));
         }
 
         List<String> tasks;
@@ -84,8 +82,7 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
 
     private String resolveDialog(EvalTestCase testCase) {
         Object dialog = testCase.inputs().get(dialogKey);
-        String userInput = dialog != null ? dialog.toString()
-                : (testCase.input() != null ? testCase.input() : null);
+        String userInput = dialog != null ? dialog.toString() : (testCase.input() != null ? testCase.input() : null);
         if (userInput == null) {
             throw new EvaluationException("TaskCompletionEvaluator requires dialog in inputs");
         }
@@ -117,8 +114,7 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
     private EvalResult parseResponse(String response, int totalTasks) {
         try {
             String json = extractJsonObject(response);
-            Map<String, Object> parsed = OBJECT_MAPPER.readValue(json,
-                    new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> parsed = OBJECT_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> taskResults = (List<Map<String, Object>>) parsed.get("tasks");

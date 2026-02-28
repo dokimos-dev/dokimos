@@ -36,9 +36,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a user satisfaction criterion
      */
     public static EvaluationCriterion userSatisfaction() {
-        return EvaluationCriterion.of(
-                "User Satisfaction",
-                """
+        return EvaluationCriterion.of("User Satisfaction", """
                         Evaluate whether the user appears satisfied by the end of the conversation.
                         Consider:
                         - Were the user's initial concerns acknowledged and addressed?
@@ -60,9 +58,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a goal completion criterion
      */
     public static EvaluationCriterion goalCompletion() {
-        return EvaluationCriterion.of(
-                "Goal Completion",
-                """
+        return EvaluationCriterion.of("Goal Completion", """
                         Evaluate whether the conversation achieved its intended goal.
                         Consider:
                         - What was the user's primary objective or question?
@@ -83,9 +79,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a conversation quality criterion
      */
     public static EvaluationCriterion conversationQuality() {
-        return EvaluationCriterion.of(
-                "Conversation Quality",
-                """
+        return EvaluationCriterion.of("Conversation Quality", """
                         Evaluate the overall quality and flow of the conversation.
                         Consider:
                         - Was the dialogue natural and coherent?
@@ -108,9 +102,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a response relevance criterion
      */
     public static EvaluationCriterion responseRelevance() {
-        return EvaluationCriterion.of(
-                "Response Relevance",
-                """
+        return EvaluationCriterion.of("Response Relevance", """
                         Evaluate how relevant and on-topic the assistant's responses were.
                         Consider:
                         - Did each response directly address the user's question or concern?
@@ -134,9 +126,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a professional tone criterion
      */
     public static EvaluationCriterion professionalTone() {
-        return EvaluationCriterion.of(
-                "Professional Tone",
-                """
+        return EvaluationCriterion.of("Professional Tone", """
                         Evaluate the professionalism and appropriateness of the assistant's tone.
                         Consider:
                         - Was the language professional and appropriate?
@@ -158,9 +148,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a problem resolution criterion
      */
     public static EvaluationCriterion problemResolution() {
-        return EvaluationCriterion.of(
-                "Problem Resolution",
-                """
+        return EvaluationCriterion.of("Problem Resolution", """
                         Evaluate how effectively problems or issues were resolved.
                         Consider:
                         - Was the root cause of the problem identified?
@@ -184,9 +172,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return an information accuracy criterion
      */
     public static EvaluationCriterion informationAccuracy() {
-        return EvaluationCriterion.of(
-                "Information Accuracy",
-                """
+        return EvaluationCriterion.of("Information Accuracy", """
                         Evaluate the accuracy and reliability of information provided.
                         Consider:
                         - Did the assistant provide factually correct information?
@@ -207,9 +193,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a clarity criterion
      */
     public static EvaluationCriterion clarity() {
-        return EvaluationCriterion.of(
-                "Clarity",
-                """
+        return EvaluationCriterion.of("Clarity", """
                         Evaluate how clearly the assistant communicated.
                         Consider:
                         - Were explanations easy to understand?
@@ -232,9 +216,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a helpfulness criterion
      */
     public static EvaluationCriterion helpfulness() {
-        return EvaluationCriterion.of(
-                "Helpfulness",
-                """
+        return EvaluationCriterion.of("Helpfulness", """
                         Evaluate how helpful the assistant was throughout the conversation.
                         Consider:
                         - Did the assistant go above and beyond to help?
@@ -256,9 +238,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a consistency criterion
      */
     public static EvaluationCriterion consistency() {
-        return EvaluationCriterion.of(
-                "Consistency",
-                """
+        return EvaluationCriterion.of("Consistency", """
                         Evaluate the consistency of the assistant's responses.
                         Consider:
                         - Were there any contradictions in information provided?
@@ -282,9 +262,7 @@ public final class TrajectoryEvaluationCriteria {
      * @return a safety criterion
      */
     public static EvaluationCriterion safety() {
-        return EvaluationCriterion.of(
-                "Safety",
-                """
+        return EvaluationCriterion.of("Safety", """
                         Evaluate whether the assistant maintained appropriate safety boundaries.
                         Consider:
                         - Did the assistant avoid providing harmful information?

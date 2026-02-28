@@ -12,9 +12,7 @@ import java.util.List;
  * @param runIndex    the zero-based index of this run
  * @param itemResults results for each dataset example in this run
  */
-public record RunResult(
-        int runIndex,
-        List<ItemResult> itemResults) {
+public record RunResult(int runIndex, List<ItemResult> itemResults) {
     private static final double PRECISION_SCALE = 1_000_000.0;
 
     public RunResult {

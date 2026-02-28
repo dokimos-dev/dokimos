@@ -6,7 +6,6 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.*;
 
 /**
@@ -105,8 +104,7 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
                 .metadata(Map.of(
                         "correctTools", List.copyOf(correct),
                         "redundantTools", List.copyOf(redundant),
-                        "missingTools", List.copyOf(missing)
-                ))
+                        "missingTools", List.copyOf(missing)))
                 .build();
     }
 
@@ -138,8 +136,7 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
                 .metadata(Map.of(
                         "lcsLength", lcs,
                         "redundantTools", List.copyOf(redundant),
-                        "missingTools", List.copyOf(missing)
-                ))
+                        "missingTools", List.copyOf(missing)))
                 .build();
     }
 
@@ -167,7 +164,8 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
         }
 
         double score = f1Score(matched, actual.size(), expected.size());
-        String reason = String.format("%d of %d actual and %d of %d expected tool calls matched (with arguments).",
+        String reason = String.format(
+                "%d of %d actual and %d of %d expected tool calls matched (with arguments).",
                 matched, actual.size(), matched, expected.size());
 
         return EvalResult.builder()

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.ExperimentResult;
 import dev.dokimos.core.ItemResult;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,15 +31,13 @@ import java.util.stream.Collectors;
  */
 public final class ExperimentResultExporter {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
+    private static final ObjectMapper MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_INSTANT;
-    private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DISPLAY_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
     private static final int FORMAT_VERSION = 1;
 
-    private ExperimentResultExporter() {
-    }
+    private ExperimentResultExporter() {}
 
     // ========== JSON Export ==========
 
@@ -174,8 +171,7 @@ public final class ExperimentResultExporter {
 
     private static List<Map<String, Object>> buildAggregatedEvaluations(ExperimentResult result, int itemIndex) {
         // Get all evaluator names from the first item and preserve the order
-        List<String> evaluatorNames = result.runs().get(0).itemResults().get(itemIndex)
-                .evalResults().stream()
+        List<String> evaluatorNames = result.runs().get(0).itemResults().get(itemIndex).evalResults().stream()
                 .map(EvalResult::name)
                 .toList();
 
@@ -200,7 +196,9 @@ public final class ExperimentResultExporter {
                         if (threshold == null && eval.threshold() != null) {
                             threshold = eval.threshold();
                         }
-                        if (reason == null && eval.reason() != null && !eval.reason().isEmpty()) {
+                        if (reason == null
+                                && eval.reason() != null
+                                && !eval.reason().isEmpty()) {
                             reason = eval.reason();
                         }
                         break;
@@ -210,7 +208,10 @@ public final class ExperimentResultExporter {
 
             // Calculate aggregated stats
             if (!scores.isEmpty()) {
-                double avgScore = scores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+                double avgScore = scores.stream()
+                        .mapToDouble(Double::doubleValue)
+                        .average()
+                        .orElse(0.0);
                 evalMap.put("averageScore", round(avgScore));
 
                 if (scores.size() > 1) {
@@ -242,9 +243,8 @@ public final class ExperimentResultExporter {
             return 0.0;
         }
         double mean = values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-        double sumSquaredDiffs = values.stream()
-                .mapToDouble(v -> Math.pow(v - mean, 2))
-                .sum();
+        double sumSquaredDiffs =
+                values.stream().mapToDouble(v -> Math.pow(v - mean, 2)).sum();
         return Math.sqrt(sumSquaredDiffs / (values.size() - 1));
     }
 
@@ -273,7 +273,9 @@ public final class ExperimentResultExporter {
                 .append(DISPLAY_FORMATTER.format(Instant.now()))
                 .append("</p>\n");
         if (result.description() != null && !result.description().isEmpty()) {
-            html.append("<p class=\"description\">").append(escapeHtml(result.description())).append("</p>\n");
+            html.append("<p class=\"description\">")
+                    .append(escapeHtml(result.description()))
+                    .append("</p>\n");
         }
         html.append("</header>\n");
 
@@ -320,13 +322,17 @@ public final class ExperimentResultExporter {
 
         // Pass count
         html.append("<div class=\"stat-card\">\n");
-        html.append("<div class=\"stat-value success\">").append(formatNumber(result.passCount())).append("</div>\n");
+        html.append("<div class=\"stat-value success\">")
+                .append(formatNumber(result.passCount()))
+                .append("</div>\n");
         html.append("<div class=\"stat-label\">Passed</div>\n");
         html.append("</div>\n");
 
         // Fail count
         html.append("<div class=\"stat-card\">\n");
-        html.append("<div class=\"stat-value failure\">").append(formatNumber(result.failCount())).append("</div>\n");
+        html.append("<div class=\"stat-value failure\">")
+                .append(formatNumber(result.failCount()))
+                .append("</div>\n");
         html.append("<div class=\"stat-label\">Failed</div>\n");
         html.append("</div>\n");
 
@@ -369,9 +375,7 @@ public final class ExperimentResultExporter {
     }
 
     private static void appendResultsTable(StringBuilder html, ExperimentResult result) {
-        List<ItemResult> items = result.runCount() > 0
-                ? result.runs().get(0).itemResults()
-                : List.of();
+        List<ItemResult> items = result.runCount() > 0 ? result.runs().get(0).itemResults() : List.of();
 
         if (items.isEmpty()) {
             return;
@@ -390,23 +394,34 @@ public final class ExperimentResultExporter {
             String statusText = item.success() ? "PASS" : "FAIL";
 
             html.append("<tr class=\"expandable\">\n");
-            html.append("<td>").append(escapeHtml(truncate(formatValue(item.example().inputs()), 100)))
+            html.append("<td>")
+                    .append(escapeHtml(truncate(formatValue(item.example().inputs()), 100)))
                     .append("</td>\n");
-            html.append("<td>").append(escapeHtml(truncate(formatValue(item.example().expectedOutputs()), 100)))
+            html.append("<td>")
+                    .append(escapeHtml(truncate(formatValue(item.example().expectedOutputs()), 100)))
                     .append("</td>\n");
-            html.append("<td>").append(escapeHtml(truncate(formatValue(item.actualOutputs()), 100))).append("</td>\n");
-            html.append("<td class=\"").append(statusClass).append("\">").append(statusText).append("</td>\n");
+            html.append("<td>")
+                    .append(escapeHtml(truncate(formatValue(item.actualOutputs()), 100)))
+                    .append("</td>\n");
+            html.append("<td class=\"")
+                    .append(statusClass)
+                    .append("\">")
+                    .append(statusText)
+                    .append("</td>\n");
             html.append("</tr>\n");
 
             // Expandable details row
             html.append("<tr class=\"details\">\n<td colspan=\"4\">\n");
             html.append("<div class=\"detail-content\">\n");
 
-            html.append("<strong>Full Input:</strong><pre>").append(escapeHtml(formatValue(item.example().inputs())))
+            html.append("<strong>Full Input:</strong><pre>")
+                    .append(escapeHtml(formatValue(item.example().inputs())))
                     .append("</pre>\n");
             html.append("<strong>Expected Output:</strong><pre>")
-                    .append(escapeHtml(formatValue(item.example().expectedOutputs()))).append("</pre>\n");
-            html.append("<strong>Actual Output:</strong><pre>").append(escapeHtml(formatValue(item.actualOutputs())))
+                    .append(escapeHtml(formatValue(item.example().expectedOutputs())))
+                    .append("</pre>\n");
+            html.append("<strong>Actual Output:</strong><pre>")
+                    .append(escapeHtml(formatValue(item.actualOutputs())))
                     .append("</pre>\n");
 
             html.append("<strong>Evaluations:</strong>\n<ul>\n");
@@ -417,7 +432,9 @@ public final class ExperimentResultExporter {
                 html.append("<strong>").append(escapeHtml(eval.name())).append(":</strong> ");
                 html.append(String.format("%.2f", eval.score()));
                 if (eval.threshold() != null) {
-                    html.append(" (threshold: ").append(String.format("%.2f", eval.threshold())).append(")");
+                    html.append(" (threshold: ")
+                            .append(String.format("%.2f", eval.threshold()))
+                            .append(")");
                 }
                 html.append(" - ").append(evalStatus);
                 if (eval.reason() != null && !eval.reason().isEmpty()) {
@@ -472,8 +489,13 @@ public final class ExperimentResultExporter {
         int passCount = (int) Math.round(result.passCount());
         int totalCount = result.totalCount();
         int passPercent = totalCount > 0 ? (int) Math.round(result.passRate() * 100) : 0;
-        md.append("**Pass Rate:** ").append(passPercent).append("% (")
-                .append(passCount).append("/").append(totalCount).append(")\n\n");
+        md.append("**Pass Rate:** ")
+                .append(passPercent)
+                .append("% (")
+                .append(passCount)
+                .append("/")
+                .append(totalCount)
+                .append(")\n\n");
 
         if (result.description() != null && !result.description().isEmpty()) {
             md.append(result.description()).append("\n\n");
@@ -490,10 +512,14 @@ public final class ExperimentResultExporter {
                 double stdDev = result.scoreStdDev(name);
                 double passRate = calculateEvaluatorPassRate(result, name);
 
-                md.append("| ").append(escapeMarkdownTable(name))
-                        .append(" | ").append(String.format("%.2f", avgScore))
-                        .append(" | ").append(String.format("%.2f", stdDev))
-                        .append(" | ").append(String.format("%.0f%%", passRate * 100))
+                md.append("| ")
+                        .append(escapeMarkdownTable(name))
+                        .append(" | ")
+                        .append(String.format("%.2f", avgScore))
+                        .append(" | ")
+                        .append(String.format("%.2f", stdDev))
+                        .append(" | ")
+                        .append(String.format("%.0f%%", passRate * 100))
                         .append(" |\n");
             }
             md.append("\n");
@@ -510,14 +536,22 @@ public final class ExperimentResultExporter {
                 String input = formatValue(item.example().inputs());
                 md.append("### ").append(truncate(input, 80)).append("\n\n");
 
-                md.append("**Expected:** ").append(formatValue(item.example().expectedOutputs())).append("  \n");
-                md.append("**Actual:** ").append(formatValue(item.actualOutputs())).append("\n\n");
+                md.append("**Expected:** ")
+                        .append(formatValue(item.example().expectedOutputs()))
+                        .append("  \n");
+                md.append("**Actual:** ")
+                        .append(formatValue(item.actualOutputs()))
+                        .append("\n\n");
 
                 for (EvalResult eval : item.evalResults()) {
                     String status = eval.success() ? "PASS" : "FAIL";
-                    md.append("**").append(eval.name()).append(":** ")
+                    md.append("**")
+                            .append(eval.name())
+                            .append(":** ")
                             .append(String.format("%.2f", eval.score()))
-                            .append(" (").append(status).append(")");
+                            .append(" (")
+                            .append(status)
+                            .append(")");
                     if (eval.reason() != null && !eval.reason().isEmpty()) {
                         md.append(": ").append(eval.reason());
                     }
@@ -565,9 +599,7 @@ public final class ExperimentResultExporter {
         csv.append("\n");
 
         // Data rows (from first run)
-        List<ItemResult> items = result.runCount() > 0
-                ? result.runs().get(0).itemResults()
-                : List.of();
+        List<ItemResult> items = result.runCount() > 0 ? result.runs().get(0).itemResults() : List.of();
 
         for (ItemResult item : items) {
             csv.append(escapeCsv(formatValue(item.example().inputs()))).append(",");
@@ -671,8 +703,7 @@ public final class ExperimentResultExporter {
         if (text == null) {
             return "";
         }
-        return text
-                .replace("&", "&amp;")
+        return text.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
@@ -685,8 +716,13 @@ public final class ExperimentResultExporter {
         }
         // If contains comma, newline, quote, or starts with special chars, wrap in
         // quotes
-        if (text.contains(",") || text.contains("\n") || text.contains("\"") ||
-                text.startsWith("=") || text.startsWith("+") || text.startsWith("-") || text.startsWith("@")) {
+        if (text.contains(",")
+                || text.contains("\n")
+                || text.contains("\"")
+                || text.startsWith("=")
+                || text.startsWith("+")
+                || text.startsWith("-")
+                || text.startsWith("@")) {
             return "\"" + text.replace("\"", "\"\"") + "\"";
         }
         return text;

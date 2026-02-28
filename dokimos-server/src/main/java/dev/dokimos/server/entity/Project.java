@@ -7,7 +7,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +29,7 @@ public class Project {
     @OneToMany(mappedBy = "project")
     private List<Experiment> experiments = new ArrayList<>();
 
-    protected Project() {
-    }
+    protected Project() {}
 
     public Project(String name) {
         this.name = name;

@@ -1,10 +1,9 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class EvalResultTest {
 
@@ -66,11 +65,8 @@ class EvalResultTest {
         var metadata = new java.util.HashMap<String, Object>();
         metadata.put("key", "value");
 
-        var result = EvalResult.builder()
-                .name("test")
-                .score(0.8)
-                .metadata(metadata)
-                .build();
+        var result =
+                EvalResult.builder().name("test").score(0.8).metadata(metadata).build();
 
         metadata.put("another", "value");
 

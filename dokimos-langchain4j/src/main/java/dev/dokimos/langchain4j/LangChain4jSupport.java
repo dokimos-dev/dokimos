@@ -1,11 +1,10 @@
 package dev.dokimos.langchain4j;
 
+import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.Task;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
-import dev.dokimos.core.JudgeLM;
-import dev.dokimos.core.Task;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,8 +61,7 @@ public final class LangChain4jSupport {
      */
     public static final String INPUT_KEY = "input";
 
-    private LangChain4jSupport() {
-    }
+    private LangChain4jSupport() {}
 
     /**
      * Creates a {@link JudgeLM} from a LangChain4j {@link ChatModel}.
@@ -160,11 +158,7 @@ public final class LangChain4jSupport {
      * @return a Task suitable for RAG evaluation
      */
     public static Task ragTask(
-            Function<String, Result<String>> assistantCall,
-            String inputKey,
-            String outputKey,
-            String contextKey
-    ) {
+            Function<String, Result<String>> assistantCall, String inputKey, String outputKey, String contextKey) {
         return example -> {
             String input = (String) example.inputs().get(inputKey);
             Result<String> result = assistantCall.apply(input);
@@ -254,5 +248,4 @@ public final class LangChain4jSupport {
                 })
                 .toList();
     }
-
 }

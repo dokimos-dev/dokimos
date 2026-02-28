@@ -6,10 +6,10 @@ import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.core.Evaluator
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
-import dev.dokimos.kotlin.core.EvalTestCase
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
 import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
+import dev.dokimos.kotlin.core.EvalTestCase
 import dev.dokimos.kotlin.dsl.contextualRelevance
 import dev.dokimos.kotlin.dsl.evaluators
 import dev.dokimos.kotlin.dsl.faithfulness
@@ -19,8 +19,8 @@ import dev.dokimos.kotlin.dsl.precision
 import dev.dokimos.kotlin.dsl.recall
 import dev.dokimos.kotlin.dsl.toolCallValidity
 import dev.dokimos.kotlin.dsl.toolCorrectness
-import dev.dokimos.kotlin.dsl.toolNameReliability
 import dev.dokimos.kotlin.dsl.toolDescriptionReliability
+import dev.dokimos.kotlin.dsl.toolNameReliability
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -58,7 +58,7 @@ class EvaluatorDslTest {
 
         val testCase = EvalTestCase(
             input = "question",
-            actualOutputs = mapOf("output" to "answer", "ctx" to "context text")
+            actualOutputs = mapOf("output" to "answer", "ctx" to "context text"),
         )
 
         val result = evaluator.evaluate(testCase)
@@ -73,7 +73,10 @@ class EvaluatorDslTest {
             when {
                 prompt.contains("Extract the factual truths") -> "[\"Fact A\", \"Fact B\"]"
                 prompt.contains("break it down into individual claims", ignoreCase = true) -> "[\"Fact A\"]"
-                prompt.contains("Compare each CLAIM", ignoreCase = true) -> """[{"verdict":"Yes","reasoning":"Matches"}]"""
+                prompt.contains(
+                    "Compare each CLAIM",
+                    ignoreCase = true,
+                ) -> """[{"verdict":"Yes","reasoning":"Matches"}]"""
                 prompt.contains("Summarize the faithfulness", ignoreCase = true) -> "All claims supported."
                 else -> "{}"
             }
@@ -86,7 +89,7 @@ class EvaluatorDslTest {
 
         val testCase = EvalTestCase(
             input = "question",
-            actualOutputs = mapOf("output" to "answer", "ctx" to "context content")
+            actualOutputs = mapOf("output" to "answer", "ctx" to "context content"),
         )
 
         val result = evaluator.evaluate(testCase)
@@ -114,7 +117,7 @@ class EvaluatorDslTest {
 
         val testCase = EvalTestCase(
             input = "query",
-            actualOutputs = mapOf("chunks" to listOf("first chunk", "second chunk"))
+            actualOutputs = mapOf("chunks" to listOf("first chunk", "second chunk")),
         )
 
         val result = evaluator.evaluate(testCase)
@@ -135,7 +138,7 @@ class EvaluatorDslTest {
         val testCase = EvalTestCase(
             input = "query",
             actualOutputs = mapOf("retr" to listOf("DocA", "DocB")),
-            expectedOutputs = mapOf("rel" to listOf("doca", "docC"))
+            expectedOutputs = mapOf("rel" to listOf("doca", "docC")),
         )
 
         val recallResult = recallEvaluator.evaluate(testCase)
@@ -155,7 +158,7 @@ class EvaluatorDslTest {
         val testCase = EvalTestCase(
             input = "query",
             actualOutputs = mapOf("retr" to listOf("DocA", "DocB")),
-            expectedOutputs = mapOf("rel" to listOf("doca", "docC"))
+            expectedOutputs = mapOf("rel" to listOf("doca", "docC")),
         )
 
         val precisionResult = precisionEvaluator.evaluate(testCase)
@@ -169,12 +172,11 @@ class EvaluatorDslTest {
         val judge = JudgeLM { "{}" }
 
         val customEvaluator = object : Evaluator {
-            override fun evaluate(testCase: EvalTestCase): EvalResult =
-                EvalResult.builder()
-                    .name(name())
-                    .score(1.0)
-                    .reason("custom")
-                    .build()
+            override fun evaluate(testCase: EvalTestCase): EvalResult = EvalResult.builder()
+                .name(name())
+                .score(1.0)
+                .reason("custom")
+                .build()
 
             override fun name(): String = "Custom Eval"
 
@@ -269,27 +271,42 @@ class EvaluatorDslTest {
             "ArgHalluc",
             "NameReliab",
             "DescReliab",
-            "Custom Eval"
+            "Custom Eval",
         )
     }
 
     @Test
     fun `toolCallValidity standalone DSL evaluates correctly`() {
-        val tool = ToolDefinition.of("search_flights", "Search flights", mapOf(
-            "type" to "object",
-            "properties" to mapOf(
-                "origin" to mapOf("type" to "string"),
-                "destination" to mapOf("type" to "string")
+        val tool = ToolDefinition.of(
+            "search_flights",
+            "Search flights",
+            mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "origin" to mapOf("type" to "string"),
+                    "destination" to mapOf("type" to "string"),
+                ),
+                "required" to listOf("origin", "destination"),
             ),
-            "required" to listOf("origin", "destination")
-        ))
+        )
 
         val evaluator = toolCallValidity {
             threshold = 1.0
         }
 
         val testCase = EvalTestCase.builder()
-            .actualOutput("toolCalls", listOf(ToolCall.of("search_flights", mapOf("origin" to "NYC", "destination" to "LAX"))))
+            .actualOutput(
+                "toolCalls",
+                listOf(
+                    ToolCall.of(
+                        "search_flights",
+                        mapOf(
+                            "origin" to "NYC",
+                            "destination" to "LAX",
+                        ),
+                    ),
+                ),
+            )
             .metadata("tools", listOf(tool))
             .build()
 
@@ -319,10 +336,14 @@ class EvaluatorDslTest {
 
     @Test
     fun `toolNameReliability standalone DSL evaluates correctly`() {
-        val tool = ToolDefinition.of("search_flights", "Search for available flights", mapOf(
-            "type" to "object",
-            "properties" to mapOf("origin" to mapOf("type" to "string"))
-        ))
+        val tool = ToolDefinition.of(
+            "search_flights",
+            "Search for available flights",
+            mapOf(
+                "type" to "object",
+                "properties" to mapOf("origin" to mapOf("type" to "string")),
+            ),
+        )
 
         val evaluator = toolNameReliability {
             threshold = 0.5
@@ -340,13 +361,17 @@ class EvaluatorDslTest {
 
     @Test
     fun `toolDescriptionReliability standalone DSL evaluates correctly`() {
-        val tool = ToolDefinition.of("search_flights", "Search for available flights between airports", mapOf(
-            "type" to "object",
-            "properties" to mapOf(
-                "origin" to mapOf("type" to "string", "description" to "Origin airport code")
+        val tool = ToolDefinition.of(
+            "search_flights",
+            "Search for available flights between airports",
+            mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "origin" to mapOf("type" to "string", "description" to "Origin airport code"),
+                ),
+                "required" to listOf("origin"),
             ),
-            "required" to listOf("origin")
-        ))
+        )
 
         val evaluator = toolDescriptionReliability {
             threshold = 0.5

@@ -1,11 +1,10 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class MatchingStrategyTest {
 
@@ -77,7 +76,8 @@ class MatchingStrategyTest {
         });
 
         assertThat(strategy.matches("DOC_1", "doc_1")).isTrue();
-        assertThat(strategy.matches(Map.of("id", "x"), Map.of("id", "x", "extra", "y"))).isTrue();
+        assertThat(strategy.matches(Map.of("id", "x"), Map.of("id", "x", "extra", "y")))
+                .isTrue();
     }
 
     @Test
@@ -99,7 +99,8 @@ class MatchingStrategyTest {
 
     @Test
     void customShouldUseProvidedPredicate() {
-        var strategy = MatchingStrategy.custom((a, b) -> a.toString().length() == b.toString().length());
+        var strategy = MatchingStrategy.custom(
+                (a, b) -> a.toString().length() == b.toString().length());
 
         assertThat(strategy.matches("abc", "xyz")).isTrue();
         assertThat(strategy.matches("ab", "xyz")).isFalse();
@@ -107,9 +108,7 @@ class MatchingStrategyTest {
 
     @Test
     void anyOfShouldMatchIfAnyStrategyMatches() {
-        var strategy = MatchingStrategy.anyOf(
-                MatchingStrategy.byEquality(),
-                MatchingStrategy.caseInsensitive());
+        var strategy = MatchingStrategy.anyOf(MatchingStrategy.byEquality(), MatchingStrategy.caseInsensitive());
 
         assertThat(strategy.matches("doc_1", "doc_1")).isTrue();
         assertThat(strategy.matches("DOC_1", "doc_1")).isTrue();
@@ -118,9 +117,7 @@ class MatchingStrategyTest {
 
     @Test
     void allOfShouldMatchOnlyIfAllStrategiesMatch() {
-        var strategy = MatchingStrategy.allOf(
-                MatchingStrategy.byField("type"),
-                MatchingStrategy.byField("id"));
+        var strategy = MatchingStrategy.allOf(MatchingStrategy.byField("type"), MatchingStrategy.byField("id"));
 
         var item1 = Map.of("type", "doc", "id", "1");
         var item2 = Map.of("type", "doc", "id", "1");

@@ -36,15 +36,15 @@ public abstract class BaseEvaluator implements Evaluator {
 
     private void validateEvalParams(EvalTestCase testCase) {
         for (EvalTestCaseParam param : evaluationParams) {
-            Object value = switch (param) {
-                case INPUT -> testCase.input();
-                case ACTUAL_OUTPUT -> testCase.actualOutput();
-                case EXPECTED_OUTPUT -> testCase.expectedOutput();
-            };
+            Object value =
+                    switch (param) {
+                        case INPUT -> testCase.input();
+                        case ACTUAL_OUTPUT -> testCase.actualOutput();
+                        case EXPECTED_OUTPUT -> testCase.expectedOutput();
+                    };
             if (value == null) {
                 throw new IllegalArgumentException(
-                        String.format("Metric '%s' requires '%s' but it was null in the test case.", name, param)
-                );
+                        String.format("Metric '%s' requires '%s' but it was null in the test case.", name, param));
             }
         }
     }
@@ -91,5 +91,4 @@ public abstract class BaseEvaluator implements Evaluator {
     public CompletableFuture<EvalResult> evaluateAsync(EvalTestCase testCase, ExecutorService executor) {
         return CompletableFuture.supplyAsync(() -> evaluate(testCase), executor);
     }
-
 }

@@ -92,8 +92,8 @@ class ExactMatchEvaluatorDsl {
     var name: String = "Exact Match"
     var threshold: Double = 1.0
     var evaluationParams: List<EvalTestCaseParam> = listOf(
-            EvalTestCaseParam.ACTUAL_OUTPUT,
-            EvalTestCaseParam.EXPECTED_OUTPUT
+        EvalTestCaseParam.ACTUAL_OUTPUT,
+        EvalTestCaseParam.EXPECTED_OUTPUT,
     )
 
     fun params(vararg params: EvalTestCaseParam) {
@@ -101,10 +101,10 @@ class ExactMatchEvaluatorDsl {
     }
 
     fun build(): ExactMatchEvaluator = ExactMatchEvaluator.builder()
-            .name(name)
-            .threshold(threshold)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .threshold(threshold)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 @DokimosDsl
@@ -120,12 +120,12 @@ class RegexEvaluatorDsl {
     }
 
     fun build(): RegexEvaluator = RegexEvaluator.builder()
-            .name(name)
-            .pattern(pattern)
-            .ignoreCase(ignoreCase)
-            .threshold(threshold)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .pattern(pattern)
+        .ignoreCase(ignoreCase)
+        .threshold(threshold)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 @DokimosDsl
@@ -133,8 +133,8 @@ class LlmJudgeEvaluatorDsl(private val judge: JudgeLM) {
     var name: String = "LLM Judge"
     var criteria: String = ""
     var evaluationParams: List<EvalTestCaseParam> = listOf(
-            EvalTestCaseParam.INPUT,
-            EvalTestCaseParam.ACTUAL_OUTPUT
+        EvalTestCaseParam.INPUT,
+        EvalTestCaseParam.ACTUAL_OUTPUT,
     )
     var threshold: Double = 0.5
     var minScore: Double = 0.0
@@ -150,13 +150,13 @@ class LlmJudgeEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): LLMJudgeEvaluator = LLMJudgeEvaluator.builder()
-            .name(name)
-            .criteria(criteria)
-            .evaluationParams(evaluationParams)
-            .threshold(threshold)
-            .scoreRange(minScore, maxScore)
-            .judge(judge)
-            .build()
+        .name(name)
+        .criteria(criteria)
+        .evaluationParams(evaluationParams)
+        .threshold(threshold)
+        .scoreRange(minScore, maxScore)
+        .judge(judge)
+        .build()
 }
 
 @DokimosDsl
@@ -165,8 +165,8 @@ class HallucinationEvaluatorDsl(private val judge: JudgeLM) {
     var contextKey: String = "context"
     var threshold: Double = 0.5
     var evaluationParams: List<EvalTestCaseParam> = listOf(
-            EvalTestCaseParam.INPUT,
-            EvalTestCaseParam.ACTUAL_OUTPUT
+        EvalTestCaseParam.INPUT,
+        EvalTestCaseParam.ACTUAL_OUTPUT,
     )
     var includeReason: Boolean = true
 
@@ -175,13 +175,13 @@ class HallucinationEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): HallucinationEvaluator = HallucinationEvaluator.builder()
-            .name(name)
-            .contextKey(contextKey)
-            .threshold(threshold)
-            .evaluationParams(evaluationParams)
-            .judge(judge)
-            .includeReason(includeReason)
-            .build()
+        .name(name)
+        .contextKey(contextKey)
+        .threshold(threshold)
+        .evaluationParams(evaluationParams)
+        .judge(judge)
+        .includeReason(includeReason)
+        .build()
 }
 
 @DokimosDsl
@@ -190,8 +190,8 @@ class FaithfulnessEvaluatorDsl(private val judge: JudgeLM) {
     var contextKey: String = "context"
     var threshold: Double = 0.8
     var evaluationParams: List<EvalTestCaseParam> = listOf(
-            EvalTestCaseParam.INPUT,
-            EvalTestCaseParam.ACTUAL_OUTPUT
+        EvalTestCaseParam.INPUT,
+        EvalTestCaseParam.ACTUAL_OUTPUT,
     )
     var includeReason: Boolean = true
 
@@ -200,13 +200,13 @@ class FaithfulnessEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): FaithfulnessEvaluator = FaithfulnessEvaluator.builder()
-            .name(name)
-            .contextKey(contextKey)
-            .threshold(threshold)
-            .evaluationParams(evaluationParams)
-            .judge(judge)
-            .includeReason(includeReason)
-            .build()
+        .name(name)
+        .contextKey(contextKey)
+        .threshold(threshold)
+        .evaluationParams(evaluationParams)
+        .judge(judge)
+        .includeReason(includeReason)
+        .build()
 }
 
 @DokimosDsl
@@ -223,14 +223,14 @@ class ContextualRelevanceEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): ContextualRelevanceEvaluator = ContextualRelevanceEvaluator.builder()
-            .name(name)
-            .retrievalContextKey(retrievalContextKey)
-            .threshold(threshold)
-            .strictMode(strictMode)
-            .evaluationParams(evaluationParams)
-            .judge(judge)
-            .includeReason(includeReason)
-            .build()
+        .name(name)
+        .retrievalContextKey(retrievalContextKey)
+        .threshold(threshold)
+        .strictMode(strictMode)
+        .evaluationParams(evaluationParams)
+        .judge(judge)
+        .includeReason(includeReason)
+        .build()
 }
 
 @DokimosDsl
@@ -247,13 +247,13 @@ class PrecisionEvaluatorDsl {
     }
 
     fun build(): PrecisionEvaluator = PrecisionEvaluator.builder()
-            .name(name)
-            .retrievedKey(retrievedKey)
-            .expectedKey(expectedKey)
-            .threshold(threshold)
-            .matchingStrategy(matchingStrategy)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .retrievedKey(retrievedKey)
+        .expectedKey(expectedKey)
+        .threshold(threshold)
+        .matchingStrategy(matchingStrategy)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 @DokimosDsl
@@ -270,13 +270,13 @@ class RecallEvaluatorDsl {
     }
 
     fun build(): RecallEvaluator = RecallEvaluator.builder()
-            .name(name)
-            .retrievedKey(retrievedKey)
-            .expectedKey(expectedKey)
-            .threshold(threshold)
-            .matchingStrategy(matchingStrategy)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .retrievedKey(retrievedKey)
+        .expectedKey(expectedKey)
+        .threshold(threshold)
+        .matchingStrategy(matchingStrategy)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 // --- Agent Evaluator DSL classes ---
@@ -295,14 +295,14 @@ class TaskCompletionEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): TaskCompletionEvaluator = TaskCompletionEvaluator.builder()
-            .name(name)
-            .threshold(threshold)
-            .tasksKey(tasksKey)
-            .constraintsKey(constraintsKey)
-            .dialogKey(dialogKey)
-            .evaluationParams(evaluationParams)
-            .judge(judge)
-            .build()
+        .name(name)
+        .threshold(threshold)
+        .tasksKey(tasksKey)
+        .constraintsKey(constraintsKey)
+        .dialogKey(dialogKey)
+        .evaluationParams(evaluationParams)
+        .judge(judge)
+        .build()
 }
 
 @DokimosDsl
@@ -319,13 +319,13 @@ class ToolCallValidityEvaluatorDsl {
     }
 
     fun build(): ToolCallValidityEvaluator = ToolCallValidityEvaluator.builder()
-            .name(name)
-            .threshold(threshold)
-            .toolCallsKey(toolCallsKey)
-            .toolsKey(toolsKey)
-            .strictMode(strictMode)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .threshold(threshold)
+        .toolCallsKey(toolCallsKey)
+        .toolsKey(toolsKey)
+        .strictMode(strictMode)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 @DokimosDsl
@@ -342,13 +342,13 @@ class ToolCorrectnessEvaluatorDsl {
     }
 
     fun build(): ToolCorrectnessEvaluator = ToolCorrectnessEvaluator.builder()
-            .name(name)
-            .threshold(threshold)
-            .toolCallsKey(toolCallsKey)
-            .expectedToolCallsKey(expectedToolCallsKey)
-            .matchMode(matchMode)
-            .evaluationParams(evaluationParams)
-            .build()
+        .name(name)
+        .threshold(threshold)
+        .toolCallsKey(toolCallsKey)
+        .expectedToolCallsKey(expectedToolCallsKey)
+        .matchMode(matchMode)
+        .evaluationParams(evaluationParams)
+        .build()
 }
 
 @DokimosDsl
@@ -363,12 +363,12 @@ class ToolArgumentHallucinationEvaluatorDsl(private val judge: JudgeLM) {
     }
 
     fun build(): ToolArgumentHallucinationEvaluator = ToolArgumentHallucinationEvaluator.builder()
-            .name(name)
-            .threshold(threshold)
-            .toolCallsKey(toolCallsKey)
-            .evaluationParams(evaluationParams)
-            .judge(judge)
-            .build()
+        .name(name)
+        .threshold(threshold)
+        .toolCallsKey(toolCallsKey)
+        .evaluationParams(evaluationParams)
+        .judge(judge)
+        .build()
 }
 
 @DokimosDsl
@@ -385,10 +385,10 @@ class ToolNameReliabilityEvaluatorDsl {
 
     fun build(): ToolNameReliabilityEvaluator {
         val builder = ToolNameReliabilityEvaluator.builder()
-                .name(name)
-                .threshold(threshold)
-                .toolsKey(toolsKey)
-                .evaluationParams(evaluationParams)
+            .name(name)
+            .threshold(threshold)
+            .toolsKey(toolsKey)
+            .evaluationParams(evaluationParams)
         judge?.let { builder.judge(it) }
         return builder.build()
     }
@@ -410,12 +410,12 @@ class ToolDescriptionReliabilityEvaluatorDsl {
 
     fun build(): ToolDescriptionReliabilityEvaluator {
         val builder = ToolDescriptionReliabilityEvaluator.builder()
-                .name(name)
-                .threshold(threshold)
-                .toolsKey(toolsKey)
-                .maxOptionalArgs(maxOptionalArgs)
-                .maxInputArgs(maxInputArgs)
-                .evaluationParams(evaluationParams)
+            .name(name)
+            .threshold(threshold)
+            .toolsKey(toolsKey)
+            .maxOptionalArgs(maxOptionalArgs)
+            .maxInputArgs(maxInputArgs)
+            .evaluationParams(evaluationParams)
         judge?.let { builder.judge(it) }
         return builder.build()
     }

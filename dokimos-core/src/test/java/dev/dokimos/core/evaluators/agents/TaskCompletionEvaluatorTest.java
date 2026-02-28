@@ -1,14 +1,12 @@
 package dev.dokimos.core.evaluators.agents;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class TaskCompletionEvaluatorTest {
 
@@ -21,9 +19,7 @@ class TaskCompletionEvaluatorTest {
                 ]}
                 """;
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("I need to book a hotel and find flights to Paris")
@@ -46,9 +42,7 @@ class TaskCompletionEvaluatorTest {
                 ]}
                 """;
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Book hotel and search flights")
@@ -69,9 +63,7 @@ class TaskCompletionEvaluatorTest {
                 ]}
                 """;
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Book hotel and search flights")
@@ -88,9 +80,7 @@ class TaskCompletionEvaluatorTest {
     void shouldReturnFullScoreForEmptyTaskList() {
         JudgeLM mockJudge = prompt -> "{}";
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Hello")
@@ -113,9 +103,7 @@ class TaskCompletionEvaluatorTest {
                     """;
         };
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Book a hotel in Paris")
@@ -132,9 +120,7 @@ class TaskCompletionEvaluatorTest {
     void shouldHandleMalformedJudgeResponse() {
         JudgeLM mockJudge = prompt -> "Not valid JSON at all";
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Book a hotel")
@@ -152,13 +138,9 @@ class TaskCompletionEvaluatorTest {
     void shouldThrowWhenTasksMissing() {
         JudgeLM mockJudge = prompt -> "{}";
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
-        var testCase = EvalTestCase.builder()
-                .input("Book a hotel")
-                .build();
+        var testCase = EvalTestCase.builder().input("Book a hotel").build();
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase))
                 .isInstanceOf(EvaluationException.class)
@@ -207,9 +189,7 @@ class TaskCompletionEvaluatorTest {
                 ```
                 """;
 
-        var evaluator = TaskCompletionEvaluator.builder()
-                .judge(mockJudge)
-                .build();
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
 
         var testCase = EvalTestCase.builder()
                 .input("Book a hotel")

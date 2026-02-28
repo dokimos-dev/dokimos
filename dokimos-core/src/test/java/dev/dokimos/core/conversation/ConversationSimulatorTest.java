@@ -1,16 +1,16 @@
 package dev.dokimos.core.conversation;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ConversationSimulatorTest {
 
     @Test
     void shouldSimulateBasicConversation() {
-        SimulatedUser user = trajectory -> Message.user("User turn " + (trajectory.userMessages().size() + 1));
+        SimulatedUser user = trajectory ->
+                Message.user("User turn " + (trajectory.userMessages().size() + 1));
 
         ConversationalApplication app = trajectory -> Message.assistant("Assistant response");
 
@@ -114,11 +114,9 @@ class ConversationSimulatorTest {
     void shouldRequireSimulatedUser() {
         ConversationalApplication app = trajectory -> Message.assistant("Response");
 
-        assertThatThrownBy(() ->
-                ConversationSimulator.builder()
-                        .application(app)
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(
+                        () -> ConversationSimulator.builder().application(app).build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("SimulatedUser");
     }
 
@@ -127,19 +125,15 @@ class ConversationSimulatorTest {
         SimulatedUser user = trajectory -> Message.user("Message");
 
         assertThatThrownBy(() ->
-                ConversationSimulator.builder()
-                        .simulatedUser(user)
-                        .build()
-        ).isInstanceOf(IllegalStateException.class)
+                        ConversationSimulator.builder().simulatedUser(user).build())
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ConversationalApplication");
     }
 
     @Test
     void shouldRejectInvalidMaxTurns() {
-        assertThatThrownBy(() ->
-                ConversationSimulator.builder()
-                        .maxTurns(0)
-        ).isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> ConversationSimulator.builder().maxTurns(0))
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("maxTurns");
     }
 

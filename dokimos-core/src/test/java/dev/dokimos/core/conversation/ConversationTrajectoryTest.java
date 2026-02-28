@@ -1,11 +1,10 @@
 package dev.dokimos.core.conversation;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ConversationTrajectoryTest {
 
@@ -85,9 +84,8 @@ class ConversationTrajectoryTest {
 
     @Test
     void shouldAppendMessageImmutably() {
-        ConversationTrajectory original = ConversationTrajectory.builder()
-                .userMessage("Original")
-                .build();
+        ConversationTrajectory original =
+                ConversationTrajectory.builder().userMessage("Original").build();
 
         ConversationTrajectory updated = original.withMessage(Message.assistant("New"));
 
@@ -158,16 +156,13 @@ class ConversationTrajectoryTest {
                 .metadata(Map.of("key2", "value2"))
                 .build();
 
-        assertThat(trajectory.metadata())
-                .containsEntry("key1", "value1")
-                .containsEntry("key2", "value2");
+        assertThat(trajectory.metadata()).containsEntry("key1", "value1").containsEntry("key2", "value2");
     }
 
     @Test
     void shouldMakeMessagesImmutable() {
-        ConversationTrajectory trajectory = ConversationTrajectory.builder()
-                .userMessage("Test")
-                .build();
+        ConversationTrajectory trajectory =
+                ConversationTrajectory.builder().userMessage("Test").build();
 
         assertThatThrownBy(() -> trajectory.messages().add(Message.user("New")))
                 .isInstanceOf(UnsupportedOperationException.class);

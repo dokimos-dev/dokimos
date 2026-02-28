@@ -5,7 +5,6 @@ import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.agents.*;
-
 import java.util.List;
 import java.util.Map;
 
@@ -25,32 +24,46 @@ public class AgentEvaluationExample {
 
     // Define the tools available to the agent
     private static final List<ToolDefinition> AVAILABLE_TOOLS = List.of(
-            ToolDefinition.of("search_flights", "Search for available flights between airports", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                            "origin", Map.of("type", "string", "description", "Origin airport IATA code"),
-                            "destination", Map.of("type", "string", "description", "Destination airport IATA code"),
-                            "date", Map.of("type", "string", "description", "Travel date in YYYY-MM-DD format")
-                    ),
-                    "required", List.of("origin", "destination")
-            )),
-            ToolDefinition.of("book_hotel", "Book a hotel room in a specific city", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                            "city", Map.of("type", "string", "description", "City name"),
-                            "checkIn", Map.of("type", "string", "description", "Check-in date"),
-                            "nights", Map.of("type", "integer", "description", "Number of nights")
-                    ),
-                    "required", List.of("city")
-            )),
-            ToolDefinition.of("get_weather", "Get weather forecast for a city", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                            "city", Map.of("type", "string", "description", "City name")
-                    ),
-                    "required", List.of("city")
-            ))
-    );
+            ToolDefinition.of(
+                    "search_flights",
+                    "Search for available flights between airports",
+                    Map.of(
+                            "type", "object",
+                            "properties",
+                                    Map.of(
+                                            "origin",
+                                                    Map.of("type", "string", "description", "Origin airport IATA code"),
+                                            "destination",
+                                                    Map.of(
+                                                            "type",
+                                                            "string",
+                                                            "description",
+                                                            "Destination airport IATA code"),
+                                            "date",
+                                                    Map.of(
+                                                            "type",
+                                                            "string",
+                                                            "description",
+                                                            "Travel date in YYYY-MM-DD format")),
+                            "required", List.of("origin", "destination"))),
+            ToolDefinition.of(
+                    "book_hotel",
+                    "Book a hotel room in a specific city",
+                    Map.of(
+                            "type", "object",
+                            "properties",
+                                    Map.of(
+                                            "city", Map.of("type", "string", "description", "City name"),
+                                            "checkIn", Map.of("type", "string", "description", "Check-in date"),
+                                            "nights", Map.of("type", "integer", "description", "Number of nights")),
+                            "required", List.of("city"))),
+            ToolDefinition.of(
+                    "get_weather",
+                    "Get weather forecast for a city",
+                    Map.of(
+                            "type", "object",
+                            "properties", Map.of("city", Map.of("type", "string", "description", "City name")),
+                            "required", List.of("city"))));
 
     public static void main(String[] args) {
         System.out.println("=== Dokimos Agent Evaluation Example ===\n");
@@ -73,7 +86,8 @@ public class AgentEvaluationExample {
                         .argument("nights", 3)
                         .result("Booked Hotel Le Marais for 3 nights")
                         .build())
-                .finalResponse("I've found flights from NYC to Paris and booked Hotel Le Marais for 3 nights starting March 15.")
+                .finalResponse(
+                        "I've found flights from NYC to Paris and booked Hotel Le Marais for 3 nights starting March 15.")
                 .metadata("totalLatencyMs", 2500)
                 .build();
 
@@ -98,10 +112,9 @@ public class AgentEvaluationExample {
         var correctnessEvaluator = ToolCorrectnessEvaluator.builder().build();
         var correctnessTestCase = EvalTestCase.builder()
                 .actualOutput("toolCalls", agentTrace.toolCalls())
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
                 .build();
         var correctnessResult = correctnessEvaluator.evaluate(correctnessTestCase);
         printResult(correctnessResult);
@@ -109,18 +122,16 @@ public class AgentEvaluationExample {
         // --- 3. Tool Name Reliability (no LLM needed) ---
         System.out.println("--- Tool Name Reliability ---");
         var nameEvaluator = ToolNameReliabilityEvaluator.builder().build();
-        var nameTestCase = EvalTestCase.builder()
-                .metadata("tools", AVAILABLE_TOOLS)
-                .build();
+        var nameTestCase =
+                EvalTestCase.builder().metadata("tools", AVAILABLE_TOOLS).build();
         var nameResult = nameEvaluator.evaluate(nameTestCase);
         printResult(nameResult);
 
         // --- 4. Tool Description Reliability (no LLM needed) ---
         System.out.println("--- Tool Description Reliability ---");
         var descEvaluator = ToolDescriptionReliabilityEvaluator.builder().build();
-        var descTestCase = EvalTestCase.builder()
-                .metadata("tools", AVAILABLE_TOOLS)
-                .build();
+        var descTestCase =
+                EvalTestCase.builder().metadata("tools", AVAILABLE_TOOLS).build();
         var descResult = descEvaluator.evaluate(descTestCase);
         printResult(descResult);
 
@@ -131,7 +142,8 @@ public class AgentEvaluationExample {
     }
 
     private static void printResult(EvalResult result) {
-        System.out.printf("  %s: %s (score: %.2f, threshold: %.2f)%n",
+        System.out.printf(
+                "  %s: %s (score: %.2f, threshold: %.2f)%n",
                 result.name(),
                 result.success() ? "PASS" : "FAIL",
                 result.score(),

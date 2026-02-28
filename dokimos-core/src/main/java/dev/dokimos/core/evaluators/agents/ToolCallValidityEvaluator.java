@@ -7,7 +7,6 @@ import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.*;
 
 /**
@@ -56,8 +55,7 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
 
         Object rawTools = testCase.metadata().get(toolsKey);
         if (rawTools == null) {
-            throw new EvaluationException(
-                    "ToolCallValidityEvaluator requires '%s' in metadata".formatted(toolsKey));
+            throw new EvaluationException("ToolCallValidityEvaluator requires '%s' in metadata".formatted(toolsKey));
         }
 
         List<ToolCall> toolCalls = castToolCalls(rawToolCalls);
@@ -89,8 +87,7 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
             validationResults.add(Map.of(
                     "toolName", call.name(),
                     "valid", valid,
-                    "errors", errors
-            ));
+                    "errors", errors));
         }
 
         double score = (double) validCount / toolCalls.size();
@@ -160,19 +157,20 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
         }
 
         String type = schemaType.toString();
-        boolean valid = switch (type) {
-            case "string" -> value instanceof String;
-            case "number" -> value instanceof Number;
-            case "integer" -> value instanceof Integer || value instanceof Long;
-            case "boolean" -> value instanceof Boolean;
-            case "array" -> value instanceof List;
-            case "object" -> value instanceof Map;
-            default -> true;
-        };
+        boolean valid =
+                switch (type) {
+                    case "string" -> value instanceof String;
+                    case "number" -> value instanceof Number;
+                    case "integer" -> value instanceof Integer || value instanceof Long;
+                    case "boolean" -> value instanceof Boolean;
+                    case "array" -> value instanceof List;
+                    case "object" -> value instanceof Map;
+                    default -> true;
+                };
 
         if (!valid) {
-            errors.add("Parameter '%s' expected type '%s' but got '%s'".formatted(
-                    paramName, type, value.getClass().getSimpleName()));
+            errors.add("Parameter '%s' expected type '%s' but got '%s'"
+                    .formatted(paramName, type, value.getClass().getSimpleName()));
         }
     }
 
@@ -181,8 +179,8 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
         Object enumValues = schema.get("enum");
         if (enumValues instanceof List<?> allowed) {
             if (!allowed.contains(value)) {
-                errors.add("Parameter '%s' value '%s' is not in allowed values: %s".formatted(
-                        paramName, value, allowed));
+                errors.add(
+                        "Parameter '%s' value '%s' is not in allowed values: %s".formatted(paramName, value, allowed));
             }
         }
     }

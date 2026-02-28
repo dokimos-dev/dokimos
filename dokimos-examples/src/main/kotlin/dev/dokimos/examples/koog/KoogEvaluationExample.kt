@@ -24,14 +24,14 @@ fun main() {
     fun agent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
-        maxIterations = 10
+        maxIterations = 10,
     )
 
     // 2-5. Build experiment with Kotlin DSL
     fun judgeAgent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
-        maxIterations = 10
+        maxIterations = 10,
     )
     val judge = asJudge(::judgeAgent)
 

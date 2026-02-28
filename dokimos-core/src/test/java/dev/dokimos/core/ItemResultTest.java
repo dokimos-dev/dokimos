@@ -1,12 +1,10 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
+import org.junit.jupiter.api.Test;
 
 class ItemResultTest {
 
@@ -17,9 +15,7 @@ class ItemResultTest {
                 Map.of("output", "the model's answer"),
                 List.of(
                         EvalResult.success("eval1", 0.92, "this was good"),
-                        EvalResult.success("eval2", 0.8, "it was ok")
-                )
-        );
+                        EvalResult.success("eval2", 0.8, "it was ok")));
 
         assertThat(item.success()).isTrue();
     }
@@ -31,9 +27,7 @@ class ItemResultTest {
                 Map.of("output", "12."),
                 List.of(
                         EvalResult.success("eval1", 0.9, "the answer is almost correct"),
-                        EvalResult.failure("eval2", 0.1, "the answer is incorrect")
-                )
-        );
+                        EvalResult.failure("eval2", 0.1, "the answer is incorrect")));
 
         assertThat(item.success()).isFalse();
     }

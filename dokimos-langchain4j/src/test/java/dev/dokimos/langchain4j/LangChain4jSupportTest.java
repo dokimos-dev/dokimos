@@ -1,5 +1,8 @@
 package dev.dokimos.langchain4j;
 
+import static org.assertj.core.api.Assertions.*;
+
+import dev.dokimos.core.Example;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
@@ -7,13 +10,9 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
-import dev.dokimos.core.Example;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 /**
  * This class tests the {@link LangChain4jSupport} class, which contains support utilities for integrating with LangChain4j.
@@ -60,8 +59,7 @@ class LangChain4jSupportTest {
     void ragTask_shouldExtractContextFromSources() {
         List<Content> sources = List.of(
                 Content.from(TextSegment.from("90-day money-back guarantee")),
-                Content.from(TextSegment.from("Contact our support for more information about refunds"))
-        );
+                Content.from(TextSegment.from("Contact our support for more information about refunds")));
 
         Result<String> mockResult = Result.<String>builder()
                 .content("You can get a refund within 90 days after purchase.")
@@ -78,31 +76,21 @@ class LangChain4jSupportTest {
 
         @SuppressWarnings("unchecked")
         List<String> context = (List<String>) outputs.get("context");
-        assertThat(context).containsExactly(
-                "90-day money-back guarantee",
-                "Contact our support for more information about refunds"
-        );
+        assertThat(context)
+                .containsExactly(
+                        "90-day money-back guarantee", "Contact our support for more information about refunds");
     }
 
     @Test
     void ragTask_shouldSupportCustomKeys() {
         List<Content> sources = List.of(Content.from(TextSegment.from("Source document")));
 
-        Result<String> mockResult = Result.<String>builder()
-                .content("The answer")
-                .sources(sources)
-                .build();
+        Result<String> mockResult =
+                Result.<String>builder().content("The answer").sources(sources).build();
 
-        var task = LangChain4jSupport.ragTask(
-                input -> mockResult,
-                "question",
-                "answer",
-                "documentContext"
-        );
+        var task = LangChain4jSupport.ragTask(input -> mockResult, "question", "answer", "documentContext");
 
-        var example = Example.builder()
-                .input("question", "What?")
-                .build();
+        var example = Example.builder().input("question", "What?").build();
 
         Map<String, Object> outputs = task.run(example);
 
@@ -128,9 +116,7 @@ class LangChain4jSupportTest {
     @Test
     void extractTexts_shouldExtractTextFromContents() {
         List<Content> contents = List.of(
-                Content.from(TextSegment.from("First segment")),
-                Content.from(TextSegment.from("Second segment"))
-        );
+                Content.from(TextSegment.from("First segment")), Content.from(TextSegment.from("Second segment")));
 
         List<String> texts = LangChain4jSupport.extractTexts(contents);
 
@@ -139,12 +125,8 @@ class LangChain4jSupportTest {
 
     @Test
     void extractTextsWithMetadata_shouldIncludeMetadata() {
-        List<Content> contents = List.of(
-                Content.from(TextSegment.from(
-                        "Document content",
-                        dev.langchain4j.data.document.Metadata.from("source", "G://files/test-file.md")
-                ))
-        );
+        List<Content> contents = List.of(Content.from(TextSegment.from(
+                "Document content", dev.langchain4j.data.document.Metadata.from("source", "G://files/test-file.md"))));
 
         List<Map<String, Object>> results = LangChain4jSupport.extractTextsWithMetadata(contents);
 
@@ -161,11 +143,14 @@ class LangChain4jSupportTest {
     void customTask_shouldSupportFullControl() {
         var task = LangChain4jSupport.customTask(example -> {
             return Map.of(
-                    "output", "The AI generated response",
-                    "context", List.of("doc1", "doc2"),
-                    "latencyMs", 150L,
-                    "customMetric", 0.95
-            );
+                    "output",
+                    "The AI generated response",
+                    "context",
+                    List.of("doc1", "doc2"),
+                    "latencyMs",
+                    150L,
+                    "customMetric",
+                    0.95);
         });
 
         var example = Example.of("What?", "Some answer");

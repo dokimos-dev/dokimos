@@ -1,18 +1,16 @@
 package dev.dokimos.core;
 
-import dev.dokimos.core.evaluators.ExactMatchEvaluator;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
+
+import dev.dokimos.core.evaluators.ExactMatchEvaluator;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class ExactMatchEvaluatorTest {
 
     @Test
     void shouldReturnFullScoreWhenMatch() {
-        var evaluator = ExactMatchEvaluator.builder()
-                .build();
+        var evaluator = ExactMatchEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
                 .actualOutput("The quick brown fox")
@@ -28,8 +26,7 @@ class ExactMatchEvaluatorTest {
 
     @Test
     void shouldReturnZeroWhenMismatch() {
-        var evaluator = ExactMatchEvaluator.builder()
-                .build();
+        var evaluator = ExactMatchEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
                 .actualOutput("The quick brown fox")
@@ -60,14 +57,10 @@ class ExactMatchEvaluatorTest {
 
     @Test
     void shouldRespectCustomThreshold() {
-        var evaluator = ExactMatchEvaluator.builder()
-                .threshold(0.5)
-                .build();
+        var evaluator = ExactMatchEvaluator.builder().threshold(0.5).build();
 
-        var testCase = EvalTestCase.builder()
-                .actualOutput("A")
-                .expectedOutput("B")
-                .build();
+        var testCase =
+                EvalTestCase.builder().actualOutput("A").expectedOutput("B").build();
 
         var result = evaluator.evaluate(testCase);
 

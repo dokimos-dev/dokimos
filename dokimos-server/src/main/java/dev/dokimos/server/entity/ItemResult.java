@@ -11,15 +11,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "item_results")
@@ -52,11 +50,10 @@ public class ItemResult {
     @OneToMany(mappedBy = "itemResult", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<EvalResult> evalResults = new ArrayList<>();
 
-    protected ItemResult() {
-    }
+    protected ItemResult() {}
 
-    public ItemResult(ExperimentRun run, String input, String expectedOutput, String actualOutput,
-            Map<String, Object> metadata) {
+    public ItemResult(
+            ExperimentRun run, String input, String expectedOutput, String actualOutput, Map<String, Object> metadata) {
         this.run = run;
         this.input = input;
         this.expectedOutput = expectedOutput;

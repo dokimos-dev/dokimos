@@ -15,8 +15,7 @@ public final class NoOpReporter implements Reporter {
      */
     public static final NoOpReporter INSTANCE = new NoOpReporter();
 
-    private NoOpReporter() {
-    }
+    private NoOpReporter() {}
 
     @Override
     public RunHandle startRun(String experimentName, Map<String, Object> metadata) {

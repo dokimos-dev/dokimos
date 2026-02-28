@@ -12,11 +12,7 @@ import java.util.*;
  * @param description the tool description
  * @param inputSchema the JSON Schema for the tool's arguments
  */
-public record ToolDefinition(
-        String name,
-        String description,
-        Map<String, Object> inputSchema
-) {
+public record ToolDefinition(String name, String description, Map<String, Object> inputSchema) {
     public ToolDefinition {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Tool definition name must not be null or blank");
@@ -48,9 +44,8 @@ public record ToolDefinition(
     public static ToolDefinition fromMap(Map<String, Object> map) {
         String name = (String) map.get("name");
         String description = map.containsKey("description") ? (String) map.get("description") : "";
-        Map<String, Object> inputSchema = map.containsKey("inputSchema")
-                ? (Map<String, Object>) map.get("inputSchema")
-                : Map.of();
+        Map<String, Object> inputSchema =
+                map.containsKey("inputSchema") ? (Map<String, Object>) map.get("inputSchema") : Map.of();
         return new ToolDefinition(name, description, inputSchema);
     }
 

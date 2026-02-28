@@ -7,12 +7,11 @@ import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 import dev.dokimos.junit.DatasetSource;
+import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
-
-import java.util.List;
 
 @Tag("integration")
 @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")
@@ -29,21 +28,24 @@ class QaEvaluationIT {
                     .addUserMessage(prompt)
                     .model(ChatModel.GPT_5_NANO)
                     .build();
-            return client.chat().completions().create(params)
-                    .choices().get(0).message().content().orElse("");
+            return client.chat()
+                    .completions()
+                    .create(params)
+                    .choices()
+                    .get(0)
+                    .message()
+                    .content()
+                    .orElse("");
         };
 
-        evaluators = List.of(
-                LLMJudgeEvaluator.builder()
-                        .name("answer-correctness")
-                        .criteria("is the answer correctly answering the question?")
-                        .evaluationParams(List.of(
-                                EvalTestCaseParam.INPUT,
-                                EvalTestCaseParam.ACTUAL_OUTPUT,
-                                EvalTestCaseParam.EXPECTED_OUTPUT))
-                        .threshold(0.5)
-                        .judge(llm)
-                        .build());
+        evaluators = List.of(LLMJudgeEvaluator.builder()
+                .name("answer-correctness")
+                .criteria("is the answer correctly answering the question?")
+                .evaluationParams(List.of(
+                        EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
+                .threshold(0.5)
+                .judge(llm)
+                .build());
     }
 
     @ParameterizedTest
@@ -58,5 +60,4 @@ class QaEvaluationIT {
     private String simulateAssistant(String question) {
         return "You can get a full refund within 30 days of purchase. No return is allowed after 30 days.";
     }
-
 }

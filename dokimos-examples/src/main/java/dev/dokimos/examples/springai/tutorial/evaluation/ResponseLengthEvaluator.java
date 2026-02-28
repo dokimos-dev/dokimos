@@ -4,7 +4,6 @@ import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
-
 import java.util.List;
 
 /**
@@ -32,9 +31,7 @@ public class ResponseLengthEvaluator extends BaseEvaluator {
 
         boolean withinBounds = wordCount >= minWords && wordCount <= maxWords;
         double score = withinBounds ? 1.0 : 0.0;
-        String reason = String.format(
-                "Response has %d words (expected %d-%d)",
-                wordCount, minWords, maxWords);
+        String reason = String.format("Response has %d words (expected %d-%d)", wordCount, minWords, maxWords);
 
         return EvalResult.builder()
                 .name(name())

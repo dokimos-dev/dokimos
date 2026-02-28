@@ -4,7 +4,6 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.conversation.*;
-
 import java.util.List;
 
 /**
@@ -46,8 +45,7 @@ public class MultiTurnConversationExample {
                         """)
                 .fixedResponses(List.of(
                         "I just received my order and it's completely broken! This is unacceptable!",
-                        "I've been a customer for 5 years and this is how you treat me?"
-                ))
+                        "I've been a customer for 5 years and this is how you treat me?"))
                 .build();
 
         // Create a mock application (chatbot) to test
@@ -79,16 +77,14 @@ public class MultiTurnConversationExample {
                 .criteria(List.of(
                         TrajectoryEvaluationCriteria.userSatisfaction(),
                         TrajectoryEvaluationCriteria.problemResolution(),
-                        TrajectoryEvaluationCriteria.professionalTone()
-                ))
+                        TrajectoryEvaluationCriteria.professionalTone()))
                 .aggregationStrategy(AggregationStrategy.MEAN)
                 .includePerCriterionScores(true)
                 .build();
 
         // Evaluate the trajectory
-        EvalTestCase testCase = EvalTestCase.builder()
-                .actualOutput("trajectory", trajectory)
-                .build();
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
 
         EvalResult result = evaluator.evaluate(testCase);
 
@@ -163,18 +159,23 @@ public class MultiTurnConversationExample {
         return trajectory -> {
             int turnNumber = trajectory.assistantMessages().size();
 
-            String response = switch (turnNumber) {
-                case 0 -> "I'm so sorry to hear about your experience. I completely understand your frustration. " +
-                        "Let me look into this right away. Can you please provide your order number?";
-                case 1 -> "Thank you for your patience and loyalty over the years. I can see your order history " +
-                        "and I sincerely apologize for this issue. I'm immediately shipping a replacement " +
-                        "at no additional cost, and I'm also adding a 20% discount to your next order.";
-                case 2 -> "The replacement will be shipped today via express delivery and should arrive " +
-                        "within 2-3 business days. You'll receive a tracking number within the hour. " +
-                        "Is there anything else I can help you with?";
-                default -> "Thank you for your patience. Please don't hesitate to reach out if you " +
-                        "need any further assistance. Have a great day!";
-            };
+            String response =
+                    switch (turnNumber) {
+                        case 0 ->
+                            "I'm so sorry to hear about your experience. I completely understand your frustration. "
+                                    + "Let me look into this right away. Can you please provide your order number?";
+                        case 1 ->
+                            "Thank you for your patience and loyalty over the years. I can see your order history "
+                                    + "and I sincerely apologize for this issue. I'm immediately shipping a replacement "
+                                    + "at no additional cost, and I'm also adding a 20% discount to your next order.";
+                        case 2 ->
+                            "The replacement will be shipped today via express delivery and should arrive "
+                                    + "within 2-3 business days. You'll receive a tracking number within the hour. "
+                                    + "Is there anything else I can help you with?";
+                        default ->
+                            "Thank you for your patience. Please don't hesitate to reach out if you "
+                                    + "need any further assistance. Have a great day!";
+                    };
 
             return Message.assistant(response);
         };

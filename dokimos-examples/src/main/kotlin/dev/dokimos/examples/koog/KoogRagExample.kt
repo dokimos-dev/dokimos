@@ -34,8 +34,7 @@ suspend fun main() {
     val baseEmbedder = LLMEmbedder(OpenAILLMClient(apiKey), OpenAIModels.Embeddings.TextEmbeddingAda002)
     val stringEmbedder = object : DocumentEmbedder<String> {
         override suspend fun embed(text: String) = baseEmbedder.embed(text)
-        override fun diff(embedding1: Vector, embedding2: Vector): Double =
-            baseEmbedder.diff(embedding1, embedding2)
+        override fun diff(embedding1: Vector, embedding2: Vector): Double = baseEmbedder.diff(embedding1, embedding2)
     }
 
     val storage = InMemoryDocumentEmbeddingStorage(embedder = stringEmbedder).apply {
@@ -48,14 +47,14 @@ suspend fun main() {
     fun agent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
-        maxIterations = 10
+        maxIterations = 10,
     )
 
     // Judge agent
     fun judgeAgent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
-        maxIterations = 10
+        maxIterations = 10,
     )
 
     val judge = asJudge(::judgeAgent)
@@ -82,7 +81,7 @@ suspend fun main() {
         task { example ->
             // Retrieve top-2 relevant docs
             val query = example.input()
-            val ranked: List<String> =  runBlocking {  storage.mostRelevantDocuments(query, count = 2).toList() }
+            val ranked: List<String> = runBlocking { storage.mostRelevantDocuments(query, count = 2).toList() }
 
             val contextText = ranked.joinToString("\n")
             val prompt = """
@@ -100,7 +99,7 @@ suspend fun main() {
 
             mapOf(
                 "output" to response,
-                "context" to ranked
+                "context" to ranked,
             )
         }
 

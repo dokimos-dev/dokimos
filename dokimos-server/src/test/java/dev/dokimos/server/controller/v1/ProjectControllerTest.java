@@ -1,5 +1,13 @@
 package dev.dokimos.server.controller.v1;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.ExperimentSummary;
@@ -10,6 +18,10 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.ProjectService;
 import dev.dokimos.server.service.RunService;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,19 +29,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
@@ -77,8 +76,7 @@ class ProjectControllerTest extends AbstractControllerTest {
     void listExperiments_shouldReturnExperiments() throws Exception {
         Project project = new Project("my-project");
         UUID experimentId = UUID.randomUUID();
-        ExperimentSummary summary = new ExperimentSummary(
-                experimentId, "my-experiment", Instant.now(), null);
+        ExperimentSummary summary = new ExperimentSummary(experimentId, "my-experiment", Instant.now(), null);
 
         when(projectService.getProject("my-project")).thenReturn(project);
         when(experimentService.listExperiments(project)).thenReturn(List.of(summary));
@@ -113,8 +111,8 @@ class ProjectControllerTest extends AbstractControllerTest {
         CreateRunRequest request = new CreateRunRequest("my-experiment", Map.of("key", "value"));
 
         mockMvc.perform(post("/api/v1/projects/my-project/runs")
-                .contentType(MediaType.APPLICATION_JSON_VALUE)
-                .content(toJson(request)))
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.runId").value(runId.toString()));
     }

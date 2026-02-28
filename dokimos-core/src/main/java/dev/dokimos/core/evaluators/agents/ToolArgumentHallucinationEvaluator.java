@@ -10,7 +10,6 @@ import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.List;
 import java.util.Map;
 
@@ -86,7 +85,12 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
             } catch (Exception e) {
                 argsJson = call.arguments().toString();
             }
-            sb.append(i + 1).append(". ").append(call.name()).append("(").append(argsJson).append(")\n");
+            sb.append(i + 1)
+                    .append(". ")
+                    .append(call.name())
+                    .append("(")
+                    .append(argsJson)
+                    .append(")\n");
         }
         sb.append("\nFor each tool call, determine if the argument values are grounded in the user input.\n");
         sb.append("Respond ONLY as a JSON array (no markdown):\n");
@@ -97,8 +101,8 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
     private EvalResult parseResponse(String response, int totalCalls) {
         try {
             String json = extractJsonArray(response);
-            List<Map<String, Object>> verdicts = OBJECT_MAPPER.readValue(json,
-                    new TypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> verdicts =
+                    OBJECT_MAPPER.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
 
             long grounded = verdicts.stream()
                     .filter(v -> Boolean.TRUE.equals(v.get("grounded")))

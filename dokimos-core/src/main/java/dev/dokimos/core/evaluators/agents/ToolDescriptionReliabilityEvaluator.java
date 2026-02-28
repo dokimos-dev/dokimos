@@ -8,7 +8,6 @@ import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -46,10 +45,15 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final List<String> LLM_CHECK_KEYS = List.of(
-            "general_structure", "has_examples", "has_usage_notes",
-            "intent_over_implementation", "clarity", "redundancy",
-            "input_arguments_enum", "input_arguments_format", "return_statement_quality"
-    );
+            "general_structure",
+            "has_examples",
+            "has_usage_notes",
+            "intent_over_implementation",
+            "clarity",
+            "redundancy",
+            "input_arguments_enum",
+            "input_arguments_format",
+            "return_statement_quality");
 
     private final String toolsKey;
     private final JudgeLM judge;
@@ -101,14 +105,15 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> checks = (Map<String, Object>) result.get("checks");
-            long ran = checks.values().stream().filter(Boolean.class::isInstance).count();
+            long ran =
+                    checks.values().stream().filter(Boolean.class::isInstance).count();
             long passed = checks.values().stream().filter(Boolean.TRUE::equals).count();
             totalScore += ran > 0 ? (double) passed / ran : 1.0;
         }
 
         double score = totalScore / tools.size();
-        String reason = String.format("Average description quality: %.1f%% across %d tools.",
-                score * 100, tools.size());
+        String reason =
+                String.format("Average description quality: %.1f%% across %d tools.", score * 100, tools.size());
 
         return EvalResult.builder()
                 .name(name)
@@ -148,10 +153,7 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
             }
         }
 
-        return Map.of(
-                "toolName", tool.name(),
-                "checks", checks
-        );
+        return Map.of("toolName", tool.name(), "checks", checks);
     }
 
     private boolean allParamsHaveKey(ToolDefinition tool, String key) {
@@ -170,7 +172,8 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
     private int countOptionalParams(ToolDefinition tool) {
         Set<String> allParams = tool.parameterNames();
         List<String> required = tool.requiredParameters();
-        long requiredInProperties = required.stream().filter(allParams::contains).count();
+        long requiredInProperties =
+                required.stream().filter(allParams::contains).count();
         return Math.max(0, allParams.size() - (int) requiredInProperties);
     }
 
@@ -200,8 +203,7 @@ public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
                         + "{\"general_structure\": 0/1, \"has_examples\": 0/1, \"has_usage_notes\": 0/1, "
                         + "\"intent_over_implementation\": 0/1, \"clarity\": 0/1, \"redundancy\": 0/1, "
                         + "\"input_arguments_enum\": 0/1, \"input_arguments_format\": 0/1, \"return_statement_quality\": 0/1}",
-                tool.name(), tool.description(), schemaJson
-        );
+                tool.name(), tool.description(), schemaJson);
 
         String response = judge.generate(prompt).trim();
         return parseLlmJson(response);

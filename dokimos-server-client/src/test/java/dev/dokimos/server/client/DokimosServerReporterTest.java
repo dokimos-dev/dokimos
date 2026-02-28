@@ -1,5 +1,7 @@
 package dev.dokimos.server.client;
 
+import static org.assertj.core.api.Assertions.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
@@ -10,10 +12,6 @@ import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
 import dev.dokimos.core.RunHandle;
 import dev.dokimos.core.RunStatus;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -21,8 +19,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class DokimosServerReporterTest {
 
@@ -51,8 +50,8 @@ class DokimosServerReporterTest {
     @Test
     void shouldRequireServerUrl() {
         assertThatThrownBy(() -> DokimosServerReporter.builder()
-                .projectName("test-project")
-                .build())
+                        .projectName("test-project")
+                        .build())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("serverUrl");
     }
@@ -60,8 +59,8 @@ class DokimosServerReporterTest {
     @Test
     void shouldRequireProjectName() {
         assertThatThrownBy(() -> DokimosServerReporter.builder()
-                .serverUrl("http://localhost")
-                .build())
+                        .serverUrl("http://localhost")
+                        .build())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("projectName");
     }
@@ -281,9 +280,7 @@ class DokimosServerReporterTest {
 
             Example example = Example.of("What is 2+2?", "4");
             ItemResult result = new ItemResult(
-                    example,
-                    Map.of("output", "4"),
-                    List.of(EvalResult.success("exact-match", 1.0, "Correct")));
+                    example, Map.of("output", "4"), List.of(EvalResult.success("exact-match", 1.0, "Correct")));
 
             reporter.reportItem(handle, result);
             reporter.flush();
@@ -314,9 +311,7 @@ class DokimosServerReporterTest {
     private ItemResult createItemResult(String input, String expectedOutput) {
         Example example = Example.of(input, expectedOutput);
         return new ItemResult(
-                example,
-                Map.of("output", expectedOutput),
-                List.of(EvalResult.success("test-eval", 1.0, "pass")));
+                example, Map.of("output", expectedOutput), List.of(EvalResult.success("test-eval", 1.0, "pass")));
     }
 
     private class RecordingHandler implements HttpHandler {
@@ -350,6 +345,5 @@ class DokimosServerReporterTest {
         }
     }
 
-    private record RecordedRequest(String method, String path, String body, String authHeader) {
-    }
+    private record RecordedRequest(String method, String path, String body, String authHeader) {}
 }

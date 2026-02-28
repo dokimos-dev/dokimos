@@ -1,11 +1,10 @@
 package dev.dokimos.junit;
 
-import org.junit.jupiter.params.provider.ArgumentsSource;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.junit.jupiter.params.provider.ArgumentsSource;
 
 /**
  * Provides {@code Example}s from a {@code Dataset} as arguments to a
@@ -24,7 +23,7 @@ import java.lang.annotation.Target;
  *
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * @ParameterizedTest
  * @DatasetSource("classpath:datasets/qa.json")
@@ -55,5 +54,4 @@ public @interface DatasetSource {
      * Use this for small/quick tests only.
      */
     String jsonl() default "";
-
 }

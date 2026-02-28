@@ -1,7 +1,6 @@
 package dev.dokimos.core.conversation;
 
 import dev.dokimos.core.JudgeLM;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +13,7 @@ import java.util.List;
  * responses.
  * <p>
  * Example usage:
- * 
+ *
  * <pre>{@code
  * SimulatedUser user = LLMSimulatedUser.builder()
  *         .judge(judgeLM)

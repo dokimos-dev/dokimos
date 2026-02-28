@@ -7,7 +7,6 @@ import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
-
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -31,9 +30,8 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
 
     private static final Pattern SNAKE_CASE = Pattern.compile("^[a-z][a-z0-9]*(_[a-z0-9]+)*$");
     private static final int MAX_SEGMENTS = 7;
-    private static final List<String> IMPLEMENTATION_BLOCKLIST = List.of(
-            "_with_llm", "_via_api", "_from_s3", "_using_bq", "_using_sdk", "_with_gpt4"
-    );
+    private static final List<String> IMPLEMENTATION_BLOCKLIST =
+            List.of("_with_llm", "_via_api", "_from_s3", "_using_bq", "_using_sdk", "_with_gpt4");
 
     private final String toolsKey;
     private final JudgeLM judge;
@@ -57,8 +55,7 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
     protected EvalResult runEvaluation(EvalTestCase testCase) {
         Object rawTools = testCase.metadata().get(toolsKey);
         if (rawTools == null) {
-            throw new EvaluationException(
-                    "ToolNameReliabilityEvaluator requires '%s' in metadata".formatted(toolsKey));
+            throw new EvaluationException("ToolNameReliabilityEvaluator requires '%s' in metadata".formatted(toolsKey));
         }
 
         List<ToolDefinition> tools = castToolDefinitions(rawTools);
@@ -81,7 +78,8 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
 
             @SuppressWarnings("unchecked")
             Map<String, Object> checks = (Map<String, Object>) result.get("checks");
-            long ran = checks.values().stream().filter(Boolean.class::isInstance).count();
+            long ran =
+                    checks.values().stream().filter(Boolean.class::isInstance).count();
             long passed = checks.values().stream().filter(Boolean.TRUE::equals).count();
             totalScore += ran > 0 ? (double) passed / ran : 1.0;
         }
@@ -114,7 +112,8 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
             // Blocklist is a quick pre-check; LLM does the full semantic check
             // Both must pass
             Map<String, Integer> llmResults = batchLlmChecks(tool);
-            checks.put("intent_over_implementation",
+            checks.put(
+                    "intent_over_implementation",
                     blocklistPass && llmResults.getOrDefault("intent_over_implementation", 0) == 1);
             checks.put("clarity", llmResults.getOrDefault("clarity", 0) == 1);
             checks.put("name_order", llmResults.getOrDefault("name_order", 0) == 1);
@@ -125,10 +124,7 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
             checks.put("name_order", "skipped");
         }
 
-        return Map.of(
-                "toolName", tool.name(),
-                "checks", checks
-        );
+        return Map.of("toolName", tool.name(), "checks", checks);
     }
 
     private Map<String, Integer> batchLlmChecks(ToolDefinition tool) {
@@ -144,8 +140,7 @@ public class ToolNameReliabilityEvaluator extends BaseEvaluator {
                         + "(e.g. with_llm, via_api, from_s3)?\n\n"
                         + "Respond ONLY as JSON (no markdown): "
                         + "{\"clarity\": 0/1, \"name_order\": 0/1, \"intent_over_implementation\": 0/1}",
-                tool.name(), tool.description()
-        );
+                tool.name(), tool.description());
 
         String response = judge.generate(prompt).trim();
         return parseLlmJson(response);

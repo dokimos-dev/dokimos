@@ -5,14 +5,13 @@ import dev.dokimos.server.dto.v1.TrendData;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.RunService;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/experiments")
@@ -33,8 +32,7 @@ public class ExperimentController {
     }
 
     @GetMapping("/{experimentId}/trends")
-    public TrendData getTrends(@PathVariable UUID experimentId,
-            @RequestParam(defaultValue = "20") int limit) {
+    public TrendData getTrends(@PathVariable UUID experimentId, @RequestParam(defaultValue = "20") int limit) {
         return experimentService.getTrends(experimentId, limit);
     }
 }

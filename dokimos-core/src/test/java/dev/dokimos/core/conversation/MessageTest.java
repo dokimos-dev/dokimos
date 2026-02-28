@@ -1,10 +1,9 @@
 package dev.dokimos.core.conversation;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class MessageTest {
 
@@ -41,10 +40,7 @@ class MessageTest {
 
     @Test
     void shouldCreateMessageWithMetadata() {
-        Message message = new Message(
-                Message.Role.USER,
-                "Test",
-                Map.of("timestamp", "2024-01-01"));
+        Message message = new Message(Message.Role.USER, "Test", Map.of("timestamp", "2024-01-01"));
 
         assertThat(message.metadata()).containsEntry("timestamp", "2024-01-01");
     }

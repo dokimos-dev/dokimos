@@ -1,5 +1,7 @@
 package dev.dokimos.server.filter;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.config.ApiKeyProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class ApiKeyAuthFilterTest {
 

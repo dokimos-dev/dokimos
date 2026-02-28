@@ -1,25 +1,24 @@
 package dev.dokimos.server.service;
 
-import dev.dokimos.server.dto.v1.ProjectSummary;
-import dev.dokimos.server.entity.Project;
-import dev.dokimos.server.repository.ProjectRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import dev.dokimos.server.dto.v1.ProjectSummary;
+import dev.dokimos.server.entity.Project;
+import dev.dokimos.server.repository.ProjectRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 @SuppressWarnings("null")
 @ExtendWith(MockitoExtension.class)
@@ -81,9 +80,7 @@ class ProjectServiceTest {
         Project project1 = createProject("project-1");
         Project project2 = createProject("project-2");
 
-        List<Object[]> rows = List.of(
-                new Object[] { project1, 5L },
-                new Object[] { project2, 3L });
+        List<Object[]> rows = List.of(new Object[] {project1, 5L}, new Object[] {project2, 3L});
         when(projectRepository.findAllWithExperimentCount()).thenReturn(rows);
 
         List<ProjectSummary> result = projectService.listProjects();

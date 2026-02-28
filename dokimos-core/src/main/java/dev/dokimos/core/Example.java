@@ -10,11 +10,7 @@ import java.util.Map;
  * @param expectedOutputs the expected output values
  * @param metadata        additional metadata
  */
-public record Example(
-        Map<String, Object> inputs,
-        Map<String, Object> expectedOutputs,
-        Map<String, Object> metadata
-) {
+public record Example(Map<String, Object> inputs, Map<String, Object> expectedOutputs, Map<String, Object> metadata) {
     /**
      * Compact constructor that creates immutable copies of all maps.
      */
@@ -32,11 +28,7 @@ public record Example(
      * @return a new example
      */
     public static Example of(String input, String expectedOutput) {
-        return new Example(
-                Map.of("input", input),
-                Map.of("output", expectedOutput),
-                Map.of()
-        );
+        return new Example(Map.of("input", input), Map.of("output", expectedOutput), Map.of());
     }
 
     /**

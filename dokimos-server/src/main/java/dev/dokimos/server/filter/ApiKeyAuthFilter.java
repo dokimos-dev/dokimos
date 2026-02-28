@@ -6,16 +6,15 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Filter that enforces API key authentication for write operations on
@@ -35,10 +34,8 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final Set<String> READ_METHODS = Set.of(
-            HttpMethod.GET.name(),
-            HttpMethod.HEAD.name(),
-            HttpMethod.OPTIONS.name());
+    private static final Set<String> READ_METHODS =
+            Set.of(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name());
 
     private final ApiKeyProperties apiKeyProperties;
     private final ObjectMapper objectMapper;
@@ -49,8 +46,11 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
+            throws ServletException, IOException {
 
         // If auth is disabled, we allow all requests
         if (!apiKeyProperties.isAuthEnabled()) {
@@ -88,8 +88,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         return !path.startsWith("/api/v1/");
     }
 
-    private void sendUnauthorizedResponse(HttpServletResponse response, String message)
-            throws IOException {
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         Map<String, String> errorBody = Map.of("error", message);

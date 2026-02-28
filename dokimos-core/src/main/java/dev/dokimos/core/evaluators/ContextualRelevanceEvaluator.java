@@ -8,7 +8,6 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -83,18 +82,18 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
 
         List<ContextScore> contextScores = scoreContextChunks(input, retrievalContext);
         double finalScore = calculateMeanScore(contextScores);
-        String reason = includeReason
-                ? generateSummaryReason(input, contextScores, finalScore)
-                : "Reasoning was disabled";
+        String reason =
+                includeReason ? generateSummaryReason(input, contextScores, finalScore) : "Reasoning was disabled";
 
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("contextScores", contextScores.stream()
-                .map(cs -> Map.of(
-                        "context", cs.context(),
-                        "score", cs.score(),
-                        "reason", cs.reason()
-                ))
-                .toList());
+        metadata.put(
+                "contextScores",
+                contextScores.stream()
+                        .map(cs -> Map.of(
+                                "context", cs.context(),
+                                "score", cs.score(),
+                                "reason", cs.reason()))
+                        .toList());
 
         return EvalResult.builder()
                 .name(name)
@@ -109,21 +108,16 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
         Object context = testCase.actualOutputs().get(retrievalContextKey);
         if (context == null) {
             throw new EvaluationException(
-                    "ContextualRelevance requires '%s' in actualOutputs".formatted(retrievalContextKey)
-            );
+                    "ContextualRelevance requires '%s' in actualOutputs".formatted(retrievalContextKey));
         }
 
         if (context instanceof List<?> list) {
-            return list.stream()
-                    .map(Object::toString)
-                    .toList();
+            return list.stream().map(Object::toString).toList();
         } else if (context instanceof String str) {
             return List.of(str);
         } else {
-            throw new EvaluationException(
-                    "Expected '%s' to be a List<String> or String, but got: %s"
-                            .formatted(retrievalContextKey, context.getClass().getSimpleName())
-            );
+            throw new EvaluationException("Expected '%s' to be a List<String> or String, but got: %s"
+                    .formatted(retrievalContextKey, context.getClass().getSimpleName()));
         }
     }
 
@@ -163,9 +157,7 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
         String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
 
         try {
-            Map<String, Object> parsed = OBJECT_MAPPER.readValue(
-                    response, new TypeReference<Map<String, Object>>() {}
-            );
+            Map<String, Object> parsed = OBJECT_MAPPER.readValue(response, new TypeReference<Map<String, Object>>() {});
 
             double score = parseScore(parsed.get("score"));
             String reason = parsed.getOrDefault("reason", "No reason provided").toString();
@@ -173,8 +165,7 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
             return new ContextScore(context, score, reason);
         } catch (Exception e) {
             throw new EvaluationException(
-                    "Failed to parse relevance score response for context chunk %d".formatted(index), e
-            );
+                    "Failed to parse relevance score response for context chunk %d".formatted(index), e);
         }
     }
 
@@ -198,9 +189,7 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
         if (scores.isEmpty()) {
             return 0.0;
         }
-        double sum = scores.stream()
-                .mapToDouble(ContextScore::score)
-                .sum();
+        double sum = scores.stream().mapToDouble(ContextScore::score).sum();
         return sum / scores.size();
     }
 
@@ -242,14 +231,13 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
 
                 One-sentence summary explaining the overall relevance of the retrieved contexts:
                 """.formatted(
-                input,
-                finalScore,
-                contextScores.size(),
-                highlyRelevant.isEmpty() ? "None" : String.join(", ", highlyRelevant),
-                partiallyRelevant.isEmpty() ? "None" : String.join(", ", partiallyRelevant),
-                irrelevant.isEmpty() ? "None" : String.join(", ", irrelevant),
-                formatContextScores(contextScores)
-        );
+                        input,
+                        finalScore,
+                        contextScores.size(),
+                        highlyRelevant.isEmpty() ? "None" : String.join(", ", highlyRelevant),
+                        partiallyRelevant.isEmpty() ? "None" : String.join(", ", partiallyRelevant),
+                        irrelevant.isEmpty() ? "None" : String.join(", ", irrelevant),
+                        formatContextScores(contextScores));
 
         return judge.generate(prompt).trim();
     }

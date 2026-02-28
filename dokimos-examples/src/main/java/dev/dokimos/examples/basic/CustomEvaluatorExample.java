@@ -6,7 +6,6 @@ import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
-
 import java.util.List;
 import java.util.Map;
 
@@ -49,22 +48,15 @@ public class CustomEvaluatorExample {
         // Create a new dataset programmatically
         Dataset dataset = Dataset.builder()
                 .name("Product Info Dataset")
-                .addExample(Example.of(
-                        "What are the main features of this product?",
-                        "wireless, waterproof, battery"
-                ))
-                .addExample(Example.of(
-                        "What payment methods do you accept?",
-                        "credit card, PayPal, bank transfer"
-                ))
+                .addExample(Example.of("What are the main features of this product?", "wireless, waterproof, battery"))
+                .addExample(Example.of("What payment methods do you accept?", "credit card, PayPal, bank transfer"))
                 .build();
 
         // Our custom evaluator
         Evaluator keywordEvaluator = new KeywordEvaluator(
                 "Keyword Presence",
                 0.6, // minimum 60% must be present in the LLM response
-                List.of("wireless", "waterproof", "long battery life")
-        );
+                List.of("wireless", "waterproof", "long battery life"));
 
         // Simulate some LLM responses
         Task task = example -> {
@@ -90,9 +82,8 @@ public class CustomEvaluatorExample {
             System.out.println("  Response: " + item.actualOutputs().get("output"));
             System.out.println("  Status: " + (item.success() ? "✓ PASS" : "✗ FAIL"));
             item.evalResults().forEach(eval -> {
-                System.out.println("    - " + eval.name() + ": " +
-                        String.format("%.2f", eval.score()) + " " +
-                        (eval.reason() != null ? "(" + eval.reason() + ")" : ""));
+                System.out.println("    - " + eval.name() + ": " + String.format("%.2f", eval.score()) + " "
+                        + (eval.reason() != null ? "(" + eval.reason() + ")" : ""));
             });
             System.out.println();
         });
@@ -126,34 +117,31 @@ public class CustomEvaluatorExample {
                     .model(ChatModel.GPT_5_NANO)
                     .build();
 
-            return client.chat().completions().create(params)
-                    .choices().get(0).message().content().orElse("");
+            return client.chat()
+                    .completions()
+                    .create(params)
+                    .choices()
+                    .get(0)
+                    .message()
+                    .content()
+                    .orElse("");
         };
 
         // Test cases
         Dataset dataset = Dataset.builder()
                 .name("Customer Support QA")
-                .addExample(Example.of(
-                        "Can I return my order after 60 days?",
-                        "30-day return policy"
-                ))
-                .addExample(Example.of(
-                        "What's the shipping time?",
-                        "5-7 business days"
-                ))
+                .addExample(Example.of("Can I return my order after 60 days?", "30-day return policy"))
+                .addExample(Example.of("What's the shipping time?", "5-7 business days"))
                 .build();
 
         // Create the LLM judge evaluator
         Evaluator llmJudge = LLMJudgeEvaluator.builder()
                 .name("Answer Correctness")
                 .judge(judge)
-                .criteria("Does the answer correctly address the question? " +
-                        "Score 1.0 if accurate and helpful, 0.0 if wrong.")
+                .criteria("Does the answer correctly address the question? "
+                        + "Score 1.0 if accurate and helpful, 0.0 if wrong.")
                 .evaluationParams(List.of(
-                        EvalTestCaseParam.INPUT,
-                        EvalTestCaseParam.ACTUAL_OUTPUT,
-                        EvalTestCaseParam.EXPECTED_OUTPUT
-                ))
+                        EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
                 .threshold(0.7)
                 .scoreRange(0.0, 1.0)
                 .build();
@@ -234,11 +222,9 @@ public class CustomEvaluatorExample {
                     .count();
 
             // Calculate the score
-            double score = requiredKeywords.isEmpty() ? 1.0 :
-                    (double) matchedKeywords / requiredKeywords.size();
+            double score = requiredKeywords.isEmpty() ? 1.0 : (double) matchedKeywords / requiredKeywords.size();
 
-            String reason = String.format("Found %d/%d required keywords",
-                    matchedKeywords, requiredKeywords.size());
+            String reason = String.format("Found %d/%d required keywords", matchedKeywords, requiredKeywords.size());
 
             return EvalResult.builder()
                     .name(name)

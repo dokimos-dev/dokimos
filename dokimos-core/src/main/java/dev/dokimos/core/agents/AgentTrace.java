@@ -17,11 +17,7 @@ import java.util.*;
  * @param metadata       latency, token usage, and other metadata
  */
 public record AgentTrace(
-        String finalResponse,
-        List<ToolCall> toolCalls,
-        List<String> reasoningSteps,
-        Map<String, Object> metadata
-) {
+        String finalResponse, List<ToolCall> toolCalls, List<String> reasoningSteps, Map<String, Object> metadata) {
     public AgentTrace {
         toolCalls = toolCalls != null ? List.copyOf(toolCalls) : List.of();
         reasoningSteps = reasoningSteps != null ? List.copyOf(reasoningSteps) : List.of();
@@ -38,8 +34,7 @@ public record AgentTrace(
         return Map.of(
                 "output", finalResponse != null ? finalResponse : "",
                 "toolCalls", toolCalls,
-                "reasoningSteps", reasoningSteps
-        );
+                "reasoningSteps", reasoningSteps);
     }
 
     /**

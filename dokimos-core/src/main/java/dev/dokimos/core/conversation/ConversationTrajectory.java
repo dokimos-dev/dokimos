@@ -3,7 +3,6 @@ package dev.dokimos.core.conversation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,12 +20,8 @@ import java.util.Map;
  * @param scenario a description of the test scenario
  * @param metadata additional metadata about the conversation
  */
-public record ConversationTrajectory(
-        List<Message> messages,
-        String scenario,
-        Map<String, Object> metadata) {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .enable(SerializationFeature.INDENT_OUTPUT);
+public record ConversationTrajectory(List<Message> messages, String scenario, Map<String, Object> metadata) {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
     /**
      * Compact constructor ensuring immutability.
@@ -64,7 +59,8 @@ public record ConversationTrajectory(
      */
     public int turnCount() {
         int userMessages = (int) messages.stream().filter(Message::isUser).count();
-        int assistantMessages = (int) messages.stream().filter(Message::isAssistant).count();
+        int assistantMessages =
+                (int) messages.stream().filter(Message::isAssistant).count();
         return Math.min(userMessages, assistantMessages);
     }
 
@@ -74,9 +70,7 @@ public record ConversationTrajectory(
      * @return list of user messages
      */
     public List<Message> userMessages() {
-        return messages.stream()
-                .filter(Message::isUser)
-                .toList();
+        return messages.stream().filter(Message::isUser).toList();
     }
 
     /**
@@ -85,9 +79,7 @@ public record ConversationTrajectory(
      * @return list of assistant messages
      */
     public List<Message> assistantMessages() {
-        return messages.stream()
-                .filter(Message::isAssistant)
-                .toList();
+        return messages.stream().filter(Message::isAssistant).toList();
     }
 
     /**
@@ -96,9 +88,7 @@ public record ConversationTrajectory(
      * @return list of system messages
      */
     public List<Message> systemMessages() {
-        return messages.stream()
-                .filter(Message::isSystem)
-                .toList();
+        return messages.stream().filter(Message::isSystem).toList();
     }
 
     /**
@@ -162,7 +152,10 @@ public record ConversationTrajectory(
             sb.append("Scenario: ").append(scenario).append("\n\n");
         }
         for (Message message : messages) {
-            sb.append(message.role().name()).append(": ").append(message.content()).append("\n\n");
+            sb.append(message.role().name())
+                    .append(": ")
+                    .append(message.content())
+                    .append("\n\n");
         }
         return sb.toString().trim();
     }
@@ -177,12 +170,14 @@ public record ConversationTrajectory(
             Map<String, Object> json = new HashMap<>();
             json.put("scenario", scenario);
             json.put("turnCount", turnCount());
-            json.put("messages", messages.stream()
-                    .map(m -> Map.of(
-                            "role", m.role().name().toLowerCase(),
-                            "content", m.content(),
-                            "metadata", m.metadata()))
-                    .toList());
+            json.put(
+                    "messages",
+                    messages.stream()
+                            .map(m -> Map.of(
+                                    "role", m.role().name().toLowerCase(),
+                                    "content", m.content(),
+                                    "metadata", m.metadata()))
+                            .toList());
             json.put("metadata", metadata);
             return OBJECT_MAPPER.writeValueAsString(json);
         } catch (JsonProcessingException e) {

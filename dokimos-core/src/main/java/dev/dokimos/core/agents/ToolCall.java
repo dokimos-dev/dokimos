@@ -15,12 +15,7 @@ import java.util.Map;
  * @param result    the tool execution result (may be null)
  * @param metadata  optional metadata (latency, tokens, etc.)
  */
-public record ToolCall(
-        String name,
-        Map<String, Object> arguments,
-        String result,
-        Map<String, Object> metadata
-) {
+public record ToolCall(String name, Map<String, Object> arguments, String result, Map<String, Object> metadata) {
     public ToolCall {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Tool call name must not be null or blank");
@@ -51,14 +46,12 @@ public record ToolCall(
     @SuppressWarnings("unchecked")
     public static ToolCall fromMap(Map<String, Object> map) {
         String name = (String) map.get("name");
-        Map<String, Object> arguments = map.containsKey("arguments")
-                ? (Map<String, Object>) map.get("arguments")
-                : Map.of();
+        Map<String, Object> arguments =
+                map.containsKey("arguments") ? (Map<String, Object>) map.get("arguments") : Map.of();
         Object rawResult = map.get("result");
         String result = rawResult != null ? rawResult.toString() : null;
-        Map<String, Object> metadata = map.containsKey("metadata")
-                ? (Map<String, Object>) map.get("metadata")
-                : Map.of();
+        Map<String, Object> metadata =
+                map.containsKey("metadata") ? (Map<String, Object>) map.get("metadata") : Map.of();
         return new ToolCall(name, arguments, result, metadata);
     }
 

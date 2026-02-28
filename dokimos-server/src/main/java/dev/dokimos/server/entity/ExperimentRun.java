@@ -12,15 +12,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "experiment_runs")
@@ -50,8 +48,7 @@ public class ExperimentRun {
     @OneToMany(mappedBy = "run")
     private List<ItemResult> items = new ArrayList<>();
 
-    protected ExperimentRun() {
-    }
+    protected ExperimentRun() {}
 
     public ExperimentRun(Experiment experiment, Map<String, Object> config) {
         this.experiment = experiment;

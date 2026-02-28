@@ -1,14 +1,13 @@
 package dev.dokimos.core.evaluators.agents;
 
+import static org.assertj.core.api.Assertions.*;
+
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class ToolCorrectnessEvaluatorTest {
 
@@ -17,14 +16,12 @@ class ToolCorrectnessEvaluatorTest {
         var evaluator = ToolCorrectnessEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
+                .actualOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -38,15 +35,15 @@ class ToolCorrectnessEvaluatorTest {
         var evaluator = ToolCorrectnessEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of()),
-                        ToolCall.of("send_email", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.of("search_flights", Map.of()),
+                                ToolCall.of("book_hotel", Map.of()),
+                                ToolCall.of("send_email", Map.of())))
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -63,13 +60,10 @@ class ToolCorrectnessEvaluatorTest {
         var evaluator = ToolCorrectnessEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of()),
-                        ToolCall.of("book_hotel", Map.of())
-                ))
+                .actualOutput("toolCalls", List.of(ToolCall.of("search_flights", Map.of())))
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -85,12 +79,8 @@ class ToolCorrectnessEvaluatorTest {
         var evaluator = ToolCorrectnessEvaluator.builder().build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("send_email", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of())
-                ))
+                .actualOutput("toolCalls", List.of(ToolCall.of("send_email", Map.of())))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search_flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -121,14 +111,8 @@ class ToolCorrectnessEvaluatorTest {
 
         // Correct order
         var testCase1 = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of()),
-                        ToolCall.of("book", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of()),
-                        ToolCall.of("book", Map.of())
-                ))
+                .actualOutput("toolCalls", List.of(ToolCall.of("search", Map.of()), ToolCall.of("book", Map.of())))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search", Map.of()), ToolCall.of("book", Map.of())))
                 .build();
 
         var result1 = evaluator.evaluate(testCase1);
@@ -136,14 +120,8 @@ class ToolCorrectnessEvaluatorTest {
 
         // Wrong order
         var testCase2 = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("book", Map.of()),
-                        ToolCall.of("search", Map.of())
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of()),
-                        ToolCall.of("book", Map.of())
-                ))
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of()), ToolCall.of("search", Map.of())))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search", Map.of()), ToolCall.of("book", Map.of())))
                 .build();
 
         var result2 = evaluator.evaluate(testCase2);
@@ -157,14 +135,16 @@ class ToolCorrectnessEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of("query", "flights")),
-                        ToolCall.of("book", Map.of("id", "123"))
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of("query", "flights")),
-                        ToolCall.of("book", Map.of("id", "456"))
-                ))
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.of("search", Map.of("query", "flights")),
+                                ToolCall.of("book", Map.of("id", "123"))))
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.of("search", Map.of("query", "flights")),
+                                ToolCall.of("book", Map.of("id", "456"))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -180,14 +160,13 @@ class ToolCorrectnessEvaluatorTest {
 
         // Agent calls search_flights 3 times, expected once
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of("origin", "NYC")),
-                        ToolCall.of("search_flights", Map.of("origin", "LAX")),
-                        ToolCall.of("search_flights", Map.of("origin", "SFO"))
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search_flights", Map.of())
-                ))
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.of("search_flights", Map.of("origin", "NYC")),
+                                ToolCall.of("search_flights", Map.of("origin", "LAX")),
+                                ToolCall.of("search_flights", Map.of("origin", "SFO"))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search_flights", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -203,12 +182,8 @@ class ToolCorrectnessEvaluatorTest {
                 .build();
 
         var testCase = EvalTestCase.builder()
-                .actualOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))
-                ))
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))
-                ))
+                .actualOutput("toolCalls", List.of(ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))))
                 .build();
 
         var result = evaluator.evaluate(testCase);
@@ -224,9 +199,7 @@ class ToolCorrectnessEvaluatorTest {
 
         var testCase = EvalTestCase.builder()
                 .actualOutput("toolCalls", List.of())
-                .expectedOutput("toolCalls", List.of(
-                        ToolCall.of("search", Map.of())
-                ))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search", Map.of())))
                 .build();
 
         var result = evaluator.evaluate(testCase);

@@ -3,7 +3,6 @@ package dev.dokimos.examples.basic;
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.ExactMatchEvaluator;
 import dev.dokimos.core.evaluators.RegexEvaluator;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,15 +38,11 @@ public class BasicEvaluationExample {
 
         // Define evaluators
         List<Evaluator> evaluators = List.of(
-                ExactMatchEvaluator.builder()
-                        .name("Exact Match")
-                        .threshold(1.0)
-                        .build(),
+                ExactMatchEvaluator.builder().name("Exact Match").threshold(1.0).build(),
                 RegexEvaluator.builder()
                         .name("Pattern Match")
                         .pattern("\\d+|[A-Z][a-z]+")
-                        .build()
-        );
+                        .build());
 
         // Create a task, which simulates your LLM or system under test
         Task task = example -> {
@@ -82,9 +77,12 @@ public class BasicEvaluationExample {
             System.out.println("Expected: " + itemResult.example().expectedOutput());
             System.out.println("Actual: " + itemResult.actualOutputs().get("output"));
             System.out.println("Passed: " + itemResult.success());
-            itemResult.evalResults().forEach(evalResult -> System.out.println("  - " + evalResult.name() + ": " +
-                    (evalResult.success() ? "PASS" : "FAIL") +
-                    " (score: " + String.format("%.2f", evalResult.score()) + ")"));
+            itemResult
+                    .evalResults()
+                    .forEach(evalResult -> System.out.println(
+                            "  - " + evalResult.name() + ": " + (evalResult.success() ? "PASS" : "FAIL")
+                                    + " (score: "
+                                    + String.format("%.2f", evalResult.score()) + ")"));
         });
     }
 

@@ -1,10 +1,9 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.HashMap;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class EvalTestCaseTest {
 
@@ -61,10 +60,8 @@ class EvalTestCaseTest {
         var inputs = new HashMap<String, Object>();
         inputs.put("input", "test");
 
-        var testCase = EvalTestCase.builder()
-                .inputs(inputs)
-                .actualOutput("output")
-                .build();
+        var testCase =
+                EvalTestCase.builder().inputs(inputs).actualOutput("output").build();
 
         inputs.put("modified", "value");
 

@@ -1,4 +1,4 @@
-.PHONY: help clean compile test test-all build install package verify deps tree fmt check
+.PHONY: help clean compile test test-all build install package verify deps tree fmt fmt-check check
 
 # Default target
 help:
@@ -19,7 +19,8 @@ help:
 	@echo "Utility targets:"
 	@echo "  make deps         - Download dependencies"
 	@echo "  make tree         - Show dependency tree"
-	@echo "  make fmt          - Format code (if formatter configured)"
+	@echo "  make fmt          - Format all Java and Kotlin code"
+	@echo "  make fmt-check    - Check formatting without modifying files"
 	@echo "  make check        - Validate POM and check for updates"
 	@echo "  make javadoc      - Generate Javadoc"
 	@echo ""
@@ -63,7 +64,10 @@ tree:
 	mvn dependency:tree
 
 fmt:
-	mvn fmt:format 2>/dev/null || echo "No formatter plugin configured"
+	mvn spotless:apply
+
+fmt-check:
+	mvn spotless:check
 
 check:
 	mvn validate

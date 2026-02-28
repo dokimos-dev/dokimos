@@ -1,13 +1,12 @@
 package dev.dokimos.core;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class FileDatasetResolverTest {
 

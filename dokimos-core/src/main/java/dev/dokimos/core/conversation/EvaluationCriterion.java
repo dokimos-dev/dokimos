@@ -7,7 +7,7 @@ package dev.dokimos.core.conversation;
  * and how much weight it should carry in the overall score calculation.
  * <p>
  * Example:
- * 
+ *
  * <pre>{@code
  * EvaluationCriterion criterion = new EvaluationCriterion(
  *         "User Satisfaction",

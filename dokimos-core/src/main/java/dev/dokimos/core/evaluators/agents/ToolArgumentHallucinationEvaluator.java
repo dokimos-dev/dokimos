@@ -15,11 +15,19 @@ import java.util.Map;
 
 /**
  * Uses a judge LLM to assess whether tool call argument values are factually
- * grounded in the user's input and context.
+ * grounded in the user's input and preceding tool call results.
  * <p>
  * This is a glass-box evaluator for tool proficiency. For each tool call,
- * the judge evaluates whether argument values can be derived from the user's request.
- * The score is the fraction of non-hallucinated tool calls (0.0–1.0).
+ * the judge evaluates whether argument values can be derived from the user's request
+ * or from the results of earlier tool calls in the same execution. This supports
+ * multi-step agent workflows where later tool arguments are derived from earlier
+ * tool results (e.g., a search returns URLs, then a fetch tool uses one of those URLs).
+ * <p>
+ * When {@link dev.dokimos.core.agents.ToolCall#result()} is populated, the result
+ * is included as grounding context for subsequent tool calls. When result is null,
+ * only the user input is considered as grounding context.
+ * <p>
+ * The score is the fraction of non-hallucinated tool calls (0.0 to 1.0).
  */
 public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
 
@@ -73,10 +81,11 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
 
     private String buildPrompt(String userInput, List<ToolCall> toolCalls) {
         var sb = new StringBuilder();
-        sb.append("You are evaluating whether tool call arguments are grounded in the user's input.\n");
-        sb.append("An argument is 'hallucinated' if its value cannot be derived from the user's request.\n\n");
+        sb.append("You are evaluating whether tool call arguments are grounded in the available context.\n");
+        sb.append("An argument is 'hallucinated' if its value cannot be derived from the user's input ");
+        sb.append("or the results of preceding tool calls in the same execution.\n\n");
         sb.append("USER INPUT:\n").append(userInput).append("\n\n");
-        sb.append("TOOL CALLS:\n");
+        sb.append("TOOL CALLS (in execution order):\n");
         for (int i = 0; i < toolCalls.size(); i++) {
             ToolCall call = toolCalls.get(i);
             String argsJson;
@@ -91,8 +100,12 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     .append("(")
                     .append(argsJson)
                     .append(")\n");
+            if (call.result() != null) {
+                sb.append("   Result: ").append(call.result()).append("\n");
+            }
         }
-        sb.append("\nFor each tool call, determine if the argument values are grounded in the user input.\n");
+        sb.append("\nFor each tool call, determine if the argument values are grounded in ");
+        sb.append("the user's input or the results of preceding tool calls.\n");
         sb.append("Respond ONLY as a JSON array (no markdown):\n");
         sb.append("[{\"toolName\": \"...\", \"grounded\": true/false, \"reason\": \"...\"}]\n");
         return sb.toString();

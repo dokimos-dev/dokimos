@@ -255,4 +255,69 @@ class ToolArgumentHallucinationEvaluatorTest {
 
         assertThat(result.success()).isTrue();
     }
+
+    @Test
+    void shouldGroundArgumentsInPrecedingToolResults() {
+        // Multi-step agent: search returns product IDs, then fetch uses one of those IDs.
+        // The judge should see tool results as valid grounding context.
+        JudgeLM mockJudge = prompt -> {
+            assertThat(prompt).contains("Result:");
+            assertThat(prompt).contains("PRD-4821");
+            assertThat(prompt).contains("preceding tool calls");
+            return """
+                    [
+                        {"toolName": "search_products", "grounded": true, "reason": "Query from user input"},
+                        {"toolName": "get_product_details", "grounded": true, "reason": "Product ID from search result"}
+                    ]
+                    """;
+        };
+
+        var evaluator =
+                ToolArgumentHallucinationEvaluator.builder().judge(mockJudge).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Find me a lightweight running shoe")
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.builder()
+                                        .name("search_products")
+                                        .argument("query", "lightweight running shoe")
+                                        .result("[{\"id\": \"PRD-4821\", \"name\": \"UltraLight Runner\"}]")
+                                        .build(),
+                                ToolCall.builder()
+                                        .name("get_product_details")
+                                        .argument("product_id", "PRD-4821")
+                                        .build()))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void shouldOmitResultLineWhenResultIsNull() {
+        // When tool calls have no results (created via ToolCall.of), the prompt
+        // should not include Result: lines, preserving the original behavior.
+        JudgeLM mockJudge = prompt -> {
+            assertThat(prompt).doesNotContain("Result:");
+            return """
+                    [{"toolName": "search", "grounded": true, "reason": "ok"}]
+                    """;
+        };
+
+        var evaluator =
+                ToolArgumentHallucinationEvaluator.builder().judge(mockJudge).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Search flights")
+                .actualOutput("toolCalls", List.of(ToolCall.of("search", Map.of("q", "flights"))))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
 }

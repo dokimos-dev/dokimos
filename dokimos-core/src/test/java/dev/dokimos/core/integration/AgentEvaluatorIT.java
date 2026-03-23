@@ -152,6 +152,45 @@ class AgentEvaluatorIT {
     }
 
     @Test
+    void shouldGroundArgumentsFromPrecedingToolResults() {
+        // Constructs a chained scenario: search_flights returns flight IDs,
+        // then get_seat_availability uses a flight ID from that result.
+        // Without tool result grounding, the judge would flag "AF1234" as hallucinated
+        // because the user never mentioned a specific flight ID.
+        var chainedTestCase = EvalTestCase.builder()
+                .input("Find available seats on a morning flight from JFK to CDG on March 15, 2026")
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                ToolCall.builder()
+                                        .name("search_flights")
+                                        .arguments(Map.of(
+                                                "origin", "JFK",
+                                                "destination", "CDG",
+                                                "date", "2026-03-15"))
+                                        .result("""
+                                                {"flights": [\
+                                                {"id": "AF1234", "airline": "Air France", "departure": "08:30"},\
+                                                {"id": "DL5678", "airline": "Delta", "departure": "10:00"}\
+                                                ]}""")
+                                        .build(),
+                                ToolCall.builder()
+                                        .name("get_seat_availability")
+                                        .arguments(Map.of("flight_id", "AF1234"))
+                                        .build()))
+                .build();
+
+        var result = ToolArgumentHallucinationEvaluator.builder()
+                .judge(judge)
+                .build()
+                .evaluate(chainedTestCase);
+
+        assertThat(result.score())
+                .as("Reason: %s, metadata: %s", result.reason(), result.metadata())
+                .isGreaterThanOrEqualTo(0.8);
+    }
+
+    @Test
     void shouldEvaluateToolNaming() {
         var result = ToolNameReliabilityEvaluator.builder()
                 .judge(judge)

@@ -10,8 +10,11 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +39,7 @@ public class DokimosMcpServer {
         StdioServerTransportProvider transport = new StdioServerTransportProvider(jsonMapper);
 
         McpSyncServer server = McpServer.sync(transport)
-                .serverInfo("dokimos-mcp-server", "0.1.0")
+                .serverInfo("dokimos-mcp-server", version())
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
                 .toolCall(runEvaluationTool(), (exchange, request) -> handlers.handleRunEvaluation(request.arguments()))
                 .toolCall(
@@ -60,6 +63,22 @@ public class DokimosMcpServer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static String version() {
+        try (InputStream in = DokimosMcpServer.class.getResourceAsStream("/dokimos-mcp.properties")) {
+            if (in != null) {
+                Properties props = new Properties();
+                props.load(in);
+                String version = props.getProperty("version");
+                if (version != null && !version.isBlank()) {
+                    return version;
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Could not read version from dokimos-mcp.properties", e);
+        }
+        return "unknown";
     }
 
     private static Tool runEvaluationTool() {

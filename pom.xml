@@ -45,6 +45,7 @@
         <module>dokimos-server-client</module>
         <module>dokimos-server</module>
         <module>dokimos-examples</module>
+        <module>dokimos-mcp-server</module>
     </modules>
 
     <properties>

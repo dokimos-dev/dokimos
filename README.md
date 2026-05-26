@@ -243,6 +243,7 @@ Build custom evaluators by extending `BaseEvaluator`, or use `LLMJudgeEvaluator`
 | `dokimos-koog`          | Koog integration using `AIAgent` as judge.                           |
 | `dokimos-server`        | Optional API and web UI for tracking experiments over time           |
 | `dokimos-server-client` | Client library for reporting to the Dokimos server                   |
+| `dokimos-mcp-server`    | MCP server exposing evaluation tools to any MCP client               |
 
 ## Installation
 

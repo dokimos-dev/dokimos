@@ -17,7 +17,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: dokimos-dev/dokimos-server
 
 jobs:
   build-and-push:
@@ -25,6 +24,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+    strategy:
+      matrix:
+        include:
+          - image: dokimos-dev/dokimos-server
+            dockerfile: dokimos-server/Dockerfile
+          - image: dokimos-dev/dokimos-mcp-server
+            dockerfile: dokimos-mcp-server/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -47,7 +54,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable=${{ github.event_name == 'release' || github.event.inputs.tag == 'latest' || github.event.inputs.latest == 'true' }}
             type=semver,pattern={{version}}
@@ -58,7 +65,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: dokimos-server/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}

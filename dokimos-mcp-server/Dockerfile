@@ -2,7 +2,7 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
-# Copy all pom.xml files so Maven can parse the multi-module structure
+# Copy every module pom.xml so Maven can parse the multi-module reactor
 COPY pom.xml ./pom.xml
 COPY dokimos-core/pom.xml ./dokimos-core/pom.xml
 COPY dokimos-junit/pom.xml ./dokimos-junit/pom.xml
@@ -11,24 +11,22 @@ COPY dokimos-spring-ai/pom.xml ./dokimos-spring-ai/pom.xml
 COPY dokimos-koog/pom.xml ./dokimos-koog/pom.xml
 COPY dokimos-kotlin/pom.xml ./dokimos-kotlin/pom.xml
 COPY dokimos-server-client/pom.xml ./dokimos-server-client/pom.xml
-COPY dokimos-server-client/src ./dokimos-server-client/src
 COPY dokimos-server/pom.xml ./dokimos-server/pom.xml
 COPY dokimos-examples/pom.xml ./dokimos-examples/pom.xml
 COPY dokimos-mcp-server/pom.xml ./dokimos-mcp-server/pom.xml
 
 # Download dependencies (cached layer)
-RUN mvn dependency:go-offline -pl dokimos-server -am -q || true
+RUN mvn dependency:go-offline -pl dokimos-mcp-server -am -q || true
 
-# Copy source code needed for the server
+# Copy source needed for the MCP server and its dependency
 COPY dokimos-core/src ./dokimos-core/src
-COPY dokimos-server/src ./dokimos-server/src
-COPY dokimos-server/frontend ./dokimos-server/frontend
+COPY dokimos-mcp-server/src ./dokimos-mcp-server/src
 
-# Build the application
-RUN mvn clean package -pl dokimos-server -am -DskipTests
+# Build the shaded executable JAR
+RUN mvn clean package -pl dokimos-mcp-server -am -DskipTests
 
-# Extract only the Spring Boot fat JAR
-RUN find dokimos-server/target -maxdepth 1 -name "dokimos-server-*.jar" \
+# Extract the shaded JAR (skip sources, javadoc, and the unshaded original)
+RUN find dokimos-mcp-server/target -maxdepth 1 -name "dokimos-mcp-server-*.jar" \
     ! -name "*-sources.jar" ! -name "*-javadoc.jar" \
     | head -1 | xargs -I{} cp {} /app/app.jar
 
@@ -37,22 +35,16 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create non-root user
-RUN groupadd -r dokimos && useradd -r -g dokimos dokimos
+# Run as a non-root user with a writable home for the results store
+RUN groupadd -r dokimos && useradd -r -g dokimos -m -d /home/dokimos dokimos
+ENV HOME=/home/dokimos
 
 COPY --from=builder /app/app.jar app.jar
 
-RUN chown -R dokimos:dokimos /app
+# Run results persist here; mount a volume to keep them across container runs
+RUN mkdir -p /home/dokimos/.dokimos && chown -R dokimos:dokimos /home/dokimos /app
 
 USER dokimos
 
-EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
-
+# The server speaks JSON-RPC over stdio. Run with: docker run -i --rm ...
 ENTRYPOINT ["java", "-jar", "app.jar"]

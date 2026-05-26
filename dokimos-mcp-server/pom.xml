@@ -17,7 +17,6 @@
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
         <maven.install.skip>true</maven.install.skip>
-        <mcp.sdk.version>1.1.0</mcp.sdk.version>
     </properties>
 
     <dependencies>
@@ -25,7 +24,6 @@
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp-json-jackson2</artifactId>
-            <version>${mcp.sdk.version}</version>
         </dependency>
 
         <!-- Dokimos core evaluation framework -->
@@ -59,7 +57,6 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.16</version>
         </dependency>
 
         <!-- Test -->

@@ -19,6 +19,7 @@ dokimos/
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)
 ├── dokimos-kotlin/         # Kotlin DSL for experiment builders
 ├── dokimos-server-client/  # HTTP client for the experiment server
+├── dokimos-mcp-server/     # MCP server exposing evaluation tools over stdio (Claude Desktop, etc.)
 ├── dokimos-server/         # REST API + React web UI (Spring Boot + PostgreSQL)
 │   └── frontend/           # React + Vite + Tailwind CSS frontend
 ├── dokimos-examples/       # Runnable examples for all frameworks
@@ -123,6 +124,13 @@ When working on the core framework, understand these central types in `dokimos-c
 
 - Uses async batching: background thread batches HTTP calls every 500ms or 10 items.
 - Implements exponential backoff retries (3 attempts).
+
+### dokimos-mcp-server
+
+- Exposes four tools over MCP stdio: `run_evaluation`, `list_experiments`, `compare_runs`, `get_failing_queries`.
+- Not published to Maven Central. Packaged as a shaded executable JAR via the shade plugin.
+- **Stdout is reserved for the JSON-RPC stream.** All logging goes to stderr, and `logback.xml` registers a `NopStatusListener` so logback's own status output never reaches stdout (the shaded JAR loses logback's version metadata, which would otherwise trigger a status dump to stdout).
+- `run_evaluation` requires `OPENAI_API_KEY`. Runs are persisted to `~/.dokimos/mcp-results.json` via `JsonResultStore`.
 
 ### dokimos-examples
 

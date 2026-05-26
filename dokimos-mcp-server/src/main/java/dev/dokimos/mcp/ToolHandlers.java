@@ -240,8 +240,6 @@ public class ToolHandlers {
         }
     }
 
-    // --- Internal helpers ---
-
     private Dataset loadDataset(String datasetPath) throws IOException {
         Path path = Path.of(datasetPath);
         String fileName = path.getFileName().toString().toLowerCase();

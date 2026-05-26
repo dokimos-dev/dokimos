@@ -2,7 +2,38 @@
 
 MCP server that exposes the dokimos evaluation framework as tools for LLM agents. Connect it to Claude Desktop (or any MCP client) and run evaluations, compare runs, and inspect failures from a conversation.
 
-## Prerequisites
+## Run with Docker
+
+The published image needs no JDK and no build. Point your MCP client at it:
+
+```json
+{
+  "mcpServers": {
+    "dokimos": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "OPENAI_API_KEY",
+        "-v", "dokimos-mcp:/home/dokimos/.dokimos",
+        "-v", "/absolute/path/to/datasets:/data:ro",
+        "ghcr.io/dokimos-dev/dokimos-mcp-server:latest"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+Two mounts matter:
+
+- `dokimos-mcp:/home/dokimos/.dokimos` is a named volume that persists run results across container restarts, so `list_experiments` and `compare_runs` keep working.
+- `/absolute/path/to/datasets:/data:ro` makes your dataset files visible inside the container. Pass `dataset_path` as the in-container path, for example `/data/qa-pairs.json`.
+
+`-i` is required: the server speaks JSON-RPC over stdin/stdout.
+
+## Prerequisites (build from source)
 
 - Java 17+
 - `OPENAI_API_KEY` environment variable (required for `run_evaluation`)

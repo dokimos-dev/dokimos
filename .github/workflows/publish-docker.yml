@@ -5,6 +5,14 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      image:
+        description: 'Which image to publish'
+        type: choice
+        options:
+          - all
+          - dokimos-server
+          - dokimos-mcp-server
+        default: all
       tag:
         description: 'Image tag (e.g., 0.1.0)'
         required: false
@@ -19,19 +27,32 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - name: Select images to build
+        id: set
+        run: |
+          server='{"image":"dokimos-dev/dokimos-server","dockerfile":"dokimos-server/Dockerfile"}'
+          mcp='{"image":"dokimos-dev/dokimos-mcp-server","dockerfile":"dokimos-mcp-server/Dockerfile"}'
+          case "${{ github.event_name == 'release' && 'all' || inputs.image }}" in
+            dokimos-server)     entries="$server" ;;
+            dokimos-mcp-server) entries="$mcp" ;;
+            *)                  entries="$server,$mcp" ;;
+          esac
+          echo "matrix={\"include\":[$entries]}" >> "$GITHUB_OUTPUT"
+
   build-and-push:
+    needs: prepare
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     strategy:
-      matrix:
-        include:
-          - image: dokimos-dev/dokimos-server
-            dockerfile: dokimos-server/Dockerfile
-          - image: dokimos-dev/dokimos-mcp-server
-            dockerfile: dokimos-mcp-server/Dockerfile
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
 
     steps:
       - name: Checkout repository

@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
  * MCP server that exposes dokimos evaluation tools over stdio transport.
  *
  * <p>Provides four tools: run_evaluation, list_experiments, compare_runs, get_failing_queries.
- * Designed for use with Claude Desktop or any MCP client.
+ * Designed for use with any MCP client.
  */
 public class DokimosMcpServer {
 

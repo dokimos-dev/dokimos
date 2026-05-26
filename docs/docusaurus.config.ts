@@ -16,7 +16,7 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: "https://dokimos-dev.github.io",
+  url: "https://dokimos.dev",
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: "/",
@@ -81,7 +81,7 @@ const config: Config = {
         {
           label: "Javadoc",
           position: "left",
-          href: "https://dokimos-dev.github.io/dokimos/apidocs/",
+          href: "https://dokimos.dev/apidocs/",
         },
         {
           href: "https://github.com/dokimos-dev/dokimos",

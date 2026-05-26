@@ -19,7 +19,7 @@ dokimos/
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)
 ├── dokimos-kotlin/         # Kotlin DSL for experiment builders
 ├── dokimos-server-client/  # HTTP client for the experiment server
-├── dokimos-mcp-server/     # MCP server exposing evaluation tools over stdio (Claude Desktop, etc.)
+├── dokimos-mcp-server/     # MCP server exposing evaluation tools over stdio to any MCP client
 ├── dokimos-server/         # REST API + React web UI (Spring Boot + PostgreSQL)
 │   └── frontend/           # React + Vite + Tailwind CSS frontend
 ├── dokimos-examples/       # Runnable examples for all frameworks

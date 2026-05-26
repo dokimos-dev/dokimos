@@ -20,10 +20,11 @@
     </properties>
 
     <dependencies>
-        <!-- MCP SDK with Jackson 2 -->
+        <!-- MCP SDK with Jackson 2 (used only by this module) -->
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp-json-jackson2</artifactId>
+            <version>1.1.0</version>
         </dependency>
 
         <!-- Dokimos core evaluation framework -->

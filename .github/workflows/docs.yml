@@ -9,6 +9,7 @@ on:
       - 'dokimos-junit/**'
       - 'dokimos-langchain4j/**'
       - 'dokimos-spring-ai/**'
+      - 'dokimos-mcp-server/**'
       - 'docs/**'
       - 'pom.xml'
       - '.github/workflows/docs.yml'

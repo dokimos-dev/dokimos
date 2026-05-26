@@ -50,7 +50,7 @@ Runs a dataset through a model and evaluator, then returns summary metrics and a
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `dataset_path` | string | yes | | Path to dataset file (`.json`, `.csv`, `.jsonl`) |
-| `model` | string | no | `gpt-4o-mini` | OpenAI model name |
+| `model` | string | no | `gpt-5.5` | OpenAI model name |
 | `temperature` | number | no | `0.0` | Sampling temperature |
 | `evaluator` | string | no | `exact_match` | `exact_match` or `llm_judge` |
 | `criteria` | string | no | | Evaluation criteria (for `llm_judge`) |
@@ -78,7 +78,7 @@ Runs persist to `~/.dokimos/mcp-results.json` (inside the container, `/home/doki
 Once connected, you can drive evaluations conversationally:
 
 ```
-> Run an evaluation on /data/qa-pairs.json using gpt-4o with the llm_judge evaluator
+> Run an evaluation on /data/qa-pairs.json using gpt-5.5 with the llm_judge evaluator
 > Show me the failing queries from that run
 > Now compare it with run abc123
 ```

@@ -108,7 +108,7 @@ Run an evaluation against a dataset.
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `dataset_path` | string | yes | | Path to dataset file (.json, .csv, .jsonl) |
-| `model` | string | no | gpt-4o-mini | OpenAI model name |
+| `model` | string | no | gpt-5.5 | OpenAI model name |
 | `temperature` | number | no | 0.0 | Sampling temperature |
 | `evaluator` | string | no | exact_match | `exact_match` or `llm_judge` |
 | `criteria` | string | no | | Evaluation criteria (for `llm_judge`) |
@@ -174,9 +174,9 @@ CSV and JSONL formats are also supported. See the [dokimos documentation](https:
 Once connected to an MCP client, you can run evaluations conversationally:
 
 ```
-> Run an evaluation on /data/qa-pairs.json using gpt-4o with the llm_judge evaluator
+> Run an evaluation on /data/qa-pairs.json using gpt-5.5 with the llm_judge evaluator
 
-[calls run_evaluation with dataset_path=/data/qa-pairs.json, model=gpt-4o, evaluator=llm_judge]
+[calls run_evaluation with dataset_path=/data/qa-pairs.json, model=gpt-5.5, evaluator=llm_judge]
 
 > Show me the failing queries from that run
 

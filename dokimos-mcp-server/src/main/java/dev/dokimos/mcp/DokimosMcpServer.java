@@ -78,11 +78,7 @@ public class DokimosMcpServer {
                                                 "description",
                                                 "Path to the dataset file (JSON, CSV, or JSONL)"),
                                 "model",
-                                        Map.of(
-                                                "type",
-                                                "string",
-                                                "description",
-                                                "OpenAI model name (default: gpt-4o-mini)"),
+                                        Map.of("type", "string", "description", "OpenAI model name (default: gpt-5.5)"),
                                 "temperature",
                                         Map.of(
                                                 "type",

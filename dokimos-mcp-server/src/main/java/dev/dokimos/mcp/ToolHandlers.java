@@ -52,7 +52,7 @@ public class ToolHandlers {
     public McpSchema.CallToolResult handleRunEvaluation(Map<String, Object> arguments) {
         try {
             String datasetPath = requireString(arguments, "dataset_path");
-            String model = stringOrDefault(arguments, "model", "gpt-4o-mini");
+            String model = stringOrDefault(arguments, "model", "gpt-5.5");
             double temperature = doubleOrDefault(arguments, "temperature", 0.0);
             String evaluatorType = stringOrDefault(arguments, "evaluator", "exact_match");
             String criteria = stringOrDefault(arguments, "criteria", null);

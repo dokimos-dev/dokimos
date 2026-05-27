@@ -82,9 +82,11 @@ public class ExperimentService {
 
         List<TrendData.RunPoint> points = new ArrayList<>();
         for (ExperimentRun run : runs) {
-            long totalItems = itemResultRepository.countByRun(run);
-            long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-            double passRate = totalItems > 0 ? (double) passedItems / totalItems : 0.0;
+            // findCompletedRunsByExperiment returns only terminal runs, so the materialized
+            // counts are always populated here.
+            long totalItems = run.getItemCount();
+            long passedItems = run.getPassedCount();
+            double passRate = run.getPassRate() != null ? run.getPassRate() : 0.0;
 
             points.add(new TrendData.RunPoint(run.getId(), run.getStartedAt(), passRate, totalItems, passedItems));
         }
@@ -99,11 +101,6 @@ public class ExperimentService {
         if (run.getStatus() == RunStatus.RUNNING) {
             return null;
         }
-        long totalItems = itemResultRepository.countByRun(run);
-        if (totalItems == 0) {
-            return null;
-        }
-        long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-        return (double) passedItems / totalItems;
+        return run.getPassRate();
     }
 }

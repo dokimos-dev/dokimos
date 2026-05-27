@@ -110,12 +110,11 @@ class ExperimentServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setMaterializedCounts(run, 10, 8);
 
         when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
         when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
                 .thenReturn(Optional.of(run));
-        when(itemResultRepository.countByRun(run)).thenReturn(10L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(8L);
 
         List<ExperimentSummary> result = experimentService.listExperiments(project);
 
@@ -164,14 +163,12 @@ class ExperimentServiceTest {
         setField(experiment, "id", experimentId);
         ExperimentRun run1 = createRun(experiment, RunStatus.SUCCESS);
         ExperimentRun run2 = createRun(experiment, RunStatus.SUCCESS);
+        setMaterializedCounts(run1, 10, 8);
+        setMaterializedCounts(run2, 5, 5);
 
         when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
         when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class)))
                 .thenReturn(List.of(run1, run2));
-        when(itemResultRepository.countByRun(run1)).thenReturn(10L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run1)).thenReturn(8L);
-        when(itemResultRepository.countByRun(run2)).thenReturn(5L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run2)).thenReturn(5L);
 
         TrendData result = experimentService.getTrends(experimentId, 20);
 
@@ -186,12 +183,11 @@ class ExperimentServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         setField(experiment, "id", experimentId);
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setMaterializedCounts(run, 0, 0);
 
         when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
         when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class)))
                 .thenReturn(List.of(run));
-        when(itemResultRepository.countByRun(run)).thenReturn(0L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(0L);
 
         TrendData result = experimentService.getTrends(experimentId, 20);
 
@@ -218,6 +214,12 @@ class ExperimentServiceTest {
         setField(run, "status", status);
         setField(run, "startedAt", Instant.now());
         return run;
+    }
+
+    private void setMaterializedCounts(ExperimentRun run, int itemCount, int passedCount) {
+        setField(run, "itemCount", itemCount);
+        setField(run, "passedCount", passedCount);
+        setField(run, "passRate", itemCount > 0 ? (double) passedCount / itemCount : null);
     }
 
     private void setField(Object target, String fieldName, Object value) {

@@ -106,9 +106,10 @@ class ProjectControllerTest extends AbstractControllerTest {
 
         when(projectService.getOrCreateProject("my-project")).thenReturn(project);
         when(experimentService.getOrCreateExperiment(project, "my-experiment")).thenReturn(experiment);
-        when(runService.createRun(eq(experiment), any())).thenReturn(run);
+        when(runService.createRun(eq(experiment), any(CreateRunRequest.class))).thenReturn(run);
 
-        CreateRunRequest request = new CreateRunRequest("my-experiment", Map.of("key", "value"));
+        CreateRunRequest request =
+                new CreateRunRequest("my-experiment", Map.of("key", "value"), "nightly", "abc123", "main", "ci");
 
         mockMvc.perform(post("/api/v1/projects/my-project/runs")
                         .contentType(MediaType.APPLICATION_JSON_VALUE)

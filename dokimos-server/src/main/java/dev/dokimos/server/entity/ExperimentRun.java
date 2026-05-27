@@ -40,6 +40,30 @@ public class ExperimentRun {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> config;
 
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "git_sha")
+    private String gitSha;
+
+    @Column(name = "git_branch")
+    private String gitBranch;
+
+    @Column(name = "triggered_by")
+    private String triggeredBy;
+
+    @Column(name = "tenant_id")
+    private String tenantId;
+
+    @Column(name = "item_count", nullable = false)
+    private int itemCount;
+
+    @Column(name = "passed_count", nullable = false)
+    private int passedCount;
+
+    @Column(name = "pass_rate")
+    private Double passRate;
+
     @Column(nullable = false)
     private Instant startedAt;
 
@@ -91,5 +115,69 @@ public class ExperimentRun {
 
     public List<ItemResult> getItems() {
         return items;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getGitSha() {
+        return gitSha;
+    }
+
+    public void setGitSha(String gitSha) {
+        this.gitSha = gitSha;
+    }
+
+    public String getGitBranch() {
+        return gitBranch;
+    }
+
+    public void setGitBranch(String gitBranch) {
+        this.gitBranch = gitBranch;
+    }
+
+    public String getTriggeredBy() {
+        return triggeredBy;
+    }
+
+    public void setTriggeredBy(String triggeredBy) {
+        this.triggeredBy = triggeredBy;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public int getItemCount() {
+        return itemCount;
+    }
+
+    public void setItemCount(int itemCount) {
+        this.itemCount = itemCount;
+    }
+
+    public int getPassedCount() {
+        return passedCount;
+    }
+
+    public void setPassedCount(int passedCount) {
+        this.passedCount = passedCount;
+    }
+
+    public Double getPassRate() {
+        return passRate;
+    }
+
+    public void setPassRate(Double passRate) {
+        this.passRate = passRate;
     }
 }

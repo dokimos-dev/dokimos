@@ -79,7 +79,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
 
         runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
@@ -91,6 +91,77 @@ class RunServiceTest {
     }
 
     @Test
+    void updateRun_shouldMaterializeCountsMatchingLiveComputation() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemResultRepository.countByRun(run)).thenReturn(10L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(7L);
+
+        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+
+        ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
+        verify(runRepository).save(captor.capture());
+        ExperimentRun saved = captor.getValue();
+
+        // Materialized fields must hold the computed counts (10 items, 7 passing, 0.7 pass rate).
+        assertThat(saved.getItemCount()).isEqualTo(10);
+        assertThat(saved.getPassedCount()).isEqualTo(7);
+        assertThat(saved.getPassRate()).isEqualTo(0.7);
+    }
+
+    @Test
+    void updateRun_shouldMaterializeNullPassRateForZeroItems() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemResultRepository.countByRun(run)).thenReturn(0L);
+
+        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+
+        ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
+        verify(runRepository).save(captor.capture());
+        assertThat(captor.getValue().getItemCount()).isZero();
+        assertThat(captor.getValue().getPassRate()).isNull();
+    }
+
+    @Test
+    void addItems_shouldPersistEvalMetadata() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Map<String, Object> evalMetadata = Map.of("model", "gpt-4", "tokens", 42);
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"),
+                Map.of("output", "a"),
+                Map.of("output", "a"),
+                List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", evalMetadata)),
+                true)));
+
+        runService.addItems(runId, request);
+
+        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
+        verify(itemResultRepository).save(captor.capture());
+        assertThat(captor.getValue().getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
+    }
+
+    @Test
     void updateRun_shouldNotSetCompletedAtForRunningStatus() {
         UUID runId = UUID.randomUUID();
         Project project = createProject("my-project");
@@ -98,7 +169,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
 
         runService.updateRun(runId, new UpdateRunRequest(RunStatus.RUNNING));
@@ -111,7 +182,7 @@ class RunServiceTest {
     @Test
     void updateRun_shouldThrowWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
-        when(runRepository.findById(runId)).thenReturn(Optional.empty());
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -133,7 +204,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
         when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
@@ -161,7 +232,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
         when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
@@ -175,17 +246,33 @@ class RunServiceTest {
     }
 
     @Test
+    void addItems_shouldThrowWhenRunIsTerminal() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"), Map.of("output", "a"), Map.of("output", "a"), null, true)));
+
+        assertThatThrownBy(() -> runService.addItems(runId, request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cannot add items to a run that is not RUNNING");
+    }
+
+    @Test
     void listRuns_shouldReturnRunSummaries() {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run1 = createRun(experiment, RunStatus.SUCCESS);
         ExperimentRun run2 = createRun(experiment, RunStatus.FAILED);
+        setMaterializedCounts(run1, 10, 8);
+        setMaterializedCounts(run2, 5, 2);
 
         when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run1, run2));
-        when(itemResultRepository.countByRun(run1)).thenReturn(10L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run1)).thenReturn(8L);
-        when(itemResultRepository.countByRun(run2)).thenReturn(5L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run2)).thenReturn(2L);
 
         List<RunSummary> result = runService.listRuns(experiment);
 
@@ -201,10 +288,9 @@ class RunServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setMaterializedCounts(run, 0, 0);
 
         when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run));
-        when(itemResultRepository.countByRun(run)).thenReturn(0L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(0L);
 
         List<RunSummary> result = runService.listRuns(experiment);
 
@@ -218,13 +304,12 @@ class RunServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setField(run, "id", runId);
+        setMaterializedCounts(run, 10, 8);
 
         Pageable pageable = PageRequest.of(0, 50);
         Page<ItemResult> emptyPage = new PageImpl<>(List.of());
 
         when(runRepository.findById(runId)).thenReturn(Optional.of(run));
-        when(itemResultRepository.countByRun(run)).thenReturn(10L);
-        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(8L);
         when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(emptyPage);
 
         RunDetails result = runService.getRunDetails(runId, pageable);
@@ -267,6 +352,12 @@ class RunServiceTest {
         setField(run, "status", status);
         setField(run, "startedAt", Instant.now());
         return run;
+    }
+
+    private void setMaterializedCounts(ExperimentRun run, int itemCount, int passedCount) {
+        setField(run, "itemCount", itemCount);
+        setField(run, "passedCount", passedCount);
+        setField(run, "passRate", itemCount > 0 ? (double) passedCount / itemCount : null);
     }
 
     private void setField(Object target, String fieldName, Object value) {

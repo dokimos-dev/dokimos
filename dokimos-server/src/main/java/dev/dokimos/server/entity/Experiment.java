@@ -36,6 +36,9 @@ public class Experiment {
     @Column(nullable = false)
     private Instant createdAt;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @OneToMany(mappedBy = "experiment")
     private List<ExperimentRun> runs = new ArrayList<>();
 
@@ -65,5 +68,13 @@ public class Experiment {
 
     public List<ExperimentRun> getRuns() {
         return runs;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 }

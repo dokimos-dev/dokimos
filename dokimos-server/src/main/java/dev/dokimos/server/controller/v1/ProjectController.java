@@ -52,7 +52,7 @@ public class ProjectController {
     public CreateRunResponse createRun(@PathVariable String projectName, @Valid @RequestBody CreateRunRequest request) {
         Project project = projectService.getOrCreateProject(projectName);
         Experiment experiment = experimentService.getOrCreateExperiment(project, request.experimentName());
-        ExperimentRun run = runService.createRun(experiment, request.metadata());
+        ExperimentRun run = runService.createRun(experiment, request);
         return new CreateRunResponse(run.getId());
     }
 }

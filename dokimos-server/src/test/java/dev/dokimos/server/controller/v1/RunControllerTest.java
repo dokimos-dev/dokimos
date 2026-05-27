@@ -135,6 +135,23 @@ class RunControllerTest extends AbstractControllerTest {
     }
 
     @Test
+    void addItems_shouldReturn409WhenRunNotRunning() throws Exception {
+        UUID runId = UUID.randomUUID();
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "test"), Map.of("output", "expected"), Map.of("output", "actual"), null, true)));
+
+        doThrow(new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId))
+                .when(runService)
+                .addItems(eq(runId), any(AddItemsRequest.class));
+
+        mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Cannot add items to a run that is not RUNNING: " + runId));
+    }
+
+    @Test
     void updateRun_shouldReturnUpdated() throws Exception {
         UUID runId = UUID.randomUUID();
         UpdateRunRequest request = new UpdateRunRequest(RunStatus.SUCCESS);

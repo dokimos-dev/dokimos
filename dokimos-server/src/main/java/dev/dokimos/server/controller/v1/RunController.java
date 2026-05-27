@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,5 +46,11 @@ public class RunController {
     public Map<String, String> updateRun(@PathVariable UUID runId, @Valid @RequestBody UpdateRunRequest request) {
         runService.updateRun(runId, request);
         return Map.of("status", "updated");
+    }
+
+    @DeleteMapping("/{runId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteRun(@PathVariable UUID runId) {
+        runService.deleteRun(runId);
     }
 }

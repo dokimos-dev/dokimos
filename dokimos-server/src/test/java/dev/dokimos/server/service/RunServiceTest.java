@@ -144,7 +144,6 @@ class RunServiceTest {
         setField(run, "id", runId);
 
         when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Map<String, Object> evalMetadata = Map.of("model", "gpt-4", "tokens", 42);
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
@@ -156,9 +155,8 @@ class RunServiceTest {
 
         runService.addItems(runId, request);
 
-        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
-        verify(itemResultRepository).save(captor.capture());
-        assertThat(captor.getValue().getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved.get(0).getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
     }
 
     @Test
@@ -205,7 +203,6 @@ class RunServiceTest {
         setField(run, "id", runId);
 
         when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "What is 2+2?"),
@@ -216,12 +213,48 @@ class RunServiceTest {
 
         runService.addItems(runId, request);
 
-        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
-        verify(itemResultRepository).save(captor.capture());
-        assertThat(captor.getValue().getInput()).isEqualTo("{\"input\":\"What is 2+2?\"}");
-        assertThat(captor.getValue().getExpectedOutput()).isEqualTo("{\"output\":\"4\"}");
-        assertThat(captor.getValue().getActualOutput()).isEqualTo("{\"output\":\"4\"}");
-        assertThat(captor.getValue().getEvalResults()).hasSize(1);
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getInput()).isEqualTo("{\"input\":\"What is 2+2?\"}");
+        assertThat(saved.get(0).getExpectedOutput()).isEqualTo("{\"output\":\"4\"}");
+        assertThat(saved.get(0).getActualOutput()).isEqualTo("{\"output\":\"4\"}");
+        assertThat(saved.get(0).getEvalResults()).hasSize(1);
+    }
+
+    @Test
+    void addItems_shouldPersistAllItemsAndEvalsInOneCall() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+
+        AddItemsRequest request = new AddItemsRequest(List.of(
+                new AddItemsRequest.ItemData(
+                        Map.of("input", "q1"),
+                        Map.of("output", "a1"),
+                        Map.of("output", "a1"),
+                        List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "ok", Map.of())),
+                        true),
+                new AddItemsRequest.ItemData(
+                        Map.of("input", "q2"),
+                        Map.of("output", "a2"),
+                        Map.of("output", "wrong"),
+                        List.of(
+                                new AddItemsRequest.EvalData("exact-match", 0.0, 0.9, false, "no", Map.of()),
+                                new AddItemsRequest.EvalData("relevance", 0.5, 0.9, false, "weak", Map.of())),
+                        false)));
+
+        runService.addItems(runId, request);
+
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved).hasSize(2);
+        assertThat(saved.get(0).getEvalResults()).hasSize(1);
+        assertThat(saved.get(1).getEvalResults()).hasSize(2);
+        // saveAll is the single persistence call (no per-item save loop).
+        verify(itemResultRepository).saveAll(any());
     }
 
     @Test
@@ -233,16 +266,14 @@ class RunServiceTest {
         setField(run, "id", runId);
 
         when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(itemResultRepository.save(any(ItemResult.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "test"), Map.of("output", "expected"), Map.of("output", "actual"), null, false)));
 
         runService.addItems(runId, request);
 
-        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
-        verify(itemResultRepository).save(captor.capture());
-        assertThat(captor.getValue().getEvalResults()).isEmpty();
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved.get(0).getEvalResults()).isEmpty();
     }
 
     @Test
@@ -330,6 +361,38 @@ class RunServiceTest {
         assertThatThrownBy(() -> runService.getRunDetails(runId, PageRequest.of(0, 50)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run not found");
+    }
+
+    @Test
+    void deleteRun_shouldDeleteWhenFound() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setField(run, "id", runId);
+
+        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+
+        runService.deleteRun(runId);
+
+        verify(runRepository).delete(run);
+    }
+
+    @Test
+    void deleteRun_shouldThrowWhenNotFound() {
+        UUID runId = UUID.randomUUID();
+        when(runRepository.findById(runId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> runService.deleteRun(runId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Run not found");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ItemResult> captureSavedItems() {
+        ArgumentCaptor<List<ItemResult>> captor = ArgumentCaptor.forClass(List.class);
+        verify(itemResultRepository).saveAll(captor.capture());
+        return captor.getValue();
     }
 
     private Project createProject(String name) {

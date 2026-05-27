@@ -21,7 +21,7 @@ class ApiKeyAuthFilterTest {
     @BeforeEach
     void setUp() {
         apiKeyProperties = new ApiKeyProperties();
-        filter = new ApiKeyAuthFilter(apiKeyProperties, objectMapper);
+        filter = new ApiKeyAuthFilter(new ApiKeyAuthenticator(apiKeyProperties), objectMapper);
     }
 
     @Nested
@@ -208,6 +208,36 @@ class ApiKeyAuthFilterTest {
 
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(filterChain.getRequest()).isNull();
+        }
+
+        @Test
+        void shouldReturnUnchanged401Body() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/runs");
+            request.setContentType("application/json");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(401);
+            assertThat(response.getContentType()).isEqualTo("application/json");
+            assertThat(response.getContentAsString()).isEqualTo("{\"error\":\"Invalid or missing API key\"}");
+            assertThat(filterChain.getRequest()).isNull();
+        }
+
+        @Test
+        void shouldStashPrincipalOnAllowedRequest() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/runs");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer " + TEST_API_KEY);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(request.getAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE))
+                    .isInstanceOf(Principal.class);
         }
 
         @Test

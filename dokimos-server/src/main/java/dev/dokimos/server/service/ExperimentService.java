@@ -75,6 +75,19 @@ public class ExperimentService {
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
 
+    /**
+     * Deletes an experiment by id. The database foreign keys cascade the delete to the experiment's
+     * runs, item results, and eval results.
+     *
+     * @param experimentId the experiment id
+     * @throws IllegalArgumentException if the id is null or no experiment with the given id exists
+     */
+    @Transactional
+    public void deleteExperiment(UUID experimentId) {
+        Experiment experiment = getExperiment(experimentId);
+        experimentRepository.delete(experiment);
+    }
+
     @Transactional(readOnly = true)
     public TrendData getTrends(UUID experimentId, int limit) {
         Experiment experiment = getExperiment(experimentId);

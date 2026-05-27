@@ -2,7 +2,11 @@ package dev.dokimos.server.controller.v1;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -116,6 +120,26 @@ class ProjectControllerTest extends AbstractControllerTest {
                         .content(toJson(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.runId").value(runId.toString()));
+    }
+
+    @Test
+    void deleteProject_shouldReturn204OnSuccess() throws Exception {
+        doNothing().when(projectService).deleteProject("my-project");
+
+        mockMvc.perform(delete("/api/v1/projects/{projectName}", "my-project")).andExpect(status().isNoContent());
+
+        verify(projectService).deleteProject("my-project");
+    }
+
+    @Test
+    void deleteProject_shouldReturn404WhenNotFound() throws Exception {
+        doThrow(new IllegalArgumentException("Project not found: unknown"))
+                .when(projectService)
+                .deleteProject("unknown");
+
+        mockMvc.perform(delete("/api/v1/projects/{projectName}", "unknown"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Project not found: unknown"));
     }
 
     private void setField(Object target, String fieldName, Object value) {

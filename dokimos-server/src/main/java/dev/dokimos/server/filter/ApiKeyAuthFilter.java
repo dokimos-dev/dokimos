@@ -1,15 +1,13 @@
 package dev.dokimos.server.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.dokimos.server.config.ApiKeyProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
-import org.springframework.http.HttpMethod;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
@@ -28,20 +26,23 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <p>
  * If authentication is disabled (no API key configured), all requests are
  * allowed.
+ * <p>
+ * The actual allow/reject decision is delegated to an {@link Authenticator}, so future
+ * authorization schemes can be added without changing this filter.
  */
 @Component
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
-    private static final String BEARER_PREFIX = "Bearer ";
-    private static final String AUTHORIZATION_HEADER = "Authorization";
-    private static final Set<String> READ_METHODS =
-            Set.of(HttpMethod.GET.name(), HttpMethod.HEAD.name(), HttpMethod.OPTIONS.name());
+    /** Request attribute under which the authenticated {@link Principal} is stashed for later use. */
+    public static final String PRINCIPAL_ATTRIBUTE = "dokimos.principal";
 
-    private final ApiKeyProperties apiKeyProperties;
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+
+    private final Authenticator authenticator;
     private final ObjectMapper objectMapper;
 
-    public ApiKeyAuthFilter(ApiKeyProperties apiKeyProperties, ObjectMapper objectMapper) {
-        this.apiKeyProperties = apiKeyProperties;
+    public ApiKeyAuthFilter(Authenticator authenticator, ObjectMapper objectMapper) {
+        this.authenticator = authenticator;
         this.objectMapper = objectMapper;
     }
 
@@ -52,32 +53,15 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        // If auth is disabled, we allow all requests
-        if (!apiKeyProperties.isAuthEnabled()) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // Allow read-only methods without authentication
-        String method = request.getMethod();
-        if (READ_METHODS.contains(method)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // For write operations, we check the API key
         String authHeader = request.getHeader(AUTHORIZATION_HEADER);
-        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+        Optional<Principal> principal = authenticator.authenticate(request.getMethod(), authHeader);
+
+        if (principal.isEmpty()) {
             sendUnauthorizedResponse(response, "Invalid or missing API key");
             return;
         }
 
-        String providedKey = authHeader.substring(BEARER_PREFIX.length());
-        if (!apiKeyProperties.getApiKey().equals(providedKey)) {
-            sendUnauthorizedResponse(response, "Invalid or missing API key");
-            return;
-        }
-
+        request.setAttribute(PRINCIPAL_ATTRIBUTE, principal.get());
         filterChain.doFilter(request, response);
     }
 

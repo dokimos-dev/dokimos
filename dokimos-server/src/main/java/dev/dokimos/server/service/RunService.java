@@ -15,6 +15,7 @@ import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -85,6 +86,7 @@ public class RunService {
             throw new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId);
         }
 
+        List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
             String input = extractText(itemData.inputs());
             String expectedOutput = extractText(itemData.expectedOutputs());
@@ -105,8 +107,23 @@ public class RunService {
                 }
             }
 
-            itemResultRepository.save(item);
+            items.add(item);
         }
+
+        itemResultRepository.saveAll(items);
+    }
+
+    /**
+     * Deletes a run by id. The database foreign keys cascade the delete to the run's item results
+     * and eval results.
+     *
+     * @param runId the run id
+     * @throws IllegalArgumentException if the id is null or no run with the given id exists
+     */
+    @Transactional
+    public void deleteRun(UUID runId) {
+        ExperimentRun run = getRun(runId);
+        runRepository.delete(run);
     }
 
     /**

@@ -43,4 +43,17 @@ public class ProjectService {
                 .findByName(name)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + name)));
     }
+
+    /**
+     * Deletes a project by name. The database foreign keys cascade the delete to the project's
+     * experiments, runs, item results, and eval results.
+     *
+     * @param name the project name
+     * @throws IllegalArgumentException if no project with the given name exists
+     */
+    @Transactional
+    public void deleteProject(String name) {
+        Project project = getProject(name);
+        projectRepository.delete(project);
+    }
 }

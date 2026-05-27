@@ -106,6 +106,29 @@ class ExperimentServiceTest {
     }
 
     @Test
+    void deleteExperiment_shouldDeleteWhenFound() {
+        UUID experimentId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        setField(experiment, "id", experimentId);
+        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
+
+        experimentService.deleteExperiment(experimentId);
+
+        verify(experimentRepository).delete(experiment);
+    }
+
+    @Test
+    void deleteExperiment_shouldThrowWhenNotFound() {
+        UUID experimentId = UUID.randomUUID();
+        when(experimentRepository.findById(experimentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> experimentService.deleteExperiment(experimentId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Experiment not found");
+    }
+
+    @Test
     void listExperiments_shouldReturnSummariesWithLatestRun() {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");

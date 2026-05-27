@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -180,5 +181,27 @@ class RunControllerTest extends AbstractControllerTest {
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .content(toJson(request)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteRun_shouldReturn204OnSuccess() throws Exception {
+        UUID runId = UUID.randomUUID();
+        doNothing().when(runService).deleteRun(runId);
+
+        mockMvc.perform(delete("/api/v1/runs/{runId}", runId)).andExpect(status().isNoContent());
+
+        verify(runService).deleteRun(runId);
+    }
+
+    @Test
+    void deleteRun_shouldReturn404WhenNotFound() throws Exception {
+        UUID runId = UUID.randomUUID();
+        doThrow(new IllegalArgumentException("Run not found: " + runId))
+                .when(runService)
+                .deleteRun(runId);
+
+        mockMvc.perform(delete("/api/v1/runs/{runId}", runId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Run not found: " + runId));
     }
 }

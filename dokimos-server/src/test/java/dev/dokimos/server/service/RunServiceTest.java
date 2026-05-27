@@ -3,6 +3,9 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,10 +16,12 @@ import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
+import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
+import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
 import java.util.List;
@@ -44,11 +49,14 @@ class RunServiceTest {
     @Mock
     private ItemResultRepository itemResultRepository;
 
+    @Mock
+    private IngestedBatchRepository ingestedBatchRepository;
+
     private RunService runService;
 
     @BeforeEach
     void setUp() {
-        runService = new RunService(runRepository, itemResultRepository, new ObjectMapper());
+        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository, new ObjectMapper());
     }
 
     @Test
@@ -153,7 +161,7 @@ class RunServiceTest {
                 List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", evalMetadata)),
                 true)));
 
-        runService.addItems(runId, request);
+        runService.addItems(runId, request, null);
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
@@ -211,7 +219,7 @@ class RunServiceTest {
                 List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", Map.of())),
                 true)));
 
-        runService.addItems(runId, request);
+        runService.addItems(runId, request, null);
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(1);
@@ -247,7 +255,7 @@ class RunServiceTest {
                                 new AddItemsRequest.EvalData("relevance", 0.5, 0.9, false, "weak", Map.of())),
                         false)));
 
-        runService.addItems(runId, request);
+        runService.addItems(runId, request, null);
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(2);
@@ -270,7 +278,7 @@ class RunServiceTest {
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "test"), Map.of("output", "expected"), Map.of("output", "actual"), null, false)));
 
-        runService.addItems(runId, request);
+        runService.addItems(runId, request, null);
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getEvalResults()).isEmpty();
@@ -289,9 +297,82 @@ class RunServiceTest {
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "q"), Map.of("output", "a"), Map.of("output", "a"), null, true)));
 
-        assertThatThrownBy(() -> runService.addItems(runId, request))
+        assertThatThrownBy(() -> runService.addItems(runId, request, null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Cannot add items to a run that is not RUNNING");
+    }
+
+    @Test
+    void addItems_shouldInsertOnceWhenSameIdempotencyKeyUsedTwice() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        // First call sees no recorded key, second call sees the key recorded by the first.
+        when(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, "key-1"))
+                .thenReturn(false)
+                .thenReturn(true);
+
+        AddItemsRequest request = singleItemRequest();
+
+        runService.addItems(runId, request, "key-1");
+        runService.addItems(runId, request, "key-1");
+
+        // Items are inserted only on the first call; the retry is a no-op.
+        verify(itemResultRepository, times(1)).saveAll(any());
+        // The dedup record is written exactly once, in the same call that inserted the items.
+        verify(ingestedBatchRepository, times(1)).save(any(IngestedBatch.class));
+    }
+
+    @Test
+    void addItems_shouldInsertTwiceForDifferentIdempotencyKeys() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(eq(runId), any()))
+                .thenReturn(false);
+
+        AddItemsRequest request = singleItemRequest();
+
+        runService.addItems(runId, request, "key-1");
+        runService.addItems(runId, request, "key-2");
+
+        verify(itemResultRepository, times(2)).saveAll(any());
+        verify(ingestedBatchRepository, times(2)).save(any(IngestedBatch.class));
+    }
+
+    @Test
+    void addItems_shouldInsertWithoutDedupRecordForNullKey() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+
+        runService.addItems(runId, singleItemRequest(), null);
+
+        // Backward compatible path: items are inserted, no dedup lookup or record happens.
+        verify(itemResultRepository, times(1)).saveAll(any());
+        verify(ingestedBatchRepository, never()).existsByRunIdAndIdempotencyKey(any(), any());
+        verify(ingestedBatchRepository, never()).save(any(IngestedBatch.class));
+    }
+
+    private AddItemsRequest singleItemRequest() {
+        return new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"),
+                Map.of("output", "a"),
+                Map.of("output", "a"),
+                List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "ok", Map.of())),
+                true)));
     }
 
     @Test

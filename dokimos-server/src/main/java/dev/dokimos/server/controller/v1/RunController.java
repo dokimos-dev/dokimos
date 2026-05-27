@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,8 +38,11 @@ public class RunController {
 
     @PostMapping("/{runId}/items")
     @ResponseStatus(HttpStatus.CREATED)
-    public Map<String, String> addItems(@PathVariable UUID runId, @Valid @RequestBody AddItemsRequest request) {
-        runService.addItems(runId, request);
+    public Map<String, String> addItems(
+            @PathVariable UUID runId,
+            @Valid @RequestBody AddItemsRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        runService.addItems(runId, request, idempotencyKey);
         return Map.of("status", "ok");
     }
 

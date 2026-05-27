@@ -10,9 +10,11 @@ import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.entity.EvalResult;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
+import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
+import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,14 +31,17 @@ public class RunService {
 
     private final ExperimentRunRepository runRepository;
     private final ItemResultRepository itemResultRepository;
+    private final IngestedBatchRepository ingestedBatchRepository;
     private final ObjectMapper objectMapper;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
+            IngestedBatchRepository ingestedBatchRepository,
             ObjectMapper objectMapper) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
+        this.ingestedBatchRepository = ingestedBatchRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -75,15 +80,37 @@ public class RunService {
      * on the same run blocks until this batch commits, so the counts it materializes always reflect the
      * fully committed item set and cannot go stale.
      *
+     * <p>Ingestion is idempotent when an idempotency key is supplied. After the run row is locked,
+     * if a batch with the same {@code (runId, idempotencyKey)} has already been committed the method
+     * returns without inserting anything. Otherwise it inserts the items and, when a key is present,
+     * records the key in the same transaction. A null key preserves the original behavior and inserts
+     * without recording a dedup row.
+     *
+     * <p>The dedup check is race-safe. {@link #getRunForUpdate} takes a pessimistic write lock on the
+     * run row, so two concurrent requests carrying the same key for the same run are serialized: the
+     * second blocks on the run lock until the first transaction commits its {@code ingested_batches}
+     * row, and only then proceeds. Under READ COMMITTED (PostgreSQL's default) the second request's
+     * {@code existsByRunIdAndIdempotencyKey} read therefore observes the committed row and no-ops. The
+     * composite primary key {@code (runId, idempotencyKey)} on {@code ingested_batches} is the backstop:
+     * even if two inserts somehow reached the table, the second would fail the unique constraint rather
+     * than silently double-insert.
+     *
      * @param runId the run to add items to
      * @param request the items to add
+     * @param idempotencyKey the client-supplied idempotency key for this batch, or null to skip dedup
      * @throws IllegalStateException if the run is not in the RUNNING status
      */
     @Transactional
-    public void addItems(UUID runId, AddItemsRequest request) {
+    public void addItems(UUID runId, AddItemsRequest request, String idempotencyKey) {
         ExperimentRun run = getRunForUpdate(runId);
         if (run.getStatus() != RunStatus.RUNNING) {
             throw new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId);
+        }
+
+        if (idempotencyKey != null && ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, idempotencyKey)) {
+            // This batch already committed under the same key (a retry of a request that succeeded).
+            // Returning without inserting keeps ingestion idempotent.
+            return;
         }
 
         List<ItemResult> items = new ArrayList<>(request.items().size());
@@ -111,6 +138,10 @@ public class RunService {
         }
 
         itemResultRepository.saveAll(items);
+
+        if (idempotencyKey != null) {
+            ingestedBatchRepository.save(new IngestedBatch(runId, idempotencyKey, Instant.now()));
+        }
     }
 
     /**

@@ -1,12 +1,12 @@
 package dev.dokimos.server.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.time.Instant;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -260,6 +260,65 @@ class FlywayMigrationTest {
         }
     }
 
+    /**
+     * Verifies the V1 to V2 to V3 path creates the ingested_batches table and that its composite
+     * primary key (run_id, idempotency_key) rejects a duplicate row while allowing the same key for a
+     * different run.
+     */
+    @Test
+    void ingestedBatchesTableExistsAndEnforcesPrimaryKey() throws Exception {
+        DataSource ds = dataSource();
+
+        // Apply the migrations incrementally (V1 to V2, then V3) so the test exercises V3 layered on
+        // top of an already-migrated schema, matching the incremental path the other cases follow.
+        Flyway.configure().dataSource(ds).target("2").load().migrate();
+        Flyway.configure().dataSource(ds).target("3").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID otherRunId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            assertColumnExists(conn, "ingested_batches", "run_id");
+            assertColumnExists(conn, "ingested_batches", "idempotency_key");
+            assertColumnExists(conn, "ingested_batches", "created_at");
+
+            insertProject(conn, projectId, "batch-project");
+            insertExperiment(conn, experimentId, projectId, "batch-experiment");
+            insertRun(conn, runId, experimentId, "RUNNING");
+            insertRun(conn, otherRunId, experimentId, "RUNNING");
+
+            insertIngestedBatch(conn, runId, "key-1");
+
+            // The same (run_id, idempotency_key) is rejected by the primary key.
+            assertThatThrownBy(() -> insertIngestedBatch(conn, runId, "key-1"))
+                    .isInstanceOf(java.sql.SQLException.class);
+
+            // The same key for a different run is allowed.
+            insertIngestedBatch(conn, otherRunId, "key-1");
+
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT COUNT(*) FROM ingested_batches WHERE idempotency_key = ?")) {
+                ps.setString(1, "key-1");
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isEqualTo(2);
+                }
+            }
+        }
+    }
+
+    private void insertIngestedBatch(Connection conn, UUID runId, String key) throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO ingested_batches (run_id, idempotency_key, created_at) VALUES (?, ?, ?)")) {
+            ps.setObject(1, runId);
+            ps.setString(2, key);
+            ps.setObject(3, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+            ps.executeUpdate();
+        }
+    }
+
     private void insertProject(Connection conn, UUID id, String name) throws Exception {
         try (PreparedStatement ps =
                 conn.prepareStatement("INSERT INTO projects (id, name, created_at) VALUES (?, ?, ?)")) {
@@ -326,12 +385,15 @@ class FlywayMigrationTest {
     }
 
     private void assertColumnExists(Connection conn, String table, String column) throws Exception {
-        try (Statement st = conn.createStatement();
-                ResultSet rs = st.executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '"
-                        + table + "' AND column_name = '" + column + "'")) {
-            assertThat(rs.next())
-                    .as("column %s.%s should exist after V2", table, column)
-                    .isTrue();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = ? AND column_name = ?")) {
+            ps.setString(1, table);
+            ps.setString(2, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next())
+                        .as("column %s.%s should exist", table, column)
+                        .isTrue();
+            }
         }
     }
 }

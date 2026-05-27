@@ -16,7 +16,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +58,8 @@ public class DokimosServerReporter implements Reporter {
     private final Thread workerThread;
     private final AtomicBoolean running;
     private final AtomicInteger pendingItems;
+    private final AtomicInteger inFlight;
+    private final ConcurrentHashMap<String, AtomicInteger> pendingByRun;
     private final Object flushLock;
 
     private DokimosServerReporter(Builder builder) {
@@ -73,6 +77,8 @@ public class DokimosServerReporter implements Reporter {
         this.queue = new LinkedBlockingQueue<>();
         this.running = new AtomicBoolean(true);
         this.pendingItems = new AtomicInteger(0);
+        this.inFlight = new AtomicInteger(0);
+        this.pendingByRun = new ConcurrentHashMap<>();
         this.flushLock = new Object();
 
         this.workerThread = new Thread(this::processQueue, "dokimos-reporter-worker");
@@ -133,6 +139,22 @@ public class DokimosServerReporter implements Reporter {
         return apiVersion;
     }
 
+    /**
+     * Returns the number of items queued or in flight but not yet accounted for.
+     * Package-private for testing.
+     */
+    int pendingItemCount() {
+        return pendingItems.get();
+    }
+
+    /**
+     * Returns the number of item POSTs currently in flight.
+     * Package-private for testing.
+     */
+    int inFlightCount() {
+        return inFlight.get();
+    }
+
     @Override
     public RunHandle startRun(String experimentName, Map<String, Object> metadata) {
         String url = serverUrl + "/api/" + apiVersion + "/projects/" + projectName + "/runs";
@@ -163,7 +185,13 @@ public class DokimosServerReporter implements Reporter {
 
     @Override
     public void reportItem(RunHandle handle, ItemResult result) {
+        // Increment both counters BEFORE enqueueing so there is no window where an item is queued
+        // but not yet counted. pendingByRun shares the exact lifecycle of the global pendingItems:
+        // incremented here, decremented in the send finally. It therefore covers the whole path
+        // (queued, batched locally in the worker, in flight), closing the race where completeRun
+        // could finalize a run while a batch for it was still mid-flight.
         pendingItems.incrementAndGet();
+        pendingByRun.computeIfAbsent(handle.runId(), k -> new AtomicInteger(0)).incrementAndGet();
         queue.offer(new QueuedItem(handle, result));
     }
 
@@ -183,9 +211,10 @@ public class DokimosServerReporter implements Reporter {
 
     @Override
     public void flush() {
-        // Wait until the queue is empty and all pending items are processed
+        // Wait until the queue is drained and no send is in flight. Waiting on inFlight (not just an
+        // empty queue) closes the race where a batch has been dequeued and is still being sent.
         long deadline = System.currentTimeMillis() + 30000;
-        while (pendingItems.get() > 0 && System.currentTimeMillis() < deadline) {
+        while ((pendingItems.get() > 0 || inFlight.get() > 0) && System.currentTimeMillis() < deadline) {
             synchronized (flushLock) {
                 try {
                     flushLock.wait(50);
@@ -271,8 +300,6 @@ public class DokimosServerReporter implements Reporter {
             return;
         }
 
-        int itemCount = batch.size();
-
         // Group items by run handle
         Map<String, List<ItemResult>> itemsByRun = new java.util.HashMap<>();
         for (QueuedItem item : batch) {
@@ -291,16 +318,43 @@ public class DokimosServerReporter implements Reporter {
 
             Map<String, Object> body = Map.of("items", itemsPayload);
 
-            String response = executeWithRetry("POST", url, body);
-            if (response != null) {
-                LOGGER.debug("Sent batch of {} items to run {}", items.size(), runId);
-            }
-        }
+            // One idempotency key per run POST, reused across all retry attempts so a retry of a
+            // request that already succeeded server side is deduplicated rather than double inserted.
+            Map<String, String> headers =
+                    Map.of("Idempotency-Key", UUID.randomUUID().toString());
 
-        // Decrement pending count and notify flush waiters
-        pendingItems.addAndGet(-itemCount);
-        synchronized (flushLock) {
-            flushLock.notifyAll();
+            // Mark the send in flight so flush() blocks until it returns. The counters are
+            // decremented in a finally on every path (success, 4xx, permanent failure, exception),
+            // so neither flush() nor flushItemsForRun() can hang on a failed batch.
+            inFlight.incrementAndGet();
+            try {
+                String response = executeWithRetry("POST", url, body, headers);
+                if (response != null) {
+                    LOGGER.debug("Sent batch of {} items to run {}", items.size(), runId);
+                } else {
+                    // Permanent failure after retries. Make the data loss visible rather than
+                    // silently counting these items as delivered. Durable spooling is out of scope.
+                    LOGGER.error(
+                            "Failed to deliver {} items for run {} after {} retries; these items were NOT recorded",
+                            items.size(),
+                            runId,
+                            MAX_RETRIES);
+                }
+            } finally {
+                inFlight.decrementAndGet();
+                pendingItems.addAndGet(-items.size());
+                // Decrement the per-run counter by the items sent for this run. A zeroed entry is
+                // left in the map rather than removed: removing race-free would need extra
+                // coordination with reportItem's computeIfAbsent, and the number of distinct runs
+                // per reporter is small, so the leftover zeros are negligible.
+                AtomicInteger runPending = pendingByRun.get(runId);
+                if (runPending != null) {
+                    runPending.addAndGet(-items.size());
+                }
+                synchronized (flushLock) {
+                    flushLock.notifyAll();
+                }
+            }
         }
     }
 
@@ -328,26 +382,18 @@ public class DokimosServerReporter implements Reporter {
     }
 
     private void flushItemsForRun(RunHandle handle) {
-        // Wait until all items for this specific run are processed
+        // Wait until this run has no pending items. pendingByRun is incremented in reportItem before
+        // the item is enqueued and decremented only after the send completes, so it covers the entire
+        // lifecycle (queued, batched locally in the worker, in flight). This closes the race where the
+        // worker had moved items into its local batch but had not yet marked the send in flight: a
+        // queue scan would have seen nothing for the run and returned early, letting completeRun
+        // finalize the run while items were still mid-flight.
+        String runId = handle.runId();
         long deadline = System.currentTimeMillis() + 30000;
         while (System.currentTimeMillis() < deadline) {
-            boolean hasItemsForRun =
-                    queue.stream().anyMatch(item -> item.handle().equals(handle));
-            if (!hasItemsForRun) {
-                // Give a short time for any in-flight batch containing this run to complete
-                synchronized (flushLock) {
-                    try {
-                        flushLock.wait(50);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                }
-                // Check again after the wait
-                hasItemsForRun = queue.stream().anyMatch(item -> item.handle().equals(handle));
-                if (!hasItemsForRun) {
-                    return;
-                }
+            AtomicInteger runPending = pendingByRun.get(runId);
+            if (runPending == null || runPending.get() <= 0) {
+                return;
             }
             synchronized (flushLock) {
                 try {
@@ -361,6 +407,10 @@ public class DokimosServerReporter implements Reporter {
     }
 
     private String executeWithRetry(String method, String url, Map<String, Object> body) {
+        return executeWithRetry(method, url, body, Map.of());
+    }
+
+    private String executeWithRetry(String method, String url, Map<String, Object> body, Map<String, String> headers) {
         int attempt = 0;
         long backoff = INITIAL_BACKOFF_MS;
 
@@ -376,6 +426,10 @@ public class DokimosServerReporter implements Reporter {
 
                 if (apiKey != null) {
                     requestBuilder.header("Authorization", "Bearer " + apiKey);
+                }
+
+                for (Map.Entry<String, String> header : headers.entrySet()) {
+                    requestBuilder.header(header.getKey(), header.getValue());
                 }
 
                 HttpRequest request =

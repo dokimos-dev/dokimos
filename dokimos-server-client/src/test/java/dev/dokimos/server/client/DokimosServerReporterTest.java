@@ -30,6 +30,13 @@ class DokimosServerReporterTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<RecordedRequest> recordedRequests = new CopyOnWriteArrayList<>();
 
+    // Item POST response control for the recording handler.
+    private volatile boolean alwaysFailItems = false;
+    private volatile boolean failFirstItemPost = false;
+    private volatile long itemSendDelayMillis = 0;
+    private final java.util.concurrent.atomic.AtomicInteger itemPostAttempts =
+            new java.util.concurrent.atomic.AtomicInteger(0);
+
     @BeforeEach
     void setUp() throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
@@ -92,10 +99,8 @@ class DokimosServerReporterTest {
                 reporter.reportItem(handle, createItemResult("q" + i, "a" + i));
             }
 
+            // flush() blocks until every item has been sent and recorded, so no extra wait is needed.
             reporter.flush();
-
-            // Give time for all HTTP requests to be recorded
-            Thread.sleep(100);
 
             // Filter for item requests only
             List<RecordedRequest> itemRequests = recordedRequests.stream()
@@ -301,6 +306,102 @@ class DokimosServerReporterTest {
         }
     }
 
+    @Test
+    void shouldSendIdempotencyKeyOnItemPosts() {
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+
+            List<RecordedRequest> itemRequests = recordedRequests.stream()
+                    .filter(r -> r.path.contains("/items"))
+                    .toList();
+
+            assertThat(itemRequests).hasSize(1);
+            assertThat(itemRequests.get(0).idempotencyKey).isNotBlank();
+        }
+    }
+
+    @Test
+    void shouldReuseSameIdempotencyKeyAcrossRetryAttempts() {
+        // First item POST returns 500, the retry returns 201. Both attempts must carry the same key.
+        failFirstItemPost = true;
+
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+
+            List<RecordedRequest> itemRequests = recordedRequests.stream()
+                    .filter(r -> r.path.contains("/items"))
+                    .toList();
+
+            // The same logical POST was attempted twice (500 then 201).
+            assertThat(itemRequests).hasSize(2);
+            assertThat(itemRequests.get(0).idempotencyKey).isNotBlank();
+            assertThat(itemRequests.get(1).idempotencyKey).isEqualTo(itemRequests.get(0).idempotencyKey);
+        }
+    }
+
+    @Test
+    void shouldDrainPendingAndTerminateFlushWhenBatchPermanentlyFails() {
+        // Every item POST returns 500, so the batch fails after all retries.
+        alwaysFailItems = true;
+
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            for (int i = 0; i < 5; i++) {
+                reporter.reportItem(handle, createItemResult("q" + i, "a" + i));
+            }
+
+            long start = System.currentTimeMillis();
+            reporter.flush();
+            long elapsed = System.currentTimeMillis() - start;
+
+            // flush() must terminate well before its 30s deadline even though delivery failed.
+            // It should finish in roughly 2s (retries plus backoff); a tighter bound catches a
+            // regression where flush hangs to the full 30s deadline.
+            assertThat(elapsed).isLessThan(5000);
+            // Pending counter returns to 0 so a subsequent flush cannot hang forever.
+            assertThat(reporter.pendingItemCount()).isZero();
+        }
+    }
+
+    @Test
+    void shouldWaitForInFlightSendBeforeFlushReturns() throws Exception {
+        // The handler delays each item POST so the send is still in flight when flush() is called.
+        itemSendDelayMillis = 300;
+
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+
+            // Wait until the item has left the queue and the send is in flight.
+            long deadline = System.currentTimeMillis() + 2000;
+            while (reporter.inFlightCount() == 0 && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10);
+            }
+            assertThat(reporter.inFlightCount()).isGreaterThan(0);
+
+            reporter.flush();
+
+            // After flush returns, the in-flight send must have completed and been recorded.
+            assertThat(reporter.inFlightCount()).isZero();
+            List<RecordedRequest> itemRequests = recordedRequests.stream()
+                    .filter(r -> r.path.contains("/items"))
+                    .toList();
+            assertThat(itemRequests).hasSize(1);
+        }
+    }
+
     private DokimosServerReporter createReporter() {
         return DokimosServerReporter.builder()
                 .serverUrl(serverUrl)
@@ -321,8 +422,9 @@ class DokimosServerReporterTest {
             String path = exchange.getRequestURI().getPath();
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             String authHeader = exchange.getRequestHeaders().getFirst("Authorization");
+            String idempotencyKey = exchange.getRequestHeaders().getFirst("Idempotency-Key");
 
-            recordedRequests.add(new RecordedRequest(method, path, body, authHeader));
+            recordedRequests.add(new RecordedRequest(method, path, body, authHeader, idempotencyKey));
 
             String response;
             int statusCode = 200;
@@ -331,7 +433,8 @@ class DokimosServerReporterTest {
                 response = "{\"runId\": \"test-run-123\"}";
                 statusCode = 201;
             } else if (path.contains("/items")) {
-                response = "{\"status\": \"ok\"}";
+                statusCode = itemStatusFor(path);
+                response = statusCode >= 200 && statusCode < 300 ? "{\"status\": \"ok\"}" : "{\"error\": \"boom\"}";
             } else if (method.equals("PATCH")) {
                 response = "{\"status\": \"completed\"}";
             } else {
@@ -343,7 +446,24 @@ class DokimosServerReporterTest {
                 os.write(response.getBytes(StandardCharsets.UTF_8));
             }
         }
+
+        private int itemStatusFor(String path) {
+            if (itemSendDelayMillis > 0) {
+                try {
+                    Thread.sleep(itemSendDelayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (alwaysFailItems) {
+                return 500;
+            }
+            if (failFirstItemPost && itemPostAttempts.getAndIncrement() == 0) {
+                return 500;
+            }
+            return 201;
+        }
     }
 
-    private record RecordedRequest(String method, String path, String body, String authHeader) {}
+    private record RecordedRequest(String method, String path, String body, String authHeader, String idempotencyKey) {}
 }

@@ -108,7 +108,7 @@ class RunControllerTest extends AbstractControllerTest {
                 List.of(new AddItemsRequest.EvalData("eval", 1.0, 0.9, true, "pass", Map.of())),
                 true)));
 
-        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class));
+        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class), any());
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -116,7 +116,29 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("ok"));
 
-        verify(runService).addItems(eq(runId), any(AddItemsRequest.class));
+        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), any());
+    }
+
+    @Test
+    void addItems_shouldPassIdempotencyKeyHeaderToService() throws Exception {
+        UUID runId = UUID.randomUUID();
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "test"),
+                Map.of("output", "expected"),
+                Map.of("output", "actual"),
+                List.of(new AddItemsRequest.EvalData("eval", 1.0, 0.9, true, "pass", Map.of())),
+                true)));
+
+        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"));
+
+        mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
+                        .header("Idempotency-Key", "batch-key-1")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ok"));
+
+        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"));
     }
 
     @Test
@@ -127,7 +149,7 @@ class RunControllerTest extends AbstractControllerTest {
 
         doThrow(new IllegalArgumentException("Run not found: " + runId))
                 .when(runService)
-                .addItems(eq(runId), any(AddItemsRequest.class));
+                .addItems(eq(runId), any(AddItemsRequest.class), any());
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -143,7 +165,7 @@ class RunControllerTest extends AbstractControllerTest {
 
         doThrow(new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId))
                 .when(runService)
-                .addItems(eq(runId), any(AddItemsRequest.class));
+                .addItems(eq(runId), any(AddItemsRequest.class), any());
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)

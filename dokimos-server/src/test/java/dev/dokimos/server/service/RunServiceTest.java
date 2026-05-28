@@ -51,11 +51,14 @@ class RunServiceTest {
     @Mock
     private IngestedBatchRepository ingestedBatchRepository;
 
+    @Mock
+    private DatasetService datasetService;
+
     private RunService runService;
 
     @BeforeEach
     void setUp() {
-        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository);
+        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository, datasetService);
     }
 
     @Test

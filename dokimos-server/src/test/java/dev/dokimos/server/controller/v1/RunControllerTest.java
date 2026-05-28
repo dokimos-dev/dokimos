@@ -73,6 +73,8 @@ class RunControllerTest extends AbstractControllerTest {
                 0.8,
                 Instant.now(),
                 Instant.now(),
+                null,
+                null,
                 emptyPage);
 
         when(runService.getRunDetails(eq(runId), any(Pageable.class))).thenReturn(details);

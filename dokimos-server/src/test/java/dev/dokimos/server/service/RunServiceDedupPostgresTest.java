@@ -46,11 +46,20 @@ class RunServiceDedupPostgresTest {
     @org.springframework.boot.test.context.TestConfiguration
     static class TestConfig {
         @org.springframework.context.annotation.Bean
+        DatasetService datasetService(
+                dev.dokimos.server.repository.DatasetRepository datasetRepository,
+                dev.dokimos.server.repository.DatasetVersionRepository versionRepository,
+                dev.dokimos.server.repository.DatasetItemRepository itemRepository) {
+            return new DatasetService(datasetRepository, versionRepository, itemRepository);
+        }
+
+        @org.springframework.context.annotation.Bean
         RunService runService(
                 ExperimentRunRepository runRepository,
                 ItemResultRepository itemResultRepository,
-                IngestedBatchRepository ingestedBatchRepository) {
-            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository);
+                IngestedBatchRepository ingestedBatchRepository,
+                DatasetService datasetService) {
+            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository, datasetService);
         }
     }
 

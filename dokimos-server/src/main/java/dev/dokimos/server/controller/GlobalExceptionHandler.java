@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -26,6 +27,26 @@ public class GlobalExceptionHandler {
                         "error", "Conflict",
                         "message", ex.getMessage(),
                         "timestamp", Instant.now().toString()));
+    }
+
+    /**
+     * Maps bean-validation failures on {@code @RequestBody} payloads to a 400, surfacing the first
+     * field error message so the caller sees which constraint failed instead of an opaque 500.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .orElse("Validation failed");
+        return ResponseEntity.badRequest()
+                .body(Map.of(
+                        "error",
+                        "Bad Request",
+                        "message",
+                        message,
+                        "timestamp",
+                        Instant.now().toString()));
     }
 
     @ExceptionHandler(Exception.class)

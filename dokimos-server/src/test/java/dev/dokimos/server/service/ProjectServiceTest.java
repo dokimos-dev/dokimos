@@ -101,6 +101,25 @@ class ProjectServiceTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    void deleteProject_shouldDeleteWhenFound() {
+        Project project = createProject("my-project");
+        when(projectRepository.findByName("my-project")).thenReturn(Optional.of(project));
+
+        projectService.deleteProject("my-project");
+
+        verify(projectRepository).delete(project);
+    }
+
+    @Test
+    void deleteProject_shouldThrowWhenNotFound() {
+        when(projectRepository.findByName("unknown")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> projectService.deleteProject("unknown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Project not found: unknown");
+    }
+
     private Project createProject(String name) {
         Project project = new Project(name);
         setField(project, "id", UUID.randomUUID());

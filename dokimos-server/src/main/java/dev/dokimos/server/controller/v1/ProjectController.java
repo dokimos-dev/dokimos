@@ -13,6 +13,7 @@ import dev.dokimos.server.service.RunService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,7 +53,13 @@ public class ProjectController {
     public CreateRunResponse createRun(@PathVariable String projectName, @Valid @RequestBody CreateRunRequest request) {
         Project project = projectService.getOrCreateProject(projectName);
         Experiment experiment = experimentService.getOrCreateExperiment(project, request.experimentName());
-        ExperimentRun run = runService.createRun(experiment, request.metadata());
+        ExperimentRun run = runService.createRun(experiment, request);
         return new CreateRunResponse(run.getId());
+    }
+
+    @DeleteMapping("/{projectName}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteProject(@PathVariable String projectName) {
+        projectService.deleteProject(projectName);
     }
 }

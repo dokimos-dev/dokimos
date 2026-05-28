@@ -1,5 +1,6 @@
 package dev.dokimos.server.integration;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -90,6 +91,20 @@ class ApiKeyAuthIntegrationTest {
                                 "status": "SUCCESS"
                             }
                             """))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void deleteRequestsFailWithoutAuth() throws Exception {
+            mockMvc.perform(delete("/api/v1/runs/00000000-0000-0000-0000-000000000001"))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error").value("Invalid or missing API key"));
+        }
+
+        @Test
+        void deleteRequestsFailWithWrongApiKey() throws Exception {
+            mockMvc.perform(delete("/api/v1/runs/00000000-0000-0000-0000-000000000001")
+                            .header("Authorization", "Bearer wrong-key"))
                     .andExpect(status().isUnauthorized());
         }
     }

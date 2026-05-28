@@ -130,9 +130,9 @@ class ReporterIntegrationTest {
 
         // Verify the first item
         var firstItem = storedItems.get(0);
-        assertThat(firstItem.getInput()).isEqualTo("{\"input\":\"What is the capital of France?\"}");
-        assertThat(firstItem.getExpectedOutput()).isEqualTo("{\"output\":\"Paris\"}");
-        assertThat(firstItem.getActualOutput()).isEqualTo("{\"output\":\"Paris\"}");
+        assertThat(firstItem.getInput()).isEqualTo(Map.of("input", "What is the capital of France?"));
+        assertThat(firstItem.getExpectedOutput()).isEqualTo(Map.of("output", "Paris"));
+        assertThat(firstItem.getActualOutput()).isEqualTo(Map.of("output", "Paris"));
         assertThat(firstItem.getEvalResults()).hasSize(2);
 
         // Verify eval results for first item
@@ -158,7 +158,7 @@ class ReporterIntegrationTest {
 
         // Verify third item (with failure)
         var thirdItem = storedItems.get(2);
-        assertThat(thirdItem.getInput()).isEqualTo("{\"input\":\"Translate 'hello' to Spanish\"}");
+        assertThat(thirdItem.getInput()).isEqualTo(Map.of("input", "Translate 'hello' to Spanish"));
         var thirdItemEvals = thirdItem.getEvalResults();
         var failedEval = thirdItemEvals.stream()
                 .filter(e -> "exact-match".equals(e.getEvaluatorName()))
@@ -227,15 +227,15 @@ class ReporterIntegrationTest {
 
         // Verify first item is stored correctly
         var firstItem = storedItems.get(0);
-        assertThat(firstItem.getInput()).isEqualTo("{\"input\":\"Question 1\"}");
-        assertThat(firstItem.getActualOutput()).isEqualTo("{\"output\":\"Answer 1\"}");
+        assertThat(firstItem.getInput()).isEqualTo(Map.of("input", "Question 1"));
+        assertThat(firstItem.getActualOutput()).isEqualTo(Map.of("output", "Answer 1"));
         assertThat(firstItem.getEvalResults()).hasSize(1);
         assertThat(firstItem.getEvalResults().get(0).isSuccess()).isTrue();
 
         // Verify second item is stored correctly
         var secondItem = storedItems.get(1);
-        assertThat(secondItem.getInput()).isEqualTo("{\"input\":\"Question 2\"}");
-        assertThat(secondItem.getActualOutput()).isEqualTo("{\"output\":\"Wrong Answer\"}");
+        assertThat(secondItem.getInput()).isEqualTo(Map.of("input", "Question 2"));
+        assertThat(secondItem.getActualOutput()).isEqualTo(Map.of("output", "Wrong Answer"));
         assertThat(secondItem.getEvalResults()).hasSize(1);
         assertThat(secondItem.getEvalResults().get(0).isSuccess()).isFalse();
     }

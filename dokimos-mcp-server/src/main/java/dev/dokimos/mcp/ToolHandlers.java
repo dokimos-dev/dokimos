@@ -14,7 +14,14 @@ import dev.dokimos.core.Example;
 import dev.dokimos.core.Experiment;
 import dev.dokimos.core.ExperimentResult;
 import dev.dokimos.core.ItemResult;
+import dev.dokimos.core.RunResult;
 import dev.dokimos.core.Task;
+import dev.dokimos.core.comparison.ComparisonStatus;
+import dev.dokimos.core.comparison.EvaluatorDelta;
+import dev.dokimos.core.comparison.ItemComparison;
+import dev.dokimos.core.comparison.RunComparison;
+import dev.dokimos.core.comparison.RunComparisonResult;
+import dev.dokimos.core.comparison.SignificanceResult;
 import dev.dokimos.core.evaluators.ExactMatchEvaluator;
 import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
 import dev.dokimos.mcp.store.ResultStore;
@@ -130,9 +137,7 @@ public class ToolHandlers {
         }
     }
 
-    /**
-     * Compares two runs side by side, showing metric deltas and regressions.
-     */
+    /** Compares two runs via {@link RunComparison}: per-evaluator deltas, pass-rate test, per-item diffs. */
     public McpSchema.CallToolResult handleCompareRuns(Map<String, Object> arguments) {
         try {
             String idA = requireString(arguments, "run_id_a");
@@ -141,55 +146,211 @@ public class ToolHandlers {
             RunRecord runA = store.get(idA).orElseThrow(() -> new IllegalArgumentException("Run not found: " + idA));
             RunRecord runB = store.get(idB).orElseThrow(() -> new IllegalArgumentException("Run not found: " + idB));
 
+            RunResult baseline = toRunResult(runA);
+            RunResult candidate = toRunResult(runB);
+            RunComparisonResult result = RunComparison.create().compare(List.of(baseline), List.of(candidate));
+
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("run_a", summarizeRun(runA));
             response.put("run_b", summarizeRun(runB));
-
-            // Compute metric deltas
-            Map<String, Object> comparison = new LinkedHashMap<>();
-
-            double passRateDelta = runB.passRate() - runA.passRate();
-            comparison.put(
-                    "pass_rate",
-                    Map.of(
-                            "run_a", runA.passRate(),
-                            "run_b", runB.passRate(),
-                            "delta", round(passRateDelta),
-                            "status", classifyDelta(passRateDelta)));
-
-            // Per evaluator comparisons
-            Map<String, Object> evaluatorDeltas = new LinkedHashMap<>();
-            List<String> regressions = new ArrayList<>();
-
-            for (String evaluator : allEvaluatorNames(runA, runB)) {
-                double scoreA = runA.averageScores().getOrDefault(evaluator, 0.0);
-                double scoreB = runB.averageScores().getOrDefault(evaluator, 0.0);
-                double delta = scoreB - scoreA;
-                String status = classifyDelta(delta);
-
-                evaluatorDeltas.put(
-                        evaluator,
-                        Map.of(
-                                "run_a", scoreA,
-                                "run_b", scoreB,
-                                "delta", round(delta),
-                                "status", status));
-
-                if ("REGRESSION".equals(status)) {
-                    regressions.add(evaluator);
-                }
-            }
-
-            comparison.put("evaluators", evaluatorDeltas);
-            comparison.put("regressions", regressions);
-            comparison.put("has_regressions", !regressions.isEmpty());
-
-            response.put("comparison", comparison);
+            response.put("comparison", buildComparison(result, runA, runB));
 
             return textResult(response);
         } catch (Exception e) {
             return errorResult("compare_runs failed: " + e.getMessage());
         }
+    }
+
+    private static final int MAX_CASES = 50;
+
+    // Converts a stored run record into a single-run RunResult for the comparison engine.
+    // Items keep stored order (positional pairing). Items with no evaluations get a synthesized
+    // "overall" EvalResult so the engine's pass/fail matches the persisted ItemDetail.success flag
+    // (an empty eval list would otherwise pass vacuously).
+    private RunResult toRunResult(RunRecord run) {
+        List<ItemResult> itemResults = new ArrayList<>();
+        List<RunRecord.ItemDetail> items = run.items() != null ? run.items() : List.of();
+        for (RunRecord.ItemDetail item : items) {
+            Example example = Example.of(
+                    item.input() != null ? item.input() : "",
+                    item.expectedOutput() != null ? item.expectedOutput() : "");
+
+            List<EvalResult> evalResults = new ArrayList<>();
+            List<RunRecord.EvalDetail> evaluations = item.evaluations() != null ? item.evaluations() : List.of();
+            if (evaluations.isEmpty()) {
+                evalResults.add(
+                        new EvalResult("overall", item.success() ? 1.0 : 0.0, null, item.success(), "", Map.of()));
+            } else {
+                for (RunRecord.EvalDetail eval : evaluations) {
+                    evalResults.add(new EvalResult(
+                            eval.evaluator(), eval.score(), null, eval.success(), eval.reason(), Map.of()));
+                }
+            }
+
+            Map<String, Object> actualOutputs =
+                    Map.of("output", item.actualOutput() != null ? item.actualOutput() : "");
+            itemResults.add(new ItemResult(example, actualOutputs, evalResults));
+        }
+        return new RunResult(0, itemResults);
+    }
+
+    // Builds the comparison block of a compare_runs response. Stored records resolve per-item keys
+    // back to input text by position.
+    private Map<String, Object> buildComparison(RunComparisonResult result, RunRecord runA, RunRecord runB) {
+        Map<String, Object> comparison = new LinkedHashMap<>();
+
+        SignificanceResult passSig = result.passRateSignificance();
+        Map<String, Object> passRate = new LinkedHashMap<>();
+        passRate.put("run_a", result.baselinePassRate());
+        passRate.put("run_b", result.candidatePassRate());
+        passRate.put("delta", result.passRateDelta());
+        passRate.put("status", passRateStatus(result));
+        passRate.put("significant", passSig != null && passSig.significant());
+        passRate.put("p_value", passSig != null ? passSig.pValue() : null);
+        passRate.put("method", passSig != null ? passSig.method() : null);
+        comparison.put("pass_rate", passRate);
+
+        Map<String, Object> evaluators = new LinkedHashMap<>();
+        for (EvaluatorDelta delta : result.evaluatorDeltas()) {
+            evaluators.put(delta.evaluatorName(), evaluatorMap(delta));
+        }
+        comparison.put("evaluators", evaluators);
+
+        List<String> regressions = new ArrayList<>();
+        for (EvaluatorDelta delta : result.regressions()) {
+            regressions.add(delta.evaluatorName());
+        }
+        comparison.put("regressions", regressions);
+        comparison.put("has_regressions", result.hasRegressions());
+        comparison.put("pass_rate_regressed", result.passRateRegressed());
+
+        Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("improved", result.improvedCount());
+        counts.put("regressed", result.regressedCount());
+        counts.put("unchanged", result.unchangedCount());
+        counts.put("added", result.addedCount());
+        counts.put("removed", result.removedCount());
+        counts.put("significant_regressed", result.significantRegressedCount());
+        counts.put("significant_improved", result.significantImprovedCount());
+        comparison.put("summary_counts", counts);
+
+        boolean compositionChanged = (result.addedCount() + result.removedCount()) > 0;
+        comparison.put("composition_changed", compositionChanged);
+        if (compositionChanged) {
+            comparison.put(
+                    "composition_note",
+                    "Added or removed cases are not significance-tested; the engine only tests"
+                            + " significance on items present in both runs. The top-line pass rates"
+                            + " above cover each side's full item set, so a pass-rate difference"
+                            + " driven only by composition changes will not set has_regressions.");
+        }
+
+        addCases(comparison, result, runA, runB);
+
+        return comparison;
+    }
+
+    // REGRESSED first, then IMPROVED, then the rest. UNCHANGED filtered out. Capped at MAX_CASES.
+    private void addCases(Map<String, Object> comparison, RunComparisonResult result, RunRecord runA, RunRecord runB) {
+        List<ItemComparison> changed = new ArrayList<>();
+        for (ItemComparison item : result.items()) {
+            if (item.status() != ComparisonStatus.UNCHANGED) {
+                changed.add(item);
+            }
+        }
+        changed.sort(java.util.Comparator.comparingInt(item -> casePriority(item.status())));
+
+        int changedCount = changed.size();
+        boolean truncated = changedCount > MAX_CASES;
+        List<ItemComparison> included = truncated ? changed.subList(0, MAX_CASES) : changed;
+
+        List<Map<String, Object>> cases = new ArrayList<>();
+        for (ItemComparison item : included) {
+            cases.add(caseMap(item, runA, runB));
+        }
+
+        comparison.put("cases", cases);
+        comparison.put("cases_truncated", truncated);
+        comparison.put("changed_case_count", changedCount);
+    }
+
+    private Map<String, Object> caseMap(ItemComparison item, RunRecord runA, RunRecord runB) {
+        int index = parseIndex(item.key());
+
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("index", index);
+        entry.put("input", inputForIndex(index, runA, runB));
+        entry.put("status", item.status().name());
+        entry.put("pass_flip", item.passFlip());
+
+        List<Map<String, Object>> evaluatorList = new ArrayList<>();
+        for (EvaluatorDelta delta : item.evaluatorDeltas()) {
+            Map<String, Object> evalEntry = new LinkedHashMap<>();
+            evalEntry.put("name", delta.evaluatorName());
+            evalEntry.put("run_a", delta.baselineMean());
+            evalEntry.put("run_b", delta.candidateMean());
+            evalEntry.put("delta", delta.delta());
+            evalEntry.put("status", delta.status().name());
+            evalEntry.put(
+                    "significant",
+                    delta.significance() != null && delta.significance().significant());
+            evaluatorList.add(evalEntry);
+        }
+        entry.put("evaluators", evaluatorList);
+        return entry;
+    }
+
+    private Map<String, Object> evaluatorMap(EvaluatorDelta delta) {
+        SignificanceResult sig = delta.significance();
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("run_a", delta.baselineMean());
+        entry.put("run_b", delta.candidateMean());
+        entry.put("delta", delta.delta());
+        entry.put("status", delta.status().name());
+        entry.put("significant", sig != null && sig.significant());
+        entry.put("p_value", sig != null ? sig.pValue() : null);
+        return entry;
+    }
+
+    private static String passRateStatus(RunComparisonResult result) {
+        if (result.passRateRegressed()) {
+            return ComparisonStatus.REGRESSED.name();
+        }
+        if (result.passRateImproved()) {
+            return ComparisonStatus.IMPROVED.name();
+        }
+        return ComparisonStatus.UNCHANGED.name();
+    }
+
+    private static int casePriority(ComparisonStatus status) {
+        return switch (status) {
+            case REGRESSED -> 0;
+            case IMPROVED -> 1;
+            default -> 2;
+        };
+    }
+
+    // Parses "item-<index>" engine keys; returns -1 on mismatch.
+    private static int parseIndex(String key) {
+        if (key != null && key.startsWith("item-")) {
+            try {
+                return Integer.parseInt(key.substring("item-".length()));
+            } catch (NumberFormatException ignored) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    // Resolves input text for an item index; prefers candidate, falls back to baseline.
+    private static String inputForIndex(int index, RunRecord runA, RunRecord runB) {
+        if (index >= 0 && index < runB.items().size()) {
+            return runB.items().get(index).input();
+        }
+        if (index >= 0 && index < runA.items().size()) {
+            return runA.items().get(index).input();
+        }
+        return null;
     }
 
     /**
@@ -375,29 +536,6 @@ public class ToolHandlers {
         summary.put("pass_rate", run.passRate());
         summary.put("total_examples", run.totalCount());
         return summary;
-    }
-
-    private List<String> allEvaluatorNames(RunRecord a, RunRecord b) {
-        List<String> names = new ArrayList<>(a.averageScores().keySet());
-        for (String name : b.averageScores().keySet()) {
-            if (!names.contains(name)) {
-                names.add(name);
-            }
-        }
-        return names;
-    }
-
-    private String classifyDelta(double delta) {
-        if (delta > 0.001) {
-            return "IMPROVED";
-        } else if (delta < -0.001) {
-            return "REGRESSION";
-        }
-        return "UNCHANGED";
-    }
-
-    private double round(double value) {
-        return Math.round(value * 10000.0) / 10000.0;
     }
 
     private McpSchema.CallToolResult textResult(Object content) {

@@ -43,4 +43,11 @@ public class ProjectService {
                 .findByName(name)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + name)));
     }
+
+    /** Deletes a project; FKs cascade to its experiments, runs, items, and evals. */
+    @Transactional
+    public void deleteProject(String name) {
+        Project project = getProject(name);
+        projectRepository.delete(project);
+    }
 }

@@ -1,19 +1,21 @@
 package dev.dokimos.server.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
+import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.entity.EvalResult;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
+import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRunRepository;
+import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,15 +29,15 @@ public class RunService {
 
     private final ExperimentRunRepository runRepository;
     private final ItemResultRepository itemResultRepository;
-    private final ObjectMapper objectMapper;
+    private final IngestedBatchRepository ingestedBatchRepository;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
-            ObjectMapper objectMapper) {
+            IngestedBatchRepository ingestedBatchRepository) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
-        this.objectMapper = objectMapper;
+        this.ingestedBatchRepository = ingestedBatchRepository;
     }
 
     @Transactional
@@ -44,16 +46,41 @@ public class RunService {
         return runRepository.save(run);
     }
 
+    /** Creates a run and persists its provenance fields (name, git SHA, branch, triggered_by). */
     @Transactional
-    public void addItems(UUID runId, AddItemsRequest request) {
-        ExperimentRun run = getRun(runId);
+    public ExperimentRun createRun(Experiment experiment, CreateRunRequest request) {
+        ExperimentRun run = new ExperimentRun(experiment, request.metadata());
+        run.setName(request.name());
+        run.setGitSha(request.gitSha());
+        run.setGitBranch(request.gitBranch());
+        run.setTriggeredBy(request.triggeredBy());
+        return runRepository.save(run);
+    }
 
+    /**
+     * Adds item results to a run; only allowed while the run is RUNNING. A pessimistic lock on the
+     * run row serializes ingestion against {@link #updateRun} so materialized counts stay consistent.
+     * When {@code idempotencyKey} is non-null, a previously committed batch with the same
+     * {@code (runId, idempotencyKey)} returns a no-op; the composite PK on {@code ingested_batches}
+     * is the backstop.
+     *
+     * @throws IllegalStateException if the run is not RUNNING
+     */
+    @Transactional
+    public void addItems(UUID runId, AddItemsRequest request, String idempotencyKey) {
+        ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() != RunStatus.RUNNING) {
+            throw new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId);
+        }
+
+        if (idempotencyKey != null && ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, idempotencyKey)) {
+            return;
+        }
+
+        List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
-            String input = extractText(itemData.inputs());
-            String expectedOutput = extractText(itemData.expectedOutputs());
-            String actualOutput = extractText(itemData.actualOutputs());
-
-            ItemResult item = new ItemResult(run, input, expectedOutput, actualOutput, itemData.inputs());
+            ItemResult item = new ItemResult(
+                    run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), itemData.metadata());
 
             if (itemData.evalResults() != null) {
                 for (AddItemsRequest.EvalData evalData : itemData.evalResults()) {
@@ -63,22 +90,50 @@ public class RunService {
                             evalData.threshold(),
                             evalData.success(),
                             evalData.reason());
+                    eval.setMetadata(evalData.metadata());
                     item.addEvalResult(eval);
                 }
             }
 
-            itemResultRepository.save(item);
+            items.add(item);
+        }
+
+        itemResultRepository.saveAll(items);
+
+        if (idempotencyKey != null) {
+            ingestedBatchRepository.save(new IngestedBatch(runId, idempotencyKey, Instant.now()));
         }
     }
 
+    /** Deletes a run; FKs cascade to its item and eval results. */
+    @Transactional
+    public void deleteRun(UUID runId) {
+        ExperimentRun run = getRun(runId);
+        runRepository.delete(run);
+    }
+
+    /**
+     * Updates a run's status. On a terminal status this method is the sole writer of the
+     * materialized pass-rate fields; the pessimistic lock on the run row blocks until any in-flight
+     * {@link #addItems} batch commits.
+     */
     @Transactional
     public void updateRun(UUID runId, UpdateRunRequest request) {
-        ExperimentRun run = getRun(runId);
+        ExperimentRun run = getRunForUpdate(runId);
         run.setStatus(request.status());
         if (request.status() != RunStatus.RUNNING) {
             run.setCompletedAt(Instant.now());
+            materializeCounts(run);
         }
         runRepository.save(run);
+    }
+
+    private void materializeCounts(ExperimentRun run) {
+        long totalItems = itemResultRepository.countByRun(run);
+        long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
+        run.setItemCount((int) totalItems);
+        run.setPassedCount((int) passedItems);
+        run.setPassRate(totalItems > 0 ? (double) passedItems / totalItems : null);
     }
 
     @Transactional(readOnly = true)
@@ -92,9 +147,18 @@ public class RunService {
         ExperimentRun run = getRun(runId);
         Experiment experiment = run.getExperiment();
 
-        long totalItems = itemResultRepository.countByRun(run);
-        long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-        Double passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
+        long totalItems;
+        long passedItems;
+        Double passRate;
+        if (run.getStatus() == RunStatus.RUNNING) {
+            totalItems = itemResultRepository.countByRun(run);
+            passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
+            passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
+        } else {
+            totalItems = run.getItemCount();
+            passedItems = run.getPassedCount();
+            passRate = run.getPassRate();
+        }
 
         Page<ItemResult> itemPage = itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable);
         Page<RunDetails.ItemSummary> itemSummaries = itemPage.map(this::toItemSummary);
@@ -121,10 +185,28 @@ public class RunService {
         return runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
     }
 
+    private ExperimentRun getRunForUpdate(UUID runId) {
+        if (runId == null) {
+            throw new IllegalArgumentException("Run ID cannot be null");
+        }
+        return runRepository
+                .findByIdForUpdate(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
+    }
+
     private RunSummary toRunSummary(ExperimentRun run) {
-        long totalItems = itemResultRepository.countByRun(run);
-        long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-        Double passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
+        long totalItems;
+        long passedItems;
+        Double passRate;
+        if (run.getStatus() == RunStatus.RUNNING) {
+            totalItems = itemResultRepository.countByRun(run);
+            passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
+            passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
+        } else {
+            totalItems = run.getItemCount();
+            passedItems = run.getPassedCount();
+            passRate = run.getPassRate();
+        }
 
         return new RunSummary(
                 run.getId(),
@@ -151,16 +233,5 @@ public class RunService {
                 item.getMetadata(),
                 evalSummaries,
                 item.getCreatedAt());
-    }
-
-    private String extractText(Map<String, Object> map) {
-        if (map == null || map.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(map);
-        } catch (JsonProcessingException e) {
-            return map.toString();
-        }
     }
 }

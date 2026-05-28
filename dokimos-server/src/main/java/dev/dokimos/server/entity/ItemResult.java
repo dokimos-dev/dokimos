@@ -31,14 +31,17 @@ public class ItemResult {
     @JoinColumn(name = "run_id", nullable = false)
     private ExperimentRun run;
 
-    @Column(columnDefinition = "text", nullable = false)
-    private String input;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> input;
 
-    @Column(columnDefinition = "text")
-    private String expectedOutput;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> expectedOutput;
 
-    @Column(columnDefinition = "text", nullable = false)
-    private String actualOutput;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private Map<String, Object> actualOutput;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -53,7 +56,11 @@ public class ItemResult {
     protected ItemResult() {}
 
     public ItemResult(
-            ExperimentRun run, String input, String expectedOutput, String actualOutput, Map<String, Object> metadata) {
+            ExperimentRun run,
+            Map<String, Object> input,
+            Map<String, Object> expectedOutput,
+            Map<String, Object> actualOutput,
+            Map<String, Object> metadata) {
         this.run = run;
         this.input = input;
         this.expectedOutput = expectedOutput;
@@ -70,15 +77,15 @@ public class ItemResult {
         return run;
     }
 
-    public String getInput() {
+    public Map<String, Object> getInput() {
         return input;
     }
 
-    public String getExpectedOutput() {
+    public Map<String, Object> getExpectedOutput() {
         return expectedOutput;
     }
 
-    public String getActualOutput() {
+    public Map<String, Object> getActualOutput() {
         return actualOutput;
     }
 

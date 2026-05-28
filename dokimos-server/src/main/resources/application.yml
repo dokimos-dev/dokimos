@@ -22,11 +22,18 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+
+springdoc:
+  default-produces-media-type: application/json
 
 management:
   endpoints:

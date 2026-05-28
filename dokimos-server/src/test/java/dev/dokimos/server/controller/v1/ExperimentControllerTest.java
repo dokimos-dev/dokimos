@@ -1,6 +1,10 @@
 package dev.dokimos.server.controller.v1;
 
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -110,5 +114,28 @@ class ExperimentControllerTest {
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteExperiment_shouldReturn204OnSuccess() throws Exception {
+        UUID experimentId = UUID.randomUUID();
+        doNothing().when(experimentService).deleteExperiment(experimentId);
+
+        mockMvc.perform(delete("/api/v1/experiments/{experimentId}", experimentId))
+                .andExpect(status().isNoContent());
+
+        verify(experimentService).deleteExperiment(experimentId);
+    }
+
+    @Test
+    void deleteExperiment_shouldReturn404WhenNotFound() throws Exception {
+        UUID experimentId = UUID.randomUUID();
+        doThrow(new IllegalArgumentException("Experiment not found: " + experimentId))
+                .when(experimentService)
+                .deleteExperiment(experimentId);
+
+        mockMvc.perform(delete("/api/v1/experiments/{experimentId}", experimentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Experiment not found: " + experimentId));
     }
 }

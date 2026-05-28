@@ -75,6 +75,13 @@ public class ExperimentService {
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
 
+    /** Deletes an experiment; FKs cascade to its runs, items, and evals. */
+    @Transactional
+    public void deleteExperiment(UUID experimentId) {
+        Experiment experiment = getExperiment(experimentId);
+        experimentRepository.delete(experiment);
+    }
+
     @Transactional(readOnly = true)
     public TrendData getTrends(UUID experimentId, int limit) {
         Experiment experiment = getExperiment(experimentId);
@@ -82,14 +89,14 @@ public class ExperimentService {
 
         List<TrendData.RunPoint> points = new ArrayList<>();
         for (ExperimentRun run : runs) {
-            long totalItems = itemResultRepository.countByRun(run);
-            long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-            double passRate = totalItems > 0 ? (double) passedItems / totalItems : 0.0;
+            // Terminal-only query, so materialized counts are populated.
+            long totalItems = run.getItemCount();
+            long passedItems = run.getPassedCount();
+            double passRate = run.getPassRate() != null ? run.getPassRate() : 0.0;
 
             points.add(new TrendData.RunPoint(run.getId(), run.getStartedAt(), passRate, totalItems, passedItems));
         }
 
-        // Reverse to get chronological order
         Collections.reverse(points);
 
         return new TrendData(experiment.getName(), experiment.getProject().getName(), points);
@@ -99,11 +106,6 @@ public class ExperimentService {
         if (run.getStatus() == RunStatus.RUNNING) {
             return null;
         }
-        long totalItems = itemResultRepository.countByRun(run);
-        if (totalItems == 0) {
-            return null;
-        }
-        long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-        return (double) passedItems / totalItems;
+        return run.getPassRate();
     }
 }

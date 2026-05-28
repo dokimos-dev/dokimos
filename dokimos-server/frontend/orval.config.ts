@@ -6,6 +6,7 @@ export default defineConfig({
     output: {
       target: './src/lib/api/generated.ts',
       client: 'swr',
+      httpClient: 'axios',
       mode: 'tags-split',
       prettier: true,
     },

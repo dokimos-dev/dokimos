@@ -40,6 +40,16 @@ function formatDuration(
   return `${minutes}m ${remainingSeconds}s`;
 }
 
+function stringify(value: unknown, fallback = ""): string {
+  if (value == null) return fallback;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 function getUniqueEvaluatorNames(items: ItemSummary[]): string[] {
   const names = new Set<string>();
   items.forEach((item) => {
@@ -257,19 +267,19 @@ export default function RunPage() {
                         </TableCell>
                         <TableCell>
                           <TruncatedText
-                            text={item.input ?? ""}
+                            text={stringify(item.input)}
                             maxLength={100}
                           />
                         </TableCell>
                         <TableCell>
                           <TruncatedText
-                            text={item.expectedOutput ?? "—"}
+                            text={stringify(item.expectedOutput, "—")}
                             maxLength={80}
                           />
                         </TableCell>
                         <TableCell>
                           <TruncatedText
-                            text={item.actualOutput ?? ""}
+                            text={stringify(item.actualOutput)}
                             maxLength={80}
                           />
                         </TableCell>
@@ -302,7 +312,7 @@ export default function RunPage() {
                                 <h4 className="text-sm font-medium mb-2">
                                   Input
                                 </h4>
-                                <JsonDisplay data={item.input ?? ""} />
+                                <JsonDisplay data={item.input} />
                               </div>
                               {item.expectedOutput && (
                                 <div>
@@ -316,7 +326,7 @@ export default function RunPage() {
                                 <h4 className="text-sm font-medium mb-2">
                                   Actual Output
                                 </h4>
-                                <JsonDisplay data={item.actualOutput ?? ""} />
+                                <JsonDisplay data={item.actualOutput} />
                               </div>
                               {item.evalResults &&
                                 item.evalResults.length > 0 && (

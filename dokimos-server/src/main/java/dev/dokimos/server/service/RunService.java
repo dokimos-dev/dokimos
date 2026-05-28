@@ -1,7 +1,5 @@
 package dev.dokimos.server.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
@@ -32,17 +30,14 @@ public class RunService {
     private final ExperimentRunRepository runRepository;
     private final ItemResultRepository itemResultRepository;
     private final IngestedBatchRepository ingestedBatchRepository;
-    private final ObjectMapper objectMapper;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
-            IngestedBatchRepository ingestedBatchRepository,
-            ObjectMapper objectMapper) {
+            IngestedBatchRepository ingestedBatchRepository) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.ingestedBatchRepository = ingestedBatchRepository;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -115,11 +110,8 @@ public class RunService {
 
         List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
-            String input = extractText(itemData.inputs());
-            String expectedOutput = extractText(itemData.expectedOutputs());
-            String actualOutput = extractText(itemData.actualOutputs());
-
-            ItemResult item = new ItemResult(run, input, expectedOutput, actualOutput, itemData.inputs());
+            ItemResult item =
+                    new ItemResult(run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), null);
 
             if (itemData.evalResults() != null) {
                 for (AddItemsRequest.EvalData evalData : itemData.evalResults()) {
@@ -286,25 +278,5 @@ public class RunService {
                 item.getMetadata(),
                 evalSummaries,
                 item.getCreatedAt());
-    }
-
-    /**
-     * Serializes a field map to its JSON string representation for storage. If serialization fails,
-     * an unchecked exception is thrown rather than falling back to {@code map.toString()}, which
-     * would persist invalid JSON.
-     *
-     * @param map the field map to serialize, may be null or empty
-     * @return the JSON string, or null when the map is null or empty
-     * @throws IllegalStateException if the map cannot be serialized to JSON
-     */
-    private String extractText(Map<String, Object> map) {
-        if (map == null || map.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(map);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to serialize map to JSON", e);
-        }
     }
 }

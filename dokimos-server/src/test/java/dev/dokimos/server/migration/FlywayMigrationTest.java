@@ -309,6 +309,63 @@ class FlywayMigrationTest {
         }
     }
 
+    /**
+     * Exercises the V3 to V4 path that converts item_results.input/expected_output/actual_output from
+     * TEXT (JSON-as-string) to native JSONB. A row is inserted under the pre-V4 schema with valid JSON
+     * text values, then V4 is applied. We assert the three columns report a jsonb data type afterward
+     * and that a stored value round-trips as a JSON object (queried via the ->> operator).
+     */
+    @Test
+    void itemResultsColumnsBecomeJsonbAndPreserveValues() throws Exception {
+        DataSource ds = dataSource();
+
+        // Migrate up to V3 (pre-JSONB schema) and insert an item_results row with TEXT JSON values.
+        Flyway.configure().dataSource(ds).target("3").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            insertProject(conn, projectId, "jsonb-project");
+            insertExperiment(conn, experimentId, projectId, "jsonb-experiment");
+            insertRun(conn, runId, experimentId);
+
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, expected_output, actual_output, created_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?)")) {
+                ps.setObject(1, itemId);
+                ps.setObject(2, runId);
+                ps.setString(3, "{\"q\":\"hello\"}");
+                ps.setString(4, "{\"a\":\"world\"}");
+                ps.setString(5, "{\"a\":\"world\"}");
+                ps.setObject(6, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+        }
+
+        // Apply the V4 migration, converting the three TEXT columns to JSONB.
+        Flyway.configure().dataSource(ds).target("4").load().migrate();
+
+        try (Connection conn = ds.getConnection()) {
+            assertColumnType(conn, "item_results", "input", "jsonb");
+            assertColumnType(conn, "item_results", "expected_output", "jsonb");
+            assertColumnType(conn, "item_results", "actual_output", "jsonb");
+
+            // The pre-existing value round-trips: it is now a JSON object queryable via ->>.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT input->>'q' AS q, expected_output->>'a' AS a " + "FROM item_results WHERE id = ?")) {
+                ps.setObject(1, itemId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getString("q")).isEqualTo("hello");
+                    assertThat(rs.getString("a")).isEqualTo("world");
+                }
+            }
+        }
+    }
+
     private void insertIngestedBatch(Connection conn, UUID runId, String key) throws Exception {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO ingested_batches (run_id, idempotency_key, created_at) VALUES (?, ?, ?)")) {
@@ -393,6 +450,22 @@ class FlywayMigrationTest {
                 assertThat(rs.next())
                         .as("column %s.%s should exist", table, column)
                         .isTrue();
+            }
+        }
+    }
+
+    private void assertColumnType(Connection conn, String table, String column, String expectedType) throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT data_type FROM information_schema.columns WHERE table_name = ? AND column_name = ?")) {
+            ps.setString(1, table);
+            ps.setString(2, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next())
+                        .as("column %s.%s should exist", table, column)
+                        .isTrue();
+                assertThat(rs.getString("data_type"))
+                        .as("column %s.%s should be %s", table, column, expectedType)
+                        .isEqualTo(expectedType);
             }
         }
     }

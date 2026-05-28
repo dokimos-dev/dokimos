@@ -22,9 +22,9 @@ public record RunDetails(
         Page<ItemSummary> items) {
     public record ItemSummary(
             UUID id,
-            String input,
-            String expectedOutput,
-            String actualOutput,
+            Map<String, Object> input,
+            Map<String, Object> expectedOutput,
+            Map<String, Object> actualOutput,
             Map<String, Object> metadata,
             List<EvalSummary> evalResults,
             Instant createdAt) {}

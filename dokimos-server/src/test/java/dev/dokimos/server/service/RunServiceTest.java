@@ -9,7 +9,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
@@ -56,7 +55,7 @@ class RunServiceTest {
 
     @BeforeEach
     void setUp() {
-        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository, new ObjectMapper());
+        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository);
     }
 
     @Test
@@ -223,9 +222,10 @@ class RunServiceTest {
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(1);
-        assertThat(saved.get(0).getInput()).isEqualTo("{\"input\":\"What is 2+2?\"}");
-        assertThat(saved.get(0).getExpectedOutput()).isEqualTo("{\"output\":\"4\"}");
-        assertThat(saved.get(0).getActualOutput()).isEqualTo("{\"output\":\"4\"}");
+        assertThat(saved.get(0).getInput()).isEqualTo(Map.of("input", "What is 2+2?"));
+        assertThat(saved.get(0).getExpectedOutput()).isEqualTo(Map.of("output", "4"));
+        assertThat(saved.get(0).getActualOutput()).isEqualTo(Map.of("output", "4"));
+        assertThat(saved.get(0).getMetadata()).isNull();
         assertThat(saved.get(0).getEvalResults()).hasSize(1);
     }
 

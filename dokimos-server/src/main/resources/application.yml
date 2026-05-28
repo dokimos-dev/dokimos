@@ -32,6 +32,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+springdoc:
+  default-produces-media-type: application/json
+
 management:
   endpoints:
     web:

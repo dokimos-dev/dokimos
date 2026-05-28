@@ -3,7 +3,6 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
@@ -50,14 +49,8 @@ class RunServiceDedupPostgresTest {
         RunService runService(
                 ExperimentRunRepository runRepository,
                 ItemResultRepository itemResultRepository,
-                IngestedBatchRepository ingestedBatchRepository,
-                ObjectMapper objectMapper) {
-            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository, objectMapper);
-        }
-
-        @org.springframework.context.annotation.Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper();
+                IngestedBatchRepository ingestedBatchRepository) {
+            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository);
         }
     }
 

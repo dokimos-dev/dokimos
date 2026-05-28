@@ -137,10 +137,7 @@ public class ToolHandlers {
         }
     }
 
-    /**
-     * Compares two runs side by side, delegating to the shared {@link RunComparison} engine for
-     * significance-gated per-evaluator deltas, pass-rate testing, and per-item diffs.
-     */
+    /** Compares two runs via {@link RunComparison}: per-evaluator deltas, pass-rate test, per-item diffs. */
     public McpSchema.CallToolResult handleCompareRuns(Map<String, Object> arguments) {
         try {
             String idA = requireString(arguments, "run_id_a");
@@ -164,24 +161,12 @@ public class ToolHandlers {
         }
     }
 
-    /**
-     * Maximum number of changed cases included in a compare_runs response before truncation.
-     */
     private static final int MAX_CASES = 50;
 
-    /**
-     * Converts a stored run record into a single-run {@link RunResult} the comparison engine can
-     * consume. Items keep their stored order so the engine's positional pairing lines up baseline
-     * item {@code i} with candidate item {@code i}. The carried {@link Example} is reconstructed
-     * from the stored input and expected output, and the actual output is exposed under the
-     * {@code "output"} key to mirror how evaluations are produced.
-     *
-     * <p>When an item carries no evaluations, the engine would otherwise treat it as passing
-     * (a vacuous {@link ItemResult#success()} over an empty list), which diverges from the stored
-     * {@link RunRecord.ItemDetail#success()} flag. To keep pass/fail faithful to what was
-     * persisted, such items get a single synthesized "overall" {@link EvalResult} reflecting the
-     * stored success. Null collections and fields from malformed or older JSON are treated as empty.
-     */
+    // Converts a stored run record into a single-run RunResult for the comparison engine.
+    // Items keep stored order (positional pairing). Items with no evaluations get a synthesized
+    // "overall" EvalResult so the engine's pass/fail matches the persisted ItemDetail.success flag
+    // (an empty eval list would otherwise pass vacuously).
     private RunResult toRunResult(RunRecord run) {
         List<ItemResult> itemResults = new ArrayList<>();
         List<RunRecord.ItemDetail> items = run.items() != null ? run.items() : List.of();
@@ -209,10 +194,8 @@ public class ToolHandlers {
         return new RunResult(0, itemResults);
     }
 
-    /**
-     * Builds the {@code comparison} block of a compare_runs response from the engine result. The
-     * stored records are used to map per-item comparison keys back to their input text by position.
-     */
+    // Builds the comparison block of a compare_runs response. Stored records resolve per-item keys
+    // back to input text by position.
     private Map<String, Object> buildComparison(RunComparisonResult result, RunRecord runA, RunRecord runB) {
         Map<String, Object> comparison = new LinkedHashMap<>();
 
@@ -267,10 +250,7 @@ public class ToolHandlers {
         return comparison;
     }
 
-    /**
-     * Adds the per-item {@code cases} array, ordered REGRESSED first, then IMPROVED, then the rest,
-     * including only items whose status is not UNCHANGED and capping the array at {@link #MAX_CASES}.
-     */
+    // REGRESSED first, then IMPROVED, then the rest. UNCHANGED filtered out. Capped at MAX_CASES.
     private void addCases(Map<String, Object> comparison, RunComparisonResult result, RunRecord runA, RunRecord runB) {
         List<ItemComparison> changed = new ArrayList<>();
         for (ItemComparison item : result.items()) {
@@ -350,10 +330,7 @@ public class ToolHandlers {
         };
     }
 
-    /**
-     * Parses the positional index out of an engine item key of the form "item-&lt;index&gt;",
-     * returning -1 when the key does not follow that pattern.
-     */
+    // Parses "item-<index>" engine keys; returns -1 on mismatch.
     private static int parseIndex(String key) {
         if (key != null && key.startsWith("item-")) {
             try {
@@ -365,10 +342,7 @@ public class ToolHandlers {
         return -1;
     }
 
-    /**
-     * Resolves the input text for a positional item index, preferring the candidate run and falling
-     * back to the baseline when the candidate has no item at that index.
-     */
+    // Resolves input text for an item index; prefers candidate, falls back to baseline.
     private static String inputForIndex(int index, RunRecord runA, RunRecord runB) {
         if (index >= 0 && index < runB.items().size()) {
             return runB.items().get(index).input();

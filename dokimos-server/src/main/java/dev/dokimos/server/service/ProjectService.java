@@ -44,13 +44,7 @@ public class ProjectService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + name)));
     }
 
-    /**
-     * Deletes a project by name. The database foreign keys cascade the delete to the project's
-     * experiments, runs, item results, and eval results.
-     *
-     * @param name the project name
-     * @throws IllegalArgumentException if no project with the given name exists
-     */
+    /** Deletes a project; FKs cascade to its experiments, runs, items, and evals. */
     @Transactional
     public void deleteProject(String name) {
         Project project = getProject(name);

@@ -46,14 +46,7 @@ public class RunService {
         return runRepository.save(run);
     }
 
-    /**
-     * Creates a run and persists the provenance fields carried by the request (run name, git SHA,
-     * git branch, who triggered it).
-     *
-     * @param experiment the experiment the run belongs to
-     * @param request the create request supplying config metadata and provenance fields
-     * @return the persisted run
-     */
+    /** Creates a run and persists its provenance fields (name, git SHA, branch, triggered_by). */
     @Transactional
     public ExperimentRun createRun(Experiment experiment, CreateRunRequest request) {
         ExperimentRun run = new ExperimentRun(experiment, request.metadata());
@@ -65,35 +58,13 @@ public class RunService {
     }
 
     /**
-     * Adds item results to a run. Only permitted while the run is still RUNNING. Once a run reaches
-     * a terminal status, its materialized pass-rate fields have been written by the single writer
-     * ({@link #updateRun}); accepting late items (from a retry or a race) would silently leave those
-     * fields stale, so this method rejects the request instead.
+     * Adds item results to a run; only allowed while the run is RUNNING. A pessimistic lock on the
+     * run row serializes ingestion against {@link #updateRun} so materialized counts stay consistent.
+     * When {@code idempotencyKey} is non-null, a previously committed batch with the same
+     * {@code (runId, idempotencyKey)} returns a no-op; the composite PK on {@code ingested_batches}
+     * is the backstop.
      *
-     * <p>The run row is loaded with a pessimistic write lock for the duration of the item inserts.
-     * This serializes ingestion against completion ({@link #updateRun}): a concurrent {@code updateRun}
-     * on the same run blocks until this batch commits, so the counts it materializes always reflect the
-     * fully committed item set and cannot go stale.
-     *
-     * <p>Ingestion is idempotent when an idempotency key is supplied. After the run row is locked,
-     * if a batch with the same {@code (runId, idempotencyKey)} has already been committed the method
-     * returns without inserting anything. Otherwise it inserts the items and, when a key is present,
-     * records the key in the same transaction. A null key preserves the original behavior and inserts
-     * without recording a dedup row.
-     *
-     * <p>The dedup check is race-safe. {@link #getRunForUpdate} takes a pessimistic write lock on the
-     * run row, so two concurrent requests carrying the same key for the same run are serialized: the
-     * second blocks on the run lock until the first transaction commits its {@code ingested_batches}
-     * row, and only then proceeds. Under READ COMMITTED (PostgreSQL's default) the second request's
-     * {@code existsByRunIdAndIdempotencyKey} read therefore observes the committed row and no-ops. The
-     * composite primary key {@code (runId, idempotencyKey)} on {@code ingested_batches} is the backstop:
-     * even if two inserts somehow reached the table, the second would fail the unique constraint rather
-     * than silently double-insert.
-     *
-     * @param runId the run to add items to
-     * @param request the items to add
-     * @param idempotencyKey the client-supplied idempotency key for this batch, or null to skip dedup
-     * @throws IllegalStateException if the run is not in the RUNNING status
+     * @throws IllegalStateException if the run is not RUNNING
      */
     @Transactional
     public void addItems(UUID runId, AddItemsRequest request, String idempotencyKey) {
@@ -103,8 +74,6 @@ public class RunService {
         }
 
         if (idempotencyKey != null && ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, idempotencyKey)) {
-            // This batch already committed under the same key (a retry of a request that succeeded).
-            // Returning without inserting keeps ingestion idempotent.
             return;
         }
 
@@ -136,13 +105,7 @@ public class RunService {
         }
     }
 
-    /**
-     * Deletes a run by id. The database foreign keys cascade the delete to the run's item results
-     * and eval results.
-     *
-     * @param runId the run id
-     * @throws IllegalArgumentException if the id is null or no run with the given id exists
-     */
+    /** Deletes a run; FKs cascade to its item and eval results. */
     @Transactional
     public void deleteRun(UUID runId) {
         ExperimentRun run = getRun(runId);
@@ -150,17 +113,9 @@ public class RunService {
     }
 
     /**
-     * Updates a run's status. When the run reaches a terminal status (anything other than RUNNING),
-     * this method is the single writer of the materialized pass-rate fields: it computes the item
-     * count, passed count, and pass rate once and persists them on the run. No other code path
-     * writes these fields.
-     *
-     * <p>The run row is loaded with a pessimistic write lock, so this method blocks until any in-flight
-     * {@link #addItems} batch on the same run has committed. Materializing counts from the now-consistent
-     * item set guarantees they cannot go stale due to a late item insert racing completion.
-     *
-     * @param runId the run to update
-     * @param request the requested status
+     * Updates a run's status. On a terminal status this method is the sole writer of the
+     * materialized pass-rate fields; the pessimistic lock on the run row blocks until any in-flight
+     * {@link #addItems} batch commits.
      */
     @Transactional
     public void updateRun(UUID runId, UpdateRunRequest request) {

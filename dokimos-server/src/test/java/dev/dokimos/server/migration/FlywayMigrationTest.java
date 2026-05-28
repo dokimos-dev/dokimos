@@ -20,12 +20,10 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Verifies the V1 to V2 Flyway migration against a real PostgreSQL instance. Self-skips when Docker
- * is unavailable so it stays safe in the normal build. Not tagged as an integration test: when
- * Docker is present it runs as part of {@code mvn test}.
- *
- * <p>A single container is shared across the test methods and the schema is dropped (Flyway clean)
- * before each test so every test starts from an empty database.
+ * Verifies the Flyway migrations (V1 through V4) against a real PostgreSQL instance. Self-skips when
+ * Docker is unavailable so it stays safe in the normal build. Not tagged as an integration test: when
+ * Docker is present it runs as part of {@code mvn test}. One container is shared across tests and
+ * the schema is dropped (Flyway clean) before each test.
  */
 class FlywayMigrationTest {
 

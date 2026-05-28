@@ -487,10 +487,7 @@ class RunComparisonTest {
         return runs;
     }
 
-    /**
-     * An item with a fixed score but a threshold that decides pass/fail. The evaluator score does not
-     * move between sides; only the threshold (and thus pass/fail) differs.
-     */
+    /** Item with a fixed score but a threshold that decides pass/fail. */
     private static ItemResult thresholdItem(String input, double score, double threshold) {
         return new ItemResult(
                 Example.of(input, "a"), Map.of(), List.of(EvalResult.of(EVALUATOR, score, threshold, "")));

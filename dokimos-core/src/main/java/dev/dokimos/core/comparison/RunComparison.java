@@ -14,26 +14,20 @@ import java.util.TreeSet;
 import java.util.function.Function;
 
 /**
- * Regression-comparison engine that compares a baseline set of runs against a candidate set of
- * runs.
+ * Regression-comparison engine that compares a baseline set of runs against a candidate set.
  * <p>
- * Each side may contain one or more runs (repetitions). For each side the engine groups item
- * results by an item-identity key, aggregates across repetitions into a per-item pass-probability
- * (fraction of reps that passed) and a per-evaluator mean score, then pairs items across sides by
- * key. It computes per-evaluator and overall deltas, classifies each as IMPROVED, REGRESSED, or
- * UNCHANGED, and decides statistical significance.
+ * Each side may contain one or more runs (repetitions). Items are grouped by an item-identity key,
+ * aggregated across repetitions into a per-item pass-probability and per-evaluator mean, then
+ * paired across sides by key. The engine emits per-evaluator and overall deltas classified as
+ * IMPROVED, REGRESSED, or UNCHANGED, each backed by a significance test.
  * <p>
- * When both sides have exactly one run and outcomes are binary pass/fail, the overall pass-rate
- * test uses McNemar's test (with continuity correction). Otherwise it uses a paired sign-flip
- * permutation test plus a bootstrap percentile confidence interval. Both randomized procedures are
- * deterministic for a given seed.
+ * For single-run binary outcomes the pass-rate test uses McNemar's test with continuity correction;
+ * otherwise a paired sign-flip permutation test with a bootstrap percentile confidence interval. A
+ * change is flagged only when {@code |delta| > epsilon} and the test is significant at {@code alpha}.
  * <p>
- * A change is only flagged as a real regression or improvement when its absolute delta exceeds the
- * configured epsilon and it is statistically significant; otherwise it is UNCHANGED. This avoids
- * flaky gating on small, noisy fluctuations.
- * <p>
- * Determinism holds for a fixed evaluator set: the shared seeded {@link Random} is consumed in
- * evaluator-name order, so adding or removing evaluators can shift the p-values of other evaluators.
+ * Randomized procedures are deterministic for a fixed seed and evaluator set; the shared
+ * {@link Random} is consumed in evaluator-name order, so adding or removing evaluators shifts
+ * p-values of the others.
  */
 public final class RunComparison {
 
@@ -55,20 +49,12 @@ public final class RunComparison {
         this.itemKey = builder.itemKey;
     }
 
-    /**
-     * Creates a new builder with default configuration.
-     *
-     * @return a new builder
-     */
+    /** New builder with default configuration. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Creates an engine with all default settings.
-     *
-     * @return a default engine
-     */
+    /** Engine with default settings. */
     public static RunComparison create() {
         return builder().build();
     }
@@ -78,11 +64,8 @@ public final class RunComparison {
     }
 
     /**
-     * Compares baseline runs against candidate runs.
+     * Compares baseline runs against candidate runs. Either list may be empty.
      *
-     * @param baseline the baseline runs (repetitions), may be empty
-     * @param candidate the candidate runs (repetitions), may be empty
-     * @return the comparison result
      * @throws NullPointerException if either argument is null
      */
     public RunComparisonResult compare(List<RunResult> baseline, List<RunResult> candidate) {
@@ -101,7 +84,7 @@ public final class RunComparison {
 
         List<Double> baselinePairedProbs = new ArrayList<>();
         List<Double> candidatePairedProbs = new ArrayList<>();
-        // per-evaluator paired score deltas across items present in both sides for that evaluator
+        // Per-evaluator paired scores across items present on both sides.
         Map<String, List<Double>> evaluatorBaseline = new LinkedHashMap<>();
         Map<String, List<Double>> evaluatorCandidate = new LinkedHashMap<>();
         Set<String> evaluatorNames = new TreeSet<>();
@@ -109,9 +92,8 @@ public final class RunComparison {
         int added = 0;
         int removed = 0;
 
-        // First pass: emit ADDED/REMOVED items immediately and collect paired data. Per-item status
-        // for shared items is deferred until overall per-evaluator significance is known, so that
-        // classification is significance-gated rather than driven by raw per-item noise.
+        // First pass: emit ADDED/REMOVED, collect paired data. Shared-item classification is
+        // deferred until overall per-evaluator significance is known.
         List<ItemComparison> items = new ArrayList<>();
         List<PairedItem> pairedItems = new ArrayList<>();
 
@@ -164,7 +146,7 @@ public final class RunComparison {
                 }
             }
 
-            // Reserve this item's slot in output order; status and deltas are filled after gating.
+            // Reserve output slot; status and deltas are filled in after the gating pass.
             int slot = items.size();
             items.add(null);
             pairedItems.add(new PairedItem(slot, key, base, cand, passFlip, itemEvaluators));
@@ -180,22 +162,20 @@ public final class RunComparison {
                 binarySingleRun,
                 random);
 
-        // Top-line pass rate covers each side's full item set (paired plus unpaired), so it is
-        // well-defined regardless of pairing. The significance test below runs on the paired items
-        // only, since only shared cases can be pair-tested.
+        // Top-line rate covers full item sets (paired plus unpaired); the significance test above
+        // ran on shared items only.
         double baselinePassRate = meanOf(baselineItems);
         double candidatePassRate = meanOf(candidateItems);
         double passRateDelta = round(candidatePassRate - baselinePassRate);
 
-        // The overall pass rate is a first-class regression signal: a statistically significant drop
-        // beyond epsilon is a regression even when no per-evaluator score moved (for example, binary
-        // pass/fail flips with unchanged scores).
+        // Overall pass rate is a first-class regression signal: a significant drop beyond epsilon
+        // counts even when no evaluator score moved (binary flips with unchanged scores).
         boolean passRateSignificant = passRateSignificance != null && passRateSignificance.significant();
         boolean passRateRegressed = passRateSignificant && passRateDelta < -epsilon;
         boolean passRateImproved = passRateSignificant && passRateDelta > epsilon;
 
         List<EvaluatorDelta> overallEvaluatorDeltas = new ArrayList<>();
-        // Overall per-evaluator verdict, used to gate per-item classification.
+        // Overall verdict per evaluator; gates per-item classification.
         Map<String, EvaluatorDelta> overallByEvaluator = new LinkedHashMap<>();
         Set<String> significantRegressedEvaluators = new LinkedHashSet<>();
         Set<String> significantImprovedEvaluators = new LinkedHashSet<>();
@@ -205,7 +185,7 @@ public final class RunComparison {
             List<Double> bScores = evaluatorBaseline.get(ev);
             List<Double> cScores = evaluatorCandidate.get(ev);
             if (bScores == null || cScores == null || bScores.isEmpty()) {
-                // evaluator never appeared on both sides for the same item; report unchanged, no test
+                // Evaluator never co-occurred on a shared item; report UNCHANGED with no test.
                 EvaluatorDelta delta = new EvaluatorDelta(
                         ev,
                         null,
@@ -233,7 +213,7 @@ public final class RunComparison {
             }
         }
 
-        // Second pass: classify each shared item, gated by overall per-evaluator significance.
+        // Second pass: classify each shared item against the gated overall verdicts.
         int improved = 0;
         int regressed = 0;
         int unchanged = 0;
@@ -327,18 +307,10 @@ public final class RunComparison {
         return new EvaluatorDelta(name, round(baselineMean), round(candidateMean), round(delta), status, sig);
     }
 
-    /**
-     * Classifies a single shared item, gated by the overall significance verdicts.
-     * <p>
-     * An item is REGRESSED when (a) an evaluator that the overall comparison flagged as a significant
-     * regression also dropped beyond epsilon on this item, or (b) the overall pass rate is
-     * significantly regressed and this item flipped from passing to failing. It is IMPROVED
-     * symmetrically (a significant-improved evaluator rose beyond epsilon on this item, or the overall
-     * pass rate is significantly improved and this item flipped from failing to passing), with
-     * regression taking precedence. Otherwise it is UNCHANGED. Each per-evaluator delta carries the
-     * overall significance verdict for that evaluator, so noisy items are never flagged unless the
-     * evaluator (or the overall pass rate) is significant across the whole comparison.
-     */
+    // Classifies a shared item against the overall (significance-gated) verdicts. An item is
+    // REGRESSED when a significant-regressed evaluator dropped beyond epsilon on it, or when the
+    // pass rate is significantly regressed and the item flipped to failing; IMPROVED is symmetric.
+    // Regression takes precedence. Otherwise UNCHANGED.
     private ItemComparison classifyPairedItem(
             PairedItem paired,
             Map<String, EvaluatorDelta> overallByEvaluator,
@@ -372,8 +344,7 @@ public final class RunComparison {
             }
         }
 
-        // A significant overall pass-rate move makes a pass/fail flip a first-class item verdict, even
-        // when no evaluator score moved.
+        // Significant pass-rate move promotes a pass/fail flip to a first-class item verdict.
         if (paired.passFlip()) {
             boolean passDrop = base.passProbability > cand.passProbability;
             if (passRateRegressed && passDrop) {
@@ -401,16 +372,12 @@ public final class RunComparison {
                 itemDeltas);
     }
 
-    /**
-     * Builds a per-item evaluator delta whose significance reflects the evaluator's overall verdict.
-     * An item's evaluator delta is significant iff the overall per-evaluator comparison for that
-     * evaluator is significant; the per-item status mirrors that overall verdict and reuses the
-     * overall significance result (p-value and confidence interval).
-     */
+    // Per-item evaluator delta whose significance mirrors the evaluator's overall verdict; the
+    // p-value and CI are reused from the overall result.
     private EvaluatorDelta itemEvaluatorDelta(
             String name, Double baselineMean, Double candidateMean, EvaluatorDelta overall) {
         if (baselineMean == null || candidateMean == null) {
-            // evaluator present on only one side of this item; report without a test
+            // Evaluator present on only one side of this item; no test.
             return new EvaluatorDelta(
                     name,
                     baselineMean,
@@ -464,22 +431,10 @@ public final class RunComparison {
         return delta > 0 ? ComparisonStatus.IMPROVED : ComparisonStatus.REGRESSED;
     }
 
-    /**
-     * Groups item results by key across all runs of a side and aggregates pass-probability and
-     * per-evaluator mean scores.
-     * <p>
-     * Each key must be unique within a single run, since a key identifies one dataset item and a run
-     * is one repetition over the dataset. A duplicate key within one run is rejected because it would
-     * break pairing across sides.
-     * <p>
-     * Aggregation averages one value per run on the side: a key's pass-probability is the number of
-     * runs containing the key that passed it divided by the number of runs containing the key, and a
-     * key's per-evaluator mean is the mean of one per-run value per run that contains the key. A key
-     * present in fewer runs is therefore averaged only over the runs in which it appears, so missing
-     * repetitions do not inflate the estimate.
-     */
+    // Groups item results by key across a side's runs and aggregates pass-probability and
+    // per-evaluator means. Keys must be unique within a single run (duplicates break pairing). A
+    // key absent from some runs is averaged only over the runs containing it.
     private Map<String, ItemAggregate> aggregate(List<RunResult> runs) {
-        // Preserve first-seen key order while collecting one observation per run for each key.
         Map<String, List<ItemResult>> grouped = new LinkedHashMap<>();
         for (RunResult run : runs) {
             int index = 0;
@@ -499,8 +454,7 @@ public final class RunComparison {
         Map<String, ItemAggregate> result = new LinkedHashMap<>();
         for (Map.Entry<String, List<ItemResult>> entry : grouped.entrySet()) {
             List<ItemResult> reps = entry.getValue();
-            // Denominator is the number of runs containing the key (one observation per run), so a key
-            // present in fewer runs is averaged only over those runs.
+            // Denominator is runs containing the key (one observation per run).
             long passing = reps.stream().filter(ItemResult::success).count();
             double passProbability = (double) passing / reps.size();
 
@@ -565,19 +519,14 @@ public final class RunComparison {
         return sum / items.size();
     }
 
-    /** Per-item aggregate over repetitions: pass-probability plus per-evaluator mean scores. */
+    /** Per-item aggregate over repetitions. */
     private record ItemAggregate(double passProbability, Map<String, Double> evaluatorMeans) {}
 
-    /**
-     * A shared item awaiting significance-gated classification. The slot records its position in the
-     * output item list so the final status can be filled in after overall significance is known.
-     */
+    /** Shared item awaiting significance-gated classification; {@code slot} indexes into the output list. */
     private record PairedItem(
             int slot, String key, ItemAggregate base, ItemAggregate cand, boolean passFlip, Set<String> evaluators) {}
 
-    /**
-     * Builder for {@link RunComparison}.
-     */
+    /** Builder for {@link RunComparison}. */
     public static final class Builder {
         private double epsilon = 0.001;
         private double alpha = 0.05;
@@ -586,67 +535,39 @@ public final class RunComparison {
         private int bootstrapIterations = 10_000;
         private Function<ItemResult, String> itemKey = null;
 
-        /**
-         * Sets the minimum absolute delta below which a change is considered noise (UNCHANGED).
-         *
-         * @param epsilon the epsilon threshold (default 0.001)
-         * @return this builder
-         */
+        /** Minimum absolute delta below which a change counts as UNCHANGED. Default 0.001. */
         public Builder epsilon(double epsilon) {
             this.epsilon = epsilon;
             return this;
         }
 
-        /**
-         * Sets the significance threshold. A change is significant when its p-value is below alpha.
-         *
-         * @param alpha the alpha level (default 0.05)
-         * @return this builder
-         */
+        /** Significance threshold; a change is significant when its p-value is below alpha. Default 0.05. */
         public Builder alpha(double alpha) {
             this.alpha = alpha;
             return this;
         }
 
-        /**
-         * Sets the random seed for permutation and bootstrap procedures so results are deterministic.
-         *
-         * @param seed the seed (default 42)
-         * @return this builder
-         */
+        /** Seed for permutation and bootstrap procedures. Default 42. */
         public Builder seed(long seed) {
             this.seed = seed;
             return this;
         }
 
-        /**
-         * Sets the number of permutation iterations.
-         *
-         * @param permutationIterations the iteration count (default 10000)
-         * @return this builder
-         */
+        /** Permutation iteration count. Default 10000. */
         public Builder permutationIterations(int permutationIterations) {
             this.permutationIterations = permutationIterations;
             return this;
         }
 
-        /**
-         * Sets the number of bootstrap iterations.
-         *
-         * @param bootstrapIterations the iteration count (default 10000)
-         * @return this builder
-         */
+        /** Bootstrap iteration count. Default 10000. */
         public Builder bootstrapIterations(int bootstrapIterations) {
             this.bootstrapIterations = bootstrapIterations;
             return this;
         }
 
         /**
-         * Sets a custom function that derives an item-identity key from an item result. When null
-         * (the default), items are paired by their position index ("item-&lt;index&gt;").
-         *
-         * @param itemKey the key function, or null for positional pairing
-         * @return this builder
+         * Function that derives an item-identity key from an item result. When null (default),
+         * items are paired by position index ("item-&lt;index&gt;").
          */
         public Builder itemKey(Function<ItemResult, String> itemKey) {
             this.itemKey = itemKey;
@@ -654,11 +575,8 @@ public final class RunComparison {
         }
 
         /**
-         * Builds the configured engine.
-         *
-         * @return a new engine
-         * @throws IllegalArgumentException if alpha is not in the open interval (0, 1), epsilon is
-         *     negative, or either iteration count is less than 1
+         * @throws IllegalArgumentException if alpha is not in (0, 1), epsilon is negative, or
+         *     either iteration count is less than 1
          */
         public RunComparison build() {
             if (!(alpha > 0.0 && alpha < 1.0)) {

@@ -2,34 +2,19 @@ package dev.dokimos.core.comparison;
 
 import java.util.Random;
 
-/**
- * Hand-rolled statistical primitives used by the comparison engine. No external dependencies.
- * <p>
- * All randomized procedures (permutation, bootstrap) take a seeded {@link Random} so results are
- * deterministic for a given seed.
- */
+/** Hand-rolled statistical primitives used by the comparison engine. Randomized procedures take a seeded {@link Random}. */
 final class Statistics {
 
     private static final double PRECISION_SCALE = 1_000_000.0;
 
     private Statistics() {}
 
-    /**
-     * Rounds to six decimal places, matching the codebase precision convention.
-     *
-     * @param value the value to round
-     * @return the rounded value
-     */
+    /** Rounds to six decimal places. */
     static double round(double value) {
         return Math.round(value * PRECISION_SCALE) / PRECISION_SCALE;
     }
 
-    /**
-     * Complementary error function via the Abramowitz and Stegun 7.1.26 approximation.
-     *
-     * @param x the argument
-     * @return erfc(x)
-     */
+    /** Complementary error function via the Abramowitz and Stegun 7.1.26 approximation. */
     static double erfc(double x) {
         double z = Math.abs(x);
         double t = 1.0 / (1.0 + 0.5 * z);
@@ -49,16 +34,10 @@ final class Statistics {
     }
 
     /**
-     * McNemar's test (with continuity correction) on discordant paired binary outcomes.
-     * <p>
-     * b counts pairs where baseline passed and candidate failed; c counts pairs where baseline
-     * failed and candidate passed. With no discordant pairs the p-value is 1.0. The continuity
-     * correction is clamped at zero so that balanced discordant counts (b == c) yield chi2 == 0 and
-     * a p-value of 1.0 rather than a spurious nonzero statistic.
-     *
-     * @param b discordant count (baseline pass, candidate fail)
-     * @param c discordant count (baseline fail, candidate pass)
-     * @return the two-sided p-value
+     * McNemar's test with continuity correction on discordant paired binary outcomes.
+     * {@code b} = baseline pass, candidate fail; {@code c} = baseline fail, candidate pass.
+     * The {@code max(|b - c| - 1, 0)} clamp keeps balanced discordant counts at chi2 = 0
+     * (p = 1.0). With no discordants the p-value is 1.0.
      */
     static double mcnemarPValue(int b, int c) {
         int discordant = b + c;
@@ -74,16 +53,10 @@ final class Statistics {
     }
 
     /**
-     * Two-sided paired sign-flip permutation test on per-item deltas.
-     * <p>
-     * The observed statistic is the mean of the deltas. Each iteration randomly negates each delta
-     * and recomputes the mean. The p-value is (count(|perm| >= |observed|) + 1) / (iterations + 1).
-     * With fewer than two deltas or all-zero deltas the p-value is 1.0.
-     *
-     * @param deltas     the per-item score deltas
-     * @param iterations the number of permutation iterations
-     * @param random     the seeded random source
-     * @return the two-sided p-value
+     * Two-sided paired sign-flip permutation test on per-item deltas. Observed statistic is the
+     * mean; each iteration randomly negates each delta and recomputes. P-value is
+     * {@code (count(|perm| >= |observed|) + 1) / (iterations + 1)}. Returns 1.0 for fewer than two
+     * deltas or all-zero deltas.
      */
     static double permutationPValue(double[] deltas, int iterations, Random random) {
         if (deltas.length < 2) {
@@ -116,13 +89,8 @@ final class Statistics {
     }
 
     /**
-     * Bootstrap percentile confidence interval (2.5 and 97.5 percentiles) for the mean of the
-     * deltas. Returns null when fewer than two deltas are available.
-     *
-     * @param deltas     the per-item score deltas
-     * @param iterations the number of bootstrap resamples
-     * @param random     the seeded random source
-     * @return a two-element array {low, high}, or null when not computable
+     * Bootstrap percentile CI (2.5/97.5) for the mean of the deltas. Returns null with fewer than
+     * two deltas.
      */
     static double[] bootstrapMeanCi(double[] deltas, int iterations, Random random) {
         if (deltas.length < 2) {
@@ -150,13 +118,7 @@ final class Statistics {
         return values.length > 0 ? sum / values.length : 0.0;
     }
 
-    /**
-     * Linear-interpolation percentile over a pre-sorted array.
-     *
-     * @param sorted a sorted ascending array
-     * @param p      the percentile in [0, 100]
-     * @return the interpolated percentile value
-     */
+    /** Linear-interpolation percentile over a pre-sorted ascending array. {@code p} in [0, 100]. */
     private static double percentile(double[] sorted, double p) {
         if (sorted.length == 1) {
             return sorted[0];

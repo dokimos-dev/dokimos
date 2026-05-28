@@ -75,13 +75,7 @@ public class ExperimentService {
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
 
-    /**
-     * Deletes an experiment by id. The database foreign keys cascade the delete to the experiment's
-     * runs, item results, and eval results.
-     *
-     * @param experimentId the experiment id
-     * @throws IllegalArgumentException if the id is null or no experiment with the given id exists
-     */
+    /** Deletes an experiment; FKs cascade to its runs, items, and evals. */
     @Transactional
     public void deleteExperiment(UUID experimentId) {
         Experiment experiment = getExperiment(experimentId);
@@ -95,8 +89,7 @@ public class ExperimentService {
 
         List<TrendData.RunPoint> points = new ArrayList<>();
         for (ExperimentRun run : runs) {
-            // findCompletedRunsByExperiment returns only terminal runs, so the materialized
-            // counts are always populated here.
+            // Terminal-only query, so materialized counts are populated.
             long totalItems = run.getItemCount();
             long passedItems = run.getPassedCount();
             double passRate = run.getPassRate() != null ? run.getPassRate() : 0.0;
@@ -104,7 +97,6 @@ public class ExperimentService {
             points.add(new TrendData.RunPoint(run.getId(), run.getStartedAt(), passRate, totalItems, passedItems));
         }
 
-        // Reverse to get chronological order
         Collections.reverse(points);
 
         return new TrendData(experiment.getName(), experiment.getProject().getName(), points);

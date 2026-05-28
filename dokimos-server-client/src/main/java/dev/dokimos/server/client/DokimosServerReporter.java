@@ -27,13 +27,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An async HTTP implementation of {@link Reporter} that sends experiment
- * results to a Dokimos server.
+ * Async HTTP {@link Reporter} that sends experiment results to a Dokimos server.
  * <p>
- * Items are queued and sent in batches by a background thread to reduce HTTP
- * overhead.
- * Batches are sent when either 10 items are queued or 500ms have passed since
- * the first item in the batch.
+ * Items are queued and sent in batches of up to 10 items or every 500ms by a background thread.
+ * Requests use exponential-backoff retries (3 attempts) and idempotency keys so retried POSTs
+ * deduplicate server-side.
  */
 public class DokimosServerReporter implements Reporter {
 
@@ -43,9 +41,7 @@ public class DokimosServerReporter implements Reporter {
     private static final int MAX_RETRIES = 3;
     private static final long INITIAL_BACKOFF_MS = 100;
 
-    /**
-     * The default API version used when not explicitly specified.
-     */
+    /** Default API version when none is specified. */
     public static final String DEFAULT_API_VERSION = "v1";
 
     private final String serverUrl;
@@ -86,24 +82,17 @@ public class DokimosServerReporter implements Reporter {
         this.workerThread.start();
     }
 
-    /**
-     * Creates a new builder for {@link DokimosServerReporter}.
-     *
-     * @return a new builder
-     */
+    /** New builder for {@link DokimosServerReporter}. */
     public static Builder builder() {
         return new Builder();
     }
 
     /**
-     * Creates a reporter from environment variables.
-     * <p>
-     * Reads {@code DOKIMOS_SERVER_URL} and {@code DOKIMOS_PROJECT_NAME} from the
-     * environment. Optionally reads {@code DOKIMOS_API_KEY} for authentication
-     * and {@code DOKIMOS_API_VERSION} for version pinning.
+     * Creates a reporter from environment variables: {@code DOKIMOS_SERVER_URL} and
+     * {@code DOKIMOS_PROJECT_NAME} are required; {@code DOKIMOS_API_KEY} and
+     * {@code DOKIMOS_API_VERSION} are optional.
      *
-     * @return a configured reporter
-     * @throws IllegalStateException if required environment variables are not set
+     * @throws IllegalStateException if a required variable is missing
      */
     public static DokimosServerReporter fromEnvironment() {
         String serverUrl = System.getenv("DOKIMOS_SERVER_URL");
@@ -131,26 +120,17 @@ public class DokimosServerReporter implements Reporter {
         return builder.build();
     }
 
-    /**
-     * Returns the API version being used.
-     * Package-private for testing.
-     */
+    /** Package-private for tests. */
     String getApiVersion() {
         return apiVersion;
     }
 
-    /**
-     * Returns the number of items queued or in flight but not yet accounted for.
-     * Package-private for testing.
-     */
+    /** Package-private for tests. Items queued or in flight. */
     int pendingItemCount() {
         return pendingItems.get();
     }
 
-    /**
-     * Returns the number of item POSTs currently in flight.
-     * Package-private for testing.
-     */
+    /** Package-private for tests. Item POSTs currently in flight. */
     int inFlightCount() {
         return inFlight.get();
     }
@@ -165,7 +145,6 @@ public class DokimosServerReporter implements Reporter {
 
         String response = executeWithRetry("POST", url, body);
         if (response == null) {
-            // Generate a local run ID if server is unavailable
             String localId = "local-" + System.currentTimeMillis();
             LOGGER.warn("Failed to start run on server, using local ID: {}", localId);
             return new RunHandle(localId);
@@ -185,11 +164,9 @@ public class DokimosServerReporter implements Reporter {
 
     @Override
     public void reportItem(RunHandle handle, ItemResult result) {
-        // Increment both counters BEFORE enqueueing so there is no window where an item is queued
-        // but not yet counted. pendingByRun shares the exact lifecycle of the global pendingItems:
-        // incremented here, decremented in the send finally. It therefore covers the whole path
-        // (queued, batched locally in the worker, in flight), closing the race where completeRun
-        // could finalize a run while a batch for it was still mid-flight.
+        // Increment counters before enqueueing so an item is never queued but uncounted. The
+        // per-run counter is decremented only after the send completes, covering queued, batched,
+        // and in-flight states so completeRun cannot finalize while a batch is mid-flight.
         pendingItems.incrementAndGet();
         pendingByRun.computeIfAbsent(handle.runId(), k -> new AtomicInteger(0)).incrementAndGet();
         queue.offer(new QueuedItem(handle, result));
@@ -197,7 +174,6 @@ public class DokimosServerReporter implements Reporter {
 
     @Override
     public void completeRun(RunHandle handle, RunStatus status) {
-        // Make sure all items are sent before completing
         flushItemsForRun(handle);
 
         String url = serverUrl + "/api/" + apiVersion + "/runs/" + handle.runId();
@@ -211,8 +187,7 @@ public class DokimosServerReporter implements Reporter {
 
     @Override
     public void flush() {
-        // Wait until the queue is drained and no send is in flight. Waiting on inFlight (not just an
-        // empty queue) closes the race where a batch has been dequeued and is still being sent.
+        // Block until both the queue is drained and no send is in flight.
         long deadline = System.currentTimeMillis() + 30000;
         while ((pendingItems.get() > 0 || inFlight.get() > 0) && System.currentTimeMillis() < deadline) {
             synchronized (flushLock) {
@@ -273,16 +248,13 @@ public class DokimosServerReporter implements Reporter {
                 }
 
             } catch (InterruptedException e) {
-                // Clear interrupt flag
                 Thread.interrupted();
 
-                // Drain remaining items from queue
                 QueuedItem item;
                 while ((item = queue.poll()) != null) {
                     batch.add(item);
                 }
 
-                // Send whatever we have
                 if (!batch.isEmpty()) {
                     sendBatch(batch);
                     batch.clear();
@@ -300,7 +272,6 @@ public class DokimosServerReporter implements Reporter {
             return;
         }
 
-        // Group items by run handle
         Map<String, List<ItemResult>> itemsByRun = new java.util.HashMap<>();
         for (QueuedItem item : batch) {
             itemsByRun
@@ -318,22 +289,19 @@ public class DokimosServerReporter implements Reporter {
 
             Map<String, Object> body = Map.of("items", itemsPayload);
 
-            // One idempotency key per run POST, reused across all retry attempts so a retry of a
-            // request that already succeeded server side is deduplicated rather than double inserted.
+            // One idempotency key per run POST, reused across retries so a successful retry of an
+            // already-recorded request deduplicates server-side.
             Map<String, String> headers =
                     Map.of("Idempotency-Key", UUID.randomUUID().toString());
 
-            // Mark the send in flight so flush() blocks until it returns. The counters are
-            // decremented in a finally on every path (success, 4xx, permanent failure, exception),
-            // so neither flush() nor flushItemsForRun() can hang on a failed batch.
+            // Counters are decremented in finally on every path so flush() cannot hang.
             inFlight.incrementAndGet();
             try {
                 String response = executeWithRetry("POST", url, body, headers);
                 if (response != null) {
                     LOGGER.debug("Sent batch of {} items to run {}", items.size(), runId);
                 } else {
-                    // Permanent failure after retries. Make the data loss visible rather than
-                    // silently counting these items as delivered. Durable spooling is out of scope.
+                    // Permanent failure: surface the loss; durable spooling is out of scope.
                     LOGGER.error(
                             "Failed to deliver {} items for run {} after {} retries; these items were NOT recorded",
                             items.size(),
@@ -343,10 +311,8 @@ public class DokimosServerReporter implements Reporter {
             } finally {
                 inFlight.decrementAndGet();
                 pendingItems.addAndGet(-items.size());
-                // Decrement the per-run counter by the items sent for this run. A zeroed entry is
-                // left in the map rather than removed: removing race-free would need extra
-                // coordination with reportItem's computeIfAbsent, and the number of distinct runs
-                // per reporter is small, so the leftover zeros are negligible.
+                // Zeroed entries are left in pendingByRun; race-free removal would need extra
+                // coordination with reportItem and the per-reporter run count is small.
                 AtomicInteger runPending = pendingByRun.get(runId);
                 if (runPending != null) {
                     runPending.addAndGet(-items.size());
@@ -388,12 +354,8 @@ public class DokimosServerReporter implements Reporter {
     }
 
     private void flushItemsForRun(RunHandle handle) {
-        // Wait until this run has no pending items. pendingByRun is incremented in reportItem before
-        // the item is enqueued and decremented only after the send completes, so it covers the entire
-        // lifecycle (queued, batched locally in the worker, in flight). This closes the race where the
-        // worker had moved items into its local batch but had not yet marked the send in flight: a
-        // queue scan would have seen nothing for the run and returned early, letting completeRun
-        // finalize the run while items were still mid-flight.
+        // Block until pendingByRun for this run is zero. The counter spans the entire lifecycle
+        // (queued, batched, in flight) so completeRun cannot finalize while items are mid-flight.
         String runId = handle.runId();
         long deadline = System.currentTimeMillis() + 30000;
         while (System.currentTimeMillis() < deadline) {
@@ -458,12 +420,10 @@ public class DokimosServerReporter implements Reporter {
                 }
 
                 if (response.statusCode() >= 400 && response.statusCode() < 500) {
-                    // Client error, don't retry
                     LOGGER.warn("Client error {} for {} {}", response.statusCode(), method, url);
                     return null;
                 }
 
-                // Server error, retry
                 LOGGER.debug("Server error {}, attempt {} of {}", response.statusCode(), attempt, MAX_RETRIES);
 
             } catch (IOException | InterruptedException e) {
@@ -491,9 +451,7 @@ public class DokimosServerReporter implements Reporter {
 
     private record QueuedItem(RunHandle handle, ItemResult result) {}
 
-    /**
-     * Builder for {@link DokimosServerReporter}.
-     */
+    /** Builder for {@link DokimosServerReporter}. */
     public static class Builder {
         private String serverUrl;
         private String projectName;
@@ -503,69 +461,37 @@ public class DokimosServerReporter implements Reporter {
 
         private Builder() {}
 
-        /**
-         * Sets the Dokimos server URL.
-         *
-         * @param serverUrl the server URL, e.g. "https://api.my-domain.com"
-         * @return this builder
-         */
+        /** Dokimos server URL, e.g. {@code "https://api.my-domain.com"}. */
         public Builder serverUrl(String serverUrl) {
             this.serverUrl = serverUrl;
             return this;
         }
 
-        /**
-         * Sets the project name.
-         *
-         * @param projectName the project name
-         * @return this builder
-         */
+        /** Project name on the server. */
         public Builder projectName(String projectName) {
             this.projectName = projectName;
             return this;
         }
 
-        /**
-         * Sets the API version to use.
-         * <p>
-         * If not specified, defaults to {@link DokimosServerReporter#DEFAULT_API_VERSION}.
-         *
-         * @param apiVersion the API version, e.g. "v1" or "v2"
-         * @return this builder
-         */
+        /** API version, e.g. {@code "v1"}. Defaults to {@link DokimosServerReporter#DEFAULT_API_VERSION}. */
         public Builder apiVersion(String apiVersion) {
             this.apiVersion = apiVersion;
             return this;
         }
 
-        /**
-         * Sets the API key for authentication.
-         *
-         * @param apiKey the API key
-         * @return this builder
-         */
+        /** Bearer API key for authentication. */
         public Builder apiKey(String apiKey) {
             this.apiKey = apiKey;
             return this;
         }
 
-        /**
-         * Sets a custom HTTP client (useful for testing).
-         *
-         * @param httpClient the HTTP client to use
-         * @return this builder
-         */
+        /** Package-private: inject a custom HTTP client for tests. */
         Builder httpClient(HttpClient httpClient) {
             this.httpClient = httpClient;
             return this;
         }
 
-        /**
-         * Builds the reporter.
-         *
-         * @return a new {@link DokimosServerReporter}
-         * @throws IllegalStateException if serverUrl or projectName is not set
-         */
+        /** @throws IllegalStateException if {@code serverUrl} or {@code projectName} is not set. */
         public DokimosServerReporter build() {
             if (serverUrl == null || serverUrl.isBlank()) {
                 throw new IllegalStateException("serverUrl is required");

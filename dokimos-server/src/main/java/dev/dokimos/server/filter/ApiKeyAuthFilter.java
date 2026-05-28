@@ -14,26 +14,11 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Filter that enforces API key authentication for write operations on
- * /api/v1/** endpoints.
- * <p>
- * GET requests are always allowed.
- * POST, PUT, PATCH, DELETE requests require a valid API key in the
- * Authorization header.
- * <p>
- * Expected header format: Authorization: Bearer &lt;api-key&gt;
- * <p>
- * If authentication is disabled (no API key configured), all requests are
- * allowed.
- * <p>
- * The actual allow/reject decision is delegated to an {@link Authenticator}, so future
- * authorization schemes can be added without changing this filter.
- */
+/** Servlet filter that delegates the allow/reject decision for {@code /api/v1/**} to an {@link Authenticator}. */
 @Component
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
-    /** Request attribute under which the authenticated {@link Principal} is stashed for later use. */
+    /** Request attribute holding the authenticated {@link Principal}. */
     public static final String PRINCIPAL_ATTRIBUTE = "dokimos.principal";
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -67,7 +52,6 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        // Only apply this filter to /api/v1/** paths
         String path = request.getRequestURI();
         return !path.startsWith("/api/v1/");
     }

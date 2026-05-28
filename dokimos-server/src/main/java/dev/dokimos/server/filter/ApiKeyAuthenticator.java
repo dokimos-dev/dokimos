@@ -6,16 +6,7 @@ import java.util.Set;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 
-/**
- * {@link Authenticator} backed by a single configured API key. Reproduces the original filter rules
- * exactly:
- * <ul>
- *   <li>auth disabled (no key configured) returns the system principal,</li>
- *   <li>read-only methods (GET, HEAD, OPTIONS) return the system principal,</li>
- *   <li>a write carrying a valid {@code Bearer} key returns the system principal,</li>
- *   <li>anything else is rejected (empty).</li>
- * </ul>
- */
+/** {@link Authenticator} backed by a single configured API key; reads pass through, writes need {@code Bearer}. */
 @Component
 public class ApiKeyAuthenticator implements Authenticator {
 

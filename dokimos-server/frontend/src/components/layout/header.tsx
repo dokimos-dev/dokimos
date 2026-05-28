@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, NavLink } from "react-router";
 import { useCallback } from "react";
 import { useTheme } from "@/lib/theme-context";
 import {
@@ -19,17 +19,31 @@ export default function Header() {
   return (
     <header className="border-b">
       <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
-        <Link
-          to="/"
-          className="text-lg font-semibold hover:opacity-80 flex items-center"
-        >
-          <img
-            src="/logo.jpeg"
-            alt="Dokimos Logo"
-            className="inline h-7 mr-2"
-          />
-          Dokimos
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link
+            to="/"
+            className="text-lg font-semibold hover:opacity-80 flex items-center"
+          >
+            <img
+              src="/logo.jpeg"
+              alt="Dokimos Logo"
+              className="inline h-7 mr-2"
+            />
+            Dokimos
+          </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            <NavLink
+              to="/datasets"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              Datasets
+            </NavLink>
+          </nav>
+        </div>
         <ThemeToggleButton
           theme={theme}
           onClick={handleThemeToggle}

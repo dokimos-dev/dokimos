@@ -312,7 +312,7 @@ export default function RunPage() {
                                 <h4 className="text-sm font-medium mb-2">
                                   Input
                                 </h4>
-                                <JsonDisplay data={item.input ?? ""} />
+                                <JsonDisplay data={item.input} />
                               </div>
                               {item.expectedOutput && (
                                 <div>
@@ -326,7 +326,7 @@ export default function RunPage() {
                                 <h4 className="text-sm font-medium mb-2">
                                   Actual Output
                                 </h4>
-                                <JsonDisplay data={item.actualOutput ?? ""} />
+                                <JsonDisplay data={item.actualOutput} />
                               </div>
                               {item.evalResults &&
                                 item.evalResults.length > 0 && (

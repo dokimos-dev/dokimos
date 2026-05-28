@@ -359,13 +359,19 @@ public class DokimosServerReporter implements Reporter {
     }
 
     private Map<String, Object> itemResultToMap(ItemResult result) {
-        return Map.of(
-                "inputs", result.example().inputs(),
-                "expectedOutputs", result.example().expectedOutputs(),
-                "actualOutputs", result.actualOutputs(),
+        var map = new java.util.HashMap<String, Object>();
+        map.put("inputs", result.example().inputs());
+        map.put("expectedOutputs", result.example().expectedOutputs());
+        map.put("actualOutputs", result.actualOutputs());
+        map.put(
                 "evalResults",
-                        result.evalResults().stream().map(this::evalResultToMap).toList(),
-                "success", result.success());
+                result.evalResults().stream().map(this::evalResultToMap).toList());
+        map.put("success", result.success());
+        Map<String, Object> exampleMetadata = result.example().metadata();
+        if (exampleMetadata != null && !exampleMetadata.isEmpty()) {
+            map.put("metadata", exampleMetadata);
+        }
+        return map;
     }
 
     private Map<String, Object> evalResultToMap(dev.dokimos.core.EvalResult er) {

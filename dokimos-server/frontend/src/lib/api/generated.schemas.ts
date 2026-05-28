@@ -21,10 +21,13 @@ export type ItemDataExpectedOutputs = {[key: string]: { [key: string]: unknown }
 
 export type ItemDataActualOutputs = {[key: string]: { [key: string]: unknown }};
 
+export type ItemDataMetadata = {[key: string]: { [key: string]: unknown }};
+
 export interface ItemData {
   inputs?: ItemDataInputs;
   expectedOutputs?: ItemDataExpectedOutputs;
   actualOutputs?: ItemDataActualOutputs;
+  metadata?: ItemDataMetadata;
   evalResults?: EvalData[];
   success?: boolean;
 }
@@ -101,17 +104,17 @@ export interface ItemSummary {
 
 export interface SortObject {
   empty?: boolean;
-  unsorted?: boolean;
   sorted?: boolean;
+  unsorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
-  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
+  unpaged?: boolean;
 }
 
 export interface PageItemSummary {

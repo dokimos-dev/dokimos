@@ -9,8 +9,23 @@ public record AddItemsRequest(@NotEmpty List<ItemData> items) {
             Map<String, Object> inputs,
             Map<String, Object> expectedOutputs,
             Map<String, Object> actualOutputs,
+            Map<String, Object> metadata,
             List<EvalData> evalResults,
-            boolean success) {}
+            boolean success) {
+        /**
+         * Backwards-compatible constructor for callers that do not supply item metadata. Passes a
+         * null metadata map. New callers should use the canonical 6-arg constructor and pass
+         * {@code Example.metadata()}.
+         */
+        public ItemData(
+                Map<String, Object> inputs,
+                Map<String, Object> expectedOutputs,
+                Map<String, Object> actualOutputs,
+                List<EvalData> evalResults,
+                boolean success) {
+            this(inputs, expectedOutputs, actualOutputs, null, evalResults, success);
+        }
+    }
 
     public record EvalData(
             String name,

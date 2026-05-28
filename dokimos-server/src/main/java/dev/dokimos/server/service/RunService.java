@@ -110,8 +110,8 @@ public class RunService {
 
         List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
-            ItemResult item =
-                    new ItemResult(run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), null);
+            ItemResult item = new ItemResult(
+                    run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), itemData.metadata());
 
             if (itemData.evalResults() != null) {
                 for (AddItemsRequest.EvalData evalData : itemData.evalResults()) {

@@ -366,6 +366,58 @@ class FlywayMigrationTest {
         }
     }
 
+    /**
+     * Boundary case for the V4 safe cast: a legacy row written by the removed Map.toString() fallback
+     * (format {q=hello}, not valid JSON) must not abort the migration. The try-cast-or-wrap fallback
+     * preserves the original value as a JSON string so the data is recoverable.
+     */
+    @Test
+    void v4SafeCastPreservesLegacyNonJsonRow() throws Exception {
+        DataSource ds = dataSource();
+        Flyway.configure().dataSource(ds).target("3").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        String legacyValue = "{q=hello}";
+
+        try (Connection conn = ds.getConnection()) {
+            insertProject(conn, projectId, "v4-fallback-project");
+            insertExperiment(conn, experimentId, projectId, "v4-fallback-experiment");
+            insertRun(conn, runId, experimentId);
+
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, expected_output, actual_output, created_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?)")) {
+                ps.setObject(1, itemId);
+                ps.setObject(2, runId);
+                ps.setString(3, legacyValue);
+                ps.setString(4, legacyValue);
+                ps.setString(5, legacyValue);
+                ps.setObject(6, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+        }
+
+        // Migration must not throw on the malformed value.
+        Flyway.configure().dataSource(ds).target("4").load().migrate();
+
+        try (Connection conn = ds.getConnection()) {
+            assertColumnType(conn, "item_results", "input", "jsonb");
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT input, jsonb_typeof(input) AS t FROM item_results WHERE id = ?")) {
+                ps.setObject(1, itemId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    // Wrapped as a JSON string by the fallback so the original is preserved.
+                    assertThat(rs.getString("t")).isEqualTo("string");
+                    assertThat(rs.getString("input")).isEqualTo("\"" + legacyValue + "\"");
+                }
+            }
+        }
+    }
+
     private void insertIngestedBatch(Connection conn, UUID runId, String key) throws Exception {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO ingested_batches (run_id, idempotency_key, created_at) VALUES (?, ?, ?)")) {

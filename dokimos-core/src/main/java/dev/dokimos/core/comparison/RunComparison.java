@@ -101,6 +101,12 @@ public final class RunComparison {
             ItemAggregate base = baselineItems.get(key);
             ItemAggregate cand = candidateItems.get(key);
 
+            // allKeys is the union of both sides, so at least one of base/cand is non-null.
+            // Guard the impossible case explicitly to make the invariant visible to static analysis.
+            if (base == null && cand == null) {
+                continue;
+            }
+
             if (base == null) {
                 items.add(new ItemComparison(
                         key,

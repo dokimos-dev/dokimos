@@ -433,7 +433,7 @@ class DokimosServerReporterTest {
                 response = "{\"runId\": \"test-run-123\"}";
                 statusCode = 201;
             } else if (path.contains("/items")) {
-                statusCode = itemStatusFor(path);
+                statusCode = itemStatusFor();
                 response = statusCode >= 200 && statusCode < 300 ? "{\"status\": \"ok\"}" : "{\"error\": \"boom\"}";
             } else if (method.equals("PATCH")) {
                 response = "{\"status\": \"completed\"}";
@@ -447,7 +447,7 @@ class DokimosServerReporterTest {
             }
         }
 
-        private int itemStatusFor(String path) {
+        private int itemStatusFor() {
             if (itemSendDelayMillis > 0) {
                 try {
                     Thread.sleep(itemSendDelayMillis);

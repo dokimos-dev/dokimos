@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   useGetDataset,
@@ -60,22 +60,14 @@ export default function DatasetMainPane({ datasetName }: DatasetMainPaneProps) {
     );
   }, [dataset?.versions]);
 
-  // Default to the latest version when the dataset (or selection state) becomes available.
-  useEffect(() => {
-    if (selectedVersion == null) {
-      const latest = pickLatestVersion(dataset?.versions);
-      if (latest?.version != null) {
-        setSelectedVersion(latest.version);
-      }
-    }
-  }, [dataset?.versions, selectedVersion]);
-
-  // Reset selection if we switch datasets.
-  useEffect(() => {
-    setSelectedVersion(null);
-    setCurrentPage(0);
-  }, [datasetName]);
-
+  // Default to the latest version once it loads; an explicit user choice sticks.
+  // Adjusting state during render is the recommended alternative to a
+  // state-syncing effect. Switching datasets remounts this component (keyed on
+  // the name), which resets the selection.
+  const latestVersion = pickLatestVersion(dataset?.versions)?.version ?? null;
+  if (selectedVersion == null && latestVersion != null) {
+    setSelectedVersion(latestVersion);
+  }
   const versionString = selectedVersion != null ? String(selectedVersion) : "";
 
   const {

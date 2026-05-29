@@ -58,8 +58,14 @@ class RunServiceDedupPostgresTest {
                 ExperimentRunRepository runRepository,
                 ItemResultRepository itemResultRepository,
                 IngestedBatchRepository ingestedBatchRepository,
-                DatasetService datasetService) {
-            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository, datasetService);
+                DatasetService datasetService,
+                dev.dokimos.server.repository.DatasetItemRepository datasetItemRepository) {
+            return new RunService(
+                    runRepository,
+                    itemResultRepository,
+                    ingestedBatchRepository,
+                    datasetService,
+                    datasetItemRepository);
         }
     }
 

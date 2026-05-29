@@ -13,12 +13,14 @@ import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
+import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.entity.RunStatus;
+import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
@@ -54,11 +56,15 @@ class RunServiceTest {
     @Mock
     private DatasetService datasetService;
 
+    @Mock
+    private DatasetItemRepository datasetItemRepository;
+
     private RunService runService;
 
     @BeforeEach
     void setUp() {
-        runService = new RunService(runRepository, itemResultRepository, ingestedBatchRepository, datasetService);
+        runService = new RunService(
+                runRepository, itemResultRepository, ingestedBatchRepository, datasetService, datasetItemRepository);
     }
 
     @Test
@@ -167,6 +173,58 @@ class RunServiceTest {
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
+    }
+
+    @Test
+    void addItems_shouldLinkDatasetItemWhenIdResolves() {
+        UUID runId = UUID.randomUUID();
+        UUID datasetItemId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        DatasetItem datasetItem = new DatasetItem(null, 0, Map.of("input", "q"), Map.of("output", "a"), null);
+        setField(datasetItem, "id", datasetItemId);
+        when(datasetItemRepository.findAllById(List.of(datasetItemId))).thenReturn(List.of(datasetItem));
+
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"),
+                Map.of("output", "a"),
+                Map.of("output", "a"),
+                null,
+                List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "ok", Map.of())),
+                true,
+                datasetItemId)));
+
+        runService.addItems(runId, request, null);
+
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved.get(0).getDatasetItem()).isSameAs(datasetItem);
+    }
+
+    @Test
+    void addItems_shouldStoreWithoutLinkageWhenDatasetItemIdUnknown() {
+        UUID runId = UUID.randomUUID();
+        UUID staleId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(datasetItemRepository.findAllById(List.of(staleId))).thenReturn(List.of());
+
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"), Map.of("output", "a"), Map.of("output", "a"), null, null, true, staleId)));
+
+        // A stale id must not fail the batch; the item is stored unlinked.
+        runService.addItems(runId, request, null);
+
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getDatasetItem()).isNull();
     }
 
     @Test

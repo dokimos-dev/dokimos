@@ -137,7 +137,8 @@ class ServerDatasetResolverTest {
 
     @Test
     void resolvesSinglePageOfItems() {
-        seedVersion("refund-qa", 3, List.of(item(0, "q1", "a1"), item(1, "q2", "a2")));
+        Map<String, Object> first = item(0, "q1", "a1");
+        seedVersion("refund-qa", 3, List.of(first, item(1, "q2", "a2")));
 
         Dataset dataset = newResolver(null).resolve("dataset://refund-qa@3");
 
@@ -146,6 +147,8 @@ class ServerDatasetResolverTest {
         assertThat(dataset.get(0).inputs()).containsEntry("question", "q1");
         assertThat(dataset.get(0).expectedOutputs()).containsEntry("answer", "a1");
         assertThat(dataset.get(0).metadata()).containsEntry("ordinal", 0);
+        // The server item id is stamped onto the resolved Example so later runs can pair items.
+        assertThat(dataset.get(0).datasetItemId()).isEqualTo(first.get("id"));
         assertThat(dataset.get(1).inputs()).containsEntry("question", "q2");
     }
 

@@ -31,6 +31,14 @@ public class ItemResult {
     @JoinColumn(name = "run_id", nullable = false)
     private ExperimentRun run;
 
+    /**
+     * The dataset item this result was evaluated against, or null for ad-hoc runs and legacy rows.
+     * Lets a per-case run comparison pair items by stable id across executions.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_item_id")
+    private DatasetItem datasetItem;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Map<String, Object> input;
@@ -75,6 +83,14 @@ public class ItemResult {
 
     public ExperimentRun getRun() {
         return run;
+    }
+
+    public DatasetItem getDatasetItem() {
+        return datasetItem;
+    }
+
+    public void setDatasetItem(DatasetItem datasetItem) {
+        this.datasetItem = datasetItem;
     }
 
     public Map<String, Object> getInput() {

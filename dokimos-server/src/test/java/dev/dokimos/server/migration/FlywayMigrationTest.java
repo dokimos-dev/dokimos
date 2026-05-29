@@ -20,7 +20,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Verifies the Flyway migrations (V1 through V5) against a real PostgreSQL instance. Self-skips when
+ * Verifies the Flyway migrations (V1 through V6) against a real PostgreSQL instance. Self-skips when
  * Docker is unavailable so it stays safe in the normal build. Not tagged as an integration test: when
  * Docker is present it runs as part of {@code mvn test}. One container is shared across tests and
  * the schema is dropped (Flyway clean) before each test.
@@ -600,6 +600,169 @@ class FlywayMigrationTest {
                 try (ResultSet rs = ps.executeQuery()) {
                     assertThat(rs.next()).isTrue();
                     rs.getObject("dataset_version_id");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifies V6 adds the nullable {@code item_results.dataset_item_id} FK with the expected ON DELETE
+     * SET NULL behavior. Migrates to V5, applies V6, seeds a dataset, version, item, run, and an
+     * item_result linked to that dataset_item, then deletes the dataset_item and confirms the FK was
+     * nulled while the run and item_result rows survive.
+     */
+    @Test
+    void v6AddsItemResultDatasetLink() throws Exception {
+        DataSource ds = dataSource();
+
+        Flyway.configure().dataSource(ds).target("5").load().migrate();
+        Flyway.configure().dataSource(ds).target("6").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID datasetId = UUID.randomUUID();
+        UUID versionId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID itemResultId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            // The new column exists and is nullable.
+            assertColumnExists(conn, "item_results", "dataset_item_id");
+            assertColumnIsNullable(conn, "item_results", "dataset_item_id");
+
+            insertProject(conn, projectId, "v6-project");
+            insertExperiment(conn, experimentId, projectId, "v6-experiment");
+            insertRun(conn, runId, experimentId);
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO datasets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)")) {
+                ps.setObject(1, datasetId);
+                ps.setString(2, "v6-qa");
+                ps.setObject(3, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_versions "
+                    + "(id, dataset_id, version, item_count, created_at) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, versionId);
+                ps.setObject(2, datasetId);
+                ps.setInt(3, 1);
+                ps.setInt(4, 1);
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_items "
+                    + "(id, dataset_version_id, ordinal, inputs) VALUES (?, ?, ?, ?::jsonb)")) {
+                ps.setObject(1, itemId);
+                ps.setObject(2, versionId);
+                ps.setInt(3, 0);
+                ps.setString(4, "{\"q\":\"hello\"}");
+                ps.executeUpdate();
+            }
+
+            // An item_result linked to the dataset_item via the new column.
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, actual_output, created_at, dataset_item_id) "
+                    + "VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?)")) {
+                ps.setObject(1, itemResultId);
+                ps.setObject(2, runId);
+                ps.setString(3, "{\"input\":\"q\"}");
+                ps.setString(4, "{\"output\":\"a\"}");
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(6, itemId);
+                ps.executeUpdate();
+            }
+
+            // The FK is wired up.
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_item_id FROM item_results WHERE id = ?")) {
+                ps.setObject(1, itemResultId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getObject("dataset_item_id")).isEqualTo(itemId);
+                }
+            }
+
+            // Deleting the dataset_item nulls the FK but preserves the run and the item_result row.
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM dataset_items WHERE id = ?")) {
+                ps.setObject(1, itemId);
+                ps.executeUpdate();
+            }
+
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_item_id FROM item_results WHERE id = ?")) {
+                ps.setObject(1, itemResultId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).as("item_result row should survive").isTrue();
+                    rs.getObject("dataset_item_id");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, runId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isEqualTo(1);
+                }
+            }
+
+            // Chained cascade: deleting the parent dataset cascades to version and item, and the
+            // item_result link is nulled transitively while the item_result row survives.
+            UUID chainedDatasetId = UUID.randomUUID();
+            UUID chainedVersionId = UUID.randomUUID();
+            UUID chainedItemId = UUID.randomUUID();
+            UUID chainedItemResultId = UUID.randomUUID();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO datasets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)")) {
+                ps.setObject(1, chainedDatasetId);
+                ps.setString(2, "v6-qa-chained");
+                ps.setObject(3, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_versions "
+                    + "(id, dataset_id, version, item_count, created_at) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, chainedVersionId);
+                ps.setObject(2, chainedDatasetId);
+                ps.setInt(3, 1);
+                ps.setInt(4, 1);
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_items "
+                    + "(id, dataset_version_id, ordinal, inputs) VALUES (?, ?, ?, ?::jsonb)")) {
+                ps.setObject(1, chainedItemId);
+                ps.setObject(2, chainedVersionId);
+                ps.setInt(3, 0);
+                ps.setString(4, "{\"q\":\"hi\"}");
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, actual_output, created_at, dataset_item_id) "
+                    + "VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?)")) {
+                ps.setObject(1, chainedItemResultId);
+                ps.setObject(2, runId);
+                ps.setString(3, "{\"input\":\"q\"}");
+                ps.setString(4, "{\"output\":\"a\"}");
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(6, chainedItemId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM datasets WHERE id = ?")) {
+                ps.setObject(1, chainedDatasetId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_item_id FROM item_results WHERE id = ?")) {
+                ps.setObject(1, chainedItemResultId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next())
+                            .as("item_result survives a parent dataset delete")
+                            .isTrue();
+                    rs.getObject("dataset_item_id");
                     assertThat(rs.wasNull()).isTrue();
                 }
             }

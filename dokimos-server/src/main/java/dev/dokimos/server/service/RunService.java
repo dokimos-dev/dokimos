@@ -5,6 +5,7 @@ import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
+import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.entity.EvalResult;
 import dev.dokimos.server.entity.Experiment;
@@ -12,6 +13,7 @@ import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.RunStatus;
+import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
@@ -20,6 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,20 +32,25 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RunService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RunService.class);
+
     private final ExperimentRunRepository runRepository;
     private final ItemResultRepository itemResultRepository;
     private final IngestedBatchRepository ingestedBatchRepository;
     private final DatasetService datasetService;
+    private final DatasetItemRepository datasetItemRepository;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
             IngestedBatchRepository ingestedBatchRepository,
-            DatasetService datasetService) {
+            DatasetService datasetService,
+            DatasetItemRepository datasetItemRepository) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.ingestedBatchRepository = ingestedBatchRepository;
         this.datasetService = datasetService;
+        this.datasetItemRepository = datasetItemRepository;
     }
 
     @Transactional
@@ -108,10 +117,28 @@ public class RunService {
             return;
         }
 
+        // Batch-load the referenced dataset items in one query rather than a PK select per item.
+        // A stale id (its dataset version was deleted between resolve and report) is simply absent
+        // from the map: the FK is SET NULL, so an unlinked result is a valid point-in-time record,
+        // not a reason to fail the whole batch.
+        Map<UUID, DatasetItem> datasetItemsById = loadDatasetItems(request.items());
+
         List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
             ItemResult item = new ItemResult(
                     run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), itemData.metadata());
+
+            if (itemData.datasetItemId() != null) {
+                DatasetItem datasetItem = datasetItemsById.get(itemData.datasetItemId());
+                if (datasetItem != null) {
+                    item.setDatasetItem(datasetItem);
+                } else {
+                    LOGGER.warn(
+                            "Dataset item {} not found for run {}; storing item result without linkage",
+                            itemData.datasetItemId(),
+                            runId);
+                }
+            }
 
             if (itemData.evalResults() != null) {
                 for (AddItemsRequest.EvalData evalData : itemData.evalResults()) {
@@ -262,11 +289,30 @@ public class RunService {
                 datasetVersionNumber);
     }
 
+    private Map<UUID, DatasetItem> loadDatasetItems(List<AddItemsRequest.ItemData> items) {
+        List<UUID> ids = items.stream()
+                .map(AddItemsRequest.ItemData::datasetItemId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, DatasetItem> byId = new java.util.HashMap<>();
+        for (DatasetItem datasetItem : datasetItemRepository.findAllById(ids)) {
+            byId.put(datasetItem.getId(), datasetItem);
+        }
+        return byId;
+    }
+
     private RunDetails.ItemSummary toItemSummary(ItemResult item) {
         List<RunDetails.EvalSummary> evalSummaries = item.getEvalResults().stream()
                 .map(e -> new RunDetails.EvalSummary(
                         e.getId(), e.getEvaluatorName(), e.getScore(), e.getThreshold(), e.isSuccess(), e.getReason()))
                 .toList();
+
+        DatasetItem datasetItem = item.getDatasetItem();
+        UUID datasetItemId = datasetItem != null ? datasetItem.getId() : null;
 
         return new RunDetails.ItemSummary(
                 item.getId(),
@@ -275,6 +321,7 @@ public class RunService {
                 item.getActualOutput(),
                 item.getMetadata(),
                 evalSummaries,
-                item.getCreatedAt());
+                item.getCreatedAt(),
+                datasetItemId);
     }
 }

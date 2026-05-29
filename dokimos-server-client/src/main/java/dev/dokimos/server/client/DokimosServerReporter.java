@@ -337,6 +337,10 @@ public class DokimosServerReporter implements Reporter {
         if (exampleMetadata != null && !exampleMetadata.isEmpty()) {
             map.put("metadata", exampleMetadata);
         }
+        String datasetItemId = result.example().datasetItemId();
+        if (datasetItemId != null) {
+            map.put("datasetItemId", datasetItemId);
+        }
         return map;
     }
 

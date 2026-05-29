@@ -143,7 +143,7 @@ export default function DatasetsPage() {
         {/* Main pane */}
         <section aria-label={selected?.name ?? "Dataset"}>
           {routeName ? (
-            <DatasetMainPane datasetName={routeName} />
+            <DatasetMainPane key={routeName} datasetName={routeName} />
           ) : (
             <EmptyState onCreate={() => setDialogOpen(true)} />
           )}
@@ -195,13 +195,12 @@ function CreateDatasetDialog({ open, onClose, onCreated }: CreateDatasetDialogPr
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open) {
-      setName("");
-      setDescription("");
-      setSubmitError(null);
-    }
-  }, [open]);
+  const handleClose = () => {
+    setName("");
+    setDescription("");
+    setSubmitError(null);
+    onClose();
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -228,7 +227,7 @@ function CreateDatasetDialog({ open, onClose, onCreated }: CreateDatasetDialogPr
   return (
     <dialog
       ref={dialogRef}
-      onClose={onClose}
+      onClose={handleClose}
       className="border rounded-xl p-0 bg-card text-foreground max-w-md w-[calc(100%-2rem)] backdrop:bg-black/50"
     >
       <form onSubmit={handleSubmit} className="p-5">

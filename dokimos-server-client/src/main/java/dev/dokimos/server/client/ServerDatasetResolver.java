@@ -1,6 +1,5 @@
 package dev.dokimos.server.client;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.Dataset;
@@ -223,17 +222,18 @@ public class ServerDatasetResolver implements DatasetResolver {
         all.sort(Comparator.comparingInt(r -> r.ordinal));
         List<Example> collected = new ArrayList<>(all.size());
         for (RawItem r : all) {
-            collected.add(new Example(r.inputs, r.expectedOutputs, r.metadata));
+            collected.add(new Example(r.inputs, r.expectedOutputs, r.metadata, r.id));
         }
         return collected;
     }
 
     private RawItem toRawItem(JsonNode item) {
+        String id = item.has("id") && !item.get("id").isNull() ? item.get("id").asText() : null;
         int ordinal = item.has("ordinal") ? item.get("ordinal").asInt() : 0;
         Map<String, Object> inputs = readMap(item.get("inputs"));
         Map<String, Object> expected = readMap(item.get("expectedOutputs"));
         Map<String, Object> metadata = readMap(item.get("metadata"));
-        return new RawItem(ordinal, inputs, expected, metadata);
+        return new RawItem(id, ordinal, inputs, expected, metadata);
     }
 
     @SuppressWarnings("unchecked")
@@ -325,6 +325,7 @@ public class ServerDatasetResolver implements DatasetResolver {
         List<Map<String, Object>> serialized = new ArrayList<>(examples.size());
         for (Example example : examples) {
             Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("id", example.datasetItemId());
             entry.put("inputs", example.inputs());
             entry.put("expectedOutputs", example.expectedOutputs());
             entry.put("metadata", example.metadata());
@@ -368,15 +369,17 @@ public class ServerDatasetResolver implements DatasetResolver {
             }
             List<Example> examples = new ArrayList<>(items.size());
             for (JsonNode item : items) {
-                Map<String, Object> inputs = objectMapper.convertValue(item.get("inputs"), new TypeReference<>() {});
-                Map<String, Object> expected =
-                        objectMapper.convertValue(item.get("expectedOutputs"), new TypeReference<>() {});
-                Map<String, Object> metadata =
-                        objectMapper.convertValue(item.get("metadata"), new TypeReference<>() {});
+                String id = item.has("id") && !item.get("id").isNull()
+                        ? item.get("id").asText()
+                        : null;
+                // readMap null-guards a missing key and swallows malformed nodes, so a cache file
+                // written by an older resolver (or a corrupt one) degrades to empty maps rather than
+                // throwing out of the IOException catch and defeating the offline fallback.
                 examples.add(new Example(
-                        inputs != null ? inputs : Map.of(),
-                        expected != null ? expected : Map.of(),
-                        metadata != null ? metadata : Map.of()));
+                        readMap(item.get("inputs")),
+                        readMap(item.get("expectedOutputs")),
+                        readMap(item.get("metadata")),
+                        id));
             }
             return examples;
         } catch (IOException e) {
@@ -452,6 +455,7 @@ public class ServerDatasetResolver implements DatasetResolver {
     record ParsedUri(String name, int version, boolean isLatest) {}
 
     private record RawItem(
+            String id,
             int ordinal,
             Map<String, Object> inputs,
             Map<String, Object> expectedOutputs,

@@ -32,6 +32,29 @@ class ExampleTest {
     }
 
     @Test
+    void shouldDefaultDatasetItemIdToNull() {
+        assertThat(Example.of("q", "a").datasetItemId()).isNull();
+        assertThat(new Example(Map.of("input", "q"), Map.of("output", "a"), Map.of()).datasetItemId())
+                .isNull();
+        assertThat(Example.builder().input("input", "q").build().datasetItemId())
+                .isNull();
+    }
+
+    @Test
+    void shouldCarryDatasetItemId() {
+        var example = Example.builder()
+                .input("input", "q")
+                .expectedOutput("output", "a")
+                .datasetItemId("item-123")
+                .build();
+
+        assertThat(example.datasetItemId()).isEqualTo("item-123");
+
+        var direct = new Example(Map.of("input", "q"), Map.of("output", "a"), Map.of(), "item-456");
+        assertThat(direct.datasetItemId()).isEqualTo("item-456");
+    }
+
+    @Test
     void shouldCastToTestCase() {
         var example = Example.of("What is 2+2?", "4");
         var testCase = example.toTestCase("4");

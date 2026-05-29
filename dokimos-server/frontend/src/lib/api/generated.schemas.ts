@@ -30,6 +30,7 @@ export interface ItemData {
   metadata?: ItemDataMetadata;
   evalResults?: EvalData[];
   success?: boolean;
+  datasetItemId?: string;
 }
 
 export interface AddItemsRequest {
@@ -54,6 +55,53 @@ export interface CreateRunRequest {
 
 export interface CreateRunResponse {
   runId?: string;
+}
+
+export interface GateRequest {
+  candidateRunId: string;
+  baselineRunId?: string;
+  baselineBranch?: string;
+}
+
+export interface EvaluatorDrop {
+  evaluator?: string;
+  baselineMean?: number;
+  candidateMean?: number;
+  delta?: number;
+}
+
+export interface RegressedEvaluator {
+  evaluator?: string;
+  baselineMean?: number;
+  candidateMean?: number;
+  delta?: number;
+  pValue?: number;
+}
+
+export interface RegressedCase {
+  datasetItemId?: string;
+  index?: string;
+  evaluatorDrops?: EvaluatorDrop[];
+}
+
+export interface GateResult {
+  status?: string;
+  passed?: boolean;
+  candidateRunId?: string;
+  baselineRunId?: string;
+  pairing?: string;
+  baselinePassRate?: number;
+  candidatePassRate?: number;
+  passRateDelta?: number;
+  significant?: boolean;
+  improvedCount?: number;
+  regressedCount?: number;
+  unchangedCount?: number;
+  addedCount?: number;
+  removedCount?: number;
+  regressedEvaluators?: RegressedEvaluator[];
+  cases?: RegressedCase[];
+  casesTruncated?: boolean;
 }
 
 export interface CreateDatasetRequest {
@@ -147,34 +195,35 @@ export interface ItemSummary {
   metadata?: ItemSummaryMetadata;
   evalResults?: EvalSummary[];
   createdAt?: string;
+  datasetItemId?: string;
 }
 
 export interface SortObject {
   empty?: boolean;
-  sorted?: boolean;
   unsorted?: boolean;
+  sorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
+  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
-  unpaged?: boolean;
 }
 
 export interface PageItemSummary {
-  totalElements?: number;
   totalPages?: number;
+  totalElements?: number;
   first?: boolean;
   last?: boolean;
   size?: number;
   content?: ItemSummary[];
   number?: number;
   sort?: SortObject;
-  numberOfElements?: number;
   pageable?: PageableObject;
+  numberOfElements?: number;
   empty?: boolean;
 }
 
@@ -277,6 +326,73 @@ export interface RunSummary {
   datasetVersion?: number;
 }
 
+export interface EvaluatorDiff {
+  name?: string;
+  baselineMean?: number;
+  candidateMean?: number;
+  delta?: number;
+  status?: string;
+  significant?: boolean;
+}
+
+export interface DiffCase {
+  datasetItemId?: string;
+  index?: string;
+  status?: string;
+  passFlip?: boolean;
+  input?: string;
+  evaluators?: EvaluatorDiff[];
+}
+
+export interface DiffSummary {
+  pairing?: string;
+  baselineRunId?: string;
+  candidateRunId?: string;
+  baselinePassRate?: number;
+  candidatePassRate?: number;
+  passRateDelta?: number;
+  significant?: boolean;
+  improvedCount?: number;
+  regressedCount?: number;
+  unchangedCount?: number;
+  addedCount?: number;
+  removedCount?: number;
+}
+
+export interface PageSort {
+  empty?: boolean;
+  sorted?: boolean;
+  unsorted?: boolean;
+}
+
+export interface PageablePage {
+  offset?: number;
+  sort?: PageSort;
+  paged?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  unpaged?: boolean;
+}
+
+export interface PageResponseDiffCase {
+  content?: DiffCase[];
+  number?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  last?: boolean;
+  numberOfElements?: number;
+  empty?: boolean;
+  sort?: PageSort;
+  pageable?: PageablePage;
+}
+
+export interface DiffView {
+  summary?: DiffSummary;
+  cases?: PageResponseDiffCase;
+}
+
 export interface VersionSummary {
   id?: string;
   version?: number;
@@ -309,21 +425,6 @@ export interface DatasetItemView {
   metadata?: DatasetItemViewMetadata;
 }
 
-export interface PageSort {
-  empty?: boolean;
-  sorted?: boolean;
-  unsorted?: boolean;
-}
-
-export interface PageablePage {
-  offset?: number;
-  sort?: PageSort;
-  paged?: boolean;
-  pageNumber?: number;
-  pageSize?: number;
-  unpaged?: boolean;
-}
-
 export interface PageResponseDatasetItemView {
   content?: DatasetItemView[];
   number?: number;
@@ -348,6 +449,12 @@ export type UpdateRun200 = {[key: string]: string};
 
 export type GetTrendsParams = {
 limit?: number;
+};
+
+export type DiffParams = {
+baselineRunId: string;
+status?: string;
+pageable: Pageable;
 };
 
 export type ListItemsParams = {

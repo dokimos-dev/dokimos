@@ -29,7 +29,8 @@ public record RunDetails(
             Map<String, Object> actualOutput,
             Map<String, Object> metadata,
             List<EvalSummary> evalResults,
-            Instant createdAt) {}
+            Instant createdAt,
+            UUID datasetItemId) {}
 
     public record EvalSummary(
             UUID id, String evaluatorName, double score, Double threshold, boolean success, String reason) {}

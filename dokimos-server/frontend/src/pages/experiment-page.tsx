@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { GitCompare } from "lucide-react";
 import StatusBadge from "@/components/shared/status-badge";
 import PassRate from "@/components/shared/pass-rate";
 import Pagination from "@/components/shared/pagination";
@@ -106,6 +108,7 @@ export default function ExperimentPage() {
               <TableHead>Pass Rate</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Duration</TableHead>
+              <TableHead className="text-right">Compare</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -116,6 +119,7 @@ export default function ExperimentPage() {
                 <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -216,30 +220,53 @@ export default function ExperimentPage() {
                 <TableHead>Pass Rate</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Duration</TableHead>
+                <TableHead className="text-right">Compare</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {runs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE).map((run) => (
-                <TableRow
-                  key={run.id}
-                  className="cursor-pointer hover:bg-accent/50"
-                  onClick={() => navigate(`/runs/${run.id}`)}
-                >
-                  <TableCell>
-                    {run.startedAt && format(new Date(run.startedAt), "MMM d, h:mm a")}
-                  </TableCell>
-                  <TableCell>
-                    {run.status && <StatusBadge status={run.status} />}
-                  </TableCell>
-                  <TableCell>
-                    <PassRate rate={run.passRate} />
-                  </TableCell>
-                  <TableCell>{run.itemCount}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDuration(run.startedAt, run.completedAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {runs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE).map((run, idx) => {
+                const globalIndex = currentPage * PAGE_SIZE + idx;
+                const previousRun = runs[globalIndex + 1];
+                const baselineParam = previousRun?.id
+                  ? `?baselineRunId=${encodeURIComponent(previousRun.id)}`
+                  : "";
+                return (
+                  <TableRow
+                    key={run.id}
+                    className="cursor-pointer hover:bg-accent/50"
+                    onClick={() => navigate(`/runs/${run.id}`)}
+                  >
+                    <TableCell>
+                      {run.startedAt && format(new Date(run.startedAt), "MMM d, h:mm a")}
+                    </TableCell>
+                    <TableCell>
+                      {run.status && <StatusBadge status={run.status} />}
+                    </TableCell>
+                    <TableCell>
+                      <PassRate rate={run.passRate} />
+                    </TableCell>
+                    <TableCell>{run.itemCount}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDuration(run.startedAt, run.completedAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(
+                            `/experiments/${id}/runs/${run.id}/diff${baselineParam}`
+                          );
+                        }}
+                      >
+                        <GitCompare className="h-4 w-4" />
+                        Compare
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           <Pagination

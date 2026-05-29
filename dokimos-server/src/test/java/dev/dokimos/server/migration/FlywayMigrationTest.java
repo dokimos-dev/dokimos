@@ -20,7 +20,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Verifies the Flyway migrations (V1 through V4) against a real PostgreSQL instance. Self-skips when
+ * Verifies the Flyway migrations (V1 through V5) against a real PostgreSQL instance. Self-skips when
  * Docker is unavailable so it stays safe in the normal build. Not tagged as an integration test: when
  * Docker is present it runs as part of {@code mvn test}. One container is shared across tests and
  * the schema is dropped (Flyway clean) before each test.
@@ -412,6 +412,212 @@ class FlywayMigrationTest {
                     assertThat(rs.getString("t")).isEqualTo("string");
                     assertThat(rs.getString("input")).isEqualTo("\"" + legacyValue + "\"");
                 }
+            }
+        }
+    }
+
+    /**
+     * Verifies V5 builds the server-owned dataset tables and links runs to dataset versions with the
+     * expected ON DELETE SET NULL behavior. The path migrates to V4 first, inserts a legacy run to
+     * prove the new column is nullable, then applies V5 and inserts a dataset, version, item, and
+     * dataset-linked run before deleting the version and reading the run back to confirm its
+     * dataset_version_id was nulled out (not the row itself).
+     */
+    @Test
+    void v5BuildsDatasetTables() throws Exception {
+        DataSource ds = dataSource();
+
+        // Migrate up to V4 and write a legacy run with no dataset link.
+        Flyway.configure().dataSource(ds).target("4").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID legacyRunId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            insertProject(conn, projectId, "v5-project");
+            insertExperiment(conn, experimentId, projectId, "v5-experiment");
+            insertRun(conn, legacyRunId, experimentId);
+        }
+
+        // Apply V5.
+        Flyway.configure().dataSource(ds).target("5").load().migrate();
+
+        UUID datasetId = UUID.randomUUID();
+        UUID versionId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID linkedRunId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            // New tables exist with the expected columns.
+            assertColumnExists(conn, "datasets", "id");
+            assertColumnExists(conn, "datasets", "name");
+            assertColumnExists(conn, "datasets", "tenant_id");
+            assertColumnExists(conn, "datasets", "updated_at");
+            assertColumnExists(conn, "dataset_versions", "dataset_id");
+            assertColumnExists(conn, "dataset_versions", "version");
+            assertColumnExists(conn, "dataset_versions", "item_count");
+            assertColumnExists(conn, "dataset_items", "dataset_version_id");
+            assertColumnExists(conn, "dataset_items", "ordinal");
+            assertColumnExists(conn, "dataset_items", "inputs");
+
+            // The new column on experiment_runs exists and is nullable; the legacy run carries NULL.
+            assertColumnExists(conn, "experiment_runs", "dataset_version_id");
+            assertColumnIsNullable(conn, "experiment_runs", "dataset_version_id");
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_version_id FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, legacyRunId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    rs.getObject("dataset_version_id");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+
+            // Seed a dataset, version, item, and a run linked to the version.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO datasets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)")) {
+                ps.setObject(1, datasetId);
+                ps.setString(2, "qa");
+                ps.setObject(3, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_versions "
+                    + "(id, dataset_id, version, item_count, created_at) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, versionId);
+                ps.setObject(2, datasetId);
+                ps.setInt(3, 1);
+                ps.setInt(4, 1);
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_items "
+                    + "(id, dataset_version_id, ordinal, inputs) VALUES (?, ?, ?, ?::jsonb)")) {
+                ps.setObject(1, itemId);
+                ps.setObject(2, versionId);
+                ps.setInt(3, 0);
+                ps.setString(4, "{\"q\":\"hello\"}");
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO experiment_runs "
+                    + "(id, experiment_id, status, started_at, dataset_version_id) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, linkedRunId);
+                ps.setObject(2, experimentId);
+                ps.setString(3, "SUCCESS");
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(5, versionId);
+                ps.executeUpdate();
+            }
+
+            // Confirm the FK is wired up.
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_version_id FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, linkedRunId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getObject("dataset_version_id")).isEqualTo(versionId);
+                }
+            }
+
+            // Deleting the referenced version sets the run column to NULL but preserves the run row.
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM dataset_versions WHERE id = ?")) {
+                ps.setObject(1, versionId);
+                ps.executeUpdate();
+            }
+
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_version_id FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, linkedRunId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    rs.getObject("dataset_version_id");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+
+            // Cascade from parent: reseed a dataset, version, item, and a linked run, then delete the
+            // parent dataset. The cascade should remove the version row and the chained SET NULL
+            // should null out experiment_runs.dataset_version_id without deleting the run row.
+            UUID cascadeDatasetId = UUID.randomUUID();
+            UUID cascadeVersionId = UUID.randomUUID();
+            UUID cascadeItemId = UUID.randomUUID();
+            UUID cascadeRunId = UUID.randomUUID();
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO datasets (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)")) {
+                ps.setObject(1, cascadeDatasetId);
+                ps.setString(2, "qa-cascade");
+                ps.setObject(3, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_versions "
+                    + "(id, dataset_id, version, item_count, created_at) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, cascadeVersionId);
+                ps.setObject(2, cascadeDatasetId);
+                ps.setInt(3, 1);
+                ps.setInt(4, 1);
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO dataset_items "
+                    + "(id, dataset_version_id, ordinal, inputs) VALUES (?, ?, ?, ?::jsonb)")) {
+                ps.setObject(1, cascadeItemId);
+                ps.setObject(2, cascadeVersionId);
+                ps.setInt(3, 0);
+                ps.setString(4, "{\"q\":\"hello\"}");
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO experiment_runs "
+                    + "(id, experiment_id, status, started_at, dataset_version_id) VALUES (?, ?, ?, ?, ?)")) {
+                ps.setObject(1, cascadeRunId);
+                ps.setObject(2, experimentId);
+                ps.setString(3, "SUCCESS");
+                ps.setObject(4, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setObject(5, cascadeVersionId);
+                ps.executeUpdate();
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM datasets WHERE id = ?")) {
+                ps.setObject(1, cascadeDatasetId);
+                ps.executeUpdate();
+            }
+
+            // The version row is gone via CASCADE.
+            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM dataset_versions WHERE id = ?")) {
+                ps.setObject(1, cascadeVersionId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isZero();
+                }
+            }
+
+            // The linked run is preserved with its dataset_version_id set to NULL via SET NULL.
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT dataset_version_id FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, cascadeRunId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    rs.getObject("dataset_version_id");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+        }
+    }
+
+    private void assertColumnIsNullable(Connection conn, String table, String column) throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT is_nullable FROM information_schema.columns WHERE table_name = ? AND column_name = ?")) {
+            ps.setString(1, table);
+            ps.setString(2, column);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next())
+                        .as("column %s.%s should exist", table, column)
+                        .isTrue();
+                assertThat(rs.getString("is_nullable"))
+                        .as("column %s.%s should be nullable", table, column)
+                        .isEqualTo("YES");
             }
         }
     }

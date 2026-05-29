@@ -123,6 +123,38 @@ class ProjectControllerTest extends AbstractControllerTest {
     }
 
     @Test
+    void createRun_shouldReturn400WhenDatasetNameWithoutVersion() throws Exception {
+        CreateRunRequest request = new CreateRunRequest("my-experiment", null, null, null, null, null, "qa", null);
+
+        mockMvc.perform(post("/api/v1/projects/my-project/runs")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("must be set together")));
+    }
+
+    @Test
+    void createRun_shouldReturn400WhenDatasetVersionWithoutName() throws Exception {
+        CreateRunRequest request = new CreateRunRequest("my-experiment", null, null, null, null, null, null, 1);
+
+        mockMvc.perform(post("/api/v1/projects/my-project/runs")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("must be set together")));
+    }
+
+    @Test
+    void createRun_shouldReturn400WhenDatasetVersionIsZero() throws Exception {
+        CreateRunRequest request = new CreateRunRequest("my-experiment", null, null, null, null, null, "qa", 0);
+
+        mockMvc.perform(post("/api/v1/projects/my-project/runs")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(toJson(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void deleteProject_shouldReturn204OnSuccess() throws Exception {
         doNothing().when(projectService).deleteProject("my-project");
 

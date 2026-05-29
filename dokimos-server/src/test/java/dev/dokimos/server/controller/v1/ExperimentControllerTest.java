@@ -55,8 +55,8 @@ class ExperimentControllerTest {
         Project project = new Project("my-project");
         Experiment experiment = new Experiment(project, "my-experiment");
 
-        RunSummary summary =
-                new RunSummary(runId, RunStatus.SUCCESS, Map.of(), 10, 8, 0.8, Instant.now(), Instant.now());
+        RunSummary summary = new RunSummary(
+                runId, RunStatus.SUCCESS, Map.of(), 10, 8, 0.8, Instant.now(), Instant.now(), null, null);
 
         when(experimentService.getExperiment(experimentId)).thenReturn(experiment);
         when(runService.listRuns(experiment)).thenReturn(List.of(summary));

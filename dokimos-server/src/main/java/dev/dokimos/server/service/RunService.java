@@ -5,6 +5,7 @@ import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
+import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.entity.EvalResult;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
@@ -30,14 +31,17 @@ public class RunService {
     private final ExperimentRunRepository runRepository;
     private final ItemResultRepository itemResultRepository;
     private final IngestedBatchRepository ingestedBatchRepository;
+    private final DatasetService datasetService;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
-            IngestedBatchRepository ingestedBatchRepository) {
+            IngestedBatchRepository ingestedBatchRepository,
+            DatasetService datasetService) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.ingestedBatchRepository = ingestedBatchRepository;
+        this.datasetService = datasetService;
     }
 
     @Transactional
@@ -46,7 +50,15 @@ public class RunService {
         return runRepository.save(run);
     }
 
-    /** Creates a run and persists its provenance fields (name, git SHA, branch, triggered_by). */
+    /**
+     * Creates a run and persists its provenance fields (name, git SHA, branch, triggered_by) plus an
+     * optional link to the dataset version it executed against. The dataset linkage is the foundation
+     * for the per-case diff and CI gate: runs paired by {@code (datasetVersionId, ordinal)} share
+     * stable item identities across executions.
+     *
+     * @throws IllegalArgumentException if only one of {@code datasetName} / {@code datasetVersion} is
+     *     supplied, or if the referenced dataset version does not exist
+     */
     @Transactional
     public ExperimentRun createRun(Experiment experiment, CreateRunRequest request) {
         ExperimentRun run = new ExperimentRun(experiment, request.metadata());
@@ -54,7 +66,26 @@ public class RunService {
         run.setGitSha(request.gitSha());
         run.setGitBranch(request.gitBranch());
         run.setTriggeredBy(request.triggeredBy());
+
+        DatasetVersion datasetVersion = resolveDatasetVersion(request);
+        if (datasetVersion != null) {
+            run.setDatasetVersion(datasetVersion);
+        }
+
         return runRepository.save(run);
+    }
+
+    private DatasetVersion resolveDatasetVersion(CreateRunRequest request) {
+        boolean hasName =
+                request.datasetName() != null && !request.datasetName().isBlank();
+        boolean hasVersion = request.datasetVersion() != null;
+        if (hasName != hasVersion) {
+            throw new IllegalArgumentException("datasetName and datasetVersion must be set together");
+        }
+        if (!hasName) {
+            return null;
+        }
+        return datasetService.getVersion(request.datasetName(), request.datasetVersion());
     }
 
     /**
@@ -163,6 +194,10 @@ public class RunService {
         Page<ItemResult> itemPage = itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable);
         Page<RunDetails.ItemSummary> itemSummaries = itemPage.map(this::toItemSummary);
 
+        DatasetVersion datasetVersion = run.getDatasetVersion();
+        UUID datasetVersionId = datasetVersion != null ? datasetVersion.getId() : null;
+        Integer datasetVersionNumber = datasetVersion != null ? datasetVersion.getVersion() : null;
+
         return new RunDetails(
                 run.getId(),
                 experiment.getId(),
@@ -175,6 +210,8 @@ public class RunService {
                 passRate,
                 run.getStartedAt(),
                 run.getCompletedAt(),
+                datasetVersionId,
+                datasetVersionNumber,
                 itemSummaries);
     }
 
@@ -208,6 +245,10 @@ public class RunService {
             passRate = run.getPassRate();
         }
 
+        DatasetVersion datasetVersion = run.getDatasetVersion();
+        UUID datasetVersionId = datasetVersion != null ? datasetVersion.getId() : null;
+        Integer datasetVersionNumber = datasetVersion != null ? datasetVersion.getVersion() : null;
+
         return new RunSummary(
                 run.getId(),
                 run.getStatus(),
@@ -216,7 +257,9 @@ public class RunService {
                 passedItems,
                 passRate,
                 run.getStartedAt(),
-                run.getCompletedAt());
+                run.getCompletedAt(),
+                datasetVersionId,
+                datasetVersionNumber);
     }
 
     private RunDetails.ItemSummary toItemSummary(ItemResult item) {

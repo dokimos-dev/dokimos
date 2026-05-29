@@ -47,10 +47,57 @@ export interface CreateRunRequest {
   gitSha?: string;
   gitBranch?: string;
   triggeredBy?: string;
+  datasetName?: string;
+  /** @minimum 1 */
+  datasetVersion?: number;
 }
 
 export interface CreateRunResponse {
   runId?: string;
+}
+
+export interface CreateDatasetRequest {
+  /** @minLength 1 */
+  name?: string;
+  description?: string;
+}
+
+export interface DatasetSummary {
+  id?: string;
+  name?: string;
+  description?: string;
+  latestVersion?: number;
+  latestItemCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ItemPayloadInputs = {[key: string]: { [key: string]: unknown }};
+
+export type ItemPayloadExpectedOutputs = {[key: string]: { [key: string]: unknown }};
+
+export type ItemPayloadMetadata = {[key: string]: { [key: string]: unknown }};
+
+export interface ItemPayload {
+  inputs: ItemPayloadInputs;
+  expectedOutputs?: ItemPayloadExpectedOutputs;
+  metadata?: ItemPayloadMetadata;
+}
+
+export interface CreateVersionRequest {
+  description?: string;
+  /** @minItems 1 */
+  items?: ItemPayload[];
+}
+
+export interface DatasetVersionDetails {
+  id?: string;
+  datasetName?: string;
+  version?: number;
+  description?: string;
+  itemCount?: number;
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export type UpdateRunRequestStatus = typeof UpdateRunRequestStatus[keyof typeof UpdateRunRequestStatus];
@@ -118,16 +165,16 @@ export interface PageableObject {
 }
 
 export interface PageItemSummary {
-  totalPages?: number;
   totalElements?: number;
+  totalPages?: number;
   first?: boolean;
   last?: boolean;
   size?: number;
   content?: ItemSummary[];
   number?: number;
   sort?: SortObject;
-  pageable?: PageableObject;
   numberOfElements?: number;
+  pageable?: PageableObject;
   empty?: boolean;
 }
 
@@ -155,6 +202,8 @@ export interface RunDetails {
   passRate?: number;
   startedAt?: string;
   completedAt?: string;
+  datasetVersionId?: string;
+  datasetVersion?: number;
   items?: PageItemSummary;
 }
 
@@ -224,6 +273,69 @@ export interface RunSummary {
   passRate?: number;
   startedAt?: string;
   completedAt?: string;
+  datasetVersionId?: string;
+  datasetVersion?: number;
+}
+
+export interface VersionSummary {
+  id?: string;
+  version?: number;
+  description?: string;
+  itemCount?: number;
+  createdAt?: string;
+  createdBy?: string;
+}
+
+export interface DatasetDetails {
+  id?: string;
+  name?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  versions?: VersionSummary[];
+}
+
+export type DatasetItemViewInputs = {[key: string]: { [key: string]: unknown }};
+
+export type DatasetItemViewExpectedOutputs = {[key: string]: { [key: string]: unknown }};
+
+export type DatasetItemViewMetadata = {[key: string]: { [key: string]: unknown }};
+
+export interface DatasetItemView {
+  id?: string;
+  ordinal?: number;
+  inputs?: DatasetItemViewInputs;
+  expectedOutputs?: DatasetItemViewExpectedOutputs;
+  metadata?: DatasetItemViewMetadata;
+}
+
+export interface PageSort {
+  empty?: boolean;
+  sorted?: boolean;
+  unsorted?: boolean;
+}
+
+export interface PageablePage {
+  offset?: number;
+  sort?: PageSort;
+  paged?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  unpaged?: boolean;
+}
+
+export interface PageResponseDatasetItemView {
+  content?: DatasetItemView[];
+  number?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  last?: boolean;
+  numberOfElements?: number;
+  empty?: boolean;
+  sort?: PageSort;
+  pageable?: PageablePage;
 }
 
 export type AddItems201 = {[key: string]: string};
@@ -236,5 +348,9 @@ export type UpdateRun200 = {[key: string]: string};
 
 export type GetTrendsParams = {
 limit?: number;
+};
+
+export type ListItemsParams = {
+pageable: Pageable;
 };
 

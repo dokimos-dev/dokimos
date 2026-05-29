@@ -4,6 +4,8 @@ import Dashboard from "@/pages/dashboard";
 import ProjectPage from "@/pages/project-page";
 import ExperimentPage from "@/pages/experiment-page";
 import RunPage from "@/pages/run-page";
+import DatasetsPage from "@/pages/datasets-page";
+import DatasetPage from "@/pages/dataset-page";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,14 @@ export const router = createBrowserRouter([
       {
         path: "/runs/:id",
         element: <RunPage />,
+      },
+      {
+        path: "/datasets",
+        element: <DatasetsPage />,
+      },
+      {
+        path: "/datasets/:name",
+        element: <DatasetPage />,
       },
     ],
   },

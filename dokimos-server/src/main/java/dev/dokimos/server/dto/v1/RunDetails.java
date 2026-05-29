@@ -19,6 +19,8 @@ public record RunDetails(
         Double passRate,
         Instant startedAt,
         Instant completedAt,
+        UUID datasetVersionId,
+        Integer datasetVersion,
         Page<ItemSummary> items) {
     public record ItemSummary(
             UUID id,

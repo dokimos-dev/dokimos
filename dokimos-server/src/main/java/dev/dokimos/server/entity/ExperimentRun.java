@@ -64,6 +64,10 @@ public class ExperimentRun {
     @Column(name = "pass_rate")
     private Double passRate;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_version_id")
+    private DatasetVersion datasetVersion;
+
     @Column(nullable = false)
     private Instant startedAt;
 
@@ -179,5 +183,13 @@ public class ExperimentRun {
 
     public void setPassRate(Double passRate) {
         this.passRate = passRate;
+    }
+
+    public DatasetVersion getDatasetVersion() {
+        return datasetVersion;
+    }
+
+    public void setDatasetVersion(DatasetVersion datasetVersion) {
+        this.datasetVersion = datasetVersion;
     }
 }

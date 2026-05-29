@@ -13,4 +13,6 @@ public record RunSummary(
         long passedCount,
         Double passRate,
         Instant startedAt,
-        Instant completedAt) {}
+        Instant completedAt,
+        UUID datasetVersionId,
+        Integer datasetVersion) {}

@@ -1,0 +1,114 @@
+name: Dokimos eval gate
+description: Compare an ingested run against a baseline via the Dokimos server and fail the build on a significant regression.
+
+inputs:
+  server-url:
+    description: Base URL of the Dokimos server, e.g. https://evals.example.com
+    required: true
+  api-key:
+    description: API key for the server. Required when the server has DOKIMOS_API_KEY set (the gate is a POST).
+    required: false
+    default: ""
+  experiment-id:
+    description: Experiment UUID the candidate run belongs to.
+    required: true
+  candidate-run-id:
+    description: UUID of the run to gate (the run just ingested by this CI job).
+    required: true
+  baseline-run-id:
+    description: Explicit baseline run UUID. When omitted the server resolves the latest successful run on the same dataset version.
+    required: false
+    default: ""
+  baseline-branch:
+    description: Restrict automatic baseline resolution to this git branch (e.g. master).
+    required: false
+    default: ""
+  fail-on-regression:
+    description: Fail the step when the gate verdict is FAIL.
+    required: false
+    default: "true"
+  comment:
+    description: Post (or update) a sticky pull-request comment with the verdict.
+    required: false
+    default: "true"
+
+outputs:
+  status:
+    description: PASS, FAIL, or NO_BASELINE.
+    value: ${{ steps.gate.outputs.status }}
+  passed:
+    description: true when the gate did not find a significant regression.
+    value: ${{ steps.gate.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      env:
+        SERVER_URL: ${{ inputs.server-url }}
+        API_KEY: ${{ inputs.api-key }}
+        EXPERIMENT_ID: ${{ inputs.experiment-id }}
+        CANDIDATE_RUN_ID: ${{ inputs.candidate-run-id }}
+        BASELINE_RUN_ID: ${{ inputs.baseline-run-id }}
+        BASELINE_BRANCH: ${{ inputs.baseline-branch }}
+      run: |
+        set -euo pipefail
+        body=$(jq -nc \
+          --arg c "$CANDIDATE_RUN_ID" \
+          --arg b "$BASELINE_RUN_ID" \
+          --arg br "$BASELINE_BRANCH" \
+          '{candidateRunId: $c}
+            + (if $b == "" then {} else {baselineRunId: $b} end)
+            + (if $br == "" then {} else {baselineBranch: $br} end)')
+
+        url="${SERVER_URL%/}/api/v1/experiments/${EXPERIMENT_ID}/gate"
+        auth=()
+        if [ -n "$API_KEY" ]; then auth=(-H "Authorization: Bearer ${API_KEY}"); fi
+
+        http_code=$(curl -sS -o gate-result.json -w '%{http_code}' \
+          -X POST "$url" \
+          -H "Content-Type: application/json" \
+          "${auth[@]}" \
+          -d "$body")
+
+        if [ "$http_code" -ge 300 ]; then
+          echo "Gate request failed (HTTP $http_code):" >&2
+          cat gate-result.json >&2 || true
+          exit 1
+        fi
+
+        status=$(jq -r '.status' gate-result.json)
+        passed=$(jq -r '.passed' gate-result.json)
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+        echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
+        "${GITHUB_ACTION_PATH}/render-comment.sh" < gate-result.json > gate-comment.md
+        cat gate-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+    - id: comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        marker="<!-- dokimos-eval-gate -->"
+        existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty")
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" -F body=@gate-comment.md >/dev/null
+        else
+          gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@gate-comment.md >/dev/null
+        fi
+
+    - id: verdict
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ inputs.fail-on-regression }}" = "true" ] && [ "${{ steps.gate.outputs.status }}" = "FAIL" ]; then
+          echo "Eval gate failed: a significant regression was detected." >&2
+          exit 1
+        fi

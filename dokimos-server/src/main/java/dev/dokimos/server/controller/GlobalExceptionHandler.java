@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -47,6 +48,19 @@ public class GlobalExceptionHandler {
                         message,
                         "timestamp",
                         Instant.now().toString()));
+    }
+
+    /**
+     * Maps an unparseable or type-mismatched request body (for example a malformed UUID) to a 400
+     * rather than letting it fall through to the generic 500 handler.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of(
+                        "error", "Bad Request",
+                        "message", "Malformed request body",
+                        "timestamp", Instant.now().toString()));
     }
 
     @ExceptionHandler(Exception.class)

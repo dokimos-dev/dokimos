@@ -307,6 +307,54 @@ class DokimosServerReporterTest {
     }
 
     @Test
+    void shouldSendDatasetItemIdWhenPresentAndOmitWhenNull() throws Exception {
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            Example linked = new Example(Map.of("input", "q"), Map.of("output", "a"), Map.of(), "item-abc");
+            Example unlinked = Example.of("q2", "a2");
+            reporter.reportItem(
+                    handle, new ItemResult(linked, Map.of("output", "a"), List.of(EvalResult.success("e", 1.0, "ok"))));
+            reporter.reportItem(
+                    handle,
+                    new ItemResult(unlinked, Map.of("output", "a2"), List.of(EvalResult.success("e", 1.0, "ok"))));
+            reporter.flush();
+
+            JsonNode items = collectItems();
+            assertThat(items).hasSize(2);
+
+            JsonNode withId = findItemByInput(items, "q");
+            assertThat(withId.has("datasetItemId")).isTrue();
+            assertThat(withId.get("datasetItemId").asText()).isEqualTo("item-abc");
+
+            JsonNode withoutId = findItemByInput(items, "q2");
+            assertThat(withoutId.has("datasetItemId")).isFalse();
+        }
+    }
+
+    private JsonNode collectItems() throws Exception {
+        List<RecordedRequest> itemRequests =
+                recordedRequests.stream().filter(r -> r.path.contains("/items")).toList();
+        com.fasterxml.jackson.databind.node.ArrayNode all = objectMapper.createArrayNode();
+        for (RecordedRequest r : itemRequests) {
+            for (JsonNode item : objectMapper.readTree(r.body).get("items")) {
+                all.add(item);
+            }
+        }
+        return all;
+    }
+
+    private JsonNode findItemByInput(JsonNode items, String input) {
+        for (JsonNode item : items) {
+            if (input.equals(item.path("inputs").path("input").asText())) {
+                return item;
+            }
+        }
+        throw new AssertionError("No item with input " + input);
+    }
+
+    @Test
     void shouldSendIdempotencyKeyOnItemPosts() {
         try (var reporter = createReporter()) {
             RunHandle handle = reporter.startRun("test", Map.of());

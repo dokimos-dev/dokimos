@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -141,6 +142,20 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.status").value("ok"));
 
         verify(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"));
+    }
+
+    @Test
+    void addItems_shouldReturn400WhenDatasetItemIdMalformed() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String body = """
+                {"items":[{"inputs":{"input":"x"},"actualOutputs":{"output":"y"},"datasetItemId":"not-a-uuid","success":true}]}""";
+
+        mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+
+        verify(runService, never()).addItems(any(), any(), any());
     }
 
     @Test

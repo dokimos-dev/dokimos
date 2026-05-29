@@ -59,8 +59,14 @@ class DatasetServiceTest {
                 ExperimentRunRepository runRepository,
                 ItemResultRepository itemResultRepository,
                 IngestedBatchRepository ingestedBatchRepository,
-                DatasetService datasetService) {
-            return new RunService(runRepository, itemResultRepository, ingestedBatchRepository, datasetService);
+                DatasetService datasetService,
+                DatasetItemRepository datasetItemRepository) {
+            return new RunService(
+                    runRepository,
+                    itemResultRepository,
+                    ingestedBatchRepository,
+                    datasetService,
+                    datasetItemRepository);
         }
     }
 

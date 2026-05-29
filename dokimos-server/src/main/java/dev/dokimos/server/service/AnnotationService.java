@@ -6,6 +6,8 @@ import dev.dokimos.server.entity.Annotation;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.AnnotationRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -49,8 +51,7 @@ public class AnnotationService {
                 });
 
         annotation.setVerdict(req.verdict());
-        annotation.setOverriddenExpectedOutput(
-                req.overriddenExpectedOutput() != null ? Map.copyOf(req.overriddenExpectedOutput()) : null);
+        annotation.setOverriddenExpectedOutput(copyNullable(req.overriddenExpectedOutput()));
         annotation.setNote(req.note());
         annotation.touchUpdatedAt();
 
@@ -83,6 +84,14 @@ public class AnnotationService {
     public void delete(UUID runId, UUID itemResultId) {
         requireItemResultInRun(runId, itemResultId);
         annotationRepository.deleteByItemResultId(itemResultId);
+    }
+
+    /**
+     * Copies a request map into an owned, immutable map. Unlike {@code Map.copyOf}, this tolerates
+     * null values, which are valid in a JSON expected output (e.g. {@code {"answer": null}}).
+     */
+    private static Map<String, Object> copyNullable(Map<String, Object> map) {
+        return map == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(map));
     }
 
     private void requireItemResultInRun(UUID runId, UUID itemResultId) {

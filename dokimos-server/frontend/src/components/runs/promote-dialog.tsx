@@ -67,17 +67,15 @@ export default function PromoteDialog({
       return;
     }
 
-    const inputIsObject =
-      typeof input === "object" && input !== null && !Array.isArray(input);
-    if (inputIsObject) {
-      const parsedIsObject =
-        typeof parsedExpected === "object" &&
-        parsedExpected !== null &&
-        !Array.isArray(parsedExpected);
-      if (!parsedIsObject) {
-        setSubmitError("Expected output must be a JSON object.");
-        return;
-      }
+    // The server stores expected output as a JSON object (a key/value map), so the
+    // edited value must be an object regardless of the input's shape.
+    const parsedIsObject =
+      typeof parsedExpected === "object" &&
+      parsedExpected !== null &&
+      !Array.isArray(parsedExpected);
+    if (!parsedIsObject) {
+      setSubmitError("Expected output must be a JSON object.");
+      return;
     }
 
     setSubmitError(null);

@@ -423,6 +423,7 @@ export default function RunPage() {
                                   </div>
                                 )}
                               <AnnotationControls
+                                key={`${itemId}-${item.annotation?.id ?? "none"}`}
                                 runId={run.id ?? ""}
                                 itemResultId={itemId}
                                 annotation={item.annotation}

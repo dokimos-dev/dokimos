@@ -41,6 +41,7 @@ export default function AnnotationControls({
     annotation?.verdict
   );
   const [note, setNote] = useState(annotation?.note ?? "");
+  const [error, setError] = useState<string | null>(null);
 
   const { trigger: upsert, isMutating: isUpserting } = useUpsert(
     runId,
@@ -55,19 +56,29 @@ export default function AnnotationControls({
 
   const handleSave = async () => {
     if (!verdict) return;
-    await upsert({
-      verdict,
-      note: note || undefined,
-      overriddenExpectedOutput: annotation?.overriddenExpectedOutput,
-    });
-    onChanged();
+    setError(null);
+    try {
+      await upsert({
+        verdict,
+        note: note || undefined,
+        overriddenExpectedOutput: annotation?.overriddenExpectedOutput,
+      });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save annotation.");
+    }
   };
 
   const handleClear = async () => {
-    await remove();
-    setVerdict(undefined);
-    setNote("");
-    onChanged();
+    setError(null);
+    try {
+      await remove();
+      setVerdict(undefined);
+      setNote("");
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear annotation.");
+    }
   };
 
   return (
@@ -122,6 +133,7 @@ export default function AnnotationControls({
             </Button>
           )}
         </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
     </div>
   );

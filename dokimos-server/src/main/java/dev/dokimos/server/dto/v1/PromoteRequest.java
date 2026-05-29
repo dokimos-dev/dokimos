@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -17,7 +18,7 @@ import java.util.UUID;
  */
 public record PromoteRequest(
         @NotBlank String datasetName,
-        String description,
+        @Size(max = 2_000) String description,
         @NotEmpty @Valid List<PromoteItem> items) {
 
     /**

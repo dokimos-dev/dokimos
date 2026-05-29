@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Info, Minus } from "lucide-react";
 import { useDiff } from "@/lib/api/diff-controller/diff-controller";
 import {
   useListRuns,
@@ -52,10 +52,19 @@ function formatPct(rate: number | undefined): string {
   return `${Math.round(rate * 100)}%`;
 }
 
-function caseStatus(status: string | undefined): "IMPROVED" | "REGRESSED" | "UNCHANGED" {
+type CaseStatus =
+  | "IMPROVED"
+  | "REGRESSED"
+  | "UNCHANGED"
+  | "ADDED"
+  | "REMOVED";
+
+function caseStatus(status: string | undefined): CaseStatus {
   const normalized = status?.toUpperCase();
   if (normalized === "IMPROVED") return "IMPROVED";
   if (normalized === "REGRESSED") return "REGRESSED";
+  if (normalized === "ADDED") return "ADDED";
+  if (normalized === "REMOVED") return "REMOVED";
   return "UNCHANGED";
 }
 
@@ -321,6 +330,29 @@ export default function RunDiffPage() {
             </Card>
           </div>
 
+          {summary?.pairing === "positional" && (
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Item-level diff needs both runs on one dataset version. These
+                runs are paired positionally, so per-case matches may not line
+                up.
+              </span>
+            </div>
+          )}
+
+          {summary && (summary.regressedCount ?? 0) === 0 &&
+            (view?.cases?.totalElements ?? 0) > 0 && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  No significant regressions.
+                  {(summary.improvedCount ?? 0) > 0 &&
+                    ` ${summary.improvedCount} case${summary.improvedCount === 1 ? "" : "s"} improved.`}
+                </span>
+              </div>
+            )}
+
           <div className="flex items-center gap-2 mb-4">
             {STATUS_FILTERS.map((filter) => (
               <Button
@@ -345,88 +377,7 @@ export default function RunDiffPage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8"></TableHead>
-                      <TableHead>Case</TableHead>
-                      {evaluatorNames.map((name) => (
-                        <TableHead key={name}>{name}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cases.map((diffCase, idx) => {
-                      const cs = caseStatus(diffCase.status);
-                      const evaluatorByName = new Map<string, EvaluatorDiff>();
-                      for (const evaluator of diffCase.evaluators ?? []) {
-                        if (evaluator.name) {
-                          evaluatorByName.set(evaluator.name, evaluator);
-                        }
-                      }
-                      return (
-                        <TableRow key={diffCase.datasetItemId ?? idx}>
-                          <TableCell
-                            className={cn("p-0", {
-                              "border-l-[3px] border-l-green-500":
-                                cs === "IMPROVED",
-                              "border-l-[3px] border-l-red-500":
-                                cs === "REGRESSED",
-                              "border-l-[3px] border-l-transparent":
-                                cs === "UNCHANGED",
-                            })}
-                          >
-                            <span className="sr-only">{cs}</span>
-                            {cs === "IMPROVED" && (
-                              <ArrowUp className="mx-2 h-4 w-4 text-green-600 dark:text-green-500" />
-                            )}
-                            {cs === "REGRESSED" && (
-                              <ArrowDown className="mx-2 h-4 w-4 text-red-600 dark:text-red-500" />
-                            )}
-                            {cs === "UNCHANGED" && (
-                              <Minus className="mx-2 h-4 w-4 text-muted-foreground" />
-                            )}
-                          </TableCell>
-                          <TableCell
-                            className={cn("max-w-xs", {
-                              "text-muted-foreground": cs === "UNCHANGED",
-                            })}
-                          >
-                            <TruncatedText
-                              text={diffCase.input ?? "—"}
-                              maxLength={80}
-                            />
-                            {diffCase.passFlip && (
-                              <span className="ml-2 inline-flex items-center rounded-sm bg-red-100 px-1 py-px text-[10px] font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
-                                flip
-                              </span>
-                            )}
-                          </TableCell>
-                          {evaluatorNames.map((name) => {
-                            const evaluator = evaluatorByName.get(name);
-                            return (
-                              <TableCell key={name}>
-                                {evaluator ? (
-                                  <DeltaCell
-                                    baseline={evaluator.baselineMean}
-                                    candidate={evaluator.candidateMean}
-                                    delta={evaluator.delta}
-                                    status={evaluator.status}
-                                    significant={evaluator.significant}
-                                  />
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    —
-                                  </span>
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <DiffTable cases={cases} evaluatorNames={evaluatorNames} />
               </div>
               <Pagination
                 currentPage={view?.cases?.number ?? 0}
@@ -439,6 +390,142 @@ export default function RunDiffPage() {
         </>
       )}
     </div>
+  );
+}
+
+const STICKY_STATUS = "sticky left-0 bg-background";
+const STICKY_CASE = "sticky left-8 bg-background";
+
+const GROUP_LABELS: Partial<Record<CaseStatus, string>> = {
+  ADDED: "New cases (candidate only)",
+  REMOVED: "Dropped cases (baseline only)",
+};
+
+interface DiffTableProps {
+  cases: DiffCase[];
+  evaluatorNames: string[];
+}
+
+function DiffTable({ cases, evaluatorNames }: DiffTableProps) {
+  const totalColumns = evaluatorNames.length + 2;
+  const rows: ReactNode[] = [];
+  let prevStatus: CaseStatus | null = null;
+
+  cases.forEach((diffCase, idx) => {
+    const cs = caseStatus(diffCase.status);
+    const key = `${cs}-${diffCase.datasetItemId ?? diffCase.index ?? idx}`;
+
+    if (cs !== prevStatus && GROUP_LABELS[cs]) {
+      rows.push(
+        <TableRow key={`group-${cs}`} className="hover:bg-transparent">
+          <TableCell
+            colSpan={totalColumns}
+            className="bg-muted/40 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            {GROUP_LABELS[cs]}
+          </TableCell>
+        </TableRow>
+      );
+    }
+    prevStatus = cs;
+
+    const isPresenceOnly = cs === "ADDED" || cs === "REMOVED";
+    const evaluatorByName = new Map<string, EvaluatorDiff>();
+    for (const evaluator of diffCase.evaluators ?? []) {
+      if (evaluator.name) {
+        evaluatorByName.set(evaluator.name, evaluator);
+      }
+    }
+
+    rows.push(
+      <TableRow key={key}>
+        <TableCell
+          className={cn(STICKY_STATUS, "z-10 p-0", {
+            "border-l-[3px] border-l-green-500": cs === "IMPROVED",
+            "border-l-[3px] border-l-red-500": cs === "REGRESSED",
+            "border-l-[3px] border-l-transparent":
+              cs === "UNCHANGED" || isPresenceOnly,
+          })}
+        >
+          <span className="sr-only">{cs}</span>
+          {cs === "IMPROVED" && (
+            <ArrowUp className="mx-2 h-4 w-4 text-green-600 dark:text-green-500" />
+          )}
+          {cs === "REGRESSED" && (
+            <ArrowDown className="mx-2 h-4 w-4 text-red-600 dark:text-red-500" />
+          )}
+          {(cs === "UNCHANGED" || isPresenceOnly) && (
+            <Minus className="mx-2 h-4 w-4 text-muted-foreground" />
+          )}
+        </TableCell>
+        <TableCell
+          className={cn(STICKY_CASE, "z-10 max-w-xs", {
+            "text-muted-foreground": cs === "UNCHANGED" || isPresenceOnly,
+          })}
+        >
+          <TruncatedText text={diffCase.input ?? "—"} maxLength={80} />
+          {cs === "ADDED" && (
+            <span className="ml-2 inline-flex items-center rounded-sm bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
+              new
+            </span>
+          )}
+          {cs === "REMOVED" && (
+            <span className="ml-2 inline-flex items-center rounded-sm bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
+              dropped
+            </span>
+          )}
+          {diffCase.passFlip && (
+            <span className="ml-2 inline-flex items-center rounded-sm bg-red-100 px-1 py-px text-[10px] font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
+              flip
+            </span>
+          )}
+        </TableCell>
+        {isPresenceOnly && evaluatorNames.length > 0 ? (
+          <TableCell
+            colSpan={evaluatorNames.length}
+            className="text-sm text-muted-foreground"
+          >
+            {cs === "ADDED"
+              ? "Present only in the candidate run."
+              : "Present only in the baseline run."}
+          </TableCell>
+        ) : (
+          evaluatorNames.map((name) => {
+            const evaluator = evaluatorByName.get(name);
+            return (
+              <TableCell key={name}>
+                {evaluator ? (
+                  <DeltaCell
+                    baseline={evaluator.baselineMean}
+                    candidate={evaluator.candidateMean}
+                    delta={evaluator.delta}
+                    status={evaluator.status}
+                    significant={evaluator.significant}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            );
+          })
+        )}
+      </TableRow>
+    );
+  });
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className={cn(STICKY_STATUS, "z-20 w-8 p-0")}></TableHead>
+          <TableHead className={cn(STICKY_CASE, "z-20")}>Case</TableHead>
+          {evaluatorNames.map((name) => (
+            <TableHead key={name}>{name}</TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>{rows}</TableBody>
+    </Table>
   );
 }
 

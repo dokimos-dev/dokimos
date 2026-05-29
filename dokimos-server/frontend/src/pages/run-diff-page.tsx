@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, CheckCircle2, Info, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, CheckCircle2, Info, Layers, Minus } from "lucide-react";
 import { useDiff } from "@/lib/api/diff-controller/diff-controller";
 import {
   useListRuns,
@@ -217,6 +217,16 @@ export default function RunDiffPage() {
   const cases = view?.cases?.content ?? [];
   const evaluatorNames = deriveEvaluatorNames(cases);
 
+  const sharedCount =
+    (summary?.improvedCount ?? 0) +
+    (summary?.regressedCount ?? 0) +
+    (summary?.unchangedCount ?? 0);
+  const presenceOnlyCount =
+    (summary?.addedCount ?? 0) + (summary?.removedCount ?? 0);
+  // Summary counts are unfiltered, so this holds regardless of the active status
+  // filter: the runs produced cases but none are comparable across both sides.
+  const noSharedCases = sharedCount === 0 && presenceOnlyCount > 0;
+
   const passRateDelta = summary?.passRateDelta;
   const passRateDirection =
     passRateDelta == null || passRateDelta === 0
@@ -270,9 +280,9 @@ export default function RunDiffPage() {
                 <p className="text-sm text-muted-foreground">Pass Rate</p>
                 <p
                   className={cn("text-2xl font-bold flex items-baseline gap-1.5", {
-                    "text-green-600 dark:text-green-500":
+                    "text-success":
                       passRateDirection === "up",
-                    "text-red-600 dark:text-red-500":
+                    "text-destructive":
                       passRateDirection === "down",
                   })}
                 >
@@ -298,7 +308,7 @@ export default function RunDiffPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">Improved</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-500">
+                <p className="text-2xl font-bold text-success">
                   {summary?.improvedCount ?? 0}
                 </p>
               </CardContent>
@@ -306,7 +316,7 @@ export default function RunDiffPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">Regressed</p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-500">
+                <p className="text-2xl font-bold text-destructive">
                   {summary?.regressedCount ?? 0}
                 </p>
               </CardContent>
@@ -317,9 +327,9 @@ export default function RunDiffPage() {
                 <p className="text-2xl font-bold flex items-center gap-2">
                   <span
                     className={cn("inline-block h-2.5 w-2.5 rounded-full", {
-                      "bg-green-600 dark:bg-green-500":
+                      "bg-success":
                         summary?.significant && passRateDirection === "up",
-                      "bg-red-600 dark:bg-red-500":
+                      "bg-destructive":
                         summary?.significant && passRateDirection !== "up",
                       "bg-muted-foreground": !summary?.significant,
                     })}
@@ -331,8 +341,8 @@ export default function RunDiffPage() {
           </div>
 
           {summary?.pairing === "positional" && (
-            <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span>
                 Item-level diff needs both runs on one dataset version. These
                 runs are paired positionally, so per-case matches may not line
@@ -341,10 +351,9 @@ export default function RunDiffPage() {
             </div>
           )}
 
-          {summary && summary.regressedCount === 0 &&
-            (view?.cases?.totalElements ?? 0) > 0 && (
-              <div className="mb-4 flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          {summary && summary.regressedCount === 0 && sharedCount > 0 && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm text-foreground">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 <span>
                   No significant regressions.
                   {(summary.improvedCount ?? 0) > 0 &&
@@ -353,38 +362,59 @@ export default function RunDiffPage() {
               </div>
             )}
 
-          <div className="flex items-center gap-2 mb-4">
-            {STATUS_FILTERS.map((filter) => (
-              <Button
-                key={filter.value}
-                variant={status === filter.value ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleStatusChange(filter.value)}
-              >
-                {filter.label}
-              </Button>
-            ))}
-          </div>
-
-          {cases.length === 0 ? (
+          {noSharedCases ? (
             <Card>
-              <CardContent className="py-12 text-center">
+              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                <Layers className="h-8 w-8 text-muted-foreground" />
                 <p className="text-muted-foreground">
-                  No cases match this filter.
+                  These runs share no comparable cases, likely because they ran
+                  on different dataset versions.
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBaselineChange("")}
+                >
+                  Choose a different baseline
+                </Button>
               </CardContent>
             </Card>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <DiffTable cases={cases} evaluatorNames={evaluatorNames} />
+              <div className="flex items-center gap-2 mb-4">
+                {STATUS_FILTERS.map((filter) => (
+                  <Button
+                    key={filter.value}
+                    variant={status === filter.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusChange(filter.value)}
+                  >
+                    {filter.label}
+                  </Button>
+                ))}
               </div>
-              <Pagination
-                currentPage={view?.cases?.number ?? 0}
-                totalItems={view?.cases?.totalElements ?? 0}
-                pageSize={view?.cases?.size ?? PAGE_SIZE}
-                onPageChange={handlePageChange}
-              />
+
+              {cases.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">
+                      No cases match this filter.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <DiffTable cases={cases} evaluatorNames={evaluatorNames} />
+                  </div>
+                  <Pagination
+                    currentPage={view?.cases?.number ?? 0}
+                    totalItems={view?.cases?.totalElements ?? 0}
+                    pageSize={view?.cases?.size ?? PAGE_SIZE}
+                    onPageChange={handlePageChange}
+                  />
+                </>
+              )}
             </>
           )}
         </>
@@ -441,18 +471,18 @@ function DiffTable({ cases, evaluatorNames }: DiffTableProps) {
       <TableRow key={key}>
         <TableCell
           className={cn(STICKY_STATUS, "z-10 w-8 p-0", {
-            "border-l-[3px] border-l-green-500": cs === "IMPROVED",
-            "border-l-[3px] border-l-red-500": cs === "REGRESSED",
+            "border-l-[3px] border-l-success": cs === "IMPROVED",
+            "border-l-[3px] border-l-destructive": cs === "REGRESSED",
             "border-l-[3px] border-l-transparent":
               cs === "UNCHANGED" || isPresenceOnly,
           })}
         >
           <span className="sr-only">{cs}</span>
           {cs === "IMPROVED" && (
-            <ArrowUp className="mx-2 h-4 w-4 text-green-600 dark:text-green-500" />
+            <ArrowUp className="mx-2 h-4 w-4 text-success" />
           )}
           {cs === "REGRESSED" && (
-            <ArrowDown className="mx-2 h-4 w-4 text-red-600 dark:text-red-500" />
+            <ArrowDown className="mx-2 h-4 w-4 text-destructive" />
           )}
           {(cs === "UNCHANGED" || isPresenceOnly) && (
             <Minus className="mx-2 h-4 w-4 text-muted-foreground" />
@@ -475,7 +505,7 @@ function DiffTable({ cases, evaluatorNames }: DiffTableProps) {
             </span>
           )}
           {diffCase.passFlip && (
-            <span className="ml-2 inline-flex items-center rounded-sm bg-red-100 px-1 py-px text-[10px] font-semibold text-red-700 dark:bg-red-950 dark:text-red-400">
+            <span className="ml-2 inline-flex items-center rounded-sm bg-destructive/15 px-1 py-px text-[10px] font-semibold text-destructive">
               flip
             </span>
           )}

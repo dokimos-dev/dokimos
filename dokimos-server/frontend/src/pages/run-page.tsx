@@ -208,7 +208,7 @@ export default function RunPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Passed</p>
-            <p className="text-2xl font-bold text-green-500">
+            <p className="text-2xl font-bold text-success">
               {run.passedItems}
             </p>
           </CardContent>
@@ -363,8 +363,8 @@ export default function RunPage() {
                                               <span
                                                 className={
                                                   evalResult.success
-                                                    ? "text-green-500"
-                                                    : "text-red-500"
+                                                    ? "text-success"
+                                                    : "text-destructive"
                                                 }
                                               >
                                                 {evalResult.success

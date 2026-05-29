@@ -49,8 +49,9 @@ class RunServiceDedupPostgresTest {
         DatasetService datasetService(
                 dev.dokimos.server.repository.DatasetRepository datasetRepository,
                 dev.dokimos.server.repository.DatasetVersionRepository versionRepository,
-                dev.dokimos.server.repository.DatasetItemRepository itemRepository) {
-            return new DatasetService(datasetRepository, versionRepository, itemRepository);
+                dev.dokimos.server.repository.DatasetItemRepository itemRepository,
+                ItemResultRepository itemResultRepository) {
+            return new DatasetService(datasetRepository, versionRepository, itemRepository, itemResultRepository);
         }
 
         @org.springframework.context.annotation.Bean
@@ -59,13 +60,15 @@ class RunServiceDedupPostgresTest {
                 ItemResultRepository itemResultRepository,
                 IngestedBatchRepository ingestedBatchRepository,
                 DatasetService datasetService,
-                dev.dokimos.server.repository.DatasetItemRepository datasetItemRepository) {
+                dev.dokimos.server.repository.DatasetItemRepository datasetItemRepository,
+                dev.dokimos.server.repository.AnnotationRepository annotationRepository) {
             return new RunService(
                     runRepository,
                     itemResultRepository,
                     ingestedBatchRepository,
                     datasetService,
-                    datasetItemRepository);
+                    datasetItemRepository,
+                    annotationRepository);
         }
     }
 

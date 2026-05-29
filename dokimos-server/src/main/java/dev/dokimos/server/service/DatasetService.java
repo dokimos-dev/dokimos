@@ -3,12 +3,16 @@ package dev.dokimos.server.service;
 import dev.dokimos.server.dto.v1.CreateVersionRequest;
 import dev.dokimos.server.dto.v1.DatasetDetails;
 import dev.dokimos.server.dto.v1.DatasetSummary;
+import dev.dokimos.server.dto.v1.DatasetVersionDetails;
+import dev.dokimos.server.dto.v1.PromoteRequest;
 import dev.dokimos.server.entity.Dataset;
 import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
+import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.DatasetRepository;
 import dev.dokimos.server.repository.DatasetVersionRepository;
+import dev.dokimos.server.repository.ItemResultRepository;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,14 +30,17 @@ public class DatasetService {
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository versionRepository;
     private final DatasetItemRepository itemRepository;
+    private final ItemResultRepository itemResultRepository;
 
     public DatasetService(
             DatasetRepository datasetRepository,
             DatasetVersionRepository versionRepository,
-            DatasetItemRepository itemRepository) {
+            DatasetItemRepository itemRepository,
+            ItemResultRepository itemResultRepository) {
         this.datasetRepository = datasetRepository;
         this.versionRepository = versionRepository;
         this.itemRepository = itemRepository;
+        this.itemResultRepository = itemResultRepository;
     }
 
     /**
@@ -174,6 +181,43 @@ public class DatasetService {
         datasetRepository.save(dataset);
 
         return version;
+    }
+
+    /**
+     * Promotes run item results into a new version of an existing dataset. Each item's inputs become
+     * the new dataset item's inputs, its metadata is carried over, and its expected output is used
+     * unless the request supplies an override. Item order is preserved. Delegates to {@link
+     * #createVersion} so the version-numbering and locking semantics are identical to a direct create.
+     *
+     * @throws IllegalArgumentException if any referenced item result or the dataset is missing (mapped
+     *     to 404)
+     */
+    @Transactional
+    public DatasetVersionDetails promote(PromoteRequest req, String createdBy) {
+        List<CreateVersionRequest.ItemPayload> payloads =
+                new ArrayList<>(req.items().size());
+        for (PromoteRequest.PromoteItem item : req.items()) {
+            ItemResult itemResult = itemResultRepository
+                    .findById(item.itemResultId())
+                    .orElseThrow(() -> new IllegalArgumentException("Item result not found: " + item.itemResultId()));
+
+            Map<String, Object> expectedOutputs = item.overriddenExpectedOutput() != null
+                    ? item.overriddenExpectedOutput()
+                    : itemResult.getExpectedOutput();
+
+            payloads.add(new CreateVersionRequest.ItemPayload(
+                    itemResult.getInput(), expectedOutputs, itemResult.getMetadata()));
+        }
+
+        DatasetVersion version = createVersion(req.datasetName(), req.description(), payloads, createdBy);
+        return new DatasetVersionDetails(
+                version.getId(),
+                req.datasetName(),
+                version.getVersion(),
+                version.getDescription(),
+                version.getItemCount(),
+                version.getCreatedAt(),
+                version.getCreatedBy());
     }
 
     /**

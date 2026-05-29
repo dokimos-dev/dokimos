@@ -1,10 +1,12 @@
 package dev.dokimos.server.service;
 
 import dev.dokimos.server.dto.v1.AddItemsRequest;
+import dev.dokimos.server.dto.v1.AnnotationView;
 import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.RunSummary;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
+import dev.dokimos.server.entity.Annotation;
 import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.entity.EvalResult;
@@ -13,12 +15,14 @@ import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.IngestedBatch;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.RunStatus;
+import dev.dokimos.server.repository.AnnotationRepository;
 import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,18 +43,21 @@ public class RunService {
     private final IngestedBatchRepository ingestedBatchRepository;
     private final DatasetService datasetService;
     private final DatasetItemRepository datasetItemRepository;
+    private final AnnotationRepository annotationRepository;
 
     public RunService(
             ExperimentRunRepository runRepository,
             ItemResultRepository itemResultRepository,
             IngestedBatchRepository ingestedBatchRepository,
             DatasetService datasetService,
-            DatasetItemRepository datasetItemRepository) {
+            DatasetItemRepository datasetItemRepository,
+            AnnotationRepository annotationRepository) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.ingestedBatchRepository = ingestedBatchRepository;
         this.datasetService = datasetService;
         this.datasetItemRepository = datasetItemRepository;
+        this.annotationRepository = annotationRepository;
     }
 
     @Transactional
@@ -219,7 +226,9 @@ public class RunService {
         }
 
         Page<ItemResult> itemPage = itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable);
-        Page<RunDetails.ItemSummary> itemSummaries = itemPage.map(this::toItemSummary);
+        Map<UUID, AnnotationView> annotationsByItemId = loadAnnotations(itemPage.getContent());
+        Page<RunDetails.ItemSummary> itemSummaries =
+                itemPage.map(item -> toItemSummary(item, annotationsByItemId.get(item.getId())));
 
         DatasetVersion datasetVersion = run.getDatasetVersion();
         UUID datasetVersionId = datasetVersion != null ? datasetVersion.getId() : null;
@@ -305,7 +314,7 @@ public class RunService {
         return byId;
     }
 
-    private RunDetails.ItemSummary toItemSummary(ItemResult item) {
+    private RunDetails.ItemSummary toItemSummary(ItemResult item, AnnotationView annotation) {
         List<RunDetails.EvalSummary> evalSummaries = item.getEvalResults().stream()
                 .map(e -> new RunDetails.EvalSummary(
                         e.getId(), e.getEvaluatorName(), e.getScore(), e.getThreshold(), e.isSuccess(), e.getReason()))
@@ -322,6 +331,23 @@ public class RunService {
                 item.getMetadata(),
                 evalSummaries,
                 item.getCreatedAt(),
-                datasetItemId);
+                datasetItemId,
+                annotation);
+    }
+
+    /**
+     * Batch-loads the annotations for a page of item results in one query and keys them by item
+     * result id, so surfacing the annotation per item never fans out into a query per row.
+     */
+    private Map<UUID, AnnotationView> loadAnnotations(List<ItemResult> items) {
+        if (items.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = items.stream().map(ItemResult::getId).toList();
+        Map<UUID, AnnotationView> byItemId = new HashMap<>();
+        for (Annotation annotation : annotationRepository.findByItemResultIdIn(ids)) {
+            byItemId.put(annotation.getItemResult().getId(), AnnotationView.from(annotation));
+        }
+        return byItemId;
     }
 }

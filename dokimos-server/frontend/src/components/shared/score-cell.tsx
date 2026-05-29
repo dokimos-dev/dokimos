@@ -1,3 +1,4 @@
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ScoreCellProps {
@@ -8,12 +9,18 @@ interface ScoreCellProps {
 export default function ScoreCell({ score, success }: ScoreCellProps) {
   return (
     <span
-      className={cn({
-        "text-green-500": success,
-        "text-red-500": !success,
-      })}
+      aria-label={`${score.toFixed(2)}, ${success ? "pass" : "fail"}`}
+      className={cn(
+        "inline-flex items-center gap-1 tabular-nums",
+        success ? "text-success" : "text-destructive"
+      )}
     >
-      {score.toFixed(2)}
+      {success ? (
+        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+      ) : (
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
+      )}
+      <span aria-hidden="true">{score.toFixed(2)}</span>
     </span>
   );
 }

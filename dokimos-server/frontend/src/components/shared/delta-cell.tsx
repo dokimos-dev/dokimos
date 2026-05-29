@@ -37,8 +37,8 @@ export default function DeltaCell({
       <span className="text-muted-foreground">&rarr;</span>
       <span
         className={cn("font-semibold", {
-          "text-green-600 dark:text-green-500": colored && isImproved,
-          "text-red-600 dark:text-red-500": colored && isRegressed,
+          "text-success": colored && isImproved,
+          "text-destructive": colored && isRegressed,
           "text-foreground": !colored,
         })}
       >
@@ -55,10 +55,8 @@ export default function DeltaCell({
           className={cn(
             "ml-0.5 inline-flex items-center rounded-sm px-1 py-px text-[10px] font-semibold leading-none",
             {
-              "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400":
-                isImproved,
-              "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400":
-                isRegressed,
+              "bg-success/15 text-success": isImproved,
+              "bg-destructive/15 text-destructive": isRegressed,
               "bg-muted text-muted-foreground": !isImproved && !isRegressed,
             }
           )}

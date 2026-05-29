@@ -146,13 +146,28 @@ export default function ExperimentPage() {
     );
   }
 
-  // Prepare chart data from trends
-  const chartData = (trends?.runs ?? [])
-    .filter((run) => run.passRate != null)
-    .map((run) => ({
-      date: run.startedAt ? format(new Date(run.startedAt), "MMM d") : "",
-      passRate: Math.round((run.passRate ?? 0) * 100),
-    }));
+  // Prepare chart data from trends. Runs that fall on the same calendar day get a
+  // time-qualified label so their points do not collapse onto one X-axis tick.
+  const trendRuns = (trends?.runs ?? []).filter((run) => run.passRate != null);
+  const runsPerDay = new Map<string, number>();
+  for (const run of trendRuns) {
+    if (!run.startedAt) continue;
+    const day = format(new Date(run.startedAt), "MMM d");
+    runsPerDay.set(day, (runsPerDay.get(day) ?? 0) + 1);
+  }
+  const chartData = trendRuns.flatMap((run) => {
+    if (!run.startedAt) return [];
+    const day = format(new Date(run.startedAt), "MMM d");
+    const sharesDay = (runsPerDay.get(day) ?? 0) > 1;
+    return [
+      {
+        date: sharesDay
+          ? format(new Date(run.startedAt), "MMM d, h:mm a")
+          : day,
+        passRate: Math.round((run.passRate ?? 0) * 100),
+      },
+    ];
+  });
 
   const hasEnoughDataForChart = chartData.length >= 2;
 

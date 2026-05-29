@@ -50,7 +50,6 @@ export interface CreateRunRequest {
   datasetName?: string;
   /** @minimum 1 */
   datasetVersion?: number;
-  datasetLinkageValid?: boolean;
 }
 
 export interface CreateRunResponse {
@@ -152,17 +151,17 @@ export interface ItemSummary {
 
 export interface SortObject {
   empty?: boolean;
-  unsorted?: boolean;
   sorted?: boolean;
+  unsorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
-  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
+  unpaged?: boolean;
 }
 
 export interface PageItemSummary {

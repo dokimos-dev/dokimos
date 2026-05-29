@@ -1,5 +1,6 @@
 package dev.dokimos.server.dto.v1;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -34,6 +35,7 @@ public record CreateRunRequest(
      * that would result from the defensive check in the service.
      */
     @AssertTrue(message = "datasetName and datasetVersion must be set together")
+    @JsonIgnore
     public boolean isDatasetLinkageValid() {
         boolean hasName = datasetName != null && !datasetName.isBlank();
         boolean hasVersion = datasetVersion != null;

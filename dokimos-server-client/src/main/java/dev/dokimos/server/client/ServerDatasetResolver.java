@@ -110,11 +110,9 @@ public class ServerDatasetResolver implements DatasetResolver {
      */
     @Override
     public boolean supports(String uri) {
-        if (uri == null || !uri.startsWith(SCHEME)) {
-            return false;
-        }
-        String serverUrl = currentServerUrl();
-        return serverUrl != null && !serverUrl.isBlank();
+        // Any dataset:// URI is ours; missing config surfaces as a clear error from resolve()
+        // instead of a generic "no resolver found" from the registry.
+        return uri != null && uri.startsWith(SCHEME);
     }
 
     /**
@@ -191,7 +189,7 @@ public class ServerDatasetResolver implements DatasetResolver {
     }
 
     private List<Example> fetchAllItems(String name, int version, String base, String apiKey) throws IOException {
-        List<Example> collected = new ArrayList<>();
+        List<RawItem> all = new ArrayList<>();
         int page = 0;
         int totalPages = 1;
         while (page < totalPages) {
@@ -212,20 +210,20 @@ public class ServerDatasetResolver implements DatasetResolver {
             if (content == null || !content.isArray()) {
                 throw new DatasetResolutionException("Items response missing 'content' array: " + url);
             }
-            List<RawItem> pageItems = new ArrayList<>(content.size());
             for (JsonNode item : content) {
-                pageItems.add(toRawItem(item));
-            }
-            // The server already orders by ordinal; sort defensively so an out-of-order page never
-            // sneaks through unnoticed.
-            pageItems.sort(Comparator.comparingInt(r -> r.ordinal));
-            for (RawItem r : pageItems) {
-                collected.add(new Example(r.inputs, r.expectedOutputs, r.metadata));
+                all.add(toRawItem(item));
             }
             page++;
             if (content.size() == 0) {
                 break;
             }
+        }
+        // Sort across all pages so the result is ordinal-ordered even if the server's pagination
+        // ever stops returning pages in ordinal order.
+        all.sort(Comparator.comparingInt(r -> r.ordinal));
+        List<Example> collected = new ArrayList<>(all.size());
+        for (RawItem r : all) {
+            collected.add(new Example(r.inputs, r.expectedOutputs, r.metadata));
         }
         return collected;
     }

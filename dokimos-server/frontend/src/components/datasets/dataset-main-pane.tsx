@@ -5,7 +5,10 @@ import {
   useGetVersion,
   useListItems,
 } from "@/lib/api/dataset-controller/dataset-controller";
-import type { VersionSummary } from "@/lib/api/generated.schemas";
+import type {
+  DatasetVersionDetails,
+  VersionSummary,
+} from "@/lib/api/generated.schemas";
 import {
   Table,
   TableBody,
@@ -231,7 +234,10 @@ export default function DatasetMainPane({ datasetName }: DatasetMainPaneProps) {
   );
 }
 
-function formatProvenance(version: VersionSummary | undefined, totalItems: number | undefined): string {
+function formatProvenance(
+  version: DatasetVersionDetails | undefined,
+  totalItems: number | undefined,
+): string {
   if (!version) return "";
   const parts: string[] = [];
   const itemCount = totalItems ?? version.itemCount;

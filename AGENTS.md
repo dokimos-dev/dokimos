@@ -154,3 +154,81 @@ When working on the core framework, understand these central types in `dokimos-c
 - Never commit API keys or secrets. Use environment variables.
 - The server supports optional API key authentication. Do not weaken or remove this without discussion.
 - When adding new server endpoints, write operations (POST/PUT/PATCH/DELETE) must respect the existing auth filter.
+
+
+<claude-mem-context>
+# Memory Context
+
+# [dokimos] recent context, 2026-05-29 10:07am GMT+2
+
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
+Format: ID TIME TYPE TITLE
+Fetch details: get_observations([IDs]) | Search: mem-search skill
+
+Stats: 50 obs (17,721t read) | 781,821t work | 98% savings
+
+### May 27, 2026
+3996 8:06a 🔵 plan-design-review design binary requires OpenAI API key — not configured for fkapsahili-dokimos
+4010 9:49a 🔵 Velm now has an official React component: @velmhq/embed-react
+4011 " ✅ Installed @velmhq/embed-react package in Dokimos docs project
+4012 9:50a ✅ Removed Velm script-tag from docusaurus.config.ts in favor of React component approach
+4014 " 🟣 Velm React component integration fully built and verified — migration from script tag complete
+4013 " 🟣 Created Docusaurus swizzled Root.tsx mounting Velm React component globally
+S1083 Configure Velm widget optional props for Dokimos brand — color, theme, title, greeting, and suggested prompts (May 27 at 9:51 AM)
+4016 9:57a 🔵 Dokimos docs brand uses monochrome black/white color scheme
+4017 " ✅ Velm widget configured with Dokimos-specific branding and starter prompts in Root.tsx
+4018 " 🟣 Velm widget fully configured and production build verified for Dokimos docs
+S1090 Dokimos eval-loop plan: full plan review cycle completed (eng review + design review) for closing the end-to-end eval-driven development loop (May 27 at 9:57 AM)
+4047 10:02a 🔵 gstack design-shotgun skill works without OpenAI API key using HTML/CSS mode
+S1087 Set Velm widget mode to "editorial" for the Dokimos docs site (May 27 at 10:02 AM)
+4019 " ✅ Velm widget mode set to "editorial" in Dokimos docs Root.tsx
+S1097 Shorten the Velm widget greeting text — user found the original greeting too long (May 27 at 10:02 AM)
+4022 10:03a 🔵 Velm widget not present in server-rendered HTML — confirmed client-side only rendering
+S1150 User approved shortened greeting and requested PR be opened for the Velm widget integration (May 27 at 10:03 AM)
+S1089 Start dev server for local visual verification of the Velm widget integration (May 27 at 10:03 AM)
+S1101 Dokimos eval-loop plan: generate rendered HTML/CSS design mockups for diff-view and dataset browser using /design-html without OpenAI API key, then approve a skin (May 27 at 10:04 AM)
+4110 10:13a 🔵 Dokimos git repo has fork setup — origin is fkapsahili/dokimos, upstream is ghtjr410/dokimos
+4050 10:36a 🟣 HTML/CSS design mockups generated for dokimos eval-loop UI surfaces
+4051 " ⚖️ Three diff-view skin options produced for implementer selection
+S1151 Opening PR for Velm widget integration — investigating git/repo setup before branching and committing (May 27 at 12:38 PM)
+4119 4:33p ⚖️ T11 React diff UI implementation kicked off with subagent parallelism
+S1152 Open PR for Velm chat widget integration — PR #77 successfully opened at dokimos-dev/dokimos (May 27 at 4:33 PM)
+4111 4:34p 🔵 Upstream repo is dokimos-dev/dokimos — fkapsahili/dokimos is not a GitHub fork
+4112 " ✅ Created branch docs-velm-widget and staged all Velm integration files
+4113 " 🟣 Velm widget integration committed and pushed to origin as docs-velm-widget branch
+4114 " 🔵 Cross-repo PR creation failed — fkapsahili/dokimos is not recognized as a fork of dokimos-dev/dokimos by GitHub
+4115 " 🟣 PR #77 opened at dokimos-dev/dokimos for Velm chat widget integration
+4122 4:37p 🔵 Code Review: RunComparison Engine Has Two P0 Bugs and Multiple P1 Issues
+4123 4:56p 🔵 Second Review Subagent Run Returned Identical Cached Findings — Two P0 Bugs Confirmed
+4131 5:40p 🔴 P0-B: McNemar continuity correction fixed for balanced discordant pairs
+4132 " 🔴 P0-A: Per-item ComparisonStatus now significance-gated via two-pass approach
+4133 " 🟣 New multi-run multi-item permutation integration tests added to RunComparisonTest
+4134 " ✅ Java comparison backend fully verified: 432 tests green, Spotless clean, files untracked
+S1160 Continue T11 implementation: Java comparison engine fixes complete, Codex review launched, T11 React UI pending (May 27 at 6:01 PM)
+4135 6:01p 🔵 Codex review of RunComparison engine: four concrete findings
+4136 " 🔵 RunComparison.java full source reviewed: aggregate() divides by observed items not run count
+4137 6:03p 🔵 ItemResult.success() requires ALL evaluators to pass for an item to count as passing
+4138 " 🔴 aggregate() now rejects duplicate item keys within a single run
+4139 " 🔵 dokimos feat/eval-loop-run-comparison branch — core tests passing
+4141 6:06p 🔴 F1: Pass-rate regression now a first-class gate signal in RunComparison
+4142 " 🔴 F2: Aggregation denominator fixed and duplicate itemKey within a run now rejected
+4143 " 🔴 F3 + F4: Builder validation added and pass-rate metrics made consistent across paired/unpaired items
+4144 " 🟣 F5: New regression, aggregation, validation, and gate tests added to RunComparisonTest
+4146 6:08p ✅ Run comparison engine committed locally on feat/eval-loop-run-comparison
+4148 " 🔵 MCP server compare_runs tool uses naive delta comparison without statistical significance
+4149 " 🔵 RunRecord.ItemDetail lacks itemKey field needed to wire RunComparison engine into MCP server
+4150 6:12p 🔵 Conversion path from RunRecord to RunResult established for MCP-engine wiring
+4152 " 🟣 handleCompareRuns upgraded to use RunComparison engine with statistical significance
+4151 6:13p 🔵 ToolHandlersTest uses empty items lists in sampleRecord — tests will need refactoring for RunComparison wiring
+4155 6:14p 🟣 MCP compare_runs tool wired to RunComparison statistical engine
+4156 " 🔄 ToolHandlersTest.java: stub compare tests replaced with data-driven statistical tests
+4157 " 🔵 mvn -pl MODULE test fails with NoClassDefFoundError when core is not rebuilt
+4158 6:24p 🔵 Codex review of compare_runs delegation found three correctness gaps
+4159 " 🔵 ToolHandlers.java final structure confirmed: 593 lines, 4 public handlers
+### May 29, 2026
+4180 10:07a 🟣 Server-Authoritative Dataset Backend (V5 Migration)
+4181 " 🟣 ServerDatasetResolver with Offline Cache in dokimos-server-client
+4182 " ⚖️ Phase 1a Review Scope: Concurrency, Cascade, and Test Quality
+
+Access 782k tokens of past work via get_observations([IDs]) or mem-search skill.
+</claude-mem-context>

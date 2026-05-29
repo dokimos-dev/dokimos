@@ -109,9 +109,14 @@ class ServerDatasetResolverTest {
     // supports()
 
     @Test
-    void supportsReturnsFalseWhenServerUrlMissing() {
+    void supportsReturnsTrueOnDatasetSchemeEvenWhenServerUrlMissing() {
+        // dataset:// is unambiguously ours; the registry should route to this resolver so the
+        // user gets a clear "set DOKIMOS_SERVER_URL" error rather than "no resolver found".
         ServerDatasetResolver resolver = new ServerDatasetResolver(null, null, HttpClient.newHttpClient(), cacheRoot);
-        assertThat(resolver.supports("dataset://foo@1")).isFalse();
+        assertThat(resolver.supports("dataset://foo@1")).isTrue();
+        assertThatThrownBy(() -> resolver.resolve("dataset://foo@1"))
+                .isInstanceOf(DatasetResolutionException.class)
+                .hasMessageContaining("DOKIMOS_SERVER_URL");
     }
 
     @Test
@@ -181,7 +186,7 @@ class ServerDatasetResolverTest {
 
     @Test
     void sortsItemsByOrdinalEvenIfServerReturnsOutOfOrder() {
-        // Server returns items in a non-monotonic order; the resolver must sort each page by ordinal.
+        // Server returns items in a non-monotonic order; the resolver must sort by ordinal.
         seedVersion("shuffled", 1, List.of(item(2, "third", "c"), item(0, "first", "a"), item(1, "second", "b")));
 
         Dataset dataset = newResolver(null).resolve("dataset://shuffled@1");
@@ -190,6 +195,27 @@ class ServerDatasetResolverTest {
         assertThat(dataset.get(0).inputs()).containsEntry("question", "first");
         assertThat(dataset.get(1).inputs()).containsEntry("question", "second");
         assertThat(dataset.get(2).inputs()).containsEntry("question", "third");
+    }
+
+    @Test
+    void sortsItemsAcrossPagesEvenIfLaterPagesContainEarlierOrdinals() {
+        // Pathological case: server returns page 0 with ordinals 200..399 and page 1 with 0..199.
+        // The cross-page sort must reorder them to 0..399 in the resulting Dataset.
+        List<Map<String, Object>> items = new java.util.ArrayList<>();
+        for (int i = 200; i < 400; i++) {
+            items.add(item(i, "q" + i, "a" + i));
+        }
+        for (int i = 0; i < 200; i++) {
+            items.add(item(i, "q" + i, "a" + i));
+        }
+        seedVersion("swapped", 1, items);
+
+        Dataset dataset = newResolver(null).resolve("dataset://swapped@1");
+
+        assertThat(dataset.size()).isEqualTo(400);
+        for (int i = 0; i < 400; i++) {
+            assertThat(dataset.get(i).inputs()).containsEntry("question", "q" + i);
+        }
     }
 
     // Retry + auth

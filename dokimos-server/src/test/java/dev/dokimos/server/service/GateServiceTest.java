@@ -44,11 +44,16 @@ class GateServiceTest {
     @org.springframework.boot.test.context.TestConfiguration
     static class TestConfig {
         @Bean
+        ComparisonSupport comparisonSupport(ItemResultRepository itemResultRepository) {
+            return new ComparisonSupport(itemResultRepository);
+        }
+
+        @Bean
         GateService gateService(
                 ExperimentRepository experimentRepository,
                 ExperimentRunRepository runRepository,
-                ItemResultRepository itemResultRepository) {
-            return new GateService(experimentRepository, runRepository, itemResultRepository);
+                ComparisonSupport comparisonSupport) {
+            return new GateService(experimentRepository, runRepository, comparisonSupport);
         }
     }
 

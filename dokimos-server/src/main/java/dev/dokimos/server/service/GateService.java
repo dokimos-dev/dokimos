@@ -1,36 +1,27 @@
 package dev.dokimos.server.service;
 
-import dev.dokimos.core.Example;
-import dev.dokimos.core.RunResult;
 import dev.dokimos.core.comparison.ComparisonStatus;
 import dev.dokimos.core.comparison.ItemComparison;
 import dev.dokimos.core.comparison.RunComparison;
 import dev.dokimos.core.comparison.RunComparisonResult;
 import dev.dokimos.server.dto.v1.GateRequest;
 import dev.dokimos.server.dto.v1.GateResult;
-import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
-import dev.dokimos.server.entity.ItemResult;
-import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
-import dev.dokimos.server.repository.ItemResultRepository;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Evaluates a CI regression gate by comparing an already-ingested candidate run against a resolved
- * baseline run with the core {@link RunComparison} engine and returning a pass/fail verdict.
+ * baseline run with the core {@link RunComparison} engine and returning a pass/fail verdict. The
+ * entity-to-core conversion, pairing decision, and engine invocation are shared with the per-case
+ * diff view through {@link ComparisonSupport}.
  *
  * <p>Scoping note: this slice scopes the automatic baseline by experiment, the candidate's dataset
  * version, and an optional git branch. Fuller scoping from the plan (evaluator set, judge
@@ -48,22 +39,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GateService {
 
-    private static final Logger log = LoggerFactory.getLogger(GateService.class);
-
     /** Cap on the number of regressed cases returned inline, to keep the PR comment bounded. */
     private static final int MAX_CASES = 50;
 
     private final ExperimentRepository experimentRepository;
     private final ExperimentRunRepository runRepository;
-    private final ItemResultRepository itemResultRepository;
+    private final ComparisonSupport comparisonSupport;
 
     public GateService(
             ExperimentRepository experimentRepository,
             ExperimentRunRepository runRepository,
-            ItemResultRepository itemResultRepository) {
+            ComparisonSupport comparisonSupport) {
         this.experimentRepository = experimentRepository;
         this.runRepository = runRepository;
-        this.itemResultRepository = itemResultRepository;
+        this.comparisonSupport = comparisonSupport;
     }
 
     /**
@@ -81,69 +70,31 @@ public class GateService {
     public GateResult evaluateGate(UUID experimentId, GateRequest request) {
         Experiment experiment = getExperiment(experimentId);
 
-        ExperimentRun candidate = getRunInExperiment(request.candidateRunId(), experiment, "Candidate run");
-        requireTerminal(candidate, "Candidate run");
+        ExperimentRun candidate = comparisonSupport.getRunInExperiment(
+                request.candidateRunId(), experiment, "Candidate run", runRepository);
+        comparisonSupport.requireTerminal(candidate, "Candidate run");
 
         ExperimentRun baseline = resolveBaseline(experiment, candidate, request);
         if (baseline == null) {
             return noBaseline(candidate);
         }
 
-        RunResult candidateResult = toRunResult(candidate);
-        RunResult baselineResult = toRunResult(baseline);
-
-        // Pair by dataset item id only when both runs share a dataset version AND every loaded item
-        // on both sides has a non-null id. A dataset-linked run can still hold unlinked items (stored
-        // against a stale dataset id), whose null id would collapse to a colliding positional fallback
-        // key inside the engine, mis-pairing items or throwing a duplicate-key error. When any item is
-        // unlinked, fall back to positional pairing.
-        UUID candidateVersionId = datasetVersionId(candidate);
-        UUID baselineVersionId = datasetVersionId(baseline);
-        boolean sharedVersion = candidateVersionId != null && candidateVersionId.equals(baselineVersionId);
-        boolean allLinked = allItemsLinked(candidateResult) && allItemsLinked(baselineResult);
-        boolean pairById = sharedVersion && allLinked;
-        if (sharedVersion && !allLinked) {
-            log.warn(
-                    "dataset-linked run has unlinked items; falling back to positional pairing"
-                            + " (candidate={}, baseline={})",
-                    candidate.getId(),
-                    baseline.getId());
-        }
-
-        RunComparison.Builder builder = RunComparison.builder();
-        if (pairById) {
-            builder.itemKey(ir -> ir.example().datasetItemId());
-        }
-        RunComparisonResult comparison = builder.build().compare(List.of(baselineResult), List.of(candidateResult));
-
-        return toGateResult(comparison, candidate, baseline, pairById ? "dataset_item_id" : "positional");
-    }
-
-    /** True when every item in the run carries a non-null dataset item id. */
-    private static boolean allItemsLinked(RunResult run) {
-        return run.itemResults().stream().allMatch(ir -> ir.example().datasetItemId() != null);
-    }
-
-    /** A run can be gated or used as a baseline only once it has reached a terminal status. */
-    private static void requireTerminal(ExperimentRun run, String label) {
-        RunStatus status = run.getStatus();
-        if (status != RunStatus.SUCCESS && status != RunStatus.FAILED) {
-            throw new IllegalStateException("Cannot gate a run that is not in a terminal SUCCESS/FAILED status: "
-                    + run.getId() + " (" + status + ")");
-        }
+        ComparisonSupport.ComparisonOutcome outcome = comparisonSupport.compare(baseline, candidate);
+        return toGateResult(outcome.result(), candidate, baseline, outcome.pairing());
     }
 
     private ExperimentRun resolveBaseline(Experiment experiment, ExperimentRun candidate, GateRequest request) {
         if (request.baselineRunId() != null) {
-            ExperimentRun baseline = getRunInExperiment(request.baselineRunId(), experiment, "Baseline run");
-            requireTerminal(baseline, "Baseline run");
+            ExperimentRun baseline = comparisonSupport.getRunInExperiment(
+                    request.baselineRunId(), experiment, "Baseline run", runRepository);
+            comparisonSupport.requireTerminal(baseline, "Baseline run");
             return baseline;
         }
 
         List<ExperimentRun> candidates = runRepository.findBaselineCandidates(
                 experiment,
                 candidate.getId(),
-                datasetVersionId(candidate),
+                comparisonSupport.datasetVersionId(candidate),
                 request.baselineBranch(),
                 PageRequest.of(0, 1));
         return candidates.isEmpty() ? null : candidates.get(0);
@@ -228,57 +179,13 @@ public class GateService {
                             d.evaluatorName(), d.baselineMean(), d.candidateMean(), d.delta()))
                     .toList();
             String key = item.key();
-            String datasetItemId = isDatasetItemKey(key) ? key : null;
+            String datasetItemId = comparisonSupport.isDatasetItemKey(key) ? key : null;
             cases.add(new GateResult.RegressedCase(datasetItemId, key, drops));
             if (cases.size() >= MAX_CASES) {
                 break;
             }
         }
         return cases;
-    }
-
-    // Positional keys are emitted by the engine as "item-<index>"; anything else is a dataset item id.
-    private boolean isDatasetItemKey(String key) {
-        return key != null && !key.startsWith("item-");
-    }
-
-    /**
-     * Converts a server run plus its item and eval results into a single core {@link RunResult} at
-     * run index 0. Items are loaded with a fetch-join to avoid an N+1 over the lazy eval collection.
-     */
-    private RunResult toRunResult(ExperimentRun run) {
-        List<ItemResult> items = itemResultRepository.findByRunWithEvals(run);
-        List<dev.dokimos.core.ItemResult> coreItems = new ArrayList<>(items.size());
-        for (ItemResult item : items) {
-            String datasetItemId = item.getDatasetItem() != null
-                    ? item.getDatasetItem().getId().toString()
-                    : null;
-            Example example = new Example(
-                    nullToEmpty(item.getInput()),
-                    nullToEmpty(item.getExpectedOutput()),
-                    nullToEmpty(item.getMetadata()),
-                    datasetItemId);
-            List<dev.dokimos.core.EvalResult> coreEvals = item.getEvalResults().stream()
-                    .map(e -> new dev.dokimos.core.EvalResult(
-                            e.getEvaluatorName(),
-                            e.getScore(),
-                            e.getThreshold(),
-                            e.isSuccess(),
-                            e.getReason(),
-                            nullToEmpty(e.getMetadata())))
-                    .toList();
-            coreItems.add(new dev.dokimos.core.ItemResult(example, nullToEmpty(item.getActualOutput()), coreEvals));
-        }
-        return new RunResult(0, coreItems);
-    }
-
-    private static Map<String, Object> nullToEmpty(Map<String, Object> map) {
-        return map != null ? map : Map.of();
-    }
-
-    private static UUID datasetVersionId(ExperimentRun run) {
-        DatasetVersion version = run.getDatasetVersion();
-        return version != null ? version.getId() : null;
     }
 
     private Experiment getExperiment(UUID experimentId) {
@@ -288,20 +195,5 @@ public class GateService {
         return experimentRepository
                 .findById(experimentId)
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
-    }
-
-    private ExperimentRun getRunInExperiment(UUID runId, Experiment experiment, String label) {
-        if (runId == null) {
-            throw new IllegalArgumentException(label + " ID cannot be null");
-        }
-        ExperimentRun run = runRepository
-                .findById(runId)
-                .orElseThrow(() -> new IllegalArgumentException(label + " not found: " + runId));
-        UUID runExperimentId =
-                Optional.ofNullable(run.getExperiment()).map(Experiment::getId).orElse(null);
-        if (!Objects.equals(runExperimentId, experiment.getId())) {
-            throw new IllegalArgumentException(label + " does not belong to experiment " + experiment.getId());
-        }
-        return run;
     }
 }

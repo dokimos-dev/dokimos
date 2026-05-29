@@ -3,8 +3,12 @@ import { useParams } from "react-router";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useGetRunDetails } from "@/lib/api/run-controller/run-controller";
-import type { ItemSummary } from "@/lib/api/generated.schemas";
+import type {
+  ItemSummary,
+  AnnotationViewVerdict,
+} from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -20,6 +24,8 @@ import ScoreCell from "@/components/shared/score-cell";
 import TruncatedText from "@/components/shared/truncated-text";
 import JsonDisplay from "@/components/shared/json-display";
 import Pagination from "@/components/shared/pagination";
+import AnnotationControls from "@/components/runs/annotation-controls";
+import PromoteDialog from "@/components/runs/promote-dialog";
 
 function formatDuration(
   startedAt: string | undefined,
@@ -50,6 +56,28 @@ function stringify(value: unknown, fallback = ""): string {
   }
 }
 
+function VerdictChip({ verdict }: { verdict: AnnotationViewVerdict }) {
+  const config: Record<AnnotationViewVerdict, { label: string; className: string }> = {
+    CORRECT: { label: "correct", className: "bg-success/15 text-success" },
+    INCORRECT: {
+      label: "incorrect",
+      className: "bg-destructive/15 text-destructive",
+    },
+    UNSURE: { label: "unsure", className: "bg-muted text-muted-foreground" },
+  };
+  const { label, className } = config[verdict];
+  return (
+    <span
+      className={
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
+        className
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
 function getUniqueEvaluatorNames(items: ItemSummary[]): string[] {
   const names = new Set<string>();
   items.forEach((item) => {
@@ -67,11 +95,13 @@ export default function RunPage() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
+  const [promoteItemId, setPromoteItemId] = useState<string | null>(null);
 
   const {
     data: response,
     error,
     isLoading,
+    mutate,
   } = useGetRunDetails(
     id ?? "",
     { pageable: { page: currentPage, size: 50 } },
@@ -189,6 +219,10 @@ export default function RunPage() {
   const items = run.items?.content ?? [];
   const evaluatorNames = getUniqueEvaluatorNames(items);
   const pageNumber = run.items?.number ?? 0;
+  const promoteItem =
+    promoteItemId !== null
+      ? items.find((item) => (item.id ?? "") === promoteItemId)
+      : undefined;
 
   return (
     <div>
@@ -266,10 +300,15 @@ export default function RunPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <TruncatedText
-                            text={stringify(item.input)}
-                            maxLength={100}
-                          />
+                          <div className="flex items-center gap-2">
+                            {item.annotation?.verdict && (
+                              <VerdictChip verdict={item.annotation.verdict} />
+                            )}
+                            <TruncatedText
+                              text={stringify(item.input)}
+                              maxLength={100}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <TruncatedText
@@ -383,6 +422,21 @@ export default function RunPage() {
                                     </div>
                                   </div>
                                 )}
+                              <AnnotationControls
+                                runId={run.id ?? ""}
+                                itemResultId={itemId}
+                                annotation={item.annotation}
+                                onChanged={() => mutate()}
+                              />
+                              <div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPromoteItemId(itemId)}
+                                >
+                                  Promote to dataset
+                                </Button>
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -399,6 +453,20 @@ export default function RunPage() {
             pageSize={run.items?.size ?? 50}
             onPageChange={handlePageChange}
           />
+          {promoteItem && (
+            <PromoteDialog
+              key={promoteItem.id}
+              open={promoteItemId !== null}
+              onClose={() => setPromoteItemId(null)}
+              itemResultId={promoteItem.id ?? ""}
+              input={promoteItem.input}
+              defaultExpected={
+                promoteItem.annotation?.overriddenExpectedOutput ??
+                promoteItem.expectedOutput
+              }
+              onPromoted={() => mutate()}
+            />
+          )}
         </>
       )}
     </div>

@@ -4,6 +4,44 @@
  * OpenAPI definition
  * OpenAPI spec version: v0
  */
+export type AnnotationRequestVerdict = typeof AnnotationRequestVerdict[keyof typeof AnnotationRequestVerdict];
+
+
+export const AnnotationRequestVerdict = {
+  CORRECT: 'CORRECT',
+  INCORRECT: 'INCORRECT',
+  UNSURE: 'UNSURE',
+} as const;
+
+export type AnnotationRequestOverriddenExpectedOutput = {[key: string]: { [key: string]: unknown }};
+
+export interface AnnotationRequest {
+  verdict: AnnotationRequestVerdict;
+  overriddenExpectedOutput?: AnnotationRequestOverriddenExpectedOutput;
+  note?: string;
+}
+
+export type AnnotationViewVerdict = typeof AnnotationViewVerdict[keyof typeof AnnotationViewVerdict];
+
+
+export const AnnotationViewVerdict = {
+  CORRECT: 'CORRECT',
+  INCORRECT: 'INCORRECT',
+  UNSURE: 'UNSURE',
+} as const;
+
+export type AnnotationViewOverriddenExpectedOutput = {[key: string]: { [key: string]: unknown }};
+
+export interface AnnotationView {
+  id?: string;
+  verdict?: AnnotationViewVerdict;
+  overriddenExpectedOutput?: AnnotationViewOverriddenExpectedOutput;
+  note?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type EvalDataMetadata = {[key: string]: { [key: string]: unknown }};
 
 export interface EvalData {
@@ -148,6 +186,21 @@ export interface DatasetVersionDetails {
   createdBy?: string;
 }
 
+export type PromoteItemOverriddenExpectedOutput = {[key: string]: { [key: string]: unknown }};
+
+export interface PromoteItem {
+  itemResultId: string;
+  overriddenExpectedOutput?: PromoteItemOverriddenExpectedOutput;
+}
+
+export interface PromoteRequest {
+  /** @minLength 1 */
+  datasetName?: string;
+  description?: string;
+  /** @minItems 1 */
+  items?: PromoteItem[];
+}
+
 export type UpdateRunRequestStatus = typeof UpdateRunRequestStatus[keyof typeof UpdateRunRequestStatus];
 
 
@@ -196,21 +249,22 @@ export interface ItemSummary {
   evalResults?: EvalSummary[];
   createdAt?: string;
   datasetItemId?: string;
+  annotation?: AnnotationView;
 }
 
 export interface SortObject {
   empty?: boolean;
-  unsorted?: boolean;
   sorted?: boolean;
+  unsorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
-  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
+  unpaged?: boolean;
 }
 
 export interface PageItemSummary {

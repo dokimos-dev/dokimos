@@ -13,7 +13,6 @@ import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
-import dev.dokimos.server.repository.ItemResultRepository;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -52,17 +51,14 @@ public class DiffService {
 
     private final ExperimentRepository experimentRepository;
     private final ExperimentRunRepository runRepository;
-    private final ItemResultRepository itemResultRepository;
     private final ComparisonSupport comparisonSupport;
 
     public DiffService(
             ExperimentRepository experimentRepository,
             ExperimentRunRepository runRepository,
-            ItemResultRepository itemResultRepository,
             ComparisonSupport comparisonSupport) {
         this.experimentRepository = experimentRepository;
         this.runRepository = runRepository;
-        this.itemResultRepository = itemResultRepository;
         this.comparisonSupport = comparisonSupport;
     }
 
@@ -99,7 +95,7 @@ public class DiffService {
         RunComparisonResult comparison = outcome.result();
         String pairing = outcome.pairing();
 
-        Map<String, String> inputByKey = buildInputLookup(candidate, baseline, pairing);
+        Map<String, String> inputByKey = buildInputLookup(outcome.candidateItems(), outcome.baselineItems(), pairing);
 
         List<DiffCase> all = comparison.items().stream()
                 .map(item -> toDiffCase(item, pairing, inputByKey))
@@ -166,17 +162,18 @@ public class DiffService {
      * (the same order the comparison engine assigns). The candidate side wins; the baseline side
      * fills in inputs for REMOVED cases that exist only in the baseline.
      */
-    private Map<String, String> buildInputLookup(ExperimentRun candidate, ExperimentRun baseline, String pairing) {
+    private Map<String, String> buildInputLookup(
+            List<ItemResult> candidateItems, List<ItemResult> baselineItems, String pairing) {
         Map<String, String> byKey = new HashMap<>();
-        // Baseline first so candidate values override on shared keys.
-        putInputs(byKey, baseline, pairing);
-        putInputs(byKey, candidate, pairing);
+        // Baseline first so candidate values override on shared keys. These are the same item lists
+        // the engine paired, so the positional keys here match the engine's item-<index> keys.
+        putInputs(byKey, baselineItems, pairing);
+        putInputs(byKey, candidateItems, pairing);
         return byKey;
     }
 
-    private void putInputs(Map<String, String> target, ExperimentRun run, String pairing) {
+    private void putInputs(Map<String, String> target, List<ItemResult> items, String pairing) {
         boolean byId = "dataset_item_id".equals(pairing);
-        List<ItemResult> items = itemResultRepository.findByRunWithEvals(run);
         for (int i = 0; i < items.size(); i++) {
             ItemResult item = items.get(i);
             String key = byId && item.getDatasetItem() != null
@@ -221,6 +218,9 @@ public class DiffService {
         IMPROVED,
         CHANGED;
 
+        // The controller validates the status parameter and returns 400 on an unknown value, so this
+        // is a tolerant backstop: an unrecognized value falls back to ALL rather than throwing an
+        // IllegalArgumentException (which the global handler would map to 404, the wrong status).
         static StatusFilter parse(String raw) {
             if (raw == null || raw.isBlank()) {
                 return ALL;
@@ -228,8 +228,7 @@ public class DiffService {
             try {
                 return StatusFilter.valueOf(raw.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException(
-                        "Unknown status filter: " + raw + " (expected ALL, REGRESSED, IMPROVED, or CHANGED)");
+                return ALL;
             }
         }
 

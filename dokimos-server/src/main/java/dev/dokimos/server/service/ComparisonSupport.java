@@ -44,24 +44,35 @@ public class ComparisonSupport {
     }
 
     /**
-     * Result of comparing two runs: the engine output plus the pairing strategy that produced it.
+     * Result of comparing two runs: the engine output, the pairing strategy, and the runs' loaded
+     * item entities so callers (the diff view) can derive per-case input text without re-querying.
+     * The item lists are in the order the engine used to assign positional keys.
      *
-     * @param result  the core comparison result
-     * @param pairing how items were paired: {@code dataset_item_id} or {@code positional}
+     * @param result        the core comparison result
+     * @param pairing       how items were paired: {@code dataset_item_id} or {@code positional}
+     * @param baselineItems the baseline run's loaded items, in pairing order
+     * @param candidateItems the candidate run's loaded items, in pairing order
      */
-    public record ComparisonOutcome(RunComparisonResult result, String pairing) {}
+    public record ComparisonOutcome(
+            RunComparisonResult result,
+            String pairing,
+            List<ItemResult> baselineItems,
+            List<ItemResult> candidateItems) {}
 
     /**
      * Compares a baseline run against a candidate run with the core engine, deciding the pairing
-     * strategy from the runs' dataset versions and item links.
+     * strategy from the runs' dataset versions and item links. Each run's items are loaded once and
+     * returned on the outcome so callers can reuse them.
      *
-     * @param baseline  the baseline run, with items and evals loaded internally
-     * @param candidate the candidate run, with items and evals loaded internally
-     * @return the comparison result paired with the strategy used
+     * @param baseline  the baseline run
+     * @param candidate the candidate run
+     * @return the comparison result, pairing strategy, and loaded items
      */
     public ComparisonOutcome compare(ExperimentRun baseline, ExperimentRun candidate) {
-        RunResult candidateResult = toRunResult(candidate);
-        RunResult baselineResult = toRunResult(baseline);
+        List<ItemResult> baselineItems = itemResultRepository.findByRunWithEvals(baseline);
+        List<ItemResult> candidateItems = itemResultRepository.findByRunWithEvals(candidate);
+        RunResult candidateResult = toRunResult(candidateItems);
+        RunResult baselineResult = toRunResult(baselineItems);
 
         UUID candidateVersionId = datasetVersionId(candidate);
         UUID baselineVersionId = datasetVersionId(baseline);
@@ -82,7 +93,8 @@ public class ComparisonSupport {
         }
         RunComparisonResult comparison = builder.build().compare(List.of(baselineResult), List.of(candidateResult));
 
-        return new ComparisonOutcome(comparison, pairById ? "dataset_item_id" : "positional");
+        return new ComparisonOutcome(
+                comparison, pairById ? "dataset_item_id" : "positional", baselineItems, candidateItems);
     }
 
     /**
@@ -94,7 +106,17 @@ public class ComparisonSupport {
      * @return the core run result
      */
     public RunResult toRunResult(ExperimentRun run) {
-        List<ItemResult> items = itemResultRepository.findByRunWithEvals(run);
+        return toRunResult(itemResultRepository.findByRunWithEvals(run));
+    }
+
+    /**
+     * Converts already-loaded item entities into a core {@link RunResult} at run index 0, preserving
+     * their order so positional pairing keys line up with the source list.
+     *
+     * @param items the run's items, with evals loaded
+     * @return the core run result
+     */
+    public RunResult toRunResult(List<ItemResult> items) {
         List<dev.dokimos.core.ItemResult> coreItems = new ArrayList<>(items.size());
         for (ItemResult item : items) {
             String datasetItemId = item.getDatasetItem() != null

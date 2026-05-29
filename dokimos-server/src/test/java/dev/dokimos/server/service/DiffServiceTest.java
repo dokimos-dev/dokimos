@@ -54,9 +54,8 @@ class DiffServiceTest {
         DiffService diffService(
                 ExperimentRepository experimentRepository,
                 ExperimentRunRepository runRepository,
-                ItemResultRepository itemResultRepository,
                 ComparisonSupport comparisonSupport) {
-            return new DiffService(experimentRepository, runRepository, itemResultRepository, comparisonSupport);
+            return new DiffService(experimentRepository, runRepository, comparisonSupport);
         }
     }
 

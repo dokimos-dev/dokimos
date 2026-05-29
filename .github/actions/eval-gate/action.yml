@@ -106,9 +106,12 @@ runs:
 
     - id: verdict
       shell: bash
+      env:
+        FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        STATUS: ${{ steps.gate.outputs.status }}
       run: |
         set -euo pipefail
-        if [ "${{ inputs.fail-on-regression }}" = "true" ] && [ "${{ steps.gate.outputs.status }}" = "FAIL" ]; then
+        if [ "$FAIL_ON_REGRESSION" = "true" ] && [ "$STATUS" = "FAIL" ]; then
           echo "Eval gate failed: a significant regression was detected." >&2
           exit 1
         fi

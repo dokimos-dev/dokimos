@@ -49,7 +49,7 @@ if [ "$(jq -r '.regressedEvaluators | length' <<<"$json")" -gt 0 ]; then
   echo "| evaluator | baseline | candidate | delta | p |"
   echo "| --- | --- | --- | --- | --- |"
   jq -r '.regressedEvaluators[]
-    | "| \(.evaluator) | \(.baselineMean) | \(.candidateMean) | \(.delta) | \(.pValue) |"' <<<"$json"
+    | "| \(.evaluator) | \(.baselineMean // "n/a") | \(.candidateMean // "n/a") | \(.delta) | \(.pValue) |"' <<<"$json"
   echo
 fi
 
@@ -59,8 +59,8 @@ if [ "$case_count" -gt 0 ]; then
   echo "### Regressed cases"
   echo
   jq -r '.cases[]
-    | "- " + (if .datasetItemId != null then "item " + .datasetItemId else "row " + .index end)
-      + ": " + ([.evaluatorDrops[] | "\(.evaluator) \(.baselineMean)→\(.candidateMean)"] | join(", "))' <<<"$json"
+    | "- " + (if .datasetItemId != null then "item " + .datasetItemId else "row " + (.index // "?") end)
+      + ": " + ([.evaluatorDrops[] | "\(.evaluator) \(.baselineMean // "n/a")→\(.candidateMean // "n/a")"] | join(", "))' <<<"$json"
   if [ "$(jq -r '.casesTruncated' <<<"$json")" = "true" ]; then
     echo
     echo "_Showing $case_count of $regressed regressed cases._"

@@ -341,7 +341,7 @@ export default function RunDiffPage() {
             </div>
           )}
 
-          {summary && (summary.regressedCount ?? 0) === 0 &&
+          {summary && summary.regressedCount === 0 &&
             (view?.cases?.totalElements ?? 0) > 0 && (
               <div className="mb-4 flex items-start gap-2 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -417,7 +417,7 @@ function DiffTable({ cases, evaluatorNames }: DiffTableProps) {
 
     if (cs !== prevStatus && GROUP_LABELS[cs]) {
       rows.push(
-        <TableRow key={`group-${cs}`} className="hover:bg-transparent">
+        <TableRow key={`group-${cs}-${idx}`} className="hover:bg-transparent">
           <TableCell
             colSpan={totalColumns}
             className="bg-muted/40 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
@@ -440,7 +440,7 @@ function DiffTable({ cases, evaluatorNames }: DiffTableProps) {
     rows.push(
       <TableRow key={key}>
         <TableCell
-          className={cn(STICKY_STATUS, "z-10 p-0", {
+          className={cn(STICKY_STATUS, "z-10 w-8 p-0", {
             "border-l-[3px] border-l-green-500": cs === "IMPROVED",
             "border-l-[3px] border-l-red-500": cs === "REGRESSED",
             "border-l-[3px] border-l-transparent":

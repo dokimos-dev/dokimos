@@ -148,7 +148,8 @@ public class ComparisonSupport {
      * @return whether all items are dataset-linked
      */
     public boolean allItemsLinked(RunResult run) {
-        return run.itemResults().stream().allMatch(ir -> ir.example().datasetItemId() != null);
+        return !run.itemResults().isEmpty()
+                && run.itemResults().stream().allMatch(ir -> ir.example().datasetItemId() != null);
     }
 
     /**

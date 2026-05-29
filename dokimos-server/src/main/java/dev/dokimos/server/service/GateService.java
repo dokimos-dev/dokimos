@@ -23,18 +23,18 @@ import org.springframework.transaction.annotation.Transactional;
  * entity-to-core conversion, pairing decision, and engine invocation are shared with the per-case
  * diff view through {@link ComparisonSupport}.
  *
- * <p>Scoping note: this slice scopes the automatic baseline by experiment, the candidate's dataset
- * version, and an optional git branch. Fuller scoping from the plan (evaluator set, judge
- * model/prompt, thresholds, tenant) is deferred. A mismatched evaluator set across the two runs is
- * handled by the engine itself: an evaluator present on only one side co-occurs on no shared item
- * and is reported UNCHANGED, never a regression.
+ * <p>Automatic baseline selection is scoped by experiment, the candidate's dataset version, and an
+ * optional git branch. Other dimensions (evaluator set, judge model/prompt, thresholds, tenant) are
+ * not yet part of baseline selection. A mismatched evaluator set across the two runs is handled by
+ * the engine itself: an evaluator present on only one side co-occurs on no shared item and is
+ * reported UNCHANGED, never a regression.
  *
  * <p>Known limitation (zero-eval items): the core {@link dev.dokimos.core.ItemResult#success()}
  * treats an item with no eval results as passing (an {@code allMatch} over an empty stream is
  * true), so the comparison engine counts a zero-eval item as passing. The server's SQL
  * {@code countItemsWithAllEvalsPassed} treats a zero-eval item as not passed. These two notions of
- * "passing" can therefore diverge for items that carry no eval results. This is a pre-existing core
- * semantic and is not changed in this slice.
+ * "passing" can therefore diverge for items that carry no eval results, a pre-existing core
+ * semantic that is not addressed here.
  */
 @Service
 public class GateService {

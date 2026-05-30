@@ -137,6 +137,11 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>io.opentelemetry.proto</groupId>
+                <artifactId>opentelemetry-proto</artifactId>
+                <version>1.7.0-alpha</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

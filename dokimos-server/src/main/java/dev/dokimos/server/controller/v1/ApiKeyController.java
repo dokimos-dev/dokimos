@@ -39,7 +39,7 @@ public class ApiKeyController {
      * is never retrievable again.
      */
     @PostMapping
-    public ResponseEntity<CreatedApiKeyView> create(@Valid @RequestBody CreateApiKeyRequest request) {
+    public ResponseEntity<CreatedApiKeyView> createApiKey(@Valid @RequestBody CreateApiKeyRequest request) {
         CreatedApiKeyView created = apiKeyService.create(request);
         return ResponseEntity.created(
                         URI.create("/api/v1/api-keys/" + created.apiKey().id()))
@@ -48,20 +48,20 @@ public class ApiKeyController {
 
     /** Lists every key as metadata only; the raw key is never returned. */
     @GetMapping
-    public List<ApiKeyView> list() {
+    public List<ApiKeyView> listApiKeys() {
         return apiKeyService.list();
     }
 
     /** Disables a key so it can no longer authenticate. Returns 404 if it does not exist. */
     @PostMapping("/{id}/disable")
-    public ApiKeyView disable(@PathVariable UUID id) {
+    public ApiKeyView disableApiKey(@PathVariable UUID id) {
         return apiKeyService.disable(id);
     }
 
     /** Permanently deletes a key. Returns 404 if it does not exist. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id) {
+    public void deleteApiKey(@PathVariable UUID id) {
         apiKeyService.delete(id);
     }
 }

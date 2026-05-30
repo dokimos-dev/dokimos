@@ -42,6 +42,16 @@ export default function Header() {
             >
               Datasets
             </NavLink>
+            <NavLink
+              to="/llm-connections"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              LLM connections
+            </NavLink>
           </nav>
         </div>
         <ThemeToggleButton

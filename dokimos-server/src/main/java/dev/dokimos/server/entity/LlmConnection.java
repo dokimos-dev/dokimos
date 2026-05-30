@@ -64,12 +64,29 @@ public class LlmConnection {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getBaseUrl() {
         return baseUrl;
     }
 
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
     public String getModel() {
         return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    /** Stamps the connection as just modified. */
+    public void touchUpdatedAt() {
+        this.updatedAt = Instant.now();
     }
 
     public String getCredentialRef() {

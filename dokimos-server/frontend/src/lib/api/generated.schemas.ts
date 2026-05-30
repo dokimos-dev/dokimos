@@ -18,6 +18,10 @@ export type AnnotationRequestOverriddenExpectedOutput = {[key: string]: { [key: 
 export interface AnnotationRequest {
   verdict: AnnotationRequestVerdict;
   overriddenExpectedOutput?: AnnotationRequestOverriddenExpectedOutput;
+  /**
+   * @minLength 0
+   * @maxLength 10000
+   */
   note?: string;
 }
 
@@ -40,6 +44,62 @@ export interface AnnotationView {
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface UpdateLlmConnectionRequest {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  baseUrl?: string;
+  /** @minLength 1 */
+  model?: string;
+  apiKey?: string;
+  credentialRef?: string;
+}
+
+export interface LlmConnectionView {
+  id?: string;
+  name?: string;
+  baseUrl?: string;
+  model?: string;
+  credentialRef?: string;
+  hasInlineKey?: boolean;
+  createdAt?: string;
+}
+
+export interface EnqueueJudgeRequest {
+  connectionId: string;
+  /** @minLength 1 */
+  evaluatorName?: string;
+  /** @minLength 1 */
+  criteria?: string;
+  evaluationParams?: string[];
+  minScore?: number;
+  maxScore?: number;
+  threshold?: number;
+}
+
+export type EvalJobViewStatus = typeof EvalJobViewStatus[keyof typeof EvalJobViewStatus];
+
+
+export const EvalJobViewStatus = {
+  PENDING: 'PENDING',
+  CLAIMED: 'CLAIMED',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
+
+export interface EvalJobView {
+  id?: string;
+  runId?: string;
+  connectionId?: string;
+  evaluatorName?: string;
+  status?: EvalJobViewStatus;
+  attemptCount?: number;
+  lastError?: string;
+  createdAt?: string;
+  claimedAt?: string;
+  completedAt?: string;
 }
 
 export type EvalDataMetadata = {[key: string]: { [key: string]: unknown }};
@@ -69,6 +129,10 @@ export interface ItemData {
   evalResults?: EvalData[];
   success?: boolean;
   datasetItemId?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsd?: number;
+  latencyMs?: number;
 }
 
 export interface AddItemsRequest {
@@ -93,6 +157,17 @@ export interface CreateRunRequest {
 
 export interface CreateRunResponse {
   runId?: string;
+}
+
+export interface CreateLlmConnectionRequest {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  baseUrl?: string;
+  /** @minLength 1 */
+  model?: string;
+  apiKey?: string;
+  credentialRef?: string;
 }
 
 export interface GateRequest {
@@ -196,6 +271,10 @@ export interface PromoteItem {
 export interface PromoteRequest {
   /** @minLength 1 */
   datasetName?: string;
+  /**
+   * @minLength 0
+   * @maxLength 2000
+   */
   description?: string;
   /** @minItems 1 */
   items?: PromoteItem[];
@@ -206,6 +285,7 @@ export type UpdateRunRequestStatus = typeof UpdateRunRequestStatus[keyof typeof 
 
 export const UpdateRunRequestStatus = {
   RUNNING: 'RUNNING',
+  EVALUATING: 'EVALUATING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
@@ -250,21 +330,25 @@ export interface ItemSummary {
   createdAt?: string;
   datasetItemId?: string;
   annotation?: AnnotationView;
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsd?: number;
+  latencyMs?: number;
 }
 
 export interface SortObject {
   empty?: boolean;
-  sorted?: boolean;
   unsorted?: boolean;
+  sorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
+  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
-  unpaged?: boolean;
 }
 
 export interface PageItemSummary {
@@ -286,6 +370,7 @@ export type RunDetailsStatus = typeof RunDetailsStatus[keyof typeof RunDetailsSt
 
 export const RunDetailsStatus = {
   RUNNING: 'RUNNING',
+  EVALUATING: 'EVALUATING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
@@ -307,7 +392,24 @@ export interface RunDetails {
   completedAt?: string;
   datasetVersionId?: string;
   datasetVersion?: number;
+  totalTokensIn?: number;
+  totalTokensOut?: number;
+  totalCostUsd?: number;
+  avgLatencyMs?: number;
   items?: PageItemSummary;
+}
+
+export interface EvaluatorAlignment {
+  evaluatorName?: string;
+  comparableCount?: number;
+  agreedCount?: number;
+  excludedUnsure?: number;
+  alignmentRate?: number;
+}
+
+export interface AlignmentView {
+  annotatedItems?: number;
+  evaluators?: EvaluatorAlignment[];
 }
 
 export interface ProjectSummary {
@@ -322,6 +424,7 @@ export type LatestRunInfoStatus = typeof LatestRunInfoStatus[keyof typeof Latest
 
 export const LatestRunInfoStatus = {
   RUNNING: 'RUNNING',
+  EVALUATING: 'EVALUATING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
@@ -360,6 +463,7 @@ export type RunSummaryStatus = typeof RunSummaryStatus[keyof typeof RunSummarySt
 
 export const RunSummaryStatus = {
   RUNNING: 'RUNNING',
+  EVALUATING: 'EVALUATING',
   SUCCESS: 'SUCCESS',
   FAILED: 'FAILED',
   CANCELLED: 'CANCELLED',
@@ -378,6 +482,10 @@ export interface RunSummary {
   completedAt?: string;
   datasetVersionId?: string;
   datasetVersion?: number;
+  totalTokensIn?: number;
+  totalTokensOut?: number;
+  totalCostUsd?: number;
+  avgLatencyMs?: number;
 }
 
 export interface EvaluatorDiff {

@@ -129,18 +129,19 @@ class ReporterIntegrationTest {
 
         assertThat(storedItems).hasSize(3);
 
-        // Verify the first item
-        var firstItem = storedItems.get(0);
-        assertThat(firstItem.getInput()).isEqualTo(Map.of("input", "What is the capital of France?"));
-        assertThat(firstItem.getExpectedOutput()).isEqualTo(Map.of("output", "Paris"));
-        assertThat(firstItem.getActualOutput()).isEqualTo(Map.of("output", "Paris"));
-        assertThat(firstItem.getEvalResults()).hasSize(2);
+        // Locate items by input rather than position: the batch flush gives all three the same
+        // createdAt, so ordering by createdAt leaves their relative order unspecified.
+        var franceItem = itemByInput(storedItems, "What is the capital of France?");
+        assertThat(franceItem.getInput()).isEqualTo(Map.of("input", "What is the capital of France?"));
+        assertThat(franceItem.getExpectedOutput()).isEqualTo(Map.of("output", "Paris"));
+        assertThat(franceItem.getActualOutput()).isEqualTo(Map.of("output", "Paris"));
+        assertThat(franceItem.getEvalResults()).hasSize(2);
 
         // The call metrics carried on the first item must round-trip into the stored row.
-        assertThat(firstItem.getTokensIn()).isEqualTo(100);
-        assertThat(firstItem.getTokensOut()).isEqualTo(50);
-        assertThat(firstItem.getCostUsd()).isCloseTo(0.002, org.assertj.core.data.Offset.offset(1e-9));
-        assertThat(firstItem.getLatencyMs()).isEqualTo(430L);
+        assertThat(franceItem.getTokensIn()).isEqualTo(100);
+        assertThat(franceItem.getTokensOut()).isEqualTo(50);
+        assertThat(franceItem.getCostUsd()).isCloseTo(0.002, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(franceItem.getLatencyMs()).isEqualTo(430L);
 
         // The run-level aggregates are materialized at completion from the single item that carried
         // metrics; the other two items contribute null and are ignored by SUM/AVG.
@@ -150,7 +151,7 @@ class ReporterIntegrationTest {
         assertThat(storedRun.getAvgLatencyMs()).isEqualTo(430.0);
 
         // Verify eval results for first item
-        var evalResults = firstItem.getEvalResults();
+        var evalResults = franceItem.getEvalResults();
         assertThat(evalResults)
                 .extracting(dev.dokimos.server.entity.EvalResult::getEvaluatorName)
                 .containsExactlyInAnyOrder("exact-match", "semantic-similarity");
@@ -170,10 +171,10 @@ class ReporterIntegrationTest {
         assertThat(semanticEval.getThreshold()).isEqualTo(0.8);
         assertThat(semanticEval.isSuccess()).isTrue();
 
-        // Verify third item (with failure)
-        var thirdItem = storedItems.get(2);
-        assertThat(thirdItem.getInput()).isEqualTo(Map.of("input", "Translate 'hello' to Spanish"));
-        var thirdItemEvals = thirdItem.getEvalResults();
+        // Verify the item that carried a failing eval.
+        var translateItem = itemByInput(storedItems, "Translate 'hello' to Spanish");
+        assertThat(translateItem.getInput()).isEqualTo(Map.of("input", "Translate 'hello' to Spanish"));
+        var thirdItemEvals = translateItem.getEvalResults();
         var failedEval = thirdItemEvals.stream()
                 .filter(e -> "exact-match".equals(e.getEvaluatorName()))
                 .findFirst()
@@ -239,19 +240,24 @@ class ReporterIntegrationTest {
 
         assertThat(storedItems).hasSize(2);
 
-        // Verify first item is stored correctly
-        var firstItem = storedItems.get(0);
-        assertThat(firstItem.getInput()).isEqualTo(Map.of("input", "Question 1"));
-        assertThat(firstItem.getActualOutput()).isEqualTo(Map.of("output", "Answer 1"));
-        assertThat(firstItem.getEvalResults()).hasSize(1);
-        assertThat(firstItem.getEvalResults().get(0).isSuccess()).isTrue();
+        // Locate items by input rather than position; the batch flush leaves their order unspecified.
+        var firstQuestion = itemByInput(storedItems, "Question 1");
+        assertThat(firstQuestion.getActualOutput()).isEqualTo(Map.of("output", "Answer 1"));
+        assertThat(firstQuestion.getEvalResults()).hasSize(1);
+        assertThat(firstQuestion.getEvalResults().get(0).isSuccess()).isTrue();
 
-        // Verify second item is stored correctly
-        var secondItem = storedItems.get(1);
-        assertThat(secondItem.getInput()).isEqualTo(Map.of("input", "Question 2"));
-        assertThat(secondItem.getActualOutput()).isEqualTo(Map.of("output", "Wrong Answer"));
-        assertThat(secondItem.getEvalResults()).hasSize(1);
-        assertThat(secondItem.getEvalResults().get(0).isSuccess()).isFalse();
+        var secondQuestion = itemByInput(storedItems, "Question 2");
+        assertThat(secondQuestion.getActualOutput()).isEqualTo(Map.of("output", "Wrong Answer"));
+        assertThat(secondQuestion.getEvalResults()).hasSize(1);
+        assertThat(secondQuestion.getEvalResults().get(0).isSuccess()).isFalse();
+    }
+
+    private static dev.dokimos.server.entity.ItemResult itemByInput(
+            List<dev.dokimos.server.entity.ItemResult> items, String input) {
+        return items.stream()
+                .filter(i -> Map.of("input", input).equals(i.getInput()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no stored item with input: " + input));
     }
 
     private ItemResult createItemResult(

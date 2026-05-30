@@ -2,6 +2,7 @@ package dev.dokimos.server.repository;
 
 import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.ItemResult;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -120,4 +121,57 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
             ORDER BY i.createdAt ASC, i.id ASC
             """)
     List<ItemResult> findByRunIdWithEvals(@Param("runId") UUID runId);
+
+    /**
+     * Page of items still awaiting a human verdict, optionally scoped to a project, experiment, or run.
+     * An item needs review when it carries no annotation or only an {@code UNSURE} one: the
+     * {@code NOT EXISTS} clause treats a {@code CORRECT}/{@code INCORRECT} annotation as resolved (there
+     * is at most one annotation per item). Run, experiment, and project are fetch-joined so the queue can
+     * render each item's context without a per-row lookup, and the null-guarded filters let the one query
+     * serve both the global queue and the scoped views.
+     *
+     * @param projectName  restrict to this project, or null for any
+     * @param experimentId restrict to this experiment, or null for any
+     * @param runId        restrict to this run, or null for any
+     * @param pageable     the page to return, ordered oldest-first
+     * @return the matching items, each with run, experiment, and project initialized
+     */
+    @Query(value = """
+                    SELECT i FROM ItemResult i
+                    JOIN FETCH i.run r
+                    JOIN FETCH r.experiment e
+                    JOIN FETCH e.project p
+                    WHERE (:projectName IS NULL OR p.name = :projectName)
+                    AND (:experimentId IS NULL OR e.id = :experimentId)
+                    AND (:runId IS NULL OR r.id = :runId)
+                    AND NOT EXISTS (
+                        SELECT a FROM Annotation a
+                        WHERE a.itemResult = i AND a.verdict <> dev.dokimos.server.entity.AnnotationVerdict.UNSURE
+                    )
+                    ORDER BY i.createdAt ASC, i.id ASC
+                    """, countQuery = """
+                    SELECT COUNT(i) FROM ItemResult i
+                    WHERE (:projectName IS NULL OR i.run.experiment.project.name = :projectName)
+                    AND (:experimentId IS NULL OR i.run.experiment.id = :experimentId)
+                    AND (:runId IS NULL OR i.run.id = :runId)
+                    AND NOT EXISTS (
+                        SELECT a FROM Annotation a
+                        WHERE a.itemResult = i AND a.verdict <> dev.dokimos.server.entity.AnnotationVerdict.UNSURE
+                    )
+                    """)
+    Page<ItemResult> findItemsNeedingReview(
+            @Param("projectName") String projectName,
+            @Param("experimentId") UUID experimentId,
+            @Param("runId") UUID runId,
+            Pageable pageable);
+
+    /**
+     * Loads the given items with their eval results fetch-joined, used to initialize the lazy
+     * {@code evalResults} collection on a page of items in one query rather than per row.
+     *
+     * @param ids the item ids to load
+     * @return the items with eval results initialized
+     */
+    @Query("SELECT DISTINCT i FROM ItemResult i LEFT JOIN FETCH i.evalResults WHERE i.id IN :ids")
+    List<ItemResult> findAllWithEvalsByIdIn(@Param("ids") Collection<UUID> ids);
 }

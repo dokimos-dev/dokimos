@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public class TaskCompletionEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
 
     private final JudgeLM judge;
     private final String tasksKey;

@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LLMJudgeEvaluator extends BaseEvaluator {
     private static final Logger LOGGER = LoggerFactory.getLogger(LLMJudgeEvaluator.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private final String criteria;
     private final double minScore;
     private final double maxScore;

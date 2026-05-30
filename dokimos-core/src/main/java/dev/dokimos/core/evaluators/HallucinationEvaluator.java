@@ -20,7 +20,7 @@ import java.util.List;
  */
 public class HallucinationEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private final String contextKey;
     private final JudgeLM judge;
     private final boolean includeReason;

@@ -42,7 +42,7 @@ import java.util.Map;
  */
 public class ContextualRelevanceEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private static final String DEFAULT_RETRIEVAL_CONTEXT_KEY = "retrievalContext";
 
     private final String retrievalContextKey;

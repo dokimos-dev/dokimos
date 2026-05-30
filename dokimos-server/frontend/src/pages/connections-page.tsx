@@ -11,6 +11,7 @@ import type {
   CreateLlmConnectionRequest,
   UpdateLlmConnectionRequest,
 } from "@/lib/api/generated.schemas";
+import { CreateLlmConnectionRequestProtocol } from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -259,6 +260,10 @@ function ConnectionDialog({
     connection?.baseUrl ?? DEFAULT_BASE_URL
   );
   const [model, setModel] = useState(connection?.model ?? DEFAULT_MODEL);
+  const [protocol, setProtocol] = useState<CreateLlmConnectionRequestProtocol>(
+    (connection?.protocol as CreateLlmConnectionRequestProtocol) ??
+      CreateLlmConnectionRequestProtocol.RESPONSES
+  );
   const [apiKey, setApiKey] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -300,6 +305,7 @@ function ConnectionDialog({
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           model: model.trim(),
+          protocol,
         };
         if (apiKey.trim()) {
           payload.apiKey = apiKey.trim();
@@ -310,6 +316,7 @@ function ConnectionDialog({
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           model: model.trim(),
+          protocol,
           apiKey: apiKey.trim() || undefined,
         };
         await createTrigger(payload);
@@ -390,6 +397,29 @@ function ConnectionDialog({
             className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
             required
           />
+        </div>
+        <div className="mb-3">
+          <label
+            htmlFor="conn-protocol"
+            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
+          >
+            API
+          </label>
+          <select
+            id="conn-protocol"
+            value={protocol}
+            onChange={(e) =>
+              setProtocol(e.target.value as CreateLlmConnectionRequestProtocol)
+            }
+            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
+          >
+            <option value={CreateLlmConnectionRequestProtocol.RESPONSES}>
+              Responses (recommended)
+            </option>
+            <option value={CreateLlmConnectionRequestProtocol.CHAT_COMPLETIONS}>
+              Chat Completions
+            </option>
+          </select>
         </div>
         <div className="mb-3">
           <label

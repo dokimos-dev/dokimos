@@ -26,6 +26,10 @@ import JsonDisplay from "@/components/shared/json-display";
 import Pagination from "@/components/shared/pagination";
 import AnnotationControls from "@/components/runs/annotation-controls";
 import PromoteDialog from "@/components/runs/promote-dialog";
+import AlignmentCard from "@/components/runs/alignment-card";
+import JudgeJobs from "@/components/runs/judge-jobs";
+import JudgeDialog from "@/components/runs/judge-dialog";
+import { RunMetricCards, ItemMetrics } from "@/components/runs/run-metrics";
 
 function formatDuration(
   startedAt: string | undefined,
@@ -96,6 +100,7 @@ export default function RunPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const [promoteItemId, setPromoteItemId] = useState<string | null>(null);
+  const [judgeDialogOpen, setJudgeDialogOpen] = useState(false);
 
   const {
     data: response,
@@ -226,11 +231,16 @@ export default function RunPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">
-        {run.startedAt
-          ? `Run ${format(new Date(run.startedAt), "MMM d, h:mm a")}`
-          : "Run"}
-      </h1>
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <h1 className="text-2xl font-bold">
+          {run.startedAt
+            ? `Run ${format(new Date(run.startedAt), "MMM d, h:mm a")}`
+            : "Run"}
+        </h1>
+        <Button variant="outline" onClick={() => setJudgeDialogOpen(true)}>
+          Run LLM judge
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
@@ -264,6 +274,12 @@ export default function RunPage() {
           </CardContent>
         </Card>
       </div>
+
+      <RunMetricCards run={run} />
+
+      <AlignmentCard runId={run.id ?? ""} />
+
+      <JudgeJobs runId={run.id ?? ""} />
 
       {items.length === 0 ? (
         <p className="text-muted-foreground">No items in this run.</p>
@@ -367,6 +383,12 @@ export default function RunPage() {
                                 </h4>
                                 <JsonDisplay data={item.actualOutput} />
                               </div>
+                              <ItemMetrics
+                                tokensIn={item.tokensIn}
+                                tokensOut={item.tokensOut}
+                                costUsd={item.costUsd}
+                                latencyMs={item.latencyMs}
+                              />
                               {item.evalResults &&
                                 item.evalResults.length > 0 && (
                                   <div>
@@ -470,6 +492,13 @@ export default function RunPage() {
           )}
         </>
       )}
+
+      <JudgeDialog
+        open={judgeDialogOpen}
+        onClose={() => setJudgeDialogOpen(false)}
+        runId={run.id ?? ""}
+        onEnqueued={() => mutate()}
+      />
     </div>
   );
 }

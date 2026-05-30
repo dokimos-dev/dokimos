@@ -16,6 +16,11 @@ public interface EvalJobRepository extends JpaRepository<EvalJob, UUID> {
 
     boolean existsByRunAndEvaluatorName(ExperimentRun run, String evaluatorName);
 
+    /** Removes the queue records for a connection. The eval results those jobs produced are untouched. */
+    @Modifying
+    @Query("DELETE FROM EvalJob j WHERE j.connection.id = :connectionId")
+    void deleteByConnectionId(@Param("connectionId") UUID connectionId);
+
     List<EvalJob> findByRunOrderByCreatedAtAsc(ExperimentRun run);
 
     /**

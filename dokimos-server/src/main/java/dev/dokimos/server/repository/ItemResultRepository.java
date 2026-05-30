@@ -128,11 +128,15 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
      * {@code NOT EXISTS} clause treats a {@code CORRECT}/{@code INCORRECT} annotation as resolved (there
      * is at most one annotation per item). Run, experiment, and project are fetch-joined so the queue can
      * render each item's context without a per-row lookup, and the null-guarded filters let the one query
-     * serve both the global queue and the scoped views.
+     * serve both the global queue and the scoped views. The tenant predicate filters on the item's own
+     * stamped tenant so a reviewer only sees items of their own tenant plus shared (null-tenant) items;
+     * it is applied to both the page query and the count query so paging metadata stays consistent.
      *
      * @param projectName  restrict to this project, or null for any
      * @param experimentId restrict to this experiment, or null for any
      * @param runId        restrict to this run, or null for any
+     * @param restricted   whether the tenant predicate applies; false sees every tenant
+     * @param tenantId     the tenant to filter by when restricted, or null for shared-only
      * @param pageable     the page to return, ordered oldest-first
      * @return the matching items, each with run, experiment, and project initialized
      */
@@ -144,6 +148,7 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
                     WHERE (:projectName IS NULL OR p.name = :projectName)
                     AND (:experimentId IS NULL OR e.id = :experimentId)
                     AND (:runId IS NULL OR r.id = :runId)
+                    AND (:restricted = false OR i.tenantId = :tenantId OR i.tenantId IS NULL)
                     AND NOT EXISTS (
                         SELECT a FROM Annotation a
                         WHERE a.itemResult = i AND a.verdict <> dev.dokimos.server.entity.AnnotationVerdict.UNSURE
@@ -154,6 +159,7 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
                     WHERE (:projectName IS NULL OR i.run.experiment.project.name = :projectName)
                     AND (:experimentId IS NULL OR i.run.experiment.id = :experimentId)
                     AND (:runId IS NULL OR i.run.id = :runId)
+                    AND (:restricted = false OR i.tenantId = :tenantId OR i.tenantId IS NULL)
                     AND NOT EXISTS (
                         SELECT a FROM Annotation a
                         WHERE a.itemResult = i AND a.verdict <> dev.dokimos.server.entity.AnnotationVerdict.UNSURE
@@ -163,6 +169,8 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
             @Param("projectName") String projectName,
             @Param("experimentId") UUID experimentId,
             @Param("runId") UUID runId,
+            @Param("restricted") boolean restricted,
+            @Param("tenantId") String tenantId,
             Pageable pageable);
 
     /**

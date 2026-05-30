@@ -111,6 +111,7 @@ public class JudgeJobTransactions {
     public void persistPage(UUID jobId, List<ScoredResult> results, UUID lastItemId) {
         for (ScoredResult scored : results) {
             ItemResult item = itemResultRepository.getReferenceById(scored.itemId());
+            scored.evalResult().setTenantId(item.getTenantId());
             item.addEvalResult(scored.evalResult());
             evalResultRepository.save(scored.evalResult());
         }

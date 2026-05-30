@@ -9,6 +9,7 @@ import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.AnnotationRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +44,14 @@ public class ReviewQueueService {
      * @param experimentId restrict to this experiment, or null for any
      * @param runId        restrict to this run, or null for any
      * @param pageable     the page to return
+     * @param scope        the tenant scope the caller reads under
      * @return the page of review items
      */
     @Transactional(readOnly = true)
-    public Page<ReviewQueueItem> list(String projectName, UUID experimentId, UUID runId, Pageable pageable) {
-        Page<ItemResult> page = itemResultRepository.findItemsNeedingReview(projectName, experimentId, runId, pageable);
+    public Page<ReviewQueueItem> list(
+            String projectName, UUID experimentId, UUID runId, Pageable pageable, TenantScope scope) {
+        Page<ItemResult> page = itemResultRepository.findItemsNeedingReview(
+                projectName, experimentId, runId, scope.restricted(), scope.tenantId(), pageable);
 
         Map<UUID, AnnotationVerdict> verdictByItem = new HashMap<>();
         List<ItemResult> items = page.getContent();

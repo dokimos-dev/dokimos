@@ -30,7 +30,8 @@ public record RunDetails(
             Map<String, Object> metadata,
             List<EvalSummary> evalResults,
             Instant createdAt,
-            UUID datasetItemId) {}
+            UUID datasetItemId,
+            AnnotationView annotation) {}
 
     public record EvalSummary(
             UUID id, String evaluatorName, double score, Double threshold, boolean success, String reason) {}

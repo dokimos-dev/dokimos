@@ -30,7 +30,8 @@ import type {
   DatasetSummary,
   DatasetVersionDetails,
   ListItemsParams,
-  PageResponseDatasetItemView
+  PageResponseDatasetItemView,
+  PromoteRequest
 } from '../generated.schemas';
 
 
@@ -133,6 +134,42 @@ export const useCreateVersion = <TError = AxiosError<unknown>>(
 
   const swrKey = swrOptions?.swrKey ?? getCreateVersionMutationKey(name);
   const swrFn = getCreateVersionMutationFetcher(name, axiosOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+export const promote = (
+    promoteRequest: PromoteRequest, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<DatasetVersionDetails>> => {
+    return axios.default.post(
+      `/api/v1/datasets/promote`,
+      promoteRequest,options
+    );
+  }
+
+
+
+export const getPromoteMutationFetcher = ( options?: AxiosRequestConfig) => {
+  return (_: Key, { arg }: { arg: PromoteRequest }) => {
+    return promote(arg, options);
+  }
+}
+export const getPromoteMutationKey = () => [`/api/v1/datasets/promote`] as const;
+
+export type PromoteMutationResult = NonNullable<Awaited<ReturnType<typeof promote>>>
+
+export const usePromote = <TError = AxiosError<unknown>>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof promote>>, TError, Key, PromoteRequest, Awaited<ReturnType<typeof promote>>> & { swrKey?: string }, axios?: AxiosRequestConfig}
+) => {
+
+  const {swr: swrOptions, axios: axiosOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getPromoteMutationKey();
+  const swrFn = getPromoteMutationFetcher(axiosOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions)
 

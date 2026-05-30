@@ -2,6 +2,7 @@ package dev.dokimos.server.controller;
 
 import java.time.Instant;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -92,6 +93,21 @@ public class GlobalExceptionHandler {
                 .body(Map.of(
                         "error", ex.getStatusCode().toString(),
                         "message", ex.getReason() != null ? ex.getReason() : "Request failed",
+                        "timestamp", Instant.now().toString()));
+    }
+
+    /**
+     * Maps a database constraint violation to a 409 rather than a 500. This covers the rare race
+     * where two concurrent writes both try to create a row guarded by a unique constraint (for
+     * example two simultaneous first-time annotations on the same item result); the loser gets a
+     * clean conflict it can retry instead of an opaque server error.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of(
+                        "error", "Conflict",
+                        "message", "The resource was modified concurrently; retry the request",
                         "timestamp", Instant.now().toString()));
     }
 

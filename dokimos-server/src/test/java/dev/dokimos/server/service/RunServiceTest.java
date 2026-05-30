@@ -59,12 +59,20 @@ class RunServiceTest {
     @Mock
     private DatasetItemRepository datasetItemRepository;
 
+    @Mock
+    private dev.dokimos.server.repository.AnnotationRepository annotationRepository;
+
     private RunService runService;
 
     @BeforeEach
     void setUp() {
         runService = new RunService(
-                runRepository, itemResultRepository, ingestedBatchRepository, datasetService, datasetItemRepository);
+                runRepository,
+                itemResultRepository,
+                ingestedBatchRepository,
+                datasetService,
+                datasetItemRepository,
+                annotationRepository);
     }
 
     @Test

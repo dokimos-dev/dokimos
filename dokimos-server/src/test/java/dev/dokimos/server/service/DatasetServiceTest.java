@@ -7,11 +7,14 @@ import dev.dokimos.server.dto.v1.CreateRunRequest;
 import dev.dokimos.server.dto.v1.CreateVersionRequest;
 import dev.dokimos.server.dto.v1.DatasetDetails;
 import dev.dokimos.server.dto.v1.DatasetSummary;
+import dev.dokimos.server.dto.v1.DatasetVersionDetails;
+import dev.dokimos.server.dto.v1.PromoteRequest;
 import dev.dokimos.server.entity.Dataset;
 import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
+import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.DatasetRepository;
@@ -50,8 +53,9 @@ class DatasetServiceTest {
         DatasetService datasetService(
                 DatasetRepository datasetRepository,
                 DatasetVersionRepository versionRepository,
-                DatasetItemRepository itemRepository) {
-            return new DatasetService(datasetRepository, versionRepository, itemRepository);
+                DatasetItemRepository itemRepository,
+                ItemResultRepository itemResultRepository) {
+            return new DatasetService(datasetRepository, versionRepository, itemRepository, itemResultRepository);
         }
 
         @org.springframework.context.annotation.Bean
@@ -60,13 +64,15 @@ class DatasetServiceTest {
                 ItemResultRepository itemResultRepository,
                 IngestedBatchRepository ingestedBatchRepository,
                 DatasetService datasetService,
-                DatasetItemRepository datasetItemRepository) {
+                DatasetItemRepository datasetItemRepository,
+                dev.dokimos.server.repository.AnnotationRepository annotationRepository) {
             return new RunService(
                     runRepository,
                     itemResultRepository,
                     ingestedBatchRepository,
                     datasetService,
-                    datasetItemRepository);
+                    datasetItemRepository,
+                    annotationRepository);
         }
     }
 
@@ -96,6 +102,9 @@ class DatasetServiceTest {
 
     @Autowired
     private ExperimentRunRepository runRepository;
+
+    @Autowired
+    private ItemResultRepository itemResultRepository;
 
     @Autowired
     private jakarta.persistence.EntityManagerFactory entityManagerFactory;
@@ -304,6 +313,61 @@ class DatasetServiceTest {
 
         ExperimentRun reloaded = runRepository.findById(created.getId()).orElseThrow();
         assertThat(reloaded.getDatasetVersion()).isNull();
+    }
+
+    @Test
+    void promote_createsNewVersionWithOverrideAndFallback() {
+        datasetService.createDataset("qa", null);
+
+        ItemResult overridden = newItemResult(Map.of("q", "one"), Map.of("a", "orig one"), Map.of("tag", "t1"));
+        ItemResult fallback = newItemResult(Map.of("q", "two"), Map.of("a", "orig two"), null);
+
+        PromoteRequest request = new PromoteRequest(
+                "qa",
+                "promoted from review",
+                List.of(
+                        new PromoteRequest.PromoteItem(overridden.getId(), Map.of("a", "corrected one")),
+                        new PromoteRequest.PromoteItem(fallback.getId(), null)));
+
+        DatasetVersionDetails details = datasetService.promote(request, "alice");
+
+        assertThat(details.datasetName()).isEqualTo("qa");
+        assertThat(details.version()).isEqualTo(1);
+        assertThat(details.itemCount()).isEqualTo(2);
+        assertThat(details.createdBy()).isEqualTo("alice");
+
+        DatasetVersion version = datasetService.getVersion("qa", 1);
+        List<DatasetItem> items = itemRepository
+                .findByDatasetVersionOrderByOrdinalAsc(version, PageRequest.of(0, 10))
+                .getContent();
+
+        // Order preserved: ordinal 0 is the overridden item, ordinal 1 is the fallback.
+        assertThat(items.get(0).getInputs()).containsEntry("q", "one");
+        assertThat(items.get(0).getExpectedOutputs()).containsEntry("a", "corrected one");
+        assertThat(items.get(0).getMetadata()).containsEntry("tag", "t1");
+        assertThat(items.get(1).getInputs()).containsEntry("q", "two");
+        // No override supplied, so the item result's expected output is carried over.
+        assertThat(items.get(1).getExpectedOutputs()).containsEntry("a", "orig two");
+    }
+
+    @Test
+    void promote_missingItemResultRaisesNotFound() {
+        datasetService.createDataset("qa", null);
+
+        PromoteRequest request = new PromoteRequest(
+                "qa", null, List.of(new PromoteRequest.PromoteItem(java.util.UUID.randomUUID(), null)));
+
+        assertThatThrownBy(() -> datasetService.promote(request, "alice"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Item result not found");
+    }
+
+    private ItemResult newItemResult(
+            Map<String, Object> input, Map<String, Object> expectedOutput, Map<String, Object> metadata) {
+        Project project = projectRepository.save(new Project("p-" + java.util.UUID.randomUUID()));
+        Experiment experiment = experimentRepository.save(new Experiment(project, "e-" + java.util.UUID.randomUUID()));
+        ExperimentRun run = runRepository.save(new ExperimentRun(experiment, null));
+        return itemResultRepository.save(new ItemResult(run, input, expectedOutput, Map.of("a", "actual"), metadata));
     }
 
     private List<CreateVersionRequest.ItemPayload> twoItems() {

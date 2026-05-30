@@ -7,6 +7,7 @@ import dev.dokimos.server.dto.v1.DatasetItemView;
 import dev.dokimos.server.dto.v1.DatasetSummary;
 import dev.dokimos.server.dto.v1.DatasetVersionDetails;
 import dev.dokimos.server.dto.v1.PageResponse;
+import dev.dokimos.server.dto.v1.PromoteRequest;
 import dev.dokimos.server.entity.Dataset;
 import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
@@ -90,6 +91,20 @@ public class DatasetController {
         DatasetVersion version = datasetService.createVersion(name, request.description(), request.items(), createdBy);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
                 .body(toDetails(version, name));
+    }
+
+    /**
+     * Promotes run item results into a new immutable version of an existing dataset. Returns 201 with
+     * a {@code Location} header pointing at the new version. The {@code created_by} field is taken
+     * from the authenticated principal when present.
+     */
+    @PostMapping("/promote")
+    public ResponseEntity<DatasetVersionDetails> promote(
+            @Valid @RequestBody PromoteRequest request, HttpServletRequest http) {
+        DatasetVersionDetails details = datasetService.promote(request, currentPrincipalId(http));
+        return ResponseEntity.created(
+                        URI.create("/api/v1/datasets/" + details.datasetName() + "/versions/" + details.version()))
+                .body(details);
     }
 
     /**

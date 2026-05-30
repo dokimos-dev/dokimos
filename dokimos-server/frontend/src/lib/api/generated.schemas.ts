@@ -46,6 +46,22 @@ export interface AnnotationView {
   updatedAt?: string;
 }
 
+export interface UpdateAlertWebhookRequest {
+  /** @minLength 1 */
+  url?: string;
+  secret?: string;
+  enabled?: boolean;
+}
+
+export interface AlertWebhookView {
+  id?: string;
+  projectId?: string;
+  url?: string;
+  hasSecret?: boolean;
+  enabled?: boolean;
+  createdAt?: string;
+}
+
 export type UpdateLlmConnectionRequestProtocol = typeof UpdateLlmConnectionRequestProtocol[keyof typeof UpdateLlmConnectionRequestProtocol];
 
 
@@ -175,6 +191,13 @@ export interface CreateRunRequest {
 
 export interface CreateRunResponse {
   runId?: string;
+}
+
+export interface CreateAlertWebhookRequest {
+  /** @minLength 1 */
+  url?: string;
+  secret?: string;
+  enabled?: boolean;
 }
 
 export type CreateLlmConnectionRequestProtocol = typeof CreateLlmConnectionRequestProtocol[keyof typeof CreateLlmConnectionRequestProtocol];

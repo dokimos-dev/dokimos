@@ -36,7 +36,7 @@ public class AlertWebhookController {
 
     /** Registers a webhook for the project. Returns 201 with a {@code Location} header. */
     @PostMapping
-    public ResponseEntity<AlertWebhookView> create(
+    public ResponseEntity<AlertWebhookView> createAlertWebhook(
             @PathVariable UUID projectId, @Valid @RequestBody CreateAlertWebhookRequest request) {
         AlertWebhookView view = webhookService.create(projectId, request);
         return ResponseEntity.created(URI.create("/api/v1/projects/" + projectId + "/alert-webhooks/" + view.id()))
@@ -45,19 +45,19 @@ public class AlertWebhookController {
 
     /** Lists the project's webhooks. The signing secret is never included. */
     @GetMapping
-    public List<AlertWebhookView> list(@PathVariable UUID projectId) {
+    public List<AlertWebhookView> listAlertWebhooks(@PathVariable UUID projectId) {
         return webhookService.list(projectId);
     }
 
     /** Returns one webhook, or 404 if the project or webhook does not exist. */
     @GetMapping("/{webhookId}")
-    public AlertWebhookView get(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
+    public AlertWebhookView getAlertWebhook(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
         return webhookService.get(projectId, webhookId);
     }
 
     /** Updates a webhook. Returns 404 if the project or webhook does not exist. */
     @PutMapping("/{webhookId}")
-    public AlertWebhookView update(
+    public AlertWebhookView updateAlertWebhook(
             @PathVariable UUID projectId,
             @PathVariable UUID webhookId,
             @Valid @RequestBody UpdateAlertWebhookRequest request) {
@@ -67,7 +67,7 @@ public class AlertWebhookController {
     /** Deletes a webhook. Returns 404 if the project or webhook does not exist. */
     @DeleteMapping("/{webhookId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
+    public void deleteAlertWebhook(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
         webhookService.delete(projectId, webhookId);
     }
 }

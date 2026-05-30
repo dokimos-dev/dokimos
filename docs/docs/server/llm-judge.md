@@ -46,9 +46,10 @@ Jobs are processed by a background worker that claims one job at a time, calls t
 
 ## Judge and human agreement
 
-When you annotate items with a human verdict (correct, incorrect, unsure), the run page shows per evaluator agreement between the judge and the human. It is the share of annotated items where the judge's pass or fail matched the human verdict, with unsure annotations excluded. Use it to see where a judge is reliable and where it is not before you trust it on unlabeled data.
+When you annotate items with a human verdict (correct, incorrect, unsure), the run page shows per evaluator agreement between the judge and the human. It is the share of annotated items where the judge's pass or fail matched the human verdict, with unsure annotations excluded. Use it to see where a judge is reliable and where it is not before you trust it on unlabeled data. Annotating is part of the [review and curation](./curation) flow.
 
 ## Next steps
 
 - [Production traces](./traces): evaluate production traces as they arrive
+- [Review and curation](./curation): annotate items and check the judge against human verdicts
 - [Configuration](./configuration): judge and encryption settings

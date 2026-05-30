@@ -33,6 +33,10 @@ function errorMessage(err: unknown, fallback: string): string {
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_MODEL = "gpt-4o-mini";
 
+function protocolLabel(protocol: string | undefined): string {
+  return protocol === "CHAT_COMPLETIONS" ? "Chat Completions" : "Responses";
+}
+
 export default function ConnectionsPage() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const [createOpen, setCreateOpen] = useState(false);
@@ -180,6 +184,9 @@ function ConnectionRow({ connection, onEdit, onChanged }: ConnectionRowProps) {
           </p>
           <p className="text-xs text-muted-foreground truncate mt-1">
             {connection.baseUrl}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            API: {protocolLabel(connection.protocol)}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Credential: {credentialSource}

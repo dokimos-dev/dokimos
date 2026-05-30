@@ -299,8 +299,8 @@ export default function RunPage() {
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="max-w-xs align-top">
+                          <div className="flex items-center gap-2 min-w-0">
                             {item.annotation?.verdict && (
                               <VerdictChip verdict={item.annotation.verdict} />
                             )}
@@ -310,13 +310,13 @@ export default function RunPage() {
                             />
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="max-w-xs align-top">
                           <TruncatedText
                             text={stringify(item.expectedOutput, "—")}
                             maxLength={80}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="max-w-xs align-top">
                           <TruncatedText
                             text={stringify(item.actualOutput)}
                             maxLength={80}
@@ -412,7 +412,7 @@ export default function RunPage() {
                                               </span>
                                             </div>
                                             {evalResult.reason && (
-                                              <p className="text-muted-foreground mt-2">
+                                              <p className="text-muted-foreground mt-2 break-words">
                                                 {evalResult.reason}
                                               </p>
                                             )}

@@ -4,7 +4,9 @@ sidebar_position: 1
 
 # Server Overview
 
-The Dokimos server stores your experiment results and provides a web UI to view, compare, and track quality over time.
+The Dokimos server is the production eval loop around your experiments. It stores run results and provides a web UI to view, compare, and track quality over time, and it closes the loop: hold datasets centrally and pin tests to a version, fail a build when a run regresses, score runs and production traces with an LLM judge, and turn evaluator misses back into new dataset versions.
+
+The loop, end to end: pin a test to a [server dataset](./datasets) version, report the run, [gate it](./ci-gate) against its baseline in CI, [score](./llm-judge) runs and [production traces](./traces) with a judge, get [alerted](./alerting) on a regression, then [review and curate](./curation) the misses into the next dataset version.
 
 ## How It Works
 

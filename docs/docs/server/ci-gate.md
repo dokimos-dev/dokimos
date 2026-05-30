@@ -63,3 +63,9 @@ A composite action under `.github/actions/eval-gate` calls the endpoint, writes 
 ```
 
 `candidate-run-id` is the run id returned when your test job reported results through `DokimosServerReporter`. Set `fail-on-regression: "false"` to comment without blocking the merge, or `comment: "false"` to skip the PR comment.
+
+## Next steps
+
+- [Comparing runs](./diff): read the same comparison item by item in the web UI
+- [Regression alerting](./alerting): get a webhook on the same regression the gate fails on
+- [Server datasets](./datasets): pin a run to a dataset version so the gate compares like for like

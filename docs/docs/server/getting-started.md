@@ -7,7 +7,7 @@ sidebar_position: 2
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get the Dokimos server running in under a minute. No building, no cloning—just Docker.
+Get the Dokimos server running in under a minute. No building, no cloning, just Docker.
 
 ## Start the Server
 
@@ -164,9 +164,19 @@ docker compose down -v
 
 ## Next Steps
 
+You have reported one run. The server is built to close the loop around it, so quality holds steady as your app changes:
+
+- [Server datasets](./datasets): hold this dataset on the server and pin the test to an exact version
+- [CI regression gate](./ci-gate): fail the build when a run regresses against its baseline
+- [LLM judge](./llm-judge): score runs and traces on the server with an LLM as judge
+- [Production traces](./traces): ingest OTLP traces from your running app and evaluate them online
+- [Review and curation](./curation): turn the items evaluators got wrong into the next dataset version
+
+Operating the server:
+
 - [Configuration](./configuration): Customize settings and environment variables
 - [Deployment](./deployment): Share with your team or run in production
-- [Authentication](./authentication): Secure write operations with an API key
+- [Authentication](./authentication): Secure write operations and scope API keys by role
 - [Client](./client): Advanced reporter configuration
 
 ---

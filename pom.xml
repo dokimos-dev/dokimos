@@ -167,6 +167,13 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.4</version>
+                    <configuration>
+                        <!-- Resolve integration tests against the exploded classes rather than the
+                             module artifact. The server module's Spring Boot repackage rewrites its jar
+                             so main classes live under BOOT-INF/classes, which failsafe cannot load;
+                             pointing at target/classes keeps integration tests working there. -->
+                        <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>

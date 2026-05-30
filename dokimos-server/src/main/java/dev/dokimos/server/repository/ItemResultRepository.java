@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
 
@@ -37,4 +38,33 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
                         AND EXISTS (SELECT e FROM EvalResult e WHERE e.itemResult = i)
                         """)
     long countItemsWithAllEvalsPassed(ExperimentRun run);
+
+    /**
+     * Seek-based page of run items that carry no eval result for the given evaluator yet. Items are
+     * ordered by id so the worker can page forward by passing the last id it saw as {@code afterId};
+     * the {@code NOT EXISTS} filter is scoped by evaluator name so adding an evaluator to a previously
+     * scored run still picks up every item for that evaluator. Pass the all-zero UUID for the first
+     * page.
+     *
+     * @param runId         the run whose items to scan
+     * @param evaluatorName the evaluator whose results gate the scan
+     * @param afterId       the seek cursor; rows with a strictly greater id are returned
+     * @param pageable      a one-page request bounding the result size
+     * @return the next page of unevaluated items, ordered by id
+     */
+    @Query("""
+            SELECT i FROM ItemResult i
+            WHERE i.run.id = :runId
+            AND i.id > :afterId
+            AND NOT EXISTS (
+                SELECT e FROM EvalResult e
+                WHERE e.itemResult = i AND e.evaluatorName = :evaluatorName
+            )
+            ORDER BY i.id ASC
+            """)
+    List<ItemResult> findItemsNotYetEvaluated(
+            @Param("runId") UUID runId,
+            @Param("evaluatorName") String evaluatorName,
+            @Param("afterId") UUID afterId,
+            Pageable pageable);
 }

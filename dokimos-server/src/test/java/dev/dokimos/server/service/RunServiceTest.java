@@ -264,6 +264,22 @@ class RunServiceTest {
     }
 
     @Test
+    void updateRun_shouldRejectClientTransitionWhileEvaluating() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.EVALUATING);
+        setField(run, "id", runId);
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("evaluating");
+
+        verify(runRepository, never()).save(any(ExperimentRun.class));
+    }
+
+    @Test
     void updateRun_shouldThrowWhenIdIsNull() {
         assertThatThrownBy(() -> runService.updateRun(null, new UpdateRunRequest(RunStatus.SUCCESS)))
                 .isInstanceOf(IllegalArgumentException.class)

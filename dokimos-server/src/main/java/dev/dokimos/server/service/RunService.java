@@ -185,11 +185,54 @@ public class RunService {
     @Transactional
     public void updateRun(UUID runId, UpdateRunRequest request) {
         ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() == RunStatus.EVALUATING) {
+            throw new IllegalStateException(
+                    "Run " + runId + " is evaluating; its status is managed by the judge worker");
+        }
         run.setStatus(request.status());
         if (request.status() != RunStatus.RUNNING) {
             run.setCompletedAt(Instant.now());
             materializeCounts(run);
         }
+        runRepository.save(run);
+    }
+
+    /**
+     * Finalizes a run whose judge job has finished scoring: re-computes the materialized pass-rate
+     * fields and moves the run to SUCCESS. The run row is locked so the finalization serializes against
+     * any concurrent ingestion or status update.
+     *
+     * @param runId the run to finalize
+     * @throws IllegalArgumentException if the run does not exist
+     */
+    @Transactional
+    public void finalizeEvaluatedRun(UUID runId) {
+        ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() != RunStatus.EVALUATING) {
+            return;
+        }
+        materializeCounts(run);
+        run.setStatus(RunStatus.SUCCESS);
+        run.setCompletedAt(Instant.now());
+        runRepository.save(run);
+    }
+
+    /**
+     * Moves an evaluating run to FAILED when its judge job has terminally failed, so the run does not
+     * stay stuck in EVALUATING. No-op if the run is no longer EVALUATING.
+     *
+     * @param runId the run to fail
+     * @throws IllegalArgumentException if the run does not exist
+     */
+    @Transactional
+    public void failEvaluatedRun(UUID runId) {
+        ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() != RunStatus.EVALUATING) {
+            return;
+        }
+        materializeCounts(run);
+        run.setStatus(RunStatus.FAILED);
+        run.setCompletedAt(Instant.now());
         runRepository.save(run);
     }
 
@@ -215,7 +258,7 @@ public class RunService {
         long totalItems;
         long passedItems;
         Double passRate;
-        if (run.getStatus() == RunStatus.RUNNING) {
+        if (run.getStatus() == RunStatus.RUNNING || run.getStatus() == RunStatus.EVALUATING) {
             totalItems = itemResultRepository.countByRun(run);
             passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
             passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
@@ -271,7 +314,7 @@ public class RunService {
         long totalItems;
         long passedItems;
         Double passRate;
-        if (run.getStatus() == RunStatus.RUNNING) {
+        if (run.getStatus() == RunStatus.RUNNING || run.getStatus() == RunStatus.EVALUATING) {
             totalItems = itemResultRepository.countByRun(run);
             passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
             passRate = totalItems > 0 ? (double) passedItems / totalItems : null;

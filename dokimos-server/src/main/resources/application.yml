@@ -3,6 +3,11 @@ server:
 
 dokimos:
   api-key: ${DOKIMOS_API_KEY:}
+  encryption-key: ${DOKIMOS_ENCRYPTION_KEY:}
+  judge:
+    poll-interval-ms: ${DOKIMOS_JUDGE_POLL_INTERVAL_MS:5000}
+    max-attempts: ${DOKIMOS_JUDGE_MAX_ATTEMPTS:3}
+    page-size: ${DOKIMOS_JUDGE_PAGE_SIZE:50}
 
 spring:
   application:

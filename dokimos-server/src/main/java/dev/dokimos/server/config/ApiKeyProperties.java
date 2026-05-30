@@ -19,12 +19,26 @@ public class ApiKeyProperties {
 
     private String apiKey;
 
+    private String encryptionKey;
+
     public String getApiKey() {
         return apiKey;
     }
 
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
+    }
+
+    /**
+     * Returns the master key used to encrypt inline connection API keys at rest, or null when unset.
+     * Required only when at least one connection stores an inline key.
+     */
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String encryptionKey) {
+        this.encryptionKey = encryptionKey;
     }
 
     /**

@@ -909,7 +909,7 @@ class FlywayMigrationTest {
                     assertThat(rs.next()).isTrue();
                     assertThat(rs.getInt("tokens_in")).isEqualTo(100);
                     assertThat(rs.getInt("tokens_out")).isEqualTo(50);
-                    assertThat(rs.getBigDecimal("cost_usd")).isEqualByComparingTo(new java.math.BigDecimal("0.002"));
+                    assertThat(rs.getDouble("cost_usd")).isCloseTo(0.002, org.assertj.core.api.Assertions.within(1e-9));
                     assertThat(rs.getLong("latency_ms")).isEqualTo(430L);
                 }
             }

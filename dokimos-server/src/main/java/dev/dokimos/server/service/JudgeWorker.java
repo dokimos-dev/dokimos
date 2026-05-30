@@ -11,6 +11,7 @@ import dev.dokimos.server.entity.LlmConnection;
 import dev.dokimos.server.judge.JudgeCallException;
 import dev.dokimos.server.judge.JudgeScorer;
 import dev.dokimos.server.judge.OpenAiCompatibleJudge;
+import dev.dokimos.server.judge.OpenResponsesJudge;
 import dev.dokimos.server.service.JudgeJobTransactions.ItemSnapshot;
 import dev.dokimos.server.service.JudgeJobTransactions.ScoredResult;
 import java.util.ArrayList;
@@ -46,11 +47,18 @@ public class JudgeWorker {
     @org.springframework.beans.factory.annotation.Autowired
     public JudgeWorker(
             JudgeJobTransactions transactions, LlmCredentialService credentialService, JudgeProperties properties) {
-        this(
-                transactions,
-                credentialService,
-                properties,
-                (connection, key) -> new OpenAiCompatibleJudge(connection.getBaseUrl(), connection.getModel(), key));
+        this(transactions, credentialService, properties, JudgeWorker::judgeFor);
+    }
+
+    /**
+     * Builds the judge for a connection, selecting the request and response shape from the connection's
+     * protocol: the Responses API or Chat Completions.
+     */
+    static JudgeLM judgeFor(LlmConnection connection, String key) {
+        return switch (connection.getProtocol()) {
+            case RESPONSES -> new OpenResponsesJudge(connection.getBaseUrl(), connection.getModel(), key);
+            case CHAT_COMPLETIONS -> new OpenAiCompatibleJudge(connection.getBaseUrl(), connection.getModel(), key);
+        };
     }
 
     JudgeWorker(

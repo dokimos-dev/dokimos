@@ -104,6 +104,24 @@ Drill into specific runs to see individual test cases, scores, and evaluation re
 ### Expandable Items
 Click on any item to see full input/output text and detailed evaluation results.
 
+### Server datasets
+Hold your datasets on the server, versioned and shared, and reference a specific version from code by URI. See [Server datasets](./datasets).
+
+### Review and curation
+Review the items evaluators got wrong, annotate them, and promote them into a new dataset version. See [Review and curation](./curation).
+
+### Run comparison
+Compare two runs item by item to see exactly what a change moved. See [Comparing runs](./diff).
+
+### LLM judge
+Score runs and traces on the server with an LLM as judge, using a stored connection that speaks the Open Responses or Chat Completions API. See [LLM judge](./llm-judge).
+
+### Production traces
+Ingest OTLP traces from your running app and evaluate them online as they arrive. See [Production traces](./traces).
+
+### Regression alerting
+Get a webhook when a run regresses against its baseline. See [Regression alerting](./alerting).
+
 ## Quick Start
 
 ```bash
@@ -118,6 +136,12 @@ Open [http://localhost:8080](http://localhost:8080). See [Getting Started](./get
 - [Getting Started](./getting-started): Run your first experiment with server reporting
 - [Configuration](./configuration): Environment variables and settings
 - [Deployment](./deployment): Share with your team or run in production
-- [Authentication](./authentication): Secure write operations
+- [Authentication](./authentication): Secure write operations and scope API keys by role
 - [Client](./client): Reporter client configuration
+- [Server datasets](./datasets): Hold datasets on the server and reference them by URI
+- [Review and curation](./curation): Turn evaluator misses into new dataset versions
+- [Comparing runs](./diff): Diff two runs item by item
+- [LLM judge](./llm-judge): Score runs and traces with an LLM as judge
+- [Production traces](./traces): Ingest and evaluate production traffic
+- [Regression alerting](./alerting): Webhook on a quality drop
   

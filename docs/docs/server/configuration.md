@@ -24,6 +24,29 @@ The Dokimos server is configured through environment variables. This page covers
 |----------|-------------|---------|
 | `SERVER_PORT` | HTTP port to listen on | `8080` |
 | `DOKIMOS_API_KEY` | API key for write operations | _(disabled)_ |
+| `DOKIMOS_ENCRYPTION_KEY` | Passphrase used to encrypt inline LLM connection keys at rest. Required only if you store an inline `apiKey` on a connection. | _(disabled)_ |
+
+### Server side judge
+
+Tune the background worker that scores [LLM judge](./llm-judge) jobs. The defaults are fine for most deployments.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOKIMOS_JUDGE_POLL_INTERVAL_MS` | How often the worker polls for pending judge jobs | `5000` |
+| `DOKIMOS_JUDGE_MAX_ATTEMPTS` | Retry ceiling for a judge job before it fails | `3` |
+| `DOKIMOS_JUDGE_PAGE_SIZE` | Items scored per database transaction | `50` |
+
+### Traces and online evals
+
+Control [production trace](./traces) retention and the online eval worker.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOKIMOS_TRACE_RETENTION_DAYS` | Days an ingested trace is kept before the sweeper deletes it | `30` |
+| `DOKIMOS_TRACE_SWEEP_INTERVAL_MS` | How often the retention sweeper runs | `3600000` |
+| `DOKIMOS_TRACE_EVAL_POLL_INTERVAL_MS` | How often the worker polls for pending trace eval jobs | `5000` |
+| `DOKIMOS_TRACE_EVAL_MAX_ATTEMPTS` | Retry ceiling for a trace eval job before it fails | `3` |
+| `DOKIMOS_TRACE_EVAL_CLAIM_TIMEOUT_MS` | How long a claimed trace eval job can run before it is requeued | `600000` |
 
 ### Logging
 

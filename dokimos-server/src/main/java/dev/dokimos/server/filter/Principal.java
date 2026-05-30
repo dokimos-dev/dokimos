@@ -20,4 +20,13 @@ public record Principal(String id, Role role, String tenantId) {
     public static Principal system() {
         return new Principal(SYSTEM_ID, Role.ADMIN, null);
     }
+
+    /**
+     * Principal for an unauthenticated reader in an authenticated deployment. Carries the lowest role
+     * so open read endpoints still serve it, while endpoints that require a higher role (such as API
+     * key management) reject it.
+     */
+    public static Principal anonymous() {
+        return new Principal("anonymous", Role.VIEWER, null);
+    }
 }

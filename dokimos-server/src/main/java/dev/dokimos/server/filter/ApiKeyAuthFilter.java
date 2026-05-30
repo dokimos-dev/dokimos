@@ -76,11 +76,12 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Returns the minimum role a request must carry. API key management requires ADMIN, other writes
-     * require EDITOR, and reads require only VIEWER.
+     * Returns the minimum role a request must carry. API key management requires ADMIN for every
+     * method, including listing, so key names and roles are not readable by an unauthenticated caller.
+     * Other writes require EDITOR, and other reads require only VIEWER.
      */
     private Role requiredRole(String method, String path) {
-        if (path.startsWith(API_KEYS_PATH_PREFIX) && WRITE_METHODS.contains(method)) {
+        if (path.startsWith(API_KEYS_PATH_PREFIX)) {
             return Role.ADMIN;
         }
         if (WRITE_METHODS.contains(method)) {

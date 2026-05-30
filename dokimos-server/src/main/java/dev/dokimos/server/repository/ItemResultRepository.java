@@ -67,4 +67,21 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
             @Param("evaluatorName") String evaluatorName,
             @Param("afterId") UUID afterId,
             Pageable pageable);
+
+    /**
+     * Loads all item results for a run with their eval results fetch-joined in one query. Annotations
+     * are deliberately not fetch-joined here: each item has at most one annotation but many eval
+     * results, so joining both would multiply rows in a Cartesian product. Callers that also need
+     * annotations batch-load them separately by item id.
+     *
+     * @param runId the run whose items to load
+     * @return the run's item results, each with its eval results initialized
+     */
+    @Query("""
+            SELECT DISTINCT i FROM ItemResult i
+            LEFT JOIN FETCH i.evalResults
+            WHERE i.run.id = :runId
+            ORDER BY i.createdAt ASC, i.id ASC
+            """)
+    List<ItemResult> findByRunIdWithEvals(@Param("runId") UUID runId);
 }

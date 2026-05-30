@@ -835,6 +835,108 @@ class FlywayMigrationTest {
         }
     }
 
+    /**
+     * Verifies V9 adds the per-item metric columns to item_results and the run-level aggregate columns
+     * to experiment_runs, that all eight are nullable, and that a stored item round-trips its metric
+     * values. Migrates to V8, applies V9, seeds an item carrying metrics, and reads the columns back.
+     */
+    @Test
+    void v9AddsItemMetricColumns() throws Exception {
+        DataSource ds = dataSource();
+
+        Flyway.configure().dataSource(ds).target("8").load().migrate();
+        Flyway.configure().dataSource(ds).target("9").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            assertColumnIsNullable(conn, "item_results", "tokens_in");
+            assertColumnIsNullable(conn, "item_results", "tokens_out");
+            assertColumnIsNullable(conn, "item_results", "cost_usd");
+            assertColumnIsNullable(conn, "item_results", "latency_ms");
+            assertColumnIsNullable(conn, "experiment_runs", "total_tokens_in");
+            assertColumnIsNullable(conn, "experiment_runs", "total_tokens_out");
+            assertColumnIsNullable(conn, "experiment_runs", "total_cost_usd");
+            assertColumnIsNullable(conn, "experiment_runs", "avg_latency_ms");
+
+            insertProject(conn, projectId, "v9-project");
+            insertExperiment(conn, experimentId, projectId, "v9-experiment");
+            insertRun(conn, runId, experimentId);
+
+            // An item with no metrics is valid; the metric columns stay NULL.
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, actual_output, created_at) VALUES (?, ?, ?::jsonb, ?::jsonb, ?)")) {
+                ps.setObject(1, itemId);
+                ps.setObject(2, runId);
+                ps.setString(3, "{\"input\":\"q\"}");
+                ps.setString(4, "{\"output\":\"a\"}");
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT tokens_in, cost_usd, latency_ms FROM item_results WHERE id = ?")) {
+                ps.setObject(1, itemId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    rs.getObject("tokens_in");
+                    assertThat(rs.wasNull()).isTrue();
+                }
+            }
+
+            // An item that carries metrics round-trips each column.
+            UUID metricItemId = UUID.randomUUID();
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO item_results "
+                    + "(id, run_id, input, actual_output, created_at, tokens_in, tokens_out, cost_usd, latency_ms) "
+                    + "VALUES (?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)")) {
+                ps.setObject(1, metricItemId);
+                ps.setObject(2, runId);
+                ps.setString(3, "{\"input\":\"q\"}");
+                ps.setString(4, "{\"output\":\"a\"}");
+                ps.setObject(5, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+                ps.setInt(6, 100);
+                ps.setInt(7, 50);
+                ps.setBigDecimal(8, new java.math.BigDecimal("0.00200000"));
+                ps.setLong(9, 430L);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT tokens_in, tokens_out, cost_usd, latency_ms FROM item_results WHERE id = ?")) {
+                ps.setObject(1, metricItemId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt("tokens_in")).isEqualTo(100);
+                    assertThat(rs.getInt("tokens_out")).isEqualTo(50);
+                    assertThat(rs.getBigDecimal("cost_usd")).isEqualByComparingTo(new java.math.BigDecimal("0.002"));
+                    assertThat(rs.getLong("latency_ms")).isEqualTo(430L);
+                }
+            }
+
+            // The run-level aggregate columns accept values too.
+            try (PreparedStatement ps = conn.prepareStatement("UPDATE experiment_runs SET "
+                    + "total_tokens_in = ?, total_tokens_out = ?, total_cost_usd = ?, avg_latency_ms = ? "
+                    + "WHERE id = ?")) {
+                ps.setLong(1, 100L);
+                ps.setLong(2, 50L);
+                ps.setBigDecimal(3, new java.math.BigDecimal("0.00200000"));
+                ps.setDouble(4, 430.0);
+                ps.setObject(5, runId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps =
+                    conn.prepareStatement("SELECT total_tokens_in, avg_latency_ms FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, runId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getLong("total_tokens_in")).isEqualTo(100L);
+                    assertThat(rs.getDouble("avg_latency_ms")).isEqualTo(430.0);
+                }
+            }
+        }
+    }
+
     private void insertConnection(Connection conn, UUID id, String name) throws Exception {
         insertConnectionRaw(conn, id, name, "ENV_KEY", null);
     }

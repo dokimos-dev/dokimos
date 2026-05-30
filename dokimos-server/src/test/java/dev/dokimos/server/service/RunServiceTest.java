@@ -236,6 +236,94 @@ class RunServiceTest {
     }
 
     @Test
+    void addItems_shouldPersistMetrics() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+
+        AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
+                Map.of("input", "q"),
+                Map.of("output", "a"),
+                Map.of("output", "a"),
+                null,
+                List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "ok", Map.of())),
+                true,
+                null,
+                100,
+                50,
+                0.002,
+                430L)));
+
+        runService.addItems(runId, request, null);
+
+        List<ItemResult> saved = captureSavedItems();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getTokensIn()).isEqualTo(100);
+        assertThat(saved.get(0).getTokensOut()).isEqualTo(50);
+        assertThat(saved.get(0).getCostUsd()).isEqualTo(0.002);
+        assertThat(saved.get(0).getLatencyMs()).isEqualTo(430L);
+    }
+
+    @Test
+    void materializeCounts_shouldAggregateTokensAndLatency() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemResultRepository.countByRun(run)).thenReturn(3L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(2L);
+        when(itemResultRepository.sumTokensInByRun(run)).thenReturn(300L);
+        when(itemResultRepository.sumTokensOutByRun(run)).thenReturn(150L);
+        when(itemResultRepository.sumCostByRun(run)).thenReturn(0.006);
+        when(itemResultRepository.avgLatencyByRun(run)).thenReturn(412.5);
+
+        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+
+        ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
+        verify(runRepository).save(captor.capture());
+        ExperimentRun saved = captor.getValue();
+        assertThat(saved.getTotalTokensIn()).isEqualTo(300L);
+        assertThat(saved.getTotalTokensOut()).isEqualTo(150L);
+        assertThat(saved.getTotalCostUsd()).isEqualTo(0.006);
+        assertThat(saved.getAvgLatencyMs()).isEqualTo(412.5);
+    }
+
+    @Test
+    void materializeCounts_shouldLeaveMetricsNullWhenNoItemsCarryThem() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(itemResultRepository.countByRun(run)).thenReturn(2L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(1L);
+        when(itemResultRepository.sumTokensInByRun(run)).thenReturn(null);
+        when(itemResultRepository.sumTokensOutByRun(run)).thenReturn(null);
+        when(itemResultRepository.sumCostByRun(run)).thenReturn(null);
+        when(itemResultRepository.avgLatencyByRun(run)).thenReturn(null);
+
+        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+
+        ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
+        verify(runRepository).save(captor.capture());
+        ExperimentRun saved = captor.getValue();
+        assertThat(saved.getTotalTokensIn()).isNull();
+        assertThat(saved.getTotalCostUsd()).isNull();
+        assertThat(saved.getAvgLatencyMs()).isNull();
+    }
+
+    @Test
     void updateRun_shouldNotSetCompletedAtForRunningStatus() {
         UUID runId = UUID.randomUUID();
         Project project = createProject("my-project");

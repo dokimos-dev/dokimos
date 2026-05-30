@@ -341,6 +341,18 @@ public class DokimosServerReporter implements Reporter {
         if (datasetItemId != null) {
             map.put("datasetItemId", datasetItemId);
         }
+        if (result.tokensIn() != null) {
+            map.put("tokensIn", result.tokensIn());
+        }
+        if (result.tokensOut() != null) {
+            map.put("tokensOut", result.tokensOut());
+        }
+        if (result.costUsd() != null) {
+            map.put("costUsd", result.costUsd());
+        }
+        if (result.latencyMs() != null) {
+            map.put("latencyMs", result.latencyMs());
+        }
         return map;
     }
 

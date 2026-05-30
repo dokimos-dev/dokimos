@@ -333,6 +333,45 @@ class DokimosServerReporterTest {
         }
     }
 
+    @Test
+    void shouldSendCallMetricsWhenPresentAndOmitWhenNull() throws Exception {
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            ItemResult withMetrics = ItemResult.builder(
+                            Example.of("q-metrics", "a"),
+                            Map.of("output", "a"),
+                            List.of(EvalResult.success("e", 1.0, "ok")))
+                    .tokensIn(100)
+                    .tokensOut(50)
+                    .costUsd(0.002)
+                    .latencyMs(430L)
+                    .build();
+            ItemResult withoutMetrics = new ItemResult(
+                    Example.of("q-bare", "a"), Map.of("output", "a"), List.of(EvalResult.success("e", 1.0, "ok")));
+
+            reporter.reportItem(handle, withMetrics);
+            reporter.reportItem(handle, withoutMetrics);
+            reporter.flush();
+
+            JsonNode items = collectItems();
+            assertThat(items).hasSize(2);
+
+            JsonNode metricsItem = findItemByInput(items, "q-metrics");
+            assertThat(metricsItem.get("tokensIn").asInt()).isEqualTo(100);
+            assertThat(metricsItem.get("tokensOut").asInt()).isEqualTo(50);
+            assertThat(metricsItem.get("costUsd").asDouble()).isEqualTo(0.002);
+            assertThat(metricsItem.get("latencyMs").asLong()).isEqualTo(430L);
+
+            JsonNode bareItem = findItemByInput(items, "q-bare");
+            assertThat(bareItem.has("tokensIn")).isFalse();
+            assertThat(bareItem.has("tokensOut")).isFalse();
+            assertThat(bareItem.has("costUsd")).isFalse();
+            assertThat(bareItem.has("latencyMs")).isFalse();
+        }
+    }
+
     private JsonNode collectItems() throws Exception {
         List<RecordedRequest> itemRequests =
                 recordedRequests.stream().filter(r -> r.path.contains("/items")).toList();

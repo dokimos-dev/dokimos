@@ -13,8 +13,35 @@ public record AddItemsRequest(@NotEmpty List<ItemData> items) {
             Map<String, Object> metadata,
             List<EvalData> evalResults,
             boolean success,
-            UUID datasetItemId) {
-        /** Backwards-compatible 6-arg constructor: passes null datasetItemId. */
+            UUID datasetItemId,
+            Integer tokensIn,
+            Integer tokensOut,
+            Double costUsd,
+            Long latencyMs) {
+        /** Backwards-compatible 7-arg constructor: passes null call metrics. */
+        public ItemData(
+                Map<String, Object> inputs,
+                Map<String, Object> expectedOutputs,
+                Map<String, Object> actualOutputs,
+                Map<String, Object> metadata,
+                List<EvalData> evalResults,
+                boolean success,
+                UUID datasetItemId) {
+            this(
+                    inputs,
+                    expectedOutputs,
+                    actualOutputs,
+                    metadata,
+                    evalResults,
+                    success,
+                    datasetItemId,
+                    null,
+                    null,
+                    null,
+                    null);
+        }
+
+        /** Backwards-compatible 6-arg constructor: passes null datasetItemId and null call metrics. */
         public ItemData(
                 Map<String, Object> inputs,
                 Map<String, Object> expectedOutputs,
@@ -25,7 +52,7 @@ public record AddItemsRequest(@NotEmpty List<ItemData> items) {
             this(inputs, expectedOutputs, actualOutputs, metadata, evalResults, success, null);
         }
 
-        /** Backwards-compatible 5-arg constructor: passes null metadata and null datasetItemId. */
+        /** Backwards-compatible 5-arg constructor: passes null metadata, datasetItemId, and call metrics. */
         public ItemData(
                 Map<String, Object> inputs,
                 Map<String, Object> expectedOutputs,

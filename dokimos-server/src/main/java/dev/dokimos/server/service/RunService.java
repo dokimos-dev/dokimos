@@ -135,6 +135,11 @@ public class RunService {
             ItemResult item = new ItemResult(
                     run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), itemData.metadata());
 
+            item.setTokensIn(itemData.tokensIn());
+            item.setTokensOut(itemData.tokensOut());
+            item.setCostUsd(itemData.costUsd());
+            item.setLatencyMs(itemData.latencyMs());
+
             if (itemData.datasetItemId() != null) {
                 DatasetItem datasetItem = datasetItemsById.get(itemData.datasetItemId());
                 if (datasetItem != null) {
@@ -242,6 +247,10 @@ public class RunService {
         run.setItemCount((int) totalItems);
         run.setPassedCount((int) passedItems);
         run.setPassRate(totalItems > 0 ? (double) passedItems / totalItems : null);
+        run.setTotalTokensIn(itemResultRepository.sumTokensInByRun(run));
+        run.setTotalTokensOut(itemResultRepository.sumTokensOutByRun(run));
+        run.setTotalCostUsd(itemResultRepository.sumCostByRun(run));
+        run.setAvgLatencyMs(itemResultRepository.avgLatencyByRun(run));
     }
 
     @Transactional(readOnly = true)
@@ -291,6 +300,10 @@ public class RunService {
                 run.getCompletedAt(),
                 datasetVersionId,
                 datasetVersionNumber,
+                run.getTotalTokensIn(),
+                run.getTotalTokensOut(),
+                run.getTotalCostUsd(),
+                run.getAvgLatencyMs(),
                 itemSummaries);
     }
 
@@ -338,7 +351,11 @@ public class RunService {
                 run.getStartedAt(),
                 run.getCompletedAt(),
                 datasetVersionId,
-                datasetVersionNumber);
+                datasetVersionNumber,
+                run.getTotalTokensIn(),
+                run.getTotalTokensOut(),
+                run.getTotalCostUsd(),
+                run.getAvgLatencyMs());
     }
 
     private Map<UUID, DatasetItem> loadDatasetItems(List<AddItemsRequest.ItemData> items) {
@@ -375,7 +392,11 @@ public class RunService {
                 evalSummaries,
                 item.getCreatedAt(),
                 datasetItemId,
-                annotation);
+                annotation,
+                item.getTokensIn(),
+                item.getTokensOut(),
+                item.getCostUsd(),
+                item.getLatencyMs());
     }
 
     /**

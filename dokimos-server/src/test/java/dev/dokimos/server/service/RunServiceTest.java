@@ -62,6 +62,9 @@ class RunServiceTest {
     @Mock
     private dev.dokimos.server.repository.AnnotationRepository annotationRepository;
 
+    @Mock
+    private RegressionAlertService regressionAlertService;
+
     private RunService runService;
 
     @BeforeEach
@@ -72,7 +75,8 @@ class RunServiceTest {
                 ingestedBatchRepository,
                 datasetService,
                 datasetItemRepository,
-                annotationRepository);
+                annotationRepository,
+                regressionAlertService);
     }
 
     @Test

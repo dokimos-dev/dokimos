@@ -55,20 +55,35 @@ class RunServiceDedupPostgresTest {
         }
 
         @org.springframework.context.annotation.Bean
+        ComparisonSupport comparisonSupport(ItemResultRepository itemResultRepository) {
+            return new ComparisonSupport(itemResultRepository);
+        }
+
+        @org.springframework.context.annotation.Bean
+        RegressionAlertService regressionAlertService(
+                ExperimentRunRepository runRepository,
+                ComparisonSupport comparisonSupport,
+                org.springframework.context.ApplicationEventPublisher eventPublisher) {
+            return new RegressionAlertService(runRepository, comparisonSupport, eventPublisher);
+        }
+
+        @org.springframework.context.annotation.Bean
         RunService runService(
                 ExperimentRunRepository runRepository,
                 ItemResultRepository itemResultRepository,
                 IngestedBatchRepository ingestedBatchRepository,
                 DatasetService datasetService,
                 dev.dokimos.server.repository.DatasetItemRepository datasetItemRepository,
-                dev.dokimos.server.repository.AnnotationRepository annotationRepository) {
+                dev.dokimos.server.repository.AnnotationRepository annotationRepository,
+                RegressionAlertService regressionAlertService) {
             return new RunService(
                     runRepository,
                     itemResultRepository,
                     ingestedBatchRepository,
                     datasetService,
                     datasetItemRepository,
-                    annotationRepository);
+                    annotationRepository,
+                    regressionAlertService);
         }
     }
 

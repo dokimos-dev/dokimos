@@ -386,6 +386,10 @@ val datasetFromDefault = DatasetResolverRegistry.getInstance()
 
 JSON, JSONL, and CSV files are automatically detected based on the file extension.
 
+### Server datasets
+
+With the `dokimos-server-client` dependency on your classpath, the registry also resolves `dataset://name@version` URIs against a running Dokimos server, so a dataset can be versioned and shared instead of living in a file. See [Server datasets](../server/datasets) for the version model, the resolver's environment variables, and its offline cache.
+
 ## Using Datasets with JUnit
 
 The `dokimos-junit` module makes it easy to use datasets with JUnit's parameterized tests through the `@DatasetSource` annotation.

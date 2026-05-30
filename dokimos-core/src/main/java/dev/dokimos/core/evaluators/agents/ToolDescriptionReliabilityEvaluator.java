@@ -6,6 +6,7 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.LlmResponseUtils;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
 import java.util.*;
@@ -42,7 +43,7 @@ import java.util.regex.Pattern;
  */
 public class ToolDescriptionReliabilityEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
 
     private static final List<String> LLM_CHECK_KEYS = List.of(
             "general_structure",

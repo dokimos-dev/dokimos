@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import Layout from "@/components/layout/layout";
 import Dashboard from "@/pages/dashboard";
 import ProjectPage from "@/pages/project-page";
+import ProjectAlertsPage from "@/pages/project-alerts-page";
 import ExperimentPage from "@/pages/experiment-page";
 import RunPage from "@/pages/run-page";
 import RunDiffPage from "@/pages/run-diff-page";
@@ -24,6 +25,10 @@ export const router = createBrowserRouter([
       {
         path: "/projects/:name",
         element: <ProjectPage />,
+      },
+      {
+        path: "/projects/:name/alerts",
+        element: <ProjectAlertsPage />,
       },
       {
         path: "/experiments/:id",

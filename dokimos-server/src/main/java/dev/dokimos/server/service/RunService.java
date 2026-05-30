@@ -44,6 +44,7 @@ public class RunService {
     private final DatasetService datasetService;
     private final DatasetItemRepository datasetItemRepository;
     private final AnnotationRepository annotationRepository;
+    private final RegressionAlertService regressionAlertService;
 
     public RunService(
             ExperimentRunRepository runRepository,
@@ -51,13 +52,15 @@ public class RunService {
             IngestedBatchRepository ingestedBatchRepository,
             DatasetService datasetService,
             DatasetItemRepository datasetItemRepository,
-            AnnotationRepository annotationRepository) {
+            AnnotationRepository annotationRepository,
+            RegressionAlertService regressionAlertService) {
         this.runRepository = runRepository;
         this.itemResultRepository = itemResultRepository;
         this.ingestedBatchRepository = ingestedBatchRepository;
         this.datasetService = datasetService;
         this.datasetItemRepository = datasetItemRepository;
         this.annotationRepository = annotationRepository;
+        this.regressionAlertService = regressionAlertService;
     }
 
     @Transactional
@@ -200,6 +203,9 @@ public class RunService {
             materializeCounts(run);
         }
         runRepository.save(run);
+        if (request.status() != RunStatus.RUNNING) {
+            regressionAlertService.evaluateOnCompletion(run);
+        }
     }
 
     /**
@@ -220,6 +226,7 @@ public class RunService {
         run.setStatus(RunStatus.SUCCESS);
         run.setCompletedAt(Instant.now());
         runRepository.save(run);
+        regressionAlertService.evaluateOnCompletion(run);
     }
 
     /**
@@ -239,6 +246,7 @@ public class RunService {
         run.setStatus(RunStatus.FAILED);
         run.setCompletedAt(Instant.now());
         runRepository.save(run);
+        regressionAlertService.evaluateOnCompletion(run);
     }
 
     private void materializeCounts(ExperimentRun run) {

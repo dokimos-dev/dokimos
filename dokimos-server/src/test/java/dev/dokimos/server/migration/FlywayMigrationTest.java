@@ -20,7 +20,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Verifies the Flyway migrations (V1 through V6) against a real PostgreSQL instance. Self-skips when
+ * Verifies the Flyway migrations against a real PostgreSQL instance. Self-skips when
  * Docker is unavailable so it stays safe in the normal build. Not tagged as an integration test: when
  * Docker is present it runs as part of {@code mvn test}. One container is shared across tests and
  * the schema is dropped (Flyway clean) before each test.
@@ -766,6 +766,110 @@ class FlywayMigrationTest {
                     assertThat(rs.wasNull()).isTrue();
                 }
             }
+        }
+    }
+
+    /**
+     * Verifies V8 builds the judge tables. Migrates to V7, applies V8, and checks that
+     * llm_connections enforces the one-credential-source check constraint, that eval_jobs enforces the
+     * unique (run_id, evaluator_name) constraint and the references it declares, and that deleting a
+     * run cascades to its jobs.
+     */
+    @Test
+    void v8BuildsJudgeTables() throws Exception {
+        DataSource ds = dataSource();
+
+        Flyway.configure().dataSource(ds).target("7").load().migrate();
+        Flyway.configure().dataSource(ds).target("8").load().migrate();
+
+        UUID projectId = UUID.randomUUID();
+        UUID experimentId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID otherRunId = UUID.randomUUID();
+        UUID connectionId = UUID.randomUUID();
+
+        try (Connection conn = ds.getConnection()) {
+            assertColumnExists(conn, "llm_connections", "name");
+            assertColumnExists(conn, "llm_connections", "base_url");
+            assertColumnExists(conn, "llm_connections", "encrypted_api_key");
+            assertColumnExists(conn, "eval_jobs", "run_id");
+            assertColumnExists(conn, "eval_jobs", "evaluator_name");
+            assertColumnExists(conn, "eval_jobs", "last_item_id");
+            assertColumnExists(conn, "eval_jobs", "attempt_count");
+
+            insertProject(conn, projectId, "v8-project");
+            insertExperiment(conn, experimentId, projectId, "v8-experiment");
+            insertRun(conn, runId, experimentId, "EVALUATING");
+            insertRun(conn, otherRunId, experimentId, "EVALUATING");
+            insertConnection(conn, connectionId, "v8-conn");
+
+            // The credential check constraint rejects a row with neither credential source.
+            assertThatThrownBy(() -> insertConnectionRaw(conn, UUID.randomUUID(), "no-cred", null, null))
+                    .isInstanceOf(java.sql.SQLException.class);
+
+            // The credential check constraint rejects a row with both credential sources.
+            assertThatThrownBy(() -> insertConnectionRaw(conn, UUID.randomUUID(), "both-cred", "ENV_KEY", "cipher"))
+                    .isInstanceOf(java.sql.SQLException.class);
+
+            insertEvalJob(conn, UUID.randomUUID(), runId, connectionId, "judge");
+
+            // The unique (run_id, evaluator_name) constraint rejects a second job for the same evaluator.
+            assertThatThrownBy(() -> insertEvalJob(conn, UUID.randomUUID(), runId, connectionId, "judge"))
+                    .isInstanceOf(java.sql.SQLException.class);
+
+            // The same evaluator on a different run is allowed.
+            insertEvalJob(conn, UUID.randomUUID(), otherRunId, connectionId, "judge");
+
+            // Deleting a run cascades to its jobs.
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM experiment_runs WHERE id = ?")) {
+                ps.setObject(1, runId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM eval_jobs WHERE run_id = ?")) {
+                ps.setObject(1, runId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isZero();
+                }
+            }
+        }
+    }
+
+    private void insertConnection(Connection conn, UUID id, String name) throws Exception {
+        insertConnectionRaw(conn, id, name, "ENV_KEY", null);
+    }
+
+    private void insertConnectionRaw(Connection conn, UUID id, String name, String credentialRef, String encryptedKey)
+            throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO llm_connections "
+                + "(id, name, base_url, model, credential_ref, encrypted_api_key, created_at, updated_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+            ps.setObject(1, id);
+            ps.setString(2, name);
+            ps.setString(3, "https://api.example.com");
+            ps.setString(4, "gpt-4");
+            ps.setString(5, credentialRef);
+            ps.setString(6, encryptedKey);
+            ps.setObject(7, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+            ps.setObject(8, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+            ps.executeUpdate();
+        }
+    }
+
+    private void insertEvalJob(Connection conn, UUID id, UUID runId, UUID connectionId, String evaluatorName)
+            throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO eval_jobs "
+                + "(id, run_id, connection_id, status, evaluator_name, criteria, evaluation_params, created_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+            ps.setObject(1, id);
+            ps.setObject(2, runId);
+            ps.setObject(3, connectionId);
+            ps.setString(4, "PENDING");
+            ps.setString(5, evaluatorName);
+            ps.setString(6, "is correct");
+            ps.setString(7, "ACTUAL_OUTPUT");
+            ps.setObject(8, Instant.now().atOffset(java.time.ZoneOffset.UTC));
+            ps.executeUpdate();
         }
     }
 

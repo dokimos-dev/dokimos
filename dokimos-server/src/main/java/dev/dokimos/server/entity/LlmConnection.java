@@ -46,6 +46,9 @@ public class LlmConnection {
     @Column(name = "encrypted_api_key", columnDefinition = "text")
     private String encryptedApiKey;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -118,6 +121,14 @@ public class LlmConnection {
 
     public void setEncryptedApiKey(String encryptedApiKey) {
         this.encryptedApiKey = encryptedApiKey;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     /** Returns true when an inline encrypted key is stored rather than an external credential reference. */

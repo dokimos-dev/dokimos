@@ -9,6 +9,7 @@ import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.EvalJobRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.LlmConnectionRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -46,13 +47,13 @@ public class EvalJobService {
      * @throws IllegalStateException if the run already has a job for this evaluator (mapped to 409)
      */
     @Transactional
-    public EvalJobView enqueue(UUID runId, EnqueueJudgeRequest request) {
+    public EvalJobView enqueue(UUID runId, EnqueueJudgeRequest request, TenantScope scope) {
         ExperimentRun run = runRepository
-                .findByIdForUpdate(runId)
+                .findByIdForUpdate(runId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
 
         LlmConnection connection = connectionRepository
-                .findById(request.connectionId())
+                .findById(request.connectionId(), scope)
                 .orElseThrow(() -> new IllegalArgumentException("Connection not found: " + request.connectionId()));
 
         if (jobRepository.existsByRunAndEvaluatorName(run, request.evaluatorName())) {
@@ -79,9 +80,9 @@ public class EvalJobService {
      * @throws IllegalArgumentException if the run does not exist (mapped to 404)
      */
     @Transactional(readOnly = true)
-    public List<EvalJobView> getJobsForRun(UUID runId) {
+    public List<EvalJobView> getJobsForRun(UUID runId, TenantScope scope) {
         ExperimentRun run = runRepository
-                .findById(runId)
+                .findById(runId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
         return jobRepository.findByRunOrderByCreatedAtAsc(run).stream()
                 .map(EvalJobView::from)

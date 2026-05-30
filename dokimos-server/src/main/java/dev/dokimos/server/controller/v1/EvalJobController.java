@@ -3,6 +3,8 @@ package dev.dokimos.server.controller.v1;
 import dev.dokimos.server.dto.v1.EnqueueJudgeRequest;
 import dev.dokimos.server.dto.v1.EvalJobView;
 import dev.dokimos.server.service.EvalJobService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -28,15 +30,15 @@ public class EvalJobController {
     /** Enqueues server-side scoring for a run. Returns 201 with the created job. */
     @PostMapping
     public ResponseEntity<EvalJobView> enqueue(
-            @PathVariable UUID runId, @Valid @RequestBody EnqueueJudgeRequest request) {
-        EvalJobView view = jobService.enqueue(runId, request);
+            @PathVariable UUID runId, @Valid @RequestBody EnqueueJudgeRequest request, HttpServletRequest http) {
+        EvalJobView view = jobService.enqueue(runId, request, TenantScopeResolver.scope(http));
         return ResponseEntity.created(URI.create("/api/v1/runs/" + runId + "/judge-jobs/" + view.id()))
                 .body(view);
     }
 
     /** Lists the judge jobs registered for a run, oldest first. */
     @GetMapping
-    public List<EvalJobView> list(@PathVariable UUID runId) {
-        return jobService.getJobsForRun(runId);
+    public List<EvalJobView> list(@PathVariable UUID runId, HttpServletRequest http) {
+        return jobService.getJobsForRun(runId, TenantScopeResolver.scope(http));
     }
 }

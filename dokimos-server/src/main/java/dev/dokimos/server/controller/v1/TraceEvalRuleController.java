@@ -3,6 +3,8 @@ package dev.dokimos.server.controller.v1;
 import dev.dokimos.server.dto.v1.CreateTraceEvalRuleRequest;
 import dev.dokimos.server.dto.v1.TraceEvalRuleView;
 import dev.dokimos.server.service.TraceEvalRuleService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -33,31 +35,34 @@ public class TraceEvalRuleController {
     /** Creates a rule. Returns 201 with a {@code Location} header pointing at the rule. */
     @PostMapping
     public ResponseEntity<TraceEvalRuleView> createTraceEvalRule(
-            @PathVariable UUID projectId, @Valid @RequestBody CreateTraceEvalRuleRequest request) {
-        TraceEvalRuleView view = ruleService.create(projectId, request);
+            @PathVariable UUID projectId,
+            @Valid @RequestBody CreateTraceEvalRuleRequest request,
+            HttpServletRequest http) {
+        TraceEvalRuleView view = ruleService.create(projectId, request, TenantScopeResolver.scope(http));
         return ResponseEntity.created(URI.create("/api/v1/projects/" + projectId + "/trace-eval-rules/" + view.id()))
                 .body(view);
     }
 
     /** Lists the rules of a project, oldest first. */
     @GetMapping
-    public List<TraceEvalRuleView> listTraceEvalRules(@PathVariable UUID projectId) {
-        return ruleService.list(projectId);
+    public List<TraceEvalRuleView> listTraceEvalRules(@PathVariable UUID projectId, HttpServletRequest http) {
+        return ruleService.list(projectId, TenantScopeResolver.scope(http));
     }
 
-    /** Replaces a rule. Returns 404 if it does not exist, 409 if the new name is taken in the project. */
+    /** Replaces a rule. Returns 404 if it does not exist or belongs to another tenant, 409 if the new name is taken. */
     @PutMapping("/{ruleId}")
     public TraceEvalRuleView updateTraceEvalRule(
             @PathVariable UUID projectId,
             @PathVariable UUID ruleId,
-            @Valid @RequestBody CreateTraceEvalRuleRequest request) {
-        return ruleService.update(projectId, ruleId, request);
+            @Valid @RequestBody CreateTraceEvalRuleRequest request,
+            HttpServletRequest http) {
+        return ruleService.update(projectId, ruleId, request, TenantScopeResolver.scope(http));
     }
 
-    /** Deletes a rule. Returns 404 if it does not exist. */
+    /** Deletes a rule. Returns 404 if it does not exist or belongs to another tenant. */
     @DeleteMapping("/{ruleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteTraceEvalRule(@PathVariable UUID projectId, @PathVariable UUID ruleId) {
-        ruleService.delete(projectId, ruleId);
+    public void deleteTraceEvalRule(@PathVariable UUID projectId, @PathVariable UUID ruleId, HttpServletRequest http) {
+        ruleService.delete(projectId, ruleId, TenantScopeResolver.scope(http));
     }
 }

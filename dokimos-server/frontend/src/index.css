@@ -127,4 +127,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind preflight resets margin to 0 on every element, which overrides the
+     user-agent rule that centers a modal dialog. Restore it so dialogs center. */
+  dialog {
+    margin: auto;
+  }
 }

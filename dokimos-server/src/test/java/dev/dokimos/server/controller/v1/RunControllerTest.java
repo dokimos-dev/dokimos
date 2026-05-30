@@ -28,6 +28,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -59,7 +60,21 @@ class RunControllerTest extends AbstractControllerTest {
         UUID runId = UUID.randomUUID();
 
         PageRequest pageRequest = PageRequest.of(0, 10);
-        Page<RunDetails.ItemSummary> emptyPage = new PageImpl<>(List.of(), pageRequest, 0);
+        RunDetails.ItemSummary itemSummary = new RunDetails.ItemSummary(
+                UUID.randomUUID(),
+                Map.of("input", "q"),
+                Map.of("output", "a"),
+                Map.of("output", "a"),
+                null,
+                List.of(),
+                Instant.now(),
+                null,
+                null,
+                100,
+                50,
+                0.002,
+                430L);
+        Page<RunDetails.ItemSummary> page = new PageImpl<>(List.of(itemSummary), pageRequest, 1);
         UUID experimentId = UUID.randomUUID();
 
         RunDetails details = new RunDetails(
@@ -76,7 +91,11 @@ class RunControllerTest extends AbstractControllerTest {
                 Instant.now(),
                 null,
                 null,
-                emptyPage);
+                300L,
+                150L,
+                0.006,
+                412.5,
+                page);
 
         when(runService.getRunDetails(eq(runId), any(Pageable.class))).thenReturn(details);
 
@@ -87,7 +106,15 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.experimentName").value("my-experiment"))
                 .andExpect(jsonPath("$.projectName").value("my-project"))
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
-                .andExpect(jsonPath("$.passRate").value(0.8));
+                .andExpect(jsonPath("$.passRate").value(0.8))
+                .andExpect(jsonPath("$.totalTokensIn").value(300))
+                .andExpect(jsonPath("$.totalTokensOut").value(150))
+                .andExpect(jsonPath("$.totalCostUsd").value(0.006))
+                .andExpect(jsonPath("$.avgLatencyMs").value(412.5))
+                .andExpect(jsonPath("$.items.content[0].tokensIn").value(100))
+                .andExpect(jsonPath("$.items.content[0].tokensOut").value(50))
+                .andExpect(jsonPath("$.items.content[0].costUsd").value(0.002))
+                .andExpect(jsonPath("$.items.content[0].latencyMs").value(430));
     }
 
     @Test
@@ -120,6 +147,29 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(jsonPath("$.status").value("ok"));
 
         verify(runService).addItems(eq(runId), any(AddItemsRequest.class), any());
+    }
+
+    @Test
+    void addItems_shouldAcceptMetricFields() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String body = """
+                {"items":[{"inputs":{"input":"q"},"actualOutputs":{"output":"a"},"success":true,\
+                "tokensIn":100,"tokensOut":50,"costUsd":0.002,"latencyMs":430}]}""";
+
+        ArgumentCaptor<AddItemsRequest> captor = ArgumentCaptor.forClass(AddItemsRequest.class);
+        doNothing().when(runService).addItems(eq(runId), captor.capture(), any());
+
+        mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ok"));
+
+        AddItemsRequest.ItemData item = captor.getValue().items().get(0);
+        org.assertj.core.api.Assertions.assertThat(item.tokensIn()).isEqualTo(100);
+        org.assertj.core.api.Assertions.assertThat(item.tokensOut()).isEqualTo(50);
+        org.assertj.core.api.Assertions.assertThat(item.costUsd()).isEqualTo(0.002);
+        org.assertj.core.api.Assertions.assertThat(item.latencyMs()).isEqualTo(430L);
     }
 
     @Test

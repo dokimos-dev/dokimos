@@ -40,6 +40,42 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
     long countItemsWithAllEvalsPassed(ExperimentRun run);
 
     /**
+     * Sums the prompt tokens across a run's items.
+     *
+     * @param run the run to aggregate
+     * @return the total prompt tokens, or null if no item carries a token count
+     */
+    @Query("SELECT SUM(i.tokensIn) FROM ItemResult i WHERE i.run = :run")
+    Long sumTokensInByRun(ExperimentRun run);
+
+    /**
+     * Sums the completion tokens across a run's items.
+     *
+     * @param run the run to aggregate
+     * @return the total completion tokens, or null if no item carries a token count
+     */
+    @Query("SELECT SUM(i.tokensOut) FROM ItemResult i WHERE i.run = :run")
+    Long sumTokensOutByRun(ExperimentRun run);
+
+    /**
+     * Sums the call cost across a run's items.
+     *
+     * @param run the run to aggregate
+     * @return the total cost in USD, or null if no item carries a cost
+     */
+    @Query("SELECT SUM(i.costUsd) FROM ItemResult i WHERE i.run = :run")
+    Double sumCostByRun(ExperimentRun run);
+
+    /**
+     * Averages the call latency across a run's items.
+     *
+     * @param run the run to aggregate
+     * @return the mean latency in milliseconds, or null if no item carries a latency
+     */
+    @Query("SELECT AVG(i.latencyMs) FROM ItemResult i WHERE i.run = :run")
+    Double avgLatencyByRun(ExperimentRun run);
+
+    /**
      * Seek-based page of run items that carry no eval result for the given evaluator yet. Items are
      * ordered by id so the worker can page forward by passing the last id it saw as {@code afterId};
      * the {@code NOT EXISTS} filter is scoped by evaluator name so adding an evaluator to a previously

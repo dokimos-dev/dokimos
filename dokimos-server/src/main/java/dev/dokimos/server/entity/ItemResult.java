@@ -55,6 +55,18 @@ public class ItemResult {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @Column(name = "tokens_in")
+    private Integer tokensIn;
+
+    @Column(name = "tokens_out")
+    private Integer tokensOut;
+
+    @Column(name = "cost_usd")
+    private Double costUsd;
+
+    @Column(name = "latency_ms")
+    private Long latencyMs;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -107,6 +119,38 @@ public class ItemResult {
 
     public Map<String, Object> getMetadata() {
         return metadata;
+    }
+
+    public Integer getTokensIn() {
+        return tokensIn;
+    }
+
+    public void setTokensIn(Integer tokensIn) {
+        this.tokensIn = tokensIn;
+    }
+
+    public Integer getTokensOut() {
+        return tokensOut;
+    }
+
+    public void setTokensOut(Integer tokensOut) {
+        this.tokensOut = tokensOut;
+    }
+
+    public Double getCostUsd() {
+        return costUsd;
+    }
+
+    public void setCostUsd(Double costUsd) {
+        this.costUsd = costUsd;
+    }
+
+    public Long getLatencyMs() {
+        return latencyMs;
+    }
+
+    public void setLatencyMs(Long latencyMs) {
+        this.latencyMs = latencyMs;
     }
 
     public Instant getCreatedAt() {

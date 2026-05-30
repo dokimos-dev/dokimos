@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
@@ -330,6 +331,41 @@ class DokimosServerReporterTest {
 
             JsonNode withoutId = findItemByInput(items, "q2");
             assertThat(withoutId.has("datasetItemId")).isFalse();
+        }
+    }
+
+    @Test
+    void shouldSendCallMetricsWhenPresentAndOmitWhenNull() throws Exception {
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+
+            ItemResult withMetrics = new ItemResult(
+                    Example.of("q-metrics", "a"),
+                    Map.of("output", "a"),
+                    List.of(EvalResult.success("e", 1.0, "ok")),
+                    new CallMetrics(100, 50, 0.002, 430L));
+            ItemResult withoutMetrics = new ItemResult(
+                    Example.of("q-bare", "a"), Map.of("output", "a"), List.of(EvalResult.success("e", 1.0, "ok")));
+
+            reporter.reportItem(handle, withMetrics);
+            reporter.reportItem(handle, withoutMetrics);
+            reporter.flush();
+
+            JsonNode items = collectItems();
+            assertThat(items).hasSize(2);
+
+            JsonNode metricsItem = findItemByInput(items, "q-metrics");
+            assertThat(metricsItem.get("tokensIn").asInt()).isEqualTo(100);
+            assertThat(metricsItem.get("tokensOut").asInt()).isEqualTo(50);
+            assertThat(metricsItem.get("costUsd").asDouble()).isEqualTo(0.002);
+            assertThat(metricsItem.get("latencyMs").asLong()).isEqualTo(430L);
+
+            JsonNode bareItem = findItemByInput(items, "q-bare");
+            assertThat(bareItem.has("tokensIn")).isFalse();
+            assertThat(bareItem.has("tokensOut")).isFalse();
+            assertThat(bareItem.has("costUsd")).isFalse();
+            assertThat(bareItem.has("latencyMs")).isFalse();
         }
     }
 

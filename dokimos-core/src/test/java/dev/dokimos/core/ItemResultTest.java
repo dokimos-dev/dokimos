@@ -43,4 +43,26 @@ class ItemResultTest {
         assertThat(testCase.expectedOutput()).isEqualTo("expected");
         assertThat(testCase.actualOutput()).isEqualTo("actual");
     }
+
+    @Test
+    void shouldDefaultMetricsToNullForThreeArgConstructor() {
+        var item = new ItemResult(Example.of("q", "a"), Map.of("output", "a"), List.of());
+
+        assertThat(item.metrics()).isNull();
+    }
+
+    @Test
+    void shouldCarryCallMetrics() {
+        var item = new ItemResult(
+                Example.of("q", "a"),
+                Map.of("output", "a"),
+                List.of(EvalResult.success("eval1", 1.0, "ok")),
+                new CallMetrics(120, 40, 0.0023, 512L));
+
+        assertThat(item.metrics().tokensIn()).isEqualTo(120);
+        assertThat(item.metrics().tokensOut()).isEqualTo(40);
+        assertThat(item.metrics().costUsd()).isEqualTo(0.0023);
+        assertThat(item.metrics().latencyMs()).isEqualTo(512L);
+        assertThat(item.success()).isTrue();
+    }
 }

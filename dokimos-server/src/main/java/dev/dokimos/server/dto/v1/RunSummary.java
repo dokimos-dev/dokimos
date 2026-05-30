@@ -15,4 +15,8 @@ public record RunSummary(
         Instant startedAt,
         Instant completedAt,
         UUID datasetVersionId,
-        Integer datasetVersion) {}
+        Integer datasetVersion,
+        Long totalTokensIn,
+        Long totalTokensOut,
+        Double totalCostUsd,
+        Double avgLatencyMs) {}

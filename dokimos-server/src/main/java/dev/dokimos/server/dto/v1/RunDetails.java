@@ -21,6 +21,10 @@ public record RunDetails(
         Instant completedAt,
         UUID datasetVersionId,
         Integer datasetVersion,
+        Long totalTokensIn,
+        Long totalTokensOut,
+        Double totalCostUsd,
+        Double avgLatencyMs,
         Page<ItemSummary> items) {
     public record ItemSummary(
             UUID id,
@@ -31,7 +35,11 @@ public record RunDetails(
             List<EvalSummary> evalResults,
             Instant createdAt,
             UUID datasetItemId,
-            AnnotationView annotation) {}
+            AnnotationView annotation,
+            Integer tokensIn,
+            Integer tokensOut,
+            Double costUsd,
+            Long latencyMs) {}
 
     public record EvalSummary(
             UUID id, String evaluatorName, double score, Double threshold, boolean success, String reason) {}

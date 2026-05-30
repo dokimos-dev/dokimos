@@ -64,6 +64,18 @@ public class ExperimentRun {
     @Column(name = "pass_rate")
     private Double passRate;
 
+    @Column(name = "total_tokens_in")
+    private Long totalTokensIn;
+
+    @Column(name = "total_tokens_out")
+    private Long totalTokensOut;
+
+    @Column(name = "total_cost_usd")
+    private Double totalCostUsd;
+
+    @Column(name = "avg_latency_ms")
+    private Double avgLatencyMs;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_version_id")
     private DatasetVersion datasetVersion;
@@ -183,6 +195,38 @@ public class ExperimentRun {
 
     public void setPassRate(Double passRate) {
         this.passRate = passRate;
+    }
+
+    public Long getTotalTokensIn() {
+        return totalTokensIn;
+    }
+
+    public void setTotalTokensIn(Long totalTokensIn) {
+        this.totalTokensIn = totalTokensIn;
+    }
+
+    public Long getTotalTokensOut() {
+        return totalTokensOut;
+    }
+
+    public void setTotalTokensOut(Long totalTokensOut) {
+        this.totalTokensOut = totalTokensOut;
+    }
+
+    public Double getTotalCostUsd() {
+        return totalCostUsd;
+    }
+
+    public void setTotalCostUsd(Double totalCostUsd) {
+        this.totalCostUsd = totalCostUsd;
+    }
+
+    public Double getAvgLatencyMs() {
+        return avgLatencyMs;
+    }
+
+    public void setAvgLatencyMs(Double avgLatencyMs) {
+        this.avgLatencyMs = avgLatencyMs;
     }
 
     public DatasetVersion getDatasetVersion() {

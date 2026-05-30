@@ -2,6 +2,7 @@ package dev.dokimos.server.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
@@ -69,13 +70,13 @@ class ReporterIntegrationTest {
         UUID runId = UUID.fromString(handle.runId());
 
         // Report several items with some data
-        ItemResult item1 = createItemResult(
-                "What is the capital of France?",
-                "Paris",
-                "Paris",
+        ItemResult item1 = new ItemResult(
+                Example.of("What is the capital of France?", "Paris"),
+                Map.of("output", "Paris"),
                 List.of(
                         EvalResult.success("exact-match", 1.0, "Output matches expected"),
-                        EvalResult.of("semantic-similarity", 0.95, 0.8, "High semantic similarity")));
+                        EvalResult.of("semantic-similarity", 0.95, 0.8, "High semantic similarity")),
+                new CallMetrics(100, 50, 0.002, 430L));
 
         ItemResult item2 = createItemResult(
                 "What is 2 + 2?", "4", "4", List.of(EvalResult.success("exact-match", 1.0, "Output matches expected")));
@@ -134,6 +135,19 @@ class ReporterIntegrationTest {
         assertThat(firstItem.getExpectedOutput()).isEqualTo(Map.of("output", "Paris"));
         assertThat(firstItem.getActualOutput()).isEqualTo(Map.of("output", "Paris"));
         assertThat(firstItem.getEvalResults()).hasSize(2);
+
+        // The call metrics carried on the first item must round-trip into the stored row.
+        assertThat(firstItem.getTokensIn()).isEqualTo(100);
+        assertThat(firstItem.getTokensOut()).isEqualTo(50);
+        assertThat(firstItem.getCostUsd()).isCloseTo(0.002, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(firstItem.getLatencyMs()).isEqualTo(430L);
+
+        // The run-level aggregates are materialized at completion from the single item that carried
+        // metrics; the other two items contribute null and are ignored by SUM/AVG.
+        assertThat(storedRun.getTotalTokensIn()).isEqualTo(100L);
+        assertThat(storedRun.getTotalTokensOut()).isEqualTo(50L);
+        assertThat(storedRun.getTotalCostUsd()).isCloseTo(0.002, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(storedRun.getAvgLatencyMs()).isEqualTo(430.0);
 
         // Verify eval results for first item
         var evalResults = firstItem.getEvalResults();

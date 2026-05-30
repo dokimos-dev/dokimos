@@ -72,6 +72,26 @@ export default function Header() {
             >
               API keys
             </NavLink>
+            <NavLink
+              to="/traces"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              Traces
+            </NavLink>
+            <NavLink
+              to="/trace-eval-rules"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              Trace eval rules
+            </NavLink>
           </nav>
         </div>
         <ThemeToggleButton

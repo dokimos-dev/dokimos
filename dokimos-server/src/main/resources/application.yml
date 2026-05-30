@@ -8,6 +8,13 @@ dokimos:
     poll-interval-ms: ${DOKIMOS_JUDGE_POLL_INTERVAL_MS:5000}
     max-attempts: ${DOKIMOS_JUDGE_MAX_ATTEMPTS:3}
     page-size: ${DOKIMOS_JUDGE_PAGE_SIZE:50}
+  trace:
+    retention-days: ${DOKIMOS_TRACE_RETENTION_DAYS:30}
+    sweep-interval-ms: ${DOKIMOS_TRACE_SWEEP_INTERVAL_MS:3600000}
+    eval:
+      poll-interval-ms: ${DOKIMOS_TRACE_EVAL_POLL_INTERVAL_MS:5000}
+      max-attempts: ${DOKIMOS_TRACE_EVAL_MAX_ATTEMPTS:3}
+      claim-timeout-ms: ${DOKIMOS_TRACE_EVAL_CLAIM_TIMEOUT_MS:600000}
 
 spring:
   application:

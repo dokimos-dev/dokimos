@@ -46,6 +46,74 @@ export interface AnnotationView {
   updatedAt?: string;
 }
 
+export interface UpdateAlertWebhookRequest {
+  /** @minLength 1 */
+  url?: string;
+  secret?: string;
+  enabled?: boolean;
+}
+
+export interface AlertWebhookView {
+  id?: string;
+  projectId?: string;
+  url?: string;
+  hasSecret?: boolean;
+  enabled?: boolean;
+  createdAt?: string;
+}
+
+export type CreateTraceEvalRuleRequestMatchType = typeof CreateTraceEvalRuleRequestMatchType[keyof typeof CreateTraceEvalRuleRequestMatchType];
+
+
+export const CreateTraceEvalRuleRequestMatchType = {
+  SPAN_NAME: 'SPAN_NAME',
+  ATTRIBUTE: 'ATTRIBUTE',
+} as const;
+
+export interface CreateTraceEvalRuleRequest {
+  /** @minLength 1 */
+  name?: string;
+  enabled?: boolean;
+  matchType: CreateTraceEvalRuleRequestMatchType;
+  matchKey?: string;
+  /** @minLength 1 */
+  matchValue?: string;
+  connectionId: string;
+  /** @minLength 1 */
+  evaluatorName?: string;
+  /** @minLength 1 */
+  criteria?: string;
+  minScore?: number;
+  maxScore?: number;
+  threshold?: number;
+}
+
+export type TraceEvalRuleViewMatchType = typeof TraceEvalRuleViewMatchType[keyof typeof TraceEvalRuleViewMatchType];
+
+
+export const TraceEvalRuleViewMatchType = {
+  SPAN_NAME: 'SPAN_NAME',
+  ATTRIBUTE: 'ATTRIBUTE',
+} as const;
+
+export interface TraceEvalRuleView {
+  id?: string;
+  projectId?: string;
+  name?: string;
+  enabled?: boolean;
+  matchType?: TraceEvalRuleViewMatchType;
+  matchKey?: string;
+  matchValue?: string;
+  connectionId?: string;
+  evaluatorName?: string;
+  criteria?: string;
+  minScore?: number;
+  maxScore?: number;
+  threshold?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type UpdateLlmConnectionRequestProtocol = typeof UpdateLlmConnectionRequestProtocol[keyof typeof UpdateLlmConnectionRequestProtocol];
 
 
@@ -83,6 +151,58 @@ export interface LlmConnectionView {
   credentialRef?: string;
   hasInlineKey?: boolean;
   createdAt?: string;
+}
+
+export interface OtlpAnyValue {
+  stringValue?: string;
+  boolValue?: boolean;
+  intValue?: string;
+  doubleValue?: number;
+}
+
+export interface OtlpKeyValue {
+  key?: string;
+  value?: OtlpAnyValue;
+}
+
+export interface OtlpResource {
+  attributes?: OtlpKeyValue[];
+}
+
+export interface OtlpStatus {
+  code?: string;
+  message?: string;
+}
+
+export interface OtlpSpan {
+  traceId?: string;
+  spanId?: string;
+  parentSpanId?: string;
+  name?: string;
+  kind?: string;
+  startTimeUnixNano?: string;
+  endTimeUnixNano?: string;
+  status?: OtlpStatus;
+  attributes?: OtlpKeyValue[];
+}
+
+export interface OtlpScopeSpans {
+  spans?: OtlpSpan[];
+}
+
+export interface OtlpResourceSpans {
+  resource?: OtlpResource;
+  scopeSpans?: OtlpScopeSpans[];
+}
+
+export interface OtlpExportTraceServiceRequest {
+  resourceSpans?: OtlpResourceSpans[];
+}
+
+export interface TraceIngestResponse {
+  acceptedSpans?: number;
+  rejectedSpans?: number;
+  traces?: number;
 }
 
 export interface EnqueueJudgeRequest {
@@ -175,6 +295,13 @@ export interface CreateRunRequest {
 
 export interface CreateRunResponse {
   runId?: string;
+}
+
+export interface CreateAlertWebhookRequest {
+  /** @minLength 1 */
+  url?: string;
+  secret?: string;
+  enabled?: boolean;
 }
 
 export type CreateLlmConnectionRequestProtocol = typeof CreateLlmConnectionRequestProtocol[keyof typeof CreateLlmConnectionRequestProtocol];
@@ -362,6 +489,101 @@ export interface UpdateRunRequest {
   status: UpdateRunRequestStatus;
 }
 
+export interface TraceSummary {
+  id?: string;
+  traceId?: string;
+  projectId?: string;
+  rootSpanName?: string;
+  spanCount?: number;
+  createdAt?: string;
+  expiresAt?: string;
+}
+
+export interface PageSort {
+  empty?: boolean;
+  sorted?: boolean;
+  unsorted?: boolean;
+}
+
+export interface PageablePage {
+  offset?: number;
+  sort?: PageSort;
+  paged?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  unpaged?: boolean;
+}
+
+export interface PageResponseTraceSummary {
+  content?: TraceSummary[];
+  number?: number;
+  size?: number;
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  last?: boolean;
+  numberOfElements?: number;
+  empty?: boolean;
+  sort?: PageSort;
+  pageable?: PageablePage;
+}
+
+export type SpanViewAttributes = {[key: string]: { [key: string]: unknown }};
+
+export interface SpanView {
+  id?: string;
+  spanId?: string;
+  parentSpanId?: string;
+  name?: string;
+  kind?: string;
+  statusCode?: string;
+  startTimeUnixNano?: number;
+  endTimeUnixNano?: number;
+  inputText?: string;
+  outputText?: string;
+  attributes?: SpanViewAttributes;
+}
+
+export type TraceEvalJobViewStatus = typeof TraceEvalJobViewStatus[keyof typeof TraceEvalJobViewStatus];
+
+
+export const TraceEvalJobViewStatus = {
+  PENDING: 'PENDING',
+  CLAIMED: 'CLAIMED',
+  SUCCEEDED: 'SUCCEEDED',
+  FAILED: 'FAILED',
+} as const;
+
+export interface TraceEvalJobView {
+  id?: string;
+  spanId?: string;
+  ruleId?: string;
+  evaluatorName?: string;
+  status?: TraceEvalJobViewStatus;
+  score?: number;
+  success?: boolean;
+  reason?: string;
+  attemptCount?: number;
+  lastError?: string;
+  createdAt?: string;
+  completedAt?: string;
+}
+
+export interface TraceDetail {
+  id?: string;
+  traceId?: string;
+  projectId?: string;
+  tenantId?: string;
+  rootSpanName?: string;
+  spanCount?: number;
+  startTimeUnixNano?: number;
+  endTimeUnixNano?: number;
+  createdAt?: string;
+  expiresAt?: string;
+  spans?: SpanView[];
+  evalJobs?: TraceEvalJobView[];
+}
+
 export interface Pageable {
   /** @minimum 0 */
   page?: number;
@@ -419,16 +641,16 @@ export interface PageableObject {
 }
 
 export interface PageItemSummary {
-  totalElements?: number;
   totalPages?: number;
+  totalElements?: number;
   first?: boolean;
   last?: boolean;
   size?: number;
   content?: ItemSummary[];
   number?: number;
   sort?: SortObject;
-  numberOfElements?: number;
   pageable?: PageableObject;
+  numberOfElements?: number;
   empty?: boolean;
 }
 
@@ -509,16 +731,16 @@ export interface ReviewQueueItem {
 }
 
 export interface PageReviewQueueItem {
-  totalElements?: number;
   totalPages?: number;
+  totalElements?: number;
   first?: boolean;
   last?: boolean;
   size?: number;
   content?: ReviewQueueItem[];
   number?: number;
   sort?: SortObject;
-  numberOfElements?: number;
   pageable?: PageableObject;
+  numberOfElements?: number;
   empty?: boolean;
 }
 
@@ -631,21 +853,6 @@ export interface DiffSummary {
   removedCount?: number;
 }
 
-export interface PageSort {
-  empty?: boolean;
-  sorted?: boolean;
-  unsorted?: boolean;
-}
-
-export interface PageablePage {
-  offset?: number;
-  sort?: PageSort;
-  paged?: boolean;
-  pageNumber?: number;
-  pageSize?: number;
-  unpaged?: boolean;
-}
-
 export interface PageResponseDiffCase {
   content?: DiffCase[];
   number?: number;
@@ -710,6 +917,12 @@ export interface PageResponseDatasetItemView {
   sort?: PageSort;
   pageable?: PageablePage;
 }
+
+export type ListTracesParams = {
+projectId?: string;
+page?: number;
+size?: number;
+};
 
 export type AddItems201 = {[key: string]: string};
 

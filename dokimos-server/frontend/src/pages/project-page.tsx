@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, Link } from "react-router";
 import { formatDistanceToNow } from "date-fns";
 import { useListExperiments } from "@/lib/api/project-controller/project-controller";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
@@ -78,7 +78,7 @@ export default function ProjectPage() {
   if (!experiments || experiments.length === 0) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">{name}</h1>
+        <ProjectHeader name={name} />
         <p className="text-muted-foreground">
           No experiments yet. Run an experiment to see results here.
         </p>
@@ -93,7 +93,7 @@ export default function ProjectPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">{name}</h1>
+      <ProjectHeader name={name} />
       <Table>
         <TableHeader>
           <TableRow>
@@ -136,6 +136,22 @@ export default function ProjectPage() {
         pageSize={PAGE_SIZE}
         onPageChange={setCurrentPage}
       />
+    </div>
+  );
+}
+
+function ProjectHeader({ name }: { name?: string }) {
+  return (
+    <div className="flex items-center justify-between mb-6">
+      <h1 className="text-2xl font-bold">{name}</h1>
+      {name && (
+        <Link
+          to={`/projects/${encodeURIComponent(name)}/alerts`}
+          className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
+        >
+          Alert webhooks
+        </Link>
+      )}
     </div>
   );
 }

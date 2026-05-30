@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.CreateLlmConnectionRequest;
 import dev.dokimos.server.dto.v1.LlmConnectionView;
+import dev.dokimos.server.entity.LlmConnectionProtocol;
 import dev.dokimos.server.service.LlmConnectionService;
 import java.time.Instant;
 import java.util.UUID;
@@ -40,7 +41,14 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
 
     private LlmConnectionView view(UUID id) {
         return new LlmConnectionView(
-                id, "conn", "https://api.example.com", "gpt-4", "OPENAI_KEY", false, Instant.now());
+                id,
+                "conn",
+                "https://api.example.com",
+                "gpt-4",
+                LlmConnectionProtocol.RESPONSES,
+                "OPENAI_KEY",
+                false,
+                Instant.now());
     }
 
     @Test
@@ -48,7 +56,7 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
         UUID id = UUID.randomUUID();
         when(connectionService.create(any())).thenReturn(view(id));
         CreateLlmConnectionRequest request =
-                new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, "OPENAI_KEY");
+                new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, null, "OPENAI_KEY");
 
         mockMvc.perform(post("/api/v1/llm-connections")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,8 +70,8 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
 
     @Test
     void create_shouldReturn400WhenBothCredentialsSupplied() throws Exception {
-        CreateLlmConnectionRequest request =
-                new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", "sk-inline", "OPENAI_KEY");
+        CreateLlmConnectionRequest request = new CreateLlmConnectionRequest(
+                "conn", "https://api.example.com", "gpt-4", null, "sk-inline", "OPENAI_KEY");
 
         mockMvc.perform(post("/api/v1/llm-connections")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +85,7 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
                 .when(connectionService)
                 .create(any());
         CreateLlmConnectionRequest request =
-                new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, "OPENAI_KEY");
+                new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, null, "OPENAI_KEY");
 
         mockMvc.perform(post("/api/v1/llm-connections")
                         .contentType(MediaType.APPLICATION_JSON)

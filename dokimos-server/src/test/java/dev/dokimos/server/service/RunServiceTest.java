@@ -612,6 +612,34 @@ class RunServiceTest {
     }
 
     @Test
+    void getRunDetails_shouldReadCostTotalsLiveWhileRunning() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        Pageable pageable = PageRequest.of(0, 50);
+        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(new PageImpl<>(List.of()));
+        when(itemResultRepository.countByRun(run)).thenReturn(3L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(2L);
+        when(itemResultRepository.sumTokensInByRun(run)).thenReturn(300L);
+        when(itemResultRepository.sumTokensOutByRun(run)).thenReturn(150L);
+        when(itemResultRepository.sumCostByRun(run)).thenReturn(0.006);
+        when(itemResultRepository.avgLatencyByRun(run)).thenReturn(412.5);
+
+        RunDetails result = runService.getRunDetails(runId, pageable);
+
+        assertThat(result.totalItems()).isEqualTo(3);
+        assertThat(result.passedItems()).isEqualTo(2);
+        assertThat(result.totalTokensIn()).isEqualTo(300L);
+        assertThat(result.totalTokensOut()).isEqualTo(150L);
+        assertThat(result.totalCostUsd()).isEqualTo(0.006);
+        assertThat(result.avgLatencyMs()).isEqualTo(412.5);
+    }
+
+    @Test
     void getRunDetails_shouldThrowWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
         when(runRepository.findById(runId)).thenReturn(Optional.empty());

@@ -8,6 +8,7 @@ import RunDiffPage from "@/pages/run-diff-page";
 import DatasetsPage from "@/pages/datasets-page";
 import DatasetPage from "@/pages/dataset-page";
 import ConnectionsPage from "@/pages/connections-page";
+import ReviewQueuePage from "@/pages/review-queue-page";
 
 export const router = createBrowserRouter([
   {
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
       {
         path: "/llm-connections",
         element: <ConnectionsPage />,
+      },
+      {
+        path: "/review-queue",
+        element: <ReviewQueuePage />,
       },
     ],
   },

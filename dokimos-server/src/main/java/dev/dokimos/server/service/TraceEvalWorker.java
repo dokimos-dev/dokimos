@@ -7,7 +7,6 @@ import dev.dokimos.server.entity.LlmConnection;
 import dev.dokimos.server.entity.TraceEvalJob;
 import dev.dokimos.server.judge.JudgeCallException;
 import dev.dokimos.server.judge.JudgeScorer;
-import dev.dokimos.server.judge.OpenAiCompatibleJudge;
 import dev.dokimos.server.service.TraceEvalJobTransactions.ClaimedJob;
 import java.time.Instant;
 import java.util.List;
@@ -40,11 +39,7 @@ public class TraceEvalWorker {
     @Autowired
     public TraceEvalWorker(
             TraceEvalJobTransactions transactions, LlmCredentialService credentialService, TraceProperties properties) {
-        this(
-                transactions,
-                credentialService,
-                properties,
-                (connection, key) -> new OpenAiCompatibleJudge(connection.getBaseUrl(), connection.getModel(), key));
+        this(transactions, credentialService, properties, JudgeWorker::judgeFor);
     }
 
     TraceEvalWorker(

@@ -2,6 +2,7 @@ package dev.dokimos.server.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
@@ -69,17 +70,13 @@ class ReporterIntegrationTest {
         UUID runId = UUID.fromString(handle.runId());
 
         // Report several items with some data
-        ItemResult item1 = ItemResult.builder(
-                        Example.of("What is the capital of France?", "Paris"),
-                        Map.of("output", "Paris"),
-                        List.of(
-                                EvalResult.success("exact-match", 1.0, "Output matches expected"),
-                                EvalResult.of("semantic-similarity", 0.95, 0.8, "High semantic similarity")))
-                .tokensIn(100)
-                .tokensOut(50)
-                .costUsd(0.002)
-                .latencyMs(430L)
-                .build();
+        ItemResult item1 = new ItemResult(
+                Example.of("What is the capital of France?", "Paris"),
+                Map.of("output", "Paris"),
+                List.of(
+                        EvalResult.success("exact-match", 1.0, "Output matches expected"),
+                        EvalResult.of("semantic-similarity", 0.95, 0.8, "High semantic similarity")),
+                new CallMetrics(100, 50, 0.002, 430L));
 
         ItemResult item2 = createItemResult(
                 "What is 2 + 2?", "4", "4", List.of(EvalResult.success("exact-match", 1.0, "Output matches expected")));

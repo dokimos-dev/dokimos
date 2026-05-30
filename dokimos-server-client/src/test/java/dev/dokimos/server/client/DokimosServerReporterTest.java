@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
@@ -339,15 +340,11 @@ class DokimosServerReporterTest {
             RunHandle handle = reporter.startRun("test", Map.of());
             recordedRequests.clear();
 
-            ItemResult withMetrics = ItemResult.builder(
-                            Example.of("q-metrics", "a"),
-                            Map.of("output", "a"),
-                            List.of(EvalResult.success("e", 1.0, "ok")))
-                    .tokensIn(100)
-                    .tokensOut(50)
-                    .costUsd(0.002)
-                    .latencyMs(430L)
-                    .build();
+            ItemResult withMetrics = new ItemResult(
+                    Example.of("q-metrics", "a"),
+                    Map.of("output", "a"),
+                    List.of(EvalResult.success("e", 1.0, "ok")),
+                    new CallMetrics(100, 50, 0.002, 430L));
             ItemResult withoutMetrics = new ItemResult(
                     Example.of("q-bare", "a"), Map.of("output", "a"), List.of(EvalResult.success("e", 1.0, "ok")));
 

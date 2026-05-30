@@ -8,7 +8,9 @@ The server can ingest traces from your running application and evaluate them onl
 
 ## Ingesting traces
 
-Send traces to `POST /api/v1/traces` using the OTLP/HTTP JSON encoding of an `ExportTraceServiceRequest`. This is the standard OpenTelemetry trace export shape, so an OTLP exporter pointed at this endpoint works. (Protobuf encoding is not supported yet; send JSON.)
+Send traces to `POST /api/v1/traces` using an `ExportTraceServiceRequest`. This is the standard OpenTelemetry trace export shape, so an OTLP exporter pointed at this endpoint works. Both OTLP encodings are accepted: the JSON encoding with `Content-Type: application/json`, and the protobuf binary encoding with `Content-Type: application/x-protobuf` (the OpenTelemetry default). Both encodings produce the same span counts, the same derived input and output text, and the same project link whichever one you send. (The raw stored `kind` and `status.code` strings can differ for a JSON exporter that sends enums as integers rather than symbolic names, but those fields drive neither matching nor the derived fields.)
+
+The JSON example below is the most copy-paste friendly. For protobuf, point an OTLP/HTTP exporter at the endpoint and it will send `application/x-protobuf` automatically.
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/traces \

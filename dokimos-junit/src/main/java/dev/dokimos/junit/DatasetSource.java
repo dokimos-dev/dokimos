@@ -4,6 +4,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.provider.ArgumentsSource;
 
 /**
@@ -36,6 +37,7 @@ import org.junit.jupiter.params.provider.ArgumentsSource;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @ArgumentsSource(DatasetArgumentsProvider.class)
+@ExtendWith(DatasetRunExtension.class)
 public @interface DatasetSource {
 
     /**
@@ -54,4 +56,17 @@ public @interface DatasetSource {
      * Use this for small/quick tests only.
      */
     String jsonl() default "";
+
+    /**
+     * Name of the run opened when a {@link DatasetReporter} field is present.
+     * Defaults to the test method name when left empty.
+     */
+    String experimentName() default "";
+
+    /**
+     * Run metadata as alternating key-value pairs (for example
+     * {@code {"model", "gpt-4", "temperature", "0"}}). Forwarded to the reporter when a
+     * {@link DatasetReporter} field is present. Defaults to no metadata.
+     */
+    String[] metadata() default {};
 }

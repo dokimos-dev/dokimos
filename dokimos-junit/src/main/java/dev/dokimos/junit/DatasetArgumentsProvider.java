@@ -14,6 +14,17 @@ import org.junit.jupiter.params.support.AnnotationConsumer;
  */
 public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<DatasetSource> {
 
+    /**
+     * Namespace under which the resolved dataset is stashed for {@link DatasetRunExtension}.
+     */
+    static final ExtensionContext.Namespace NAMESPACE =
+            ExtensionContext.Namespace.create(DatasetArgumentsProvider.class);
+
+    /**
+     * Store key for the resolved {@link Dataset}.
+     */
+    static final String DATASET_KEY = "dataset";
+
     private String uri;
     private String inlineJson;
     private String inlineJsonl;
@@ -28,6 +39,7 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext context) {
         Dataset dataset = loadDataset();
+        context.getStore(NAMESPACE).put(DATASET_KEY, dataset);
         return dataset.examples().stream().map(Arguments::of);
     }
 

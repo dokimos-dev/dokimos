@@ -63,6 +63,16 @@ export default function Header() {
               Review queue
             </NavLink>
             <NavLink
+              to="/api-keys"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              API keys
+            </NavLink>
+            <NavLink
               to="/traces"
               className={({ isActive }) =>
                 isActive

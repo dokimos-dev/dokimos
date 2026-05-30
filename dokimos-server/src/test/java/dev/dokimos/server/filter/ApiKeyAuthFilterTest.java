@@ -1,9 +1,15 @@
 package dev.dokimos.server.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.server.config.ApiKeyProperties;
+import dev.dokimos.server.entity.ApiKey;
+import dev.dokimos.server.repository.ApiKeyRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,12 +22,16 @@ class ApiKeyAuthFilterTest {
     private static final String TEST_API_KEY = "test-secret-key-12345";
     private final ObjectMapper objectMapper = new ObjectMapper();
     private ApiKeyProperties apiKeyProperties;
+    private ApiKeyRepository apiKeyRepository;
     private ApiKeyAuthFilter filter;
 
     @BeforeEach
     void setUp() {
         apiKeyProperties = new ApiKeyProperties();
-        filter = new ApiKeyAuthFilter(new ApiKeyAuthenticator(apiKeyProperties), objectMapper);
+        apiKeyRepository = mock(ApiKeyRepository.class);
+        when(apiKeyRepository.existsByEnabledTrue()).thenReturn(false);
+        when(apiKeyRepository.findByKeyHashAndEnabledTrue(anyString())).thenReturn(Optional.empty());
+        filter = new ApiKeyAuthFilter(new ApiKeyAuthenticator(apiKeyProperties, apiKeyRepository), objectMapper);
     }
 
     @Nested
@@ -328,6 +338,117 @@ class ApiKeyAuthFilterTest {
             // Filter applies and blocks without auth
             assertThat(response.getStatus()).isEqualTo(401);
             assertThat(filterChain.getRequest()).isNull();
+        }
+    }
+
+    @Nested
+    class RoleEnforcement {
+
+        @BeforeEach
+        void setUp() {
+            // Authenticated mode driven by a scoped key existing, no legacy key.
+            apiKeyProperties.setApiKey(null);
+            when(apiKeyRepository.existsByEnabledTrue()).thenReturn(true);
+        }
+
+        private void stubKey(String rawKey, Role role) {
+            ApiKey key = new ApiKey(ApiKeyHasher.sha256Hex(rawKey), "k", role, null);
+            when(apiKeyRepository.findByKeyHashAndEnabledTrue(ApiKeyHasher.sha256Hex(rawKey)))
+                    .thenReturn(Optional.of(key));
+        }
+
+        @Test
+        void shouldRejectWriteFromViewerWith403() throws Exception {
+            stubKey("viewer-key", Role.VIEWER);
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/runs");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer viewer-key");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsString()).contains("EDITOR required");
+            assertThat(filterChain.getRequest()).isNull();
+        }
+
+        @Test
+        void shouldAllowWriteFromEditor() throws Exception {
+            stubKey("editor-key", Role.EDITOR);
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/runs");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer editor-key");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(filterChain.getRequest()).isNotNull();
+        }
+
+        @Test
+        void shouldAllowReadFromViewer() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/runs");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(filterChain.getRequest()).isNotNull();
+        }
+
+        @Test
+        void shouldRejectApiKeyManagementFromEditorWith403() throws Exception {
+            stubKey("editor-key", Role.EDITOR);
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/api-keys");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer editor-key");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentAsString()).contains("ADMIN required");
+            assertThat(filterChain.getRequest()).isNull();
+        }
+
+        @Test
+        void shouldAllowApiKeyManagementFromAdmin() throws Exception {
+            stubKey("admin-key", Role.ADMIN);
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/api-keys");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer admin-key");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(filterChain.getRequest()).isNotNull();
+        }
+
+        @Test
+        void shouldStampScopedPrincipalWithRoleAndTenant() throws Exception {
+            ApiKey key = new ApiKey(ApiKeyHasher.sha256Hex("editor-key"), "k", Role.EDITOR, "tenant-9");
+            when(apiKeyRepository.findByKeyHashAndEnabledTrue(ApiKeyHasher.sha256Hex("editor-key")))
+                    .thenReturn(Optional.of(key));
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/runs");
+            request.setContentType("application/json");
+            request.addHeader("Authorization", "Bearer editor-key");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            Object stashed = request.getAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE);
+            assertThat(stashed).isInstanceOf(Principal.class);
+            Principal principal = (Principal) stashed;
+            assertThat(principal.role()).isEqualTo(Role.EDITOR);
+            assertThat(principal.tenantId()).isEqualTo("tenant-9");
         }
     }
 

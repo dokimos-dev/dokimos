@@ -24,6 +24,7 @@ import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
 import dev.dokimos.server.filter.ApiKeyAuthFilter;
 import dev.dokimos.server.filter.Principal;
+import dev.dokimos.server.filter.Role;
 import dev.dokimos.server.service.DatasetService;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -255,7 +256,7 @@ class DatasetControllerTest extends AbstractControllerTest {
 
     private static RequestPostProcessor principal(String id) {
         return request -> {
-            request.setAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE, new Principal(id, null));
+            request.setAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE, new Principal(id, Role.ADMIN, null));
             return request;
         };
     }

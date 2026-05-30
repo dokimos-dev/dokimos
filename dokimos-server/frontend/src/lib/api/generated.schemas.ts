@@ -434,6 +434,46 @@ export interface PromoteRequest {
   items?: PromoteItem[];
 }
 
+export type CreateApiKeyRequestRole = typeof CreateApiKeyRequestRole[keyof typeof CreateApiKeyRequestRole];
+
+
+export const CreateApiKeyRequestRole = {
+  VIEWER: 'VIEWER',
+  EDITOR: 'EDITOR',
+  ADMIN: 'ADMIN',
+} as const;
+
+export interface CreateApiKeyRequest {
+  /** @minLength 1 */
+  name?: string;
+  role: CreateApiKeyRequestRole;
+  tenantId?: string;
+}
+
+export type ApiKeyViewRole = typeof ApiKeyViewRole[keyof typeof ApiKeyViewRole];
+
+
+export const ApiKeyViewRole = {
+  VIEWER: 'VIEWER',
+  EDITOR: 'EDITOR',
+  ADMIN: 'ADMIN',
+} as const;
+
+export interface ApiKeyView {
+  id?: string;
+  name?: string;
+  role?: ApiKeyViewRole;
+  tenantId?: string;
+  enabled?: boolean;
+  createdAt?: string;
+  lastUsedAt?: string;
+}
+
+export interface CreatedApiKeyView {
+  key?: string;
+  apiKey?: ApiKeyView;
+}
+
 export type UpdateRunRequestStatus = typeof UpdateRunRequestStatus[keyof typeof UpdateRunRequestStatus];
 
 

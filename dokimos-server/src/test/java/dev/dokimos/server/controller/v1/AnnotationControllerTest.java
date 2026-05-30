@@ -18,6 +18,7 @@ import dev.dokimos.server.dto.v1.AnnotationView;
 import dev.dokimos.server.entity.AnnotationVerdict;
 import dev.dokimos.server.filter.ApiKeyAuthFilter;
 import dev.dokimos.server.filter.Principal;
+import dev.dokimos.server.filter.Role;
 import dev.dokimos.server.service.AnnotationService;
 import java.time.Instant;
 import java.util.Map;
@@ -146,7 +147,7 @@ class AnnotationControllerTest extends AbstractControllerTest {
 
     private static RequestPostProcessor principal(String id) {
         return request -> {
-            request.setAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE, new Principal(id, null));
+            request.setAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE, new Principal(id, Role.ADMIN, null));
             return request;
         };
     }

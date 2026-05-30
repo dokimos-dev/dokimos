@@ -2,6 +2,8 @@ package dev.dokimos.server.controller.v1;
 
 import dev.dokimos.server.dto.v1.DiffView;
 import dev.dokimos.server.service.DiffService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -49,12 +51,14 @@ public class DiffController {
             @PathVariable UUID candidateRunId,
             @RequestParam UUID baselineRunId,
             @RequestParam(required = false, defaultValue = "ALL") String status,
-            Pageable pageable) {
+            Pageable pageable,
+            HttpServletRequest http) {
         if (status != null && !ALLOWED_STATUS.contains(status.trim().toUpperCase())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Unknown status filter: " + status + " (expected ALL, REGRESSED, IMPROVED, or CHANGED)");
         }
-        return diffService.listDiff(experimentId, candidateRunId, baselineRunId, status, pageable);
+        return diffService.listDiff(
+                experimentId, candidateRunId, baselineRunId, status, pageable, TenantScopeResolver.scope(http));
     }
 }

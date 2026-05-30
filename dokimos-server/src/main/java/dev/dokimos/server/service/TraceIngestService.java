@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -93,9 +92,12 @@ public class TraceIngestService {
         Trace trace = traceRepository.findByTraceId(traceId).orElseGet(() -> new Trace(traceId, now, expiresAt));
         trace.setExpiresAt(expiresAt);
 
-        UUID projectId = resolveProjectId(spans);
-        if (projectId != null) {
-            trace.setProjectId(projectId);
+        Project project = resolveProject(spans);
+        if (project != null) {
+            trace.setProjectId(project.getId());
+            // Stamp the trace with its project's tenant so scoped trace reads land in the right tenant.
+            // Ingestion runs without a tenant-scoped principal, so the project is the only tenant signal.
+            trace.setTenantId(project.getTenantId());
         }
 
         ParsedSpan root = findRoot(spans);
@@ -107,6 +109,7 @@ public class TraceIngestService {
 
         for (ParsedSpan parsed : spans) {
             TraceSpan span = new TraceSpan(parsed.traceId(), parsed.spanId(), parsed.name(), now);
+            span.setTenantId(trace.getTenantId());
             span.setParentSpanId(parsed.parentSpanId());
             span.setKind(parsed.kind());
             span.setStatusCode(parsed.statusCode());
@@ -121,12 +124,15 @@ public class TraceIngestService {
         return traceRepository.save(trace);
     }
 
-    private UUID resolveProjectId(List<ParsedSpan> spans) {
+    private Project resolveProject(List<ParsedSpan> spans) {
         for (ParsedSpan span : spans) {
             if (span.projectName() != null && !span.projectName().isBlank()) {
-                Optional<Project> project = projectRepository.findByName(span.projectName());
+                // Ingestion derives the soft project link regardless of tenant, so the lookup is
+                // unrestricted; the resulting tenant is then carried onto the trace and its spans.
+                Optional<Project> project = projectRepository.findByName(
+                        span.projectName(), dev.dokimos.server.tenant.TenantScope.unrestricted());
                 if (project.isPresent()) {
-                    return project.get().getId();
+                    return project.get();
                 }
             }
         }

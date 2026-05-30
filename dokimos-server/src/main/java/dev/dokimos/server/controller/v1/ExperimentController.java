@@ -5,6 +5,9 @@ import dev.dokimos.server.dto.v1.TrendData;
 import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScope;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -29,19 +32,21 @@ public class ExperimentController {
     }
 
     @GetMapping("/{experimentId}/runs")
-    public List<RunSummary> listRuns(@PathVariable UUID experimentId) {
-        Experiment experiment = experimentService.getExperiment(experimentId);
-        return runService.listRuns(experiment);
+    public List<RunSummary> listRuns(@PathVariable UUID experimentId, HttpServletRequest http) {
+        TenantScope scope = TenantScopeResolver.scope(http);
+        Experiment experiment = experimentService.getExperiment(experimentId, scope);
+        return runService.listRuns(experiment, scope);
     }
 
     @GetMapping("/{experimentId}/trends")
-    public TrendData getTrends(@PathVariable UUID experimentId, @RequestParam(defaultValue = "20") int limit) {
-        return experimentService.getTrends(experimentId, limit);
+    public TrendData getTrends(
+            @PathVariable UUID experimentId, @RequestParam(defaultValue = "20") int limit, HttpServletRequest http) {
+        return experimentService.getTrends(experimentId, limit, TenantScopeResolver.scope(http));
     }
 
     @DeleteMapping("/{experimentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteExperiment(@PathVariable UUID experimentId) {
-        experimentService.deleteExperiment(experimentId);
+    public void deleteExperiment(@PathVariable UUID experimentId, HttpServletRequest http) {
+        experimentService.deleteExperiment(experimentId, TenantScopeResolver.scope(http));
     }
 }

@@ -10,6 +10,7 @@ import dev.dokimos.server.entity.Experiment;
 import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -67,14 +68,14 @@ public class GateService {
      *     (surfaces as 409)
      */
     @Transactional(readOnly = true)
-    public GateResult evaluateGate(UUID experimentId, GateRequest request) {
-        Experiment experiment = getExperiment(experimentId);
+    public GateResult evaluateGate(UUID experimentId, GateRequest request, TenantScope scope) {
+        Experiment experiment = getExperiment(experimentId, scope);
 
         ExperimentRun candidate = comparisonSupport.getRunInExperiment(
-                request.candidateRunId(), experiment, "Candidate run", runRepository);
+                request.candidateRunId(), experiment, "Candidate run", runRepository, scope);
         comparisonSupport.requireTerminal(candidate, "Candidate run");
 
-        ExperimentRun baseline = resolveBaseline(experiment, candidate, request);
+        ExperimentRun baseline = resolveBaseline(experiment, candidate, request, scope);
         if (baseline == null) {
             return noBaseline(candidate);
         }
@@ -83,10 +84,11 @@ public class GateService {
         return toGateResult(outcome.result(), candidate, baseline, outcome.pairing());
     }
 
-    private ExperimentRun resolveBaseline(Experiment experiment, ExperimentRun candidate, GateRequest request) {
+    private ExperimentRun resolveBaseline(
+            Experiment experiment, ExperimentRun candidate, GateRequest request, TenantScope scope) {
         if (request.baselineRunId() != null) {
             ExperimentRun baseline = comparisonSupport.getRunInExperiment(
-                    request.baselineRunId(), experiment, "Baseline run", runRepository);
+                    request.baselineRunId(), experiment, "Baseline run", runRepository, scope);
             comparisonSupport.requireTerminal(baseline, "Baseline run");
             return baseline;
         }
@@ -96,7 +98,8 @@ public class GateService {
                 candidate.getId(),
                 comparisonSupport.datasetVersionId(candidate),
                 request.baselineBranch(),
-                PageRequest.of(0, 1));
+                PageRequest.of(0, 1),
+                scope);
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 
@@ -188,12 +191,12 @@ public class GateService {
         return cases;
     }
 
-    private Experiment getExperiment(UUID experimentId) {
+    private Experiment getExperiment(UUID experimentId, TenantScope scope) {
         if (experimentId == null) {
             throw new IllegalArgumentException("Experiment ID cannot be null");
         }
         return experimentRepository
-                .findById(experimentId)
+                .findById(experimentId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
 }

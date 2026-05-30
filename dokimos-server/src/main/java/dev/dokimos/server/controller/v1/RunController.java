@@ -4,6 +4,8 @@ import dev.dokimos.server.dto.v1.AddItemsRequest;
 import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
@@ -32,8 +34,9 @@ public class RunController {
     }
 
     @GetMapping("/{runId}")
-    public RunDetails getRunDetails(@PathVariable UUID runId, @PageableDefault(size = 50) Pageable pageable) {
-        return runService.getRunDetails(runId, pageable);
+    public RunDetails getRunDetails(
+            @PathVariable UUID runId, @PageableDefault(size = 50) Pageable pageable, HttpServletRequest http) {
+        return runService.getRunDetails(runId, pageable, TenantScopeResolver.scope(http));
     }
 
     @PostMapping("/{runId}/items")
@@ -41,20 +44,22 @@ public class RunController {
     public Map<String, String> addItems(
             @PathVariable UUID runId,
             @Valid @RequestBody AddItemsRequest request,
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
-        runService.addItems(runId, request, idempotencyKey);
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            HttpServletRequest http) {
+        runService.addItems(runId, request, idempotencyKey, TenantScopeResolver.scope(http));
         return Map.of("status", "ok");
     }
 
     @PatchMapping("/{runId}")
-    public Map<String, String> updateRun(@PathVariable UUID runId, @Valid @RequestBody UpdateRunRequest request) {
-        runService.updateRun(runId, request);
+    public Map<String, String> updateRun(
+            @PathVariable UUID runId, @Valid @RequestBody UpdateRunRequest request, HttpServletRequest http) {
+        runService.updateRun(runId, request, TenantScopeResolver.scope(http));
         return Map.of("status", "updated");
     }
 
     @DeleteMapping("/{runId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteRun(@PathVariable UUID runId) {
-        runService.deleteRun(runId);
+    public void deleteRun(@PathVariable UUID runId, HttpServletRequest http) {
+        runService.deleteRun(runId, TenantScopeResolver.scope(http));
     }
 }

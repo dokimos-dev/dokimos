@@ -10,6 +10,9 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.ProjectService;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScope;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -38,28 +41,31 @@ public class ProjectController {
     }
 
     @GetMapping
-    public List<ProjectSummary> listProjects() {
-        return projectService.listProjects();
+    public List<ProjectSummary> listProjects(HttpServletRequest http) {
+        return projectService.listProjects(TenantScopeResolver.scope(http));
     }
 
     @GetMapping("/{projectName}/experiments")
-    public List<ExperimentSummary> listExperiments(@PathVariable String projectName) {
-        Project project = projectService.getProject(projectName);
-        return experimentService.listExperiments(project);
+    public List<ExperimentSummary> listExperiments(@PathVariable String projectName, HttpServletRequest http) {
+        TenantScope scope = TenantScopeResolver.scope(http);
+        Project project = projectService.getProject(projectName, scope);
+        return experimentService.listExperiments(project, scope);
     }
 
     @PostMapping("/{projectName}/runs")
     @ResponseStatus(HttpStatus.CREATED)
-    public CreateRunResponse createRun(@PathVariable String projectName, @Valid @RequestBody CreateRunRequest request) {
-        Project project = projectService.getOrCreateProject(projectName);
-        Experiment experiment = experimentService.getOrCreateExperiment(project, request.experimentName());
-        ExperimentRun run = runService.createRun(experiment, request);
+    public CreateRunResponse createRun(
+            @PathVariable String projectName, @Valid @RequestBody CreateRunRequest request, HttpServletRequest http) {
+        TenantScope scope = TenantScopeResolver.scope(http);
+        Project project = projectService.getOrCreateProject(projectName, scope);
+        Experiment experiment = experimentService.getOrCreateExperiment(project, request.experimentName(), scope);
+        ExperimentRun run = runService.createRun(experiment, request, scope);
         return new CreateRunResponse(run.getId());
     }
 
     @DeleteMapping("/{projectName}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteProject(@PathVariable String projectName) {
-        projectService.deleteProject(projectName);
+    public void deleteProject(@PathVariable String projectName, HttpServletRequest http) {
+        projectService.deleteProject(projectName, TenantScopeResolver.scope(http));
     }
 }

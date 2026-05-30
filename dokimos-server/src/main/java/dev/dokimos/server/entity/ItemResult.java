@@ -67,6 +67,9 @@ public class ItemResult {
     @Column(name = "latency_ms")
     private Long latencyMs;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -103,6 +106,14 @@ public class ItemResult {
 
     public void setDatasetItem(DatasetItem datasetItem) {
         this.datasetItem = datasetItem;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public Map<String, Object> getInput() {

@@ -9,7 +9,9 @@ import dev.dokimos.server.dto.v1.otlp.OtlpExportTraceServiceRequest;
 import dev.dokimos.server.service.OtlpProtobufConverter;
 import dev.dokimos.server.service.TraceIngestService;
 import dev.dokimos.server.service.TraceQueryService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
 import io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -75,15 +77,16 @@ public class TraceController {
     public PageResponse<TraceSummary> listTraces(
             @RequestParam(required = false) UUID projectId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            HttpServletRequest http) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), clampSize(size));
-        return PageResponse.of(queryService.listTraces(projectId, pageable));
+        return PageResponse.of(queryService.listTraces(projectId, pageable, TenantScopeResolver.scope(http)));
     }
 
-    /** Returns a single trace with its spans and online eval jobs, or 404 if it does not exist. */
+    /** Returns a single trace with its spans and online eval jobs, or 404 if it does not exist or belongs to another tenant. */
     @GetMapping("/{id}")
-    public TraceDetail getTrace(@PathVariable UUID id) {
-        return queryService.getTrace(id);
+    public TraceDetail getTrace(@PathVariable UUID id, HttpServletRequest http) {
+        return queryService.getTrace(id, TenantScopeResolver.scope(http));
     }
 
     private static int clampSize(int size) {

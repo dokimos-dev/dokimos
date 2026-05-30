@@ -20,6 +20,7 @@ import dev.dokimos.server.repository.DatasetItemRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.IngestedBatchRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,6 +67,7 @@ public class RunService {
     @Transactional
     public ExperimentRun createRun(Experiment experiment, Map<String, Object> config) {
         ExperimentRun run = new ExperimentRun(experiment, config);
+        run.setTenantId(experiment.getTenantId());
         return runRepository.save(run);
     }
 
@@ -79,14 +81,15 @@ public class RunService {
      *     supplied, or if the referenced dataset version does not exist
      */
     @Transactional
-    public ExperimentRun createRun(Experiment experiment, CreateRunRequest request) {
+    public ExperimentRun createRun(Experiment experiment, CreateRunRequest request, TenantScope scope) {
         ExperimentRun run = new ExperimentRun(experiment, request.metadata());
         run.setName(request.name());
         run.setGitSha(request.gitSha());
         run.setGitBranch(request.gitBranch());
         run.setTriggeredBy(request.triggeredBy());
+        run.setTenantId(experiment.getTenantId());
 
-        DatasetVersion datasetVersion = resolveDatasetVersion(request);
+        DatasetVersion datasetVersion = resolveDatasetVersion(request, scope);
         if (datasetVersion != null) {
             run.setDatasetVersion(datasetVersion);
         }
@@ -94,7 +97,7 @@ public class RunService {
         return runRepository.save(run);
     }
 
-    private DatasetVersion resolveDatasetVersion(CreateRunRequest request) {
+    private DatasetVersion resolveDatasetVersion(CreateRunRequest request, TenantScope scope) {
         boolean hasName =
                 request.datasetName() != null && !request.datasetName().isBlank();
         boolean hasVersion = request.datasetVersion() != null;
@@ -104,7 +107,7 @@ public class RunService {
         if (!hasName) {
             return null;
         }
-        return datasetService.getVersion(request.datasetName(), request.datasetVersion());
+        return datasetService.getVersion(request.datasetName(), request.datasetVersion(), scope);
     }
 
     /**
@@ -117,8 +120,8 @@ public class RunService {
      * @throws IllegalStateException if the run is not RUNNING
      */
     @Transactional
-    public void addItems(UUID runId, AddItemsRequest request, String idempotencyKey) {
-        ExperimentRun run = getRunForUpdate(runId);
+    public void addItems(UUID runId, AddItemsRequest request, String idempotencyKey, TenantScope scope) {
+        ExperimentRun run = getRunForUpdate(runId, scope);
         if (run.getStatus() != RunStatus.RUNNING) {
             throw new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId);
         }
@@ -137,6 +140,7 @@ public class RunService {
         for (AddItemsRequest.ItemData itemData : request.items()) {
             ItemResult item = new ItemResult(
                     run, itemData.inputs(), itemData.expectedOutputs(), itemData.actualOutputs(), itemData.metadata());
+            item.setTenantId(run.getTenantId());
 
             item.setTokensIn(itemData.tokensIn());
             item.setTokensOut(itemData.tokensOut());
@@ -164,6 +168,7 @@ public class RunService {
                             evalData.success(),
                             evalData.reason());
                     eval.setMetadata(evalData.metadata());
+                    eval.setTenantId(run.getTenantId());
                     item.addEvalResult(eval);
                 }
             }
@@ -178,10 +183,10 @@ public class RunService {
         }
     }
 
-    /** Deletes a run; FKs cascade to its item and eval results. */
+    /** Deletes a run visible under the scope; FKs cascade to its item and eval results. */
     @Transactional
-    public void deleteRun(UUID runId) {
-        ExperimentRun run = getRun(runId);
+    public void deleteRun(UUID runId, TenantScope scope) {
+        ExperimentRun run = getRun(runId, scope);
         runRepository.delete(run);
     }
 
@@ -191,8 +196,8 @@ public class RunService {
      * {@link #addItems} batch commits.
      */
     @Transactional
-    public void updateRun(UUID runId, UpdateRunRequest request) {
-        ExperimentRun run = getRunForUpdate(runId);
+    public void updateRun(UUID runId, UpdateRunRequest request, TenantScope scope) {
+        ExperimentRun run = getRunForUpdate(runId, scope);
         if (run.getStatus() == RunStatus.EVALUATING) {
             throw new IllegalStateException(
                     "Run " + runId + " is evaluating; its status is managed by the judge worker");
@@ -218,7 +223,7 @@ public class RunService {
      */
     @Transactional
     public void finalizeEvaluatedRun(UUID runId) {
-        ExperimentRun run = getRunForUpdate(runId);
+        ExperimentRun run = getRunForUpdate(runId, TenantScope.unrestricted());
         if (run.getStatus() != RunStatus.EVALUATING) {
             return;
         }
@@ -238,7 +243,7 @@ public class RunService {
      */
     @Transactional
     public void failEvaluatedRun(UUID runId) {
-        ExperimentRun run = getRunForUpdate(runId);
+        ExperimentRun run = getRunForUpdate(runId, TenantScope.unrestricted());
         if (run.getStatus() != RunStatus.EVALUATING) {
             return;
         }
@@ -262,14 +267,14 @@ public class RunService {
     }
 
     @Transactional(readOnly = true)
-    public List<RunSummary> listRuns(Experiment experiment) {
-        List<ExperimentRun> runs = runRepository.findByExperimentOrderByStartedAtDesc(experiment);
+    public List<RunSummary> listRuns(Experiment experiment, TenantScope scope) {
+        List<ExperimentRun> runs = runRepository.findByExperiment(experiment, scope);
         return runs.stream().map(this::toRunSummary).toList();
     }
 
     @Transactional(readOnly = true)
-    public RunDetails getRunDetails(UUID runId, Pageable pageable) {
-        ExperimentRun run = getRun(runId);
+    public RunDetails getRunDetails(UUID runId, Pageable pageable, TenantScope scope) {
+        ExperimentRun run = getRun(runId, scope);
         Experiment experiment = run.getExperiment();
         RunMetrics metrics = computeMetrics(run);
 
@@ -303,19 +308,21 @@ public class RunService {
                 itemSummaries);
     }
 
-    private ExperimentRun getRun(UUID runId) {
-        if (runId == null) {
-            throw new IllegalArgumentException("Run ID cannot be null");
-        }
-        return runRepository.findById(runId).orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
-    }
-
-    private ExperimentRun getRunForUpdate(UUID runId) {
+    private ExperimentRun getRun(UUID runId, TenantScope scope) {
         if (runId == null) {
             throw new IllegalArgumentException("Run ID cannot be null");
         }
         return runRepository
-                .findByIdForUpdate(runId)
+                .findById(runId, scope)
+                .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
+    }
+
+    private ExperimentRun getRunForUpdate(UUID runId, TenantScope scope) {
+        if (runId == null) {
+            throw new IllegalArgumentException("Run ID cannot be null");
+        }
+        return runRepository
+                .findByIdForUpdate(runId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Run not found: " + runId));
     }
 

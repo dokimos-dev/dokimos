@@ -11,9 +11,9 @@ import dev.dokimos.server.dto.v1.PromoteRequest;
 import dev.dokimos.server.entity.Dataset;
 import dev.dokimos.server.entity.DatasetItem;
 import dev.dokimos.server.entity.DatasetVersion;
-import dev.dokimos.server.filter.ApiKeyAuthFilter;
-import dev.dokimos.server.filter.Principal;
 import dev.dokimos.server.service.DatasetService;
+import dev.dokimos.server.tenant.TenantScope;
+import dev.dokimos.server.tenant.TenantScopeResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -42,10 +42,10 @@ public class DatasetController {
         this.datasetService = datasetService;
     }
 
-    /** Lists every dataset on the server with its latest version number and item count. */
+    /** Lists the datasets visible to the caller with their latest version number and item count. */
     @GetMapping
-    public List<DatasetSummary> listDatasets() {
-        return datasetService.listDatasets();
+    public List<DatasetSummary> listDatasets(HttpServletRequest http) {
+        return datasetService.listDatasets(TenantScopeResolver.scope(http));
     }
 
     /**
@@ -53,8 +53,10 @@ public class DatasetController {
      * at the new dataset.
      */
     @PostMapping
-    public ResponseEntity<DatasetSummary> createDataset(@Valid @RequestBody CreateDatasetRequest request) {
-        Dataset dataset = datasetService.createDataset(request.name(), request.description());
+    public ResponseEntity<DatasetSummary> createDataset(
+            @Valid @RequestBody CreateDatasetRequest request, HttpServletRequest http) {
+        Dataset dataset =
+                datasetService.createDataset(request.name(), request.description(), TenantScopeResolver.scope(http));
         DatasetSummary summary = new DatasetSummary(
                 dataset.getId(),
                 dataset.getName(),
@@ -69,14 +71,14 @@ public class DatasetController {
 
     /** Returns the dataset and every one of its versions, newest first. */
     @GetMapping("/{name}")
-    public DatasetDetails getDataset(@PathVariable String name) {
-        return datasetService.getDatasetDetails(name);
+    public DatasetDetails getDataset(@PathVariable String name, HttpServletRequest http) {
+        return datasetService.getDatasetDetails(name, TenantScopeResolver.scope(http));
     }
 
     /** Deletes a dataset and its versions; runs that referenced any version become unlinked. */
     @DeleteMapping("/{name}")
-    public ResponseEntity<Void> deleteDataset(@PathVariable String name) {
-        datasetService.deleteDataset(name);
+    public ResponseEntity<Void> deleteDataset(@PathVariable String name, HttpServletRequest http) {
+        datasetService.deleteDataset(name, TenantScopeResolver.scope(http));
         return ResponseEntity.noContent().build();
     }
 
@@ -87,8 +89,10 @@ public class DatasetController {
     @PostMapping("/{name}/versions")
     public ResponseEntity<DatasetVersionDetails> createVersion(
             @PathVariable String name, @Valid @RequestBody CreateVersionRequest request, HttpServletRequest http) {
-        String createdBy = currentPrincipalId(http);
-        DatasetVersion version = datasetService.createVersion(name, request.description(), request.items(), createdBy);
+        TenantScope scope = TenantScopeResolver.scope(http);
+        String createdBy = TenantScopeResolver.principalId(http);
+        DatasetVersion version =
+                datasetService.createVersion(name, request.description(), request.items(), createdBy, scope);
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
                 .body(toDetails(version, name));
     }
@@ -101,7 +105,8 @@ public class DatasetController {
     @PostMapping("/promote")
     public ResponseEntity<DatasetVersionDetails> promote(
             @Valid @RequestBody PromoteRequest request, HttpServletRequest http) {
-        DatasetVersionDetails details = datasetService.promote(request, currentPrincipalId(http));
+        DatasetVersionDetails details =
+                datasetService.promote(request, TenantScopeResolver.principalId(http), TenantScopeResolver.scope(http));
         return ResponseEntity.created(
                         URI.create("/api/v1/datasets/" + details.datasetName() + "/versions/" + details.version()))
                 .body(details);
@@ -112,23 +117,27 @@ public class DatasetController {
      * highest existing version; numeric paths are parsed as the explicit version number.
      */
     @GetMapping("/{name}/versions/{version}")
-    public DatasetVersionDetails getVersion(@PathVariable String name, @PathVariable String version) {
-        DatasetVersion datasetVersion = resolveVersion(name, version);
+    public DatasetVersionDetails getVersion(
+            @PathVariable String name, @PathVariable String version, HttpServletRequest http) {
+        DatasetVersion datasetVersion = resolveVersion(name, version, TenantScopeResolver.scope(http));
         return toDetails(datasetVersion, name);
     }
 
     /** Returns the items of a dataset version ordered by ordinal, paginated. */
     @GetMapping("/{name}/versions/{version}/items")
     public PageResponse<DatasetItemView> listItems(
-            @PathVariable String name, @PathVariable String version, @PageableDefault(size = 50) Pageable pageable) {
-        DatasetVersion datasetVersion = resolveVersion(name, version);
+            @PathVariable String name,
+            @PathVariable String version,
+            @PageableDefault(size = 50) Pageable pageable,
+            HttpServletRequest http) {
+        DatasetVersion datasetVersion = resolveVersion(name, version, TenantScopeResolver.scope(http));
         return PageResponse.of(
                 datasetService.listItems(datasetVersion, pageable).map(DatasetController::toItemView));
     }
 
-    private DatasetVersion resolveVersion(String name, String version) {
+    private DatasetVersion resolveVersion(String name, String version, TenantScope scope) {
         if (LATEST_VERSION.equalsIgnoreCase(version)) {
-            return datasetService.getLatestVersion(name);
+            return datasetService.getLatestVersion(name, scope);
         }
         int versionNumber;
         try {
@@ -136,7 +145,7 @@ public class DatasetController {
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Invalid version: " + version);
         }
-        return datasetService.getVersion(name, versionNumber);
+        return datasetService.getVersion(name, versionNumber, scope);
     }
 
     private static DatasetVersionDetails toDetails(DatasetVersion version, String datasetName) {
@@ -153,10 +162,5 @@ public class DatasetController {
     private static DatasetItemView toItemView(DatasetItem item) {
         return new DatasetItemView(
                 item.getId(), item.getOrdinal(), item.getInputs(), item.getExpectedOutputs(), item.getMetadata());
-    }
-
-    private static String currentPrincipalId(HttpServletRequest request) {
-        Object attr = request.getAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE);
-        return attr instanceof Principal principal ? principal.id() : null;
     }
 }

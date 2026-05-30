@@ -8,6 +8,7 @@ import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.AnnotationRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -50,11 +51,11 @@ public class AlignmentService {
      * @throws IllegalArgumentException if {@code runId} is null or the run does not exist
      */
     @Transactional(readOnly = true)
-    public AlignmentView getAlignment(UUID runId) {
+    public AlignmentView getAlignment(UUID runId, TenantScope scope) {
         if (runId == null) {
             throw new IllegalArgumentException("Run ID cannot be null");
         }
-        if (!runRepository.existsById(runId)) {
+        if (runRepository.findById(runId, scope).isEmpty()) {
             throw new IllegalArgumentException("Run not found: " + runId);
         }
 

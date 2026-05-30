@@ -47,20 +47,27 @@ public class ApiKeyAuthenticator implements Authenticator {
             return Optional.of(Principal.system());
         }
 
+        Optional<Principal> resolved = resolveBearer(authorizationHeader, legacyKeyConfigured);
+
         if (READ_METHODS.contains(method)) {
-            return Optional.of(Principal.system());
+            // Reads stay open: a valid key is honored at its role, otherwise an anonymous viewer is
+            // returned so open read endpoints still serve, while endpoints that demand a higher role
+            // (API key management) reject the anonymous reader.
+            return Optional.of(resolved.orElseGet(Principal::anonymous));
         }
 
+        // Writes require a valid credential.
+        return resolved;
+    }
+
+    private Optional<Principal> resolveBearer(String authorizationHeader, boolean legacyKeyConfigured) {
         if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
             return Optional.empty();
         }
-
         String providedKey = authorizationHeader.substring(BEARER_PREFIX.length());
-
         if (legacyKeyConfigured && apiKeyProperties.getApiKey().equals(providedKey)) {
             return Optional.of(Principal.system());
         }
-
         String keyHash = ApiKeyHasher.sha256Hex(providedKey);
         return apiKeyRepository.findByKeyHashAndEnabledTrue(keyHash).map(this::toPrincipal);
     }

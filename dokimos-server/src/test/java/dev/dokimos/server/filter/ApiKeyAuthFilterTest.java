@@ -432,6 +432,30 @@ class ApiKeyAuthFilterTest {
         }
 
         @Test
+        void shouldRejectApiKeyListingFromAnonymousReaderWith403() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/api-keys");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(filterChain.getRequest()).isNull();
+        }
+
+        @Test
+        void shouldKeepNormalReadsOpenForAnonymousReader() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/llm-connections");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            MockFilterChain filterChain = new MockFilterChain();
+
+            filter.doFilter(request, response, filterChain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(filterChain.getRequest()).isNotNull();
+        }
+
+        @Test
         void shouldStampScopedPrincipalWithRoleAndTenant() throws Exception {
             ApiKey key = new ApiKey(ApiKeyHasher.sha256Hex("editor-key"), "k", Role.EDITOR, "tenant-9");
             when(apiKeyRepository.findByKeyHashAndEnabledTrue(ApiKeyHasher.sha256Hex("editor-key")))

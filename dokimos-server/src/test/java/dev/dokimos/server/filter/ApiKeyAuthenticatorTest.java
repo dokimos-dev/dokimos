@@ -84,8 +84,10 @@ class ApiKeyAuthenticatorTest {
 
         Optional<Principal> result = authenticator.authenticate("GET", null);
 
+        // A keyless read resolves to an anonymous viewer: open read endpoints still serve it, while
+        // endpoints that demand a higher role (API key management) reject it.
         assertThat(result).isPresent();
-        assertThat(result.get().role()).isEqualTo(Role.ADMIN);
+        assertThat(result.get().role()).isEqualTo(Role.VIEWER);
     }
 
     @Test

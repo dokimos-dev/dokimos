@@ -89,7 +89,11 @@ public class AlignmentService {
                     entry.getKey(), tally.comparableCount, tally.agreedCount, tally.excludedUnsure, rate));
         }
 
-        return new AlignmentView(verdictsByItemId.size(), evaluators);
+        long annotatedItems = items.stream()
+                .filter(item -> verdictsByItemId.containsKey(item.getId())
+                        && !item.getEvalResults().isEmpty())
+                .count();
+        return new AlignmentView((int) annotatedItems, evaluators);
     }
 
     /**

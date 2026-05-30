@@ -81,6 +81,7 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
             SELECT DISTINCT i FROM ItemResult i
             LEFT JOIN FETCH i.evalResults
             WHERE i.run.id = :runId
+            ORDER BY i.createdAt ASC, i.id ASC
             """)
     List<ItemResult> findByRunIdWithEvals(@Param("runId") UUID runId);
 }

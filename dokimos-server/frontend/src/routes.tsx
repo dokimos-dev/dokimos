@@ -10,6 +10,9 @@ import DatasetsPage from "@/pages/datasets-page";
 import DatasetPage from "@/pages/dataset-page";
 import ConnectionsPage from "@/pages/connections-page";
 import ReviewQueuePage from "@/pages/review-queue-page";
+import TracesPage from "@/pages/traces-page";
+import TraceDetailPage from "@/pages/trace-detail-page";
+import TraceEvalRulesPage from "@/pages/trace-eval-rules-page";
 
 export const router = createBrowserRouter([
   {
@@ -54,6 +57,18 @@ export const router = createBrowserRouter([
       {
         path: "/review-queue",
         element: <ReviewQueuePage />,
+      },
+      {
+        path: "/traces",
+        element: <TracesPage />,
+      },
+      {
+        path: "/traces/:id",
+        element: <TraceDetailPage />,
+      },
+      {
+        path: "/trace-eval-rules",
+        element: <TraceEvalRulesPage />,
       },
     ],
   },

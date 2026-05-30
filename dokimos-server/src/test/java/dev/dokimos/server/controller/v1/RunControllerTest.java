@@ -21,6 +21,7 @@ import dev.dokimos.server.dto.v1.RunDetails;
 import dev.dokimos.server.dto.v1.UpdateRunRequest;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +98,8 @@ class RunControllerTest extends AbstractControllerTest {
                 412.5,
                 page);
 
-        when(runService.getRunDetails(eq(runId), any(Pageable.class))).thenReturn(details);
+        when(runService.getRunDetails(eq(runId), any(Pageable.class), any(TenantScope.class)))
+                .thenReturn(details);
 
         mockMvc.perform(get("/api/v1/runs/{runId}", runId))
                 .andDo(print())
@@ -120,7 +122,7 @@ class RunControllerTest extends AbstractControllerTest {
     @Test
     void getRunDetails_shouldReturn404WhenNotFound() throws Exception {
         UUID runId = UUID.randomUUID();
-        when(runService.getRunDetails(eq(runId), any(Pageable.class)))
+        when(runService.getRunDetails(eq(runId), any(Pageable.class), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Run not found: " + runId));
 
         mockMvc.perform(get("/api/v1/runs/{runId}", runId))
@@ -138,7 +140,7 @@ class RunControllerTest extends AbstractControllerTest {
                 List.of(new AddItemsRequest.EvalData("eval", 1.0, 0.9, true, "pass", Map.of())),
                 true)));
 
-        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class), any());
+        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class), any(), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -146,7 +148,7 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("ok"));
 
-        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), any());
+        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), any(), any(TenantScope.class));
     }
 
     @Test
@@ -157,7 +159,7 @@ class RunControllerTest extends AbstractControllerTest {
                 "tokensIn":100,"tokensOut":50,"costUsd":0.002,"latencyMs":430}]}""";
 
         ArgumentCaptor<AddItemsRequest> captor = ArgumentCaptor.forClass(AddItemsRequest.class);
-        doNothing().when(runService).addItems(eq(runId), captor.capture(), any());
+        doNothing().when(runService).addItems(eq(runId), captor.capture(), any(), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -182,7 +184,9 @@ class RunControllerTest extends AbstractControllerTest {
                 List.of(new AddItemsRequest.EvalData("eval", 1.0, 0.9, true, "pass", Map.of())),
                 true)));
 
-        doNothing().when(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"));
+        doNothing()
+                .when(runService)
+                .addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .header("Idempotency-Key", "batch-key-1")
@@ -191,7 +195,7 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("ok"));
 
-        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"));
+        verify(runService).addItems(eq(runId), any(AddItemsRequest.class), eq("batch-key-1"), any(TenantScope.class));
     }
 
     @Test
@@ -205,7 +209,7 @@ class RunControllerTest extends AbstractControllerTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
-        verify(runService, never()).addItems(any(), any(), any());
+        verify(runService, never()).addItems(any(), any(), any(), any());
     }
 
     @Test
@@ -216,7 +220,7 @@ class RunControllerTest extends AbstractControllerTest {
 
         doThrow(new IllegalArgumentException("Run not found: " + runId))
                 .when(runService)
-                .addItems(eq(runId), any(AddItemsRequest.class), any());
+                .addItems(eq(runId), any(AddItemsRequest.class), any(), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -232,7 +236,7 @@ class RunControllerTest extends AbstractControllerTest {
 
         doThrow(new IllegalStateException("Cannot add items to a run that is not RUNNING: " + runId))
                 .when(runService)
-                .addItems(eq(runId), any(AddItemsRequest.class), any());
+                .addItems(eq(runId), any(AddItemsRequest.class), any(), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/{runId}/items", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -246,7 +250,7 @@ class RunControllerTest extends AbstractControllerTest {
         UUID runId = UUID.randomUUID();
         UpdateRunRequest request = new UpdateRunRequest(RunStatus.SUCCESS);
 
-        doNothing().when(runService).updateRun(eq(runId), any(UpdateRunRequest.class));
+        doNothing().when(runService).updateRun(eq(runId), any(UpdateRunRequest.class), any(TenantScope.class));
 
         mockMvc.perform(patch("/api/v1/runs/{runId}", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -254,7 +258,7 @@ class RunControllerTest extends AbstractControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("updated"));
 
-        verify(runService).updateRun(eq(runId), any(UpdateRunRequest.class));
+        verify(runService).updateRun(eq(runId), any(UpdateRunRequest.class), any(TenantScope.class));
     }
 
     @Test
@@ -264,7 +268,7 @@ class RunControllerTest extends AbstractControllerTest {
 
         doThrow(new IllegalArgumentException("Run not found: " + runId))
                 .when(runService)
-                .updateRun(eq(runId), any(UpdateRunRequest.class));
+                .updateRun(eq(runId), any(UpdateRunRequest.class), any(TenantScope.class));
 
         mockMvc.perform(patch("/api/v1/runs/{runId}", runId)
                         .contentType(MediaType.APPLICATION_JSON_VALUE)
@@ -275,11 +279,11 @@ class RunControllerTest extends AbstractControllerTest {
     @Test
     void deleteRun_shouldReturn204OnSuccess() throws Exception {
         UUID runId = UUID.randomUUID();
-        doNothing().when(runService).deleteRun(runId);
+        doNothing().when(runService).deleteRun(eq(runId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/runs/{runId}", runId)).andExpect(status().isNoContent());
 
-        verify(runService).deleteRun(runId);
+        verify(runService).deleteRun(eq(runId), any(TenantScope.class));
     }
 
     @Test
@@ -287,7 +291,7 @@ class RunControllerTest extends AbstractControllerTest {
         UUID runId = UUID.randomUUID();
         doThrow(new IllegalArgumentException("Run not found: " + runId))
                 .when(runService)
-                .deleteRun(runId);
+                .deleteRun(eq(runId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/runs/{runId}", runId))
                 .andExpect(status().isNotFound())

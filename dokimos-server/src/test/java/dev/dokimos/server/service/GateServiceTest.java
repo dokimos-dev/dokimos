@@ -79,8 +79,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.status()).isEqualTo("FAIL");
         assertThat(result.passed()).isFalse();
@@ -107,8 +109,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.status()).isEqualTo("PASS");
         assertThat(result.passed()).isTrue();
@@ -136,8 +140,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.status()).isEqualTo("PASS");
         assertThat(result.passed()).isTrue();
@@ -164,8 +170,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.pairing()).isEqualTo("positional");
         assertThat(result.status()).isIn("PASS", "FAIL");
@@ -182,7 +190,10 @@ class GateServiceTest {
 
         UUID experimentId = fixture.experimentId();
         UUID candidateId = candidate.getId();
-        assertThatThrownBy(() -> gateService.evaluateGate(experimentId, new GateRequest(candidateId, null, null)))
+        assertThatThrownBy(() -> gateService.evaluateGate(
+                        experimentId,
+                        new GateRequest(candidateId, null, null),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("terminal SUCCESS/FAILED")
                 .hasMessageContaining("CANCELLED");
@@ -205,13 +216,17 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult auto =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult auto = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
         assertThat(auto.status()).isEqualTo("NO_BASELINE");
         assertThat(auto.baselineRunId()).isNull();
 
         GateResult explicit = gateService.evaluateGate(
-                fixture.experimentId(), new GateRequest(candidate.getId(), failedPrior.getId(), null));
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), failedPrior.getId(), null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
         assertThat(explicit.baselineRunId()).isEqualTo(failedPrior.getId());
         assertThat(explicit.status()).isIn("PASS", "FAIL");
     }
@@ -233,8 +248,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.status()).isEqualTo("FAIL");
         assertThat(result.cases()).hasSize(50);
@@ -254,8 +271,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.status()).isEqualTo("NO_BASELINE");
         assertThat(result.passed()).isTrue();
@@ -283,7 +302,9 @@ class GateServiceTest {
         entityManager.clear();
 
         GateResult result = gateService.evaluateGate(
-                fixture.experimentId(), new GateRequest(candidate.getId(), olderBaseline.getId(), null));
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), olderBaseline.getId(), null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.baselineRunId()).isEqualTo(olderBaseline.getId());
         assertThat(result.status()).isEqualTo("PASS");
@@ -307,8 +328,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, "main"));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, "main"),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.baselineRunId()).isEqualTo(mainBaseline.getId());
     }
@@ -323,7 +346,10 @@ class GateServiceTest {
 
         UUID experimentId = fixture.experimentId();
         UUID candidateId = candidate.getId();
-        assertThatThrownBy(() -> gateService.evaluateGate(experimentId, new GateRequest(candidateId, null, null)))
+        assertThatThrownBy(() -> gateService.evaluateGate(
+                        experimentId,
+                        new GateRequest(candidateId, null, null),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("terminal SUCCESS/FAILED")
                 .hasMessageContaining("RUNNING");
@@ -343,8 +369,10 @@ class GateServiceTest {
         entityManager.flush();
         entityManager.clear();
 
-        GateResult result =
-                gateService.evaluateGate(fixture.experimentId(), new GateRequest(candidate.getId(), null, null));
+        GateResult result = gateService.evaluateGate(
+                fixture.experimentId(),
+                new GateRequest(candidate.getId(), null, null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.pairing()).isEqualTo("positional");
         assertThat(result.status()).isEqualTo("PASS");
@@ -363,7 +391,10 @@ class GateServiceTest {
 
         UUID otherId = otherExperiment.getId();
         UUID candidateId = candidate.getId();
-        assertThatThrownBy(() -> gateService.evaluateGate(otherId, new GateRequest(candidateId, null, null)))
+        assertThatThrownBy(() -> gateService.evaluateGate(
+                        otherId,
+                        new GateRequest(candidateId, null, null),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not belong to experiment");
     }

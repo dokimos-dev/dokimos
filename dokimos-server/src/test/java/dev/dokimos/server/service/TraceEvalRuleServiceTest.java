@@ -3,6 +3,7 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,13 +67,15 @@ class TraceEvalRuleServiceTest {
 
     @Test
     void createPersistsRuleWithDefaults() {
-        when(projectRepository.existsById(projectId)).thenReturn(true);
-        when(ruleRepository.existsByProjectIdAndName(projectId, "answer-quality"))
+        when(projectRepository.findById(eq(projectId), any()))
+                .thenReturn(Optional.of(new dev.dokimos.server.entity.Project("p")));
+        when(ruleRepository.existsByProjectIdAndName(eq(projectId), eq("answer-quality"), any()))
                 .thenReturn(false);
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.of(connection));
         when(ruleRepository.save(any(TraceEvalRule.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TraceEvalRuleView view = service.create(projectId, spanNameRequest());
+        TraceEvalRuleView view =
+                service.create(projectId, spanNameRequest(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.name()).isEqualTo("answer-quality");
         assertThat(view.enabled()).isTrue();
@@ -88,12 +91,14 @@ class TraceEvalRuleServiceTest {
     void createClearsMatchKeyForSpanNameMatch() {
         CreateTraceEvalRuleRequest request = new CreateTraceEvalRuleRequest(
                 "r", null, TraceMatchType.SPAN_NAME, "ignored", "llm.generate", connectionId, "j", "c", 0.0, 1.0, null);
-        when(projectRepository.existsById(projectId)).thenReturn(true);
-        when(ruleRepository.existsByProjectIdAndName(projectId, "r")).thenReturn(false);
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(projectRepository.findById(eq(projectId), any()))
+                .thenReturn(Optional.of(new dev.dokimos.server.entity.Project("p")));
+        when(ruleRepository.existsByProjectIdAndName(eq(projectId), eq("r"), any()))
+                .thenReturn(false);
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.of(connection));
         when(ruleRepository.save(any(TraceEvalRule.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.create(projectId, request);
+        service.create(projectId, request, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<TraceEvalRule> captor = ArgumentCaptor.forClass(TraceEvalRule.class);
         verify(ruleRepository).save(captor.capture());
@@ -102,31 +107,36 @@ class TraceEvalRuleServiceTest {
 
     @Test
     void createRejectsDuplicateName() {
-        when(projectRepository.existsById(projectId)).thenReturn(true);
-        when(ruleRepository.existsByProjectIdAndName(projectId, "answer-quality"))
+        when(projectRepository.findById(eq(projectId), any()))
+                .thenReturn(Optional.of(new dev.dokimos.server.entity.Project("p")));
+        when(ruleRepository.existsByProjectIdAndName(eq(projectId), eq("answer-quality"), any()))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> service.create(projectId, spanNameRequest()))
+        assertThatThrownBy(() -> service.create(
+                        projectId, spanNameRequest(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class);
         verify(ruleRepository, never()).save(any());
     }
 
     @Test
     void createRejectsMissingProject() {
-        when(projectRepository.existsById(projectId)).thenReturn(false);
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.create(projectId, spanNameRequest()))
+        assertThatThrownBy(() -> service.create(
+                        projectId, spanNameRequest(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void createRejectsMissingConnection() {
-        when(projectRepository.existsById(projectId)).thenReturn(true);
-        when(ruleRepository.existsByProjectIdAndName(projectId, "answer-quality"))
+        when(projectRepository.findById(eq(projectId), any()))
+                .thenReturn(Optional.of(new dev.dokimos.server.entity.Project("p")));
+        when(ruleRepository.existsByProjectIdAndName(eq(projectId), eq("answer-quality"), any()))
                 .thenReturn(false);
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.empty());
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.create(projectId, spanNameRequest()))
+        assertThatThrownBy(() -> service.create(
+                        projectId, spanNameRequest(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

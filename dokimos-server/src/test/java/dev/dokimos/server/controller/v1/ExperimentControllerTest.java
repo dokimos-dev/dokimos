@@ -1,5 +1,7 @@
 package dev.dokimos.server.controller.v1;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -17,6 +19,7 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +74,9 @@ class ExperimentControllerTest {
                 null,
                 null);
 
-        when(experimentService.getExperiment(experimentId)).thenReturn(experiment);
-        when(runService.listRuns(experiment)).thenReturn(List.of(summary));
+        when(experimentService.getExperiment(eq(experimentId), any(TenantScope.class)))
+                .thenReturn(experiment);
+        when(runService.listRuns(eq(experiment), any(TenantScope.class))).thenReturn(List.of(summary));
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
                 .andExpect(status().isOk())
@@ -83,7 +87,7 @@ class ExperimentControllerTest {
     @Test
     void listRuns_shouldReturn404WhenExperimentNotFound() throws Exception {
         UUID experimentId = UUID.randomUUID();
-        when(experimentService.getExperiment(experimentId))
+        when(experimentService.getExperiment(eq(experimentId), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/runs", experimentId))
@@ -98,7 +102,8 @@ class ExperimentControllerTest {
         TrendData.RunPoint point = new TrendData.RunPoint(runId, Instant.now(), 0.85, 20, 17);
         TrendData trendData = new TrendData("my-experiment", "my-project", List.of(point));
 
-        when(experimentService.getTrends(experimentId, 20)).thenReturn(trendData);
+        when(experimentService.getTrends(eq(experimentId), eq(20), any(TenantScope.class)))
+                .thenReturn(trendData);
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
                 .andExpect(status().isOk())
@@ -111,7 +116,8 @@ class ExperimentControllerTest {
         UUID experimentId = UUID.randomUUID();
         TrendData trendData = new TrendData("my-experiment", "my-project", List.of());
 
-        when(experimentService.getTrends(experimentId, 50)).thenReturn(trendData);
+        when(experimentService.getTrends(eq(experimentId), eq(50), any(TenantScope.class)))
+                .thenReturn(trendData);
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId)
                         .param("limit", "50"))
@@ -122,7 +128,7 @@ class ExperimentControllerTest {
     @Test
     void getTrends_shouldReturn404WhenExperimentNotFound() throws Exception {
         UUID experimentId = UUID.randomUUID();
-        when(experimentService.getTrends(experimentId, 20))
+        when(experimentService.getTrends(eq(experimentId), eq(20), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Experiment not found: " + experimentId));
 
         mockMvc.perform(get("/api/v1/experiments/{experimentId}/trends", experimentId))
@@ -132,12 +138,12 @@ class ExperimentControllerTest {
     @Test
     void deleteExperiment_shouldReturn204OnSuccess() throws Exception {
         UUID experimentId = UUID.randomUUID();
-        doNothing().when(experimentService).deleteExperiment(experimentId);
+        doNothing().when(experimentService).deleteExperiment(eq(experimentId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/experiments/{experimentId}", experimentId))
                 .andExpect(status().isNoContent());
 
-        verify(experimentService).deleteExperiment(experimentId);
+        verify(experimentService).deleteExperiment(eq(experimentId), any(TenantScope.class));
     }
 
     @Test
@@ -145,7 +151,7 @@ class ExperimentControllerTest {
         UUID experimentId = UUID.randomUUID();
         doThrow(new IllegalArgumentException("Experiment not found: " + experimentId))
                 .when(experimentService)
-                .deleteExperiment(experimentId);
+                .deleteExperiment(eq(experimentId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/experiments/{experimentId}", experimentId))
                 .andExpect(status().isNotFound())

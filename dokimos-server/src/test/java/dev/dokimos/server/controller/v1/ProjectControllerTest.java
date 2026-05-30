@@ -22,6 +22,7 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.service.ExperimentService;
 import dev.dokimos.server.service.ProjectService;
 import dev.dokimos.server.service.RunService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,7 @@ class ProjectControllerTest extends AbstractControllerTest {
     void listProjects_shouldReturnProjects() throws Exception {
         UUID projectId = UUID.randomUUID();
         ProjectSummary summary = new ProjectSummary(projectId, "my-project", 5, Instant.now());
-        when(projectService.listProjects()).thenReturn(List.of(summary));
+        when(projectService.listProjects(any(TenantScope.class))).thenReturn(List.of(summary));
 
         mockMvc.perform(get("/api/v1/projects"))
                 .andExpect(status().isOk())
@@ -69,7 +70,7 @@ class ProjectControllerTest extends AbstractControllerTest {
 
     @Test
     void listProjects_shouldReturnEmptyList() throws Exception {
-        when(projectService.listProjects()).thenReturn(List.of());
+        when(projectService.listProjects(any(TenantScope.class))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/projects"))
                 .andExpect(status().isOk())
@@ -82,8 +83,10 @@ class ProjectControllerTest extends AbstractControllerTest {
         UUID experimentId = UUID.randomUUID();
         ExperimentSummary summary = new ExperimentSummary(experimentId, "my-experiment", Instant.now(), null);
 
-        when(projectService.getProject("my-project")).thenReturn(project);
-        when(experimentService.listExperiments(project)).thenReturn(List.of(summary));
+        when(projectService.getProject(eq("my-project"), any(TenantScope.class)))
+                .thenReturn(project);
+        when(experimentService.listExperiments(eq(project), any(TenantScope.class)))
+                .thenReturn(List.of(summary));
 
         mockMvc.perform(get("/api/v1/projects/my-project/experiments"))
                 .andExpect(status().isOk())
@@ -92,7 +95,7 @@ class ProjectControllerTest extends AbstractControllerTest {
 
     @Test
     void listExperiments_shouldReturn404WhenProjectNotFound() throws Exception {
-        when(projectService.getProject("unknown"))
+        when(projectService.getProject(eq("unknown"), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Project not found: unknown"));
 
         mockMvc.perform(get("/api/v1/projects/unknown/experiments"))
@@ -108,9 +111,12 @@ class ProjectControllerTest extends AbstractControllerTest {
         ExperimentRun run = new ExperimentRun(experiment, Map.of());
         setField(run, "id", runId);
 
-        when(projectService.getOrCreateProject("my-project")).thenReturn(project);
-        when(experimentService.getOrCreateExperiment(project, "my-experiment")).thenReturn(experiment);
-        when(runService.createRun(eq(experiment), any(CreateRunRequest.class))).thenReturn(run);
+        when(projectService.getOrCreateProject(eq("my-project"), any(TenantScope.class)))
+                .thenReturn(project);
+        when(experimentService.getOrCreateExperiment(eq(project), eq("my-experiment"), any(TenantScope.class)))
+                .thenReturn(experiment);
+        when(runService.createRun(eq(experiment), any(CreateRunRequest.class), any(TenantScope.class)))
+                .thenReturn(run);
 
         CreateRunRequest request =
                 new CreateRunRequest("my-experiment", Map.of("key", "value"), "nightly", "abc123", "main", "ci");
@@ -156,18 +162,18 @@ class ProjectControllerTest extends AbstractControllerTest {
 
     @Test
     void deleteProject_shouldReturn204OnSuccess() throws Exception {
-        doNothing().when(projectService).deleteProject("my-project");
+        doNothing().when(projectService).deleteProject(eq("my-project"), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/projects/{projectName}", "my-project")).andExpect(status().isNoContent());
 
-        verify(projectService).deleteProject("my-project");
+        verify(projectService).deleteProject(eq("my-project"), any(TenantScope.class));
     }
 
     @Test
     void deleteProject_shouldReturn404WhenNotFound() throws Exception {
         doThrow(new IllegalArgumentException("Project not found: unknown"))
                 .when(projectService)
-                .deleteProject("unknown");
+                .deleteProject(eq("unknown"), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/projects/{projectName}", "unknown"))
                 .andExpect(status().isNotFound())

@@ -3,6 +3,7 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,12 +62,12 @@ class EvalJobServiceTest {
 
     @Test
     void enqueueCreatesPendingJobAndMovesRunToEvaluating() {
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.of(connection));
         when(jobRepository.existsByRunAndEvaluatorName(run, "judge")).thenReturn(false);
         when(jobRepository.save(any(EvalJob.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        EvalJobView view = service.enqueue(runId, request());
+        EvalJobView view = service.enqueue(runId, request(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.evaluatorName()).isEqualTo("judge");
         verify(run).setStatus(RunStatus.EVALUATING);
@@ -79,27 +80,33 @@ class EvalJobServiceTest {
 
     @Test
     void enqueueRejectsDuplicateEvaluator() {
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.of(connection));
         when(jobRepository.existsByRunAndEvaluatorName(run, "judge")).thenReturn(true);
 
-        assertThatThrownBy(() -> service.enqueue(runId, request())).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(
+                        () -> service.enqueue(runId, request(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isInstanceOf(IllegalStateException.class);
 
         verify(jobRepository, never()).save(any());
     }
 
     @Test
     void enqueueRejectsMissingRun() {
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.empty());
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.enqueue(runId, request())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> service.enqueue(runId, request(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void enqueueRejectsMissingConnection() {
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
-        when(connectionRepository.findById(connectionId)).thenReturn(Optional.empty());
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
+        when(connectionRepository.findById(eq(connectionId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.enqueue(runId, request())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () -> service.enqueue(runId, request(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

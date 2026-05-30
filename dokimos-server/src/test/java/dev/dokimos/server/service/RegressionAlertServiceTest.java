@@ -53,7 +53,7 @@ class RegressionAlertServiceTest {
         ExperimentRun baseline = run(experiment, RunStatus.SUCCESS);
 
         when(runRepository.findBaselineCandidates(
-                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class)))
+                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class), any()))
                 .thenReturn(List.of(baseline));
         RunComparisonResult comparison = comparison(0.9, 0.6, true);
         when(comparisonSupport.compare(baseline, candidate))
@@ -84,7 +84,7 @@ class RegressionAlertServiceTest {
         ExperimentRun baseline = run(experiment, RunStatus.SUCCESS);
 
         when(runRepository.findBaselineCandidates(
-                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class)))
+                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class), any()))
                 .thenReturn(List.of(baseline));
         when(comparisonSupport.compare(baseline, candidate))
                 .thenReturn(new ComparisonSupport.ComparisonOutcome(
@@ -102,7 +102,7 @@ class RegressionAlertServiceTest {
         ExperimentRun candidate = run(experiment, RunStatus.SUCCESS);
 
         when(runRepository.findBaselineCandidates(
-                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class)))
+                        eq(experiment), eq(candidate.getId()), any(), any(), any(Pageable.class), any()))
                 .thenReturn(List.of());
 
         service.evaluateOnCompletion(candidate);
@@ -116,7 +116,7 @@ class RegressionAlertServiceTest {
         Experiment experiment = experiment(project, "qa-suite");
         ExperimentRun candidate = run(experiment, RunStatus.SUCCESS);
 
-        when(runRepository.findBaselineCandidates(any(), any(), any(), any(), any(Pageable.class)))
+        when(runRepository.findBaselineCandidates(any(), any(), any(), any(), any(Pageable.class), any()))
                 .thenThrow(new RuntimeException("db down"));
 
         // Must not propagate: run completion has already committed materialized counts.

@@ -26,6 +26,7 @@ import dev.dokimos.server.filter.ApiKeyAuthFilter;
 import dev.dokimos.server.filter.Principal;
 import dev.dokimos.server.filter.Role;
 import dev.dokimos.server.service.DatasetService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.List;
@@ -64,7 +65,7 @@ class DatasetControllerTest extends AbstractControllerTest {
     void listDatasets_returnsSummaries() throws Exception {
         DatasetSummary summary =
                 new DatasetSummary(UUID.randomUUID(), "qa", "qa set", 2, 100, Instant.now(), Instant.now());
-        when(datasetService.listDatasets()).thenReturn(List.of(summary));
+        when(datasetService.listDatasets(any(TenantScope.class))).thenReturn(List.of(summary));
 
         mockMvc.perform(get("/api/v1/datasets"))
                 .andExpect(status().isOk())
@@ -76,7 +77,8 @@ class DatasetControllerTest extends AbstractControllerTest {
     @Test
     void createDataset_returns201WithLocationHeader() throws Exception {
         Dataset dataset = dataset("qa", "qa set");
-        when(datasetService.createDataset("qa", "qa set")).thenReturn(dataset);
+        when(datasetService.createDataset(eq("qa"), eq("qa set"), any(TenantScope.class)))
+                .thenReturn(dataset);
 
         CreateDatasetRequest request = new CreateDatasetRequest("qa", "qa set");
         mockMvc.perform(post("/api/v1/datasets")
@@ -89,7 +91,7 @@ class DatasetControllerTest extends AbstractControllerTest {
 
     @Test
     void createDataset_returns409OnDuplicate() throws Exception {
-        when(datasetService.createDataset(eq("qa"), any()))
+        when(datasetService.createDataset(eq("qa"), any(), any(TenantScope.class)))
                 .thenThrow(new IllegalStateException("Dataset already exists: qa"));
 
         CreateDatasetRequest request = new CreateDatasetRequest("qa", null);
@@ -113,7 +115,7 @@ class DatasetControllerTest extends AbstractControllerTest {
     void getDataset_returnsDetails() throws Exception {
         var details = new dev.dokimos.server.dto.v1.DatasetDetails(
                 UUID.randomUUID(), "qa", "set", Instant.now(), Instant.now(), List.of());
-        when(datasetService.getDatasetDetails("qa")).thenReturn(details);
+        when(datasetService.getDatasetDetails(eq("qa"), any(TenantScope.class))).thenReturn(details);
 
         mockMvc.perform(get("/api/v1/datasets/{name}", "qa"))
                 .andExpect(status().isOk())
@@ -122,7 +124,7 @@ class DatasetControllerTest extends AbstractControllerTest {
 
     @Test
     void getDataset_returns404OnUnknown() throws Exception {
-        when(datasetService.getDatasetDetails("missing"))
+        when(datasetService.getDatasetDetails(eq("missing"), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Dataset not found: missing"));
 
         mockMvc.perform(get("/api/v1/datasets/{name}", "missing"))
@@ -132,18 +134,18 @@ class DatasetControllerTest extends AbstractControllerTest {
 
     @Test
     void deleteDataset_returns204() throws Exception {
-        doNothing().when(datasetService).deleteDataset("qa");
+        doNothing().when(datasetService).deleteDataset(eq("qa"), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/datasets/{name}", "qa")).andExpect(status().isNoContent());
 
-        verify(datasetService).deleteDataset("qa");
+        verify(datasetService).deleteDataset(eq("qa"), any(TenantScope.class));
     }
 
     @Test
     void deleteDataset_returns404OnUnknown() throws Exception {
         doThrow(new IllegalArgumentException("Dataset not found: missing"))
                 .when(datasetService)
-                .deleteDataset("missing");
+                .deleteDataset(eq("missing"), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/datasets/{name}", "missing")).andExpect(status().isNotFound());
     }
@@ -151,7 +153,8 @@ class DatasetControllerTest extends AbstractControllerTest {
     @Test
     void createVersion_passesPrincipalAsCreatedBy() throws Exception {
         DatasetVersion version = datasetVersion("qa", 1, 2, "alice");
-        when(datasetService.createVersion(eq("qa"), any(), any(), eq("alice"))).thenReturn(version);
+        when(datasetService.createVersion(eq("qa"), any(), any(), eq("alice"), any(TenantScope.class)))
+                .thenReturn(version);
 
         CreateVersionRequest request = new CreateVersionRequest(
                 "v1", List.of(new CreateVersionRequest.ItemPayload(Map.of("q", "a"), null, null)));
@@ -169,7 +172,8 @@ class DatasetControllerTest extends AbstractControllerTest {
     @Test
     void createVersion_passesNullCreatedByWhenNoPrincipal() throws Exception {
         DatasetVersion version = datasetVersion("qa", 1, 1, null);
-        when(datasetService.createVersion(eq("qa"), any(), any(), eq(null))).thenReturn(version);
+        when(datasetService.createVersion(eq("qa"), any(), any(), eq(null), any(TenantScope.class)))
+                .thenReturn(version);
 
         CreateVersionRequest request = new CreateVersionRequest(
                 null, List.of(new CreateVersionRequest.ItemPayload(Map.of("q", "a"), null, null)));
@@ -180,7 +184,7 @@ class DatasetControllerTest extends AbstractControllerTest {
                 .andExpect(status().isCreated());
 
         ArgumentCaptor<String> createdBy = ArgumentCaptor.forClass(String.class);
-        verify(datasetService).createVersion(eq("qa"), any(), any(), createdBy.capture());
+        verify(datasetService).createVersion(eq("qa"), any(), any(), createdBy.capture(), any(TenantScope.class));
         assertThat(createdBy.getValue()).isNull();
     }
 
@@ -197,7 +201,7 @@ class DatasetControllerTest extends AbstractControllerTest {
     @Test
     void getVersion_byNumber_returnsDetails() throws Exception {
         DatasetVersion version = datasetVersion("qa", 3, 5, "bob");
-        when(datasetService.getVersion("qa", 3)).thenReturn(version);
+        when(datasetService.getVersion(eq("qa"), eq(3), any(TenantScope.class))).thenReturn(version);
 
         mockMvc.perform(get("/api/v1/datasets/{name}/versions/{version}", "qa", "3"))
                 .andExpect(status().isOk())
@@ -208,7 +212,7 @@ class DatasetControllerTest extends AbstractControllerTest {
     @Test
     void getVersion_latestAlias_returnsLatest() throws Exception {
         DatasetVersion version = datasetVersion("qa", 7, 2, "bob");
-        when(datasetService.getLatestVersion("qa")).thenReturn(version);
+        when(datasetService.getLatestVersion(eq("qa"), any(TenantScope.class))).thenReturn(version);
 
         mockMvc.perform(get("/api/v1/datasets/{name}/versions/{version}", "qa", "latest"))
                 .andExpect(status().isOk())
@@ -229,7 +233,7 @@ class DatasetControllerTest extends AbstractControllerTest {
         DatasetItem item = datasetItem(itemId, version, 0);
         Page<DatasetItem> page = new PageImpl<>(List.of(item));
 
-        when(datasetService.getVersion("qa", 1)).thenReturn(version);
+        when(datasetService.getVersion(eq("qa"), eq(1), any(TenantScope.class))).thenReturn(version);
         when(datasetService.listItems(eq(version), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/datasets/{name}/versions/{version}/items", "qa", "1"))
@@ -247,7 +251,7 @@ class DatasetControllerTest extends AbstractControllerTest {
 
     @Test
     void listItems_unknownVersion_returns404() throws Exception {
-        when(datasetService.getVersion(eq("qa"), anyInt()))
+        when(datasetService.getVersion(eq("qa"), anyInt(), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Dataset version not found: qa v9"));
 
         mockMvc.perform(get("/api/v1/datasets/{name}/versions/{version}/items", "qa", "9"))

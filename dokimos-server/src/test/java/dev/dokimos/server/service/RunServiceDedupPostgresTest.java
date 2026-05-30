@@ -185,8 +185,8 @@ class RunServiceDedupPostgresTest {
         AddItemsRequest request = singleItemRequest();
 
         // Two calls with the SAME key: the items and dedup row are written once, the retry no-ops.
-        runService.addItems(runId, request, "key-1");
-        runService.addItems(runId, request, "key-1");
+        runService.addItems(runId, request, "key-1", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        runService.addItems(runId, request, "key-1", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(itemResultRepository.count()).isEqualTo(1);
         assertThat(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, "key-1"))
@@ -194,7 +194,7 @@ class RunServiceDedupPostgresTest {
         assertThat(countIngestedBatchesForRun(runId)).isEqualTo(1);
 
         // A different key for the same run inserts a second item and a second dedup row.
-        runService.addItems(runId, request, "key-2");
+        runService.addItems(runId, request, "key-2", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(itemResultRepository.count()).isEqualTo(2);
         assertThat(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, "key-2"))

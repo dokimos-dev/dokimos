@@ -14,6 +14,7 @@ import dev.dokimos.server.dto.v1.CreateLlmConnectionRequest;
 import dev.dokimos.server.dto.v1.LlmConnectionView;
 import dev.dokimos.server.entity.LlmConnectionProtocol;
 import dev.dokimos.server.service.LlmConnectionService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
     @Test
     void create_shouldReturn201AndNoKeyMaterial() throws Exception {
         UUID id = UUID.randomUUID();
-        when(connectionService.create(any())).thenReturn(view(id));
+        when(connectionService.create(any(), any(TenantScope.class))).thenReturn(view(id));
         CreateLlmConnectionRequest request =
                 new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, null, "OPENAI_KEY");
 
@@ -83,7 +84,7 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
     void create_shouldReturn409OnDuplicateName() throws Exception {
         doThrow(new IllegalStateException("Connection already exists: conn"))
                 .when(connectionService)
-                .create(any());
+                .create(any(), any(TenantScope.class));
         CreateLlmConnectionRequest request =
                 new CreateLlmConnectionRequest("conn", "https://api.example.com", "gpt-4", null, null, "OPENAI_KEY");
 
@@ -96,7 +97,8 @@ class LlmConnectionControllerTest extends AbstractControllerTest {
     @Test
     void get_shouldReturn404WhenMissing() throws Exception {
         UUID id = UUID.randomUUID();
-        when(connectionService.get(eq(id))).thenThrow(new IllegalArgumentException("Connection not found: " + id));
+        when(connectionService.get(eq(id), any(TenantScope.class)))
+                .thenThrow(new IllegalArgumentException("Connection not found: " + id));
 
         mockMvc.perform(get("/api/v1/llm-connections/" + id)).andExpect(status().isNotFound());
     }

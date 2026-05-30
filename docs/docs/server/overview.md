@@ -104,6 +104,15 @@ Drill into specific runs to see individual test cases, scores, and evaluation re
 ### Expandable Items
 Click on any item to see full input/output text and detailed evaluation results.
 
+### LLM judge
+Score runs and traces on the server with an LLM as judge, using a stored connection that speaks the Open Responses or Chat Completions API. See [LLM judge](./llm-judge).
+
+### Production traces
+Ingest OTLP traces from your running app and evaluate them online as they arrive. See [Production traces](./traces).
+
+### Regression alerting
+Get a webhook when a run regresses against its baseline. See [Regression alerting](./alerting).
+
 ## Quick Start
 
 ```bash
@@ -118,6 +127,9 @@ Open [http://localhost:8080](http://localhost:8080). See [Getting Started](./get
 - [Getting Started](./getting-started): Run your first experiment with server reporting
 - [Configuration](./configuration): Environment variables and settings
 - [Deployment](./deployment): Share with your team or run in production
-- [Authentication](./authentication): Secure write operations
+- [Authentication](./authentication): Secure write operations and scope API keys by role
 - [Client](./client): Reporter client configuration
+- [LLM judge](./llm-judge): Score runs and traces with an LLM as judge
+- [Production traces](./traces): Ingest and evaluate production traffic
+- [Regression alerting](./alerting): Webhook on a quality drop
   

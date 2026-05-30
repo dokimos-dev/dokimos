@@ -68,6 +68,36 @@ When authentication fails, the API returns:
 
 HTTP status: `401 Unauthorized`
 
+## Scoped API keys and roles
+
+The single `DOKIMOS_API_KEY` is the simplest setup: one shared secret for all writes. When you want more than one credential, or different levels of access, create **scoped API keys** with a role. Manage them under **API keys** in the web UI (admin only), or through the API.
+
+Each key carries a role:
+
+| Role | Can do |
+|------|--------|
+| `VIEWER` | Read only |
+| `EDITOR` | Reads plus writes (report runs, create connections, and so on) |
+| `ADMIN` | Everything, including managing API keys |
+
+The server stores only a hash of each key, never the key itself. A newly created key's raw value is returned exactly once; copy it then, because it cannot be shown again.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/api-keys \
+  -H 'Content-Type: application/json' \
+  -d '{ "name": "ci-pipeline", "role": "EDITOR" }'
+```
+
+### How enforcement works
+
+A request's `Bearer` token is matched against the stored keys, and the resulting role is enforced: writes require `EDITOR` or higher, managing API keys (including listing them, so key names and roles are not exposed) requires `ADMIN`, and other reads stay open. The deployment is in authenticated mode when either `DOKIMOS_API_KEY` is set or at least one scoped key exists.
+
+Backward compatibility is preserved. When no key is configured at all, the server behaves exactly as before (reads and writes both open). The legacy `DOKIMOS_API_KEY`, if set, keeps working and counts as an admin credential, so you can adopt scoped keys gradually.
+
+:::note
+Because key management requires `ADMIN`, keep at least one admin credential available (the legacy `DOKIMOS_API_KEY`, or an admin scoped key). Otherwise, after you create only non admin scoped keys, no one can manage keys through the API.
+:::
+
 ## UI Authentication with Reverse Proxy
 
 For restricting access to the web UI, the server can be placed behind a reverse proxy that handles authentication.

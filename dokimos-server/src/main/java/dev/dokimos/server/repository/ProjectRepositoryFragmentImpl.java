@@ -22,7 +22,15 @@ public class ProjectRepositoryFragmentImpl extends AbstractScopedRepository<Proj
 
     @Override
     public Optional<Project> findByName(String name, TenantScope scope) {
-        return finder().findFirst(scope, (cb, root) -> cb.equal(root.get("name"), name), null);
+        // Order so an own-tenant row wins over a shared (null-tenant) row of the same name: a scoped
+        // read can match both, and without an ordering the single row returned would be arbitrary. The
+        // case expression sorts non-null (own-tenant) rows ahead of null-tenant rows.
+        return finder().findFirst(
+                        scope,
+                        (cb, root) -> cb.equal(root.get("name"), name),
+                        (cb, root) -> List.of(cb.asc(cb.selectCase()
+                                .when(cb.isNull(root.get("tenantId")), 1)
+                                .otherwise(0))));
     }
 
     @Override

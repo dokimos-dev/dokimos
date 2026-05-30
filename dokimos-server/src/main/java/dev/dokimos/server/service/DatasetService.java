@@ -45,14 +45,15 @@ public class DatasetService {
     }
 
     /**
-     * Creates a dataset with a globally unique name, stamped with the scope's tenant. Has no versions
-     * until {@link #createVersion} is called.
+     * Creates a dataset whose name is unique within the scope, stamped with the scope's tenant. Has no
+     * versions until {@link #createVersion} is called.
      *
-     * @throws IllegalStateException if a dataset with the same name already exists (mapped to 409)
+     * @throws IllegalStateException if a dataset with the same name already exists in the scope (mapped
+     *     to 409)
      */
     @Transactional
     public Dataset createDataset(String name, String description, TenantScope scope) {
-        if (datasetRepository.existsByName(name)) {
+        if (datasetRepository.existsByName(name, scope)) {
             throw new IllegalStateException("Dataset already exists: " + name);
         }
         Dataset dataset = new Dataset(name, description);

@@ -27,11 +27,13 @@ public interface LlmConnectionRepositoryFragment extends ScopedRepository<LlmCon
     List<LlmConnection> findAllOrdered(TenantScope scope);
 
     /**
-     * Returns whether any connection has the given name, ignoring tenant. Connection names are globally
-     * unique (the DB constraint is unchanged), so the create and rename guards check globally.
+     * Returns whether a connection with the given name exists within the scope. Connection names are
+     * unique per tenant, so the create and rename guards check within the caller's scope rather than
+     * globally, and a scoped existence check is not a cross-tenant oracle.
      *
      * @param name the candidate name
-     * @return true when a connection with that name already exists in any tenant
+     * @param scope the tenant scope
+     * @return true when a connection with that name is visible under the scope
      */
-    boolean existsByName(String name);
+    boolean existsByName(String name, TenantScope scope);
 }

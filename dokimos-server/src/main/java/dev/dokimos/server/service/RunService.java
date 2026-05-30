@@ -133,8 +133,9 @@ public class RunService {
         // Batch-load the referenced dataset items in one query rather than a PK select per item.
         // A stale id (its dataset version was deleted between resolve and report) is simply absent
         // from the map: the FK is SET NULL, so an unlinked result is a valid point-in-time record,
-        // not a reason to fail the whole batch.
-        Map<UUID, DatasetItem> datasetItemsById = loadDatasetItems(request.items());
+        // not a reason to fail the whole batch. An id of another tenant is dropped the same way, so a
+        // caller cannot link its run items to a dataset item it cannot see.
+        Map<UUID, DatasetItem> datasetItemsById = loadDatasetItems(request.items(), scope);
 
         List<ItemResult> items = new ArrayList<>(request.items().size());
         for (AddItemsRequest.ItemData itemData : request.items()) {
@@ -388,7 +389,7 @@ public class RunService {
                 run.getAvgLatencyMs());
     }
 
-    private Map<UUID, DatasetItem> loadDatasetItems(List<AddItemsRequest.ItemData> items) {
+    private Map<UUID, DatasetItem> loadDatasetItems(List<AddItemsRequest.ItemData> items, TenantScope scope) {
         List<UUID> ids = items.stream()
                 .map(AddItemsRequest.ItemData::datasetItemId)
                 .filter(java.util.Objects::nonNull)
@@ -399,9 +400,24 @@ public class RunService {
         }
         Map<UUID, DatasetItem> byId = new java.util.HashMap<>();
         for (DatasetItem datasetItem : datasetItemRepository.findAllById(ids)) {
-            byId.put(datasetItem.getId(), datasetItem);
+            if (visibleUnder(datasetItem, scope)) {
+                byId.put(datasetItem.getId(), datasetItem);
+            }
         }
         return byId;
+    }
+
+    /**
+     * Returns whether a dataset item is visible under the scope, applying the same own-plus-shared rule
+     * the scoped repositories use. The {@code datasetItemId} comes straight from the request body, so an
+     * item of another tenant must be filtered out before it is linked.
+     */
+    private static boolean visibleUnder(DatasetItem datasetItem, TenantScope scope) {
+        if (!scope.restricted()) {
+            return true;
+        }
+        String tenant = datasetItem.getTenantId();
+        return tenant == null || tenant.equals(scope.tenantId());
     }
 
     private RunDetails.ItemSummary toItemSummary(ItemResult item, AnnotationView annotation) {

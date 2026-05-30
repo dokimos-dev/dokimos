@@ -42,7 +42,7 @@ public class LlmConnectionService {
      */
     @Transactional
     public LlmConnectionView create(CreateLlmConnectionRequest request, TenantScope scope) {
-        if (connectionRepository.existsByName(request.name())) {
+        if (connectionRepository.existsByName(request.name(), scope)) {
             throw new IllegalStateException("Connection already exists: " + request.name());
         }
 
@@ -92,7 +92,7 @@ public class LlmConnectionService {
     @Transactional
     public LlmConnectionView update(UUID id, UpdateLlmConnectionRequest request, TenantScope scope) {
         LlmConnection connection = loadConnection(id, scope);
-        if (!connection.getName().equals(request.name()) && connectionRepository.existsByName(request.name())) {
+        if (!connection.getName().equals(request.name()) && connectionRepository.existsByName(request.name(), scope)) {
             throw new IllegalStateException("Connection already exists: " + request.name());
         }
         connection.setName(request.name());

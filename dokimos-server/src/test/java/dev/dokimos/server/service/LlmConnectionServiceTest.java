@@ -41,7 +41,7 @@ class LlmConnectionServiceTest {
 
     @Test
     void create_defaultsProtocolToResponsesWhenOmitted() {
-        when(connectionRepository.existsByName("conn")).thenReturn(false);
+        when(connectionRepository.existsByName(eq("conn"), any())).thenReturn(false);
         when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.create(
@@ -55,7 +55,7 @@ class LlmConnectionServiceTest {
 
     @Test
     void create_honorsAnExplicitProtocol() {
-        when(connectionRepository.existsByName("conn")).thenReturn(false);
+        when(connectionRepository.existsByName(eq("conn"), any())).thenReturn(false);
         when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.create(
@@ -142,7 +142,7 @@ class LlmConnectionServiceTest {
         UUID id = UUID.randomUUID();
         LlmConnection connection = new LlmConnection("conn", "https://x", "gpt-4o-mini");
         when(connectionRepository.findById(eq(id), any())).thenReturn(Optional.of(connection));
-        when(connectionRepository.existsByName("taken")).thenReturn(true);
+        when(connectionRepository.existsByName(eq("taken"), any())).thenReturn(true);
 
         assertThatThrownBy(() -> service.update(
                         id,

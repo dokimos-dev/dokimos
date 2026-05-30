@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -17,17 +18,25 @@ import java.util.UUID;
  * one credential source is set: {@code credentialRef} names an environment variable
  * (or external path) that holds the key, or {@code encryptedApiKey} carries an inline key encrypted at
  * rest. The entity never exposes raw key material; decryption is the responsibility of the credential
- * service.
+ * service. The {@code name} is unique per tenant rather than globally, so two tenants can each own a
+ * connection of the same name; the matching DB constraint plus a partial unique on the shared
+ * (null-tenant) rows lives in migration V14.
  */
 @Entity
-@Table(name = "llm_connections")
+@Table(
+        name = "llm_connections",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_llm_connection_name_tenant",
+                    columnNames = {"name", "tenant_id"})
+        })
 public class LlmConnection {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(name = "base_url", nullable = false, length = 512)

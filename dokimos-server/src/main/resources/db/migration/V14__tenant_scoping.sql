@@ -23,6 +23,18 @@ ALTER TABLE projects DROP CONSTRAINT projects_name_key;
 ALTER TABLE projects ADD CONSTRAINT uq_project_name_tenant UNIQUE (name, tenant_id);
 CREATE UNIQUE INDEX uq_project_name_shared ON projects(name) WHERE tenant_id IS NULL;
 
+-- Per-tenant dataset names, mirroring projects so two tenants can each own a "regression" dataset and
+-- a scoped existence check is not a cross-tenant oracle. Same shape: (name, tenant_id) unique plus a
+-- partial unique on name for the shared (null-tenant) rows.
+ALTER TABLE datasets DROP CONSTRAINT datasets_name_key;
+ALTER TABLE datasets ADD CONSTRAINT uq_dataset_name_tenant UNIQUE (name, tenant_id);
+CREATE UNIQUE INDEX uq_dataset_name_shared ON datasets(name) WHERE tenant_id IS NULL;
+
+-- Per-tenant llm_connection names, same rule as projects and datasets.
+ALTER TABLE llm_connections DROP CONSTRAINT llm_connections_name_key;
+ALTER TABLE llm_connections ADD CONSTRAINT uq_llm_connection_name_tenant UNIQUE (name, tenant_id);
+CREATE UNIQUE INDEX uq_llm_connection_name_shared ON llm_connections(name) WHERE tenant_id IS NULL;
+
 -- Indexes on the filtered tables. The scoped read predicate is tenant_id = :t OR tenant_id IS NULL, so
 -- an index on tenant_id keeps the per-tenant scan selective on the high-volume tables.
 CREATE INDEX idx_projects_tenant_id ON projects(tenant_id);

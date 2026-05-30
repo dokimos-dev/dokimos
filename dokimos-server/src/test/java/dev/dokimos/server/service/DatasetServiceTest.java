@@ -132,7 +132,8 @@ class DatasetServiceTest {
         assertThat(created.getId()).isNotNull();
         assertThat(created.getName()).isEqualTo("qa");
         assertThat(created.getDescription()).isEqualTo("small QA set");
-        assertThat(datasetRepository.existsByName("qa")).isTrue();
+        assertThat(datasetRepository.existsByName("qa", dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isTrue();
     }
 
     @Test
@@ -271,7 +272,8 @@ class DatasetServiceTest {
         datasetService.deleteDataset("qa", dev.dokimos.server.tenant.TenantScope.unrestricted());
         entityManager.flush();
 
-        assertThat(datasetRepository.existsByName("qa")).isFalse();
+        assertThat(datasetRepository.existsByName("qa", dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isFalse();
     }
 
     @Test

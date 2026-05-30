@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -71,6 +72,9 @@ public class JudgeJobTransactions {
             job.setClaimedAt(Instant.now());
             job.setAttemptCount(job.getAttemptCount() + 1);
             jobRepository.save(job);
+            // The worker reads the connection after this transaction closes (the LLM call must not
+            // hold a database session open), so initialize it now while the session is open.
+            Hibernate.initialize(job.getConnection());
         });
         return claimed;
     }

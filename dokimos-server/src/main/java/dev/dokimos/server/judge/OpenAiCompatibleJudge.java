@@ -75,7 +75,7 @@ public class OpenAiCompatibleJudge implements JudgeLM {
 
     private String endpoint() {
         String trimmed = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        return trimmed + "/v1/chat/completions";
+        return trimmed + "/chat/completions";
     }
 
     private String buildPayload(String prompt) {

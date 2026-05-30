@@ -8,6 +8,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 class DatasetSourceTest {
 
+    @DatasetReporter
+    static final Reporter reporter = NoOpReporter.INSTANCE;
+
     private final Evaluator passingEvaluator = new Evaluator() {
         @Override
         public EvalResult evaluate(EvalTestCase testCase) {

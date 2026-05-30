@@ -3,11 +3,12 @@ package dev.dokimos.server.service;
 import dev.dokimos.server.config.ApiKeyProperties;
 import dev.dokimos.server.entity.LlmConnection;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,8 @@ public class LlmCredentialService {
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int IV_LENGTH = 12;
     private static final int TAG_LENGTH_BITS = 128;
+    private static final byte[] KDF_SALT = "dokimos-llm-connection-key".getBytes(StandardCharsets.UTF_8);
+    private static final int KDF_ITERATIONS = 100_000;
 
     private final ApiKeyProperties properties;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -111,7 +114,10 @@ public class LlmCredentialService {
                     "DOKIMOS_ENCRYPTION_KEY must be set to register or use a connection with an inline API key");
         }
         try {
-            byte[] derived = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+            PBEKeySpec spec = new PBEKeySpec(secret.toCharArray(), KDF_SALT, KDF_ITERATIONS, 256);
+            byte[] derived = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                    .generateSecret(spec)
+                    .getEncoded();
             return new SecretKeySpec(derived, "AES");
         } catch (Exception e) {
             throw new IllegalStateException("Failed to derive encryption key", e);

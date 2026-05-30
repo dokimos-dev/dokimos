@@ -67,6 +67,7 @@ public class JudgeWorker {
     /** Polls for and processes one job per cycle. The fixed delay is read from {@code dokimos.judge.poll-interval-ms}. */
     @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "${dokimos.judge.poll-interval-ms:5000}")
     public void poll() {
+        transactions.recoverStaleClaims(java.time.Instant.now().minusMillis(properties.getClaimTimeoutMs()));
         Optional<EvalJob> claimed = transactions.claimNextJob(properties.getMaxAttempts());
         claimed.ifPresent(this::process);
     }
@@ -101,11 +102,24 @@ public class JudgeWorker {
             LOGGER.info("Judge job {} succeeded for run {}", jobId, runId);
         } catch (JudgeCallException e) {
             LOGGER.warn("Judge job {} failed with HTTP status {}: {}", jobId, e.getHttpStatus(), e.getMessage());
-            transactions.recordFailure(jobId, e.getMessage(), e.isRetryable(), properties.getMaxAttempts());
+            transactions.recordFailure(jobId, sanitize(e.getMessage()), e.isRetryable(), properties.getMaxAttempts());
         } catch (Exception e) {
             LOGGER.error("Judge job {} failed", jobId, e);
-            transactions.recordFailure(jobId, e.getMessage(), false, properties.getMaxAttempts());
+            transactions.recordFailure(jobId, sanitize(e.getMessage()), false, properties.getMaxAttempts());
         }
+    }
+
+    /**
+     * Scrubs anything resembling an authorization header or bearer token from an error string before
+     * it is persisted and exposed over the API, and caps its length, so a low-level failure cannot
+     * leak credential material into {@code eval_jobs.last_error}.
+     */
+    private static String sanitize(String message) {
+        if (message == null) {
+            return null;
+        }
+        String scrubbed = message.replaceAll("(?i)(authorization|bearer)\\s*\\S+", "$1 [redacted]");
+        return scrubbed.length() > 500 ? scrubbed.substring(0, 500) : scrubbed;
     }
 
     private JudgeScorer buildScorer(EvalJob job) {

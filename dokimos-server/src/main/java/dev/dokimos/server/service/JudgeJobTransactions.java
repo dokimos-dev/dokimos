@@ -43,6 +43,19 @@ public class JudgeJobTransactions {
     }
 
     /**
+     * Returns jobs orphaned by a crashed worker (claimed before the cutoff and never finished) to
+     * PENDING so the next poll can reclaim them. The attempt count is left as-is, so the retry ceiling
+     * still bounds reclaims.
+     *
+     * @param cutoff jobs claimed before this instant are requeued
+     * @return the number of jobs requeued
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int recoverStaleClaims(Instant cutoff) {
+        return jobRepository.requeueStaleClaims(cutoff);
+    }
+
+    /**
      * Claims the oldest pending job below the retry ceiling: locks its row, marks it CLAIMED, stamps
      * the claim time, and increments the attempt count. Commits before returning so the lock is not
      * held during the HTTP work that follows.
@@ -132,11 +145,14 @@ public class JudgeJobTransactions {
         job.setLastError(error);
         if (retryable && job.getAttemptCount() < maxAttempts) {
             job.setStatus(EvalJobStatus.PENDING);
-        } else {
-            job.setStatus(EvalJobStatus.FAILED);
-            job.setCompletedAt(Instant.now());
+            jobRepository.save(job);
+            return;
         }
+        job.setStatus(EvalJobStatus.FAILED);
+        job.setCompletedAt(Instant.now());
         jobRepository.save(job);
+        // A terminally failed job must not leave its run stuck in EVALUATING.
+        runService.failEvaluatedRun(job.getRun().getId());
     }
 
     /** Pairs an eval result with the id of the item result it belongs to, for batch persistence. */

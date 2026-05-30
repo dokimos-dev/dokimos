@@ -185,8 +185,9 @@ public class RunService {
     @Transactional
     public void updateRun(UUID runId, UpdateRunRequest request) {
         ExperimentRun run = getRunForUpdate(runId);
-        if (run.getStatus() == RunStatus.EVALUATING && request.status() == RunStatus.RUNNING) {
-            throw new IllegalStateException("Cannot move a run from EVALUATING back to RUNNING: " + runId);
+        if (run.getStatus() == RunStatus.EVALUATING) {
+            throw new IllegalStateException(
+                    "Run " + runId + " is evaluating; its status is managed by the judge worker");
         }
         run.setStatus(request.status());
         if (request.status() != RunStatus.RUNNING) {
@@ -207,8 +208,30 @@ public class RunService {
     @Transactional
     public void finalizeEvaluatedRun(UUID runId) {
         ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() != RunStatus.EVALUATING) {
+            return;
+        }
         materializeCounts(run);
         run.setStatus(RunStatus.SUCCESS);
+        run.setCompletedAt(Instant.now());
+        runRepository.save(run);
+    }
+
+    /**
+     * Moves an evaluating run to FAILED when its judge job has terminally failed, so the run does not
+     * stay stuck in EVALUATING. No-op if the run is no longer EVALUATING.
+     *
+     * @param runId the run to fail
+     * @throws IllegalArgumentException if the run does not exist
+     */
+    @Transactional
+    public void failEvaluatedRun(UUID runId) {
+        ExperimentRun run = getRunForUpdate(runId);
+        if (run.getStatus() != RunStatus.EVALUATING) {
+            return;
+        }
+        materializeCounts(run);
+        run.setStatus(RunStatus.FAILED);
         run.setCompletedAt(Instant.now());
         runRepository.save(run);
     }

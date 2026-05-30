@@ -44,13 +44,13 @@ public class TraceController {
      * when some spans were rejected.
      */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    public TraceIngestResponse ingest(@RequestBody OtlpExportTraceServiceRequest request) {
+    public TraceIngestResponse ingestTraces(@RequestBody OtlpExportTraceServiceRequest request) {
         return ingestService.ingest(request);
     }
 
     /** Lists ingested traces newest first, optionally filtered to a project. */
     @GetMapping
-    public PageResponse<TraceSummary> list(
+    public PageResponse<TraceSummary> listTraces(
             @RequestParam(required = false) UUID projectId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
@@ -60,7 +60,7 @@ public class TraceController {
 
     /** Returns a single trace with its spans and online eval jobs, or 404 if it does not exist. */
     @GetMapping("/{id}")
-    public TraceDetail get(@PathVariable UUID id) {
+    public TraceDetail getTrace(@PathVariable UUID id) {
         return queryService.getTrace(id);
     }
 

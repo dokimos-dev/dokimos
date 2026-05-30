@@ -7,15 +7,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import dev.dokimos.server.dto.v1.CreateLlmConnectionRequest;
 import dev.dokimos.server.dto.v1.LlmConnectionView;
 import dev.dokimos.server.dto.v1.UpdateLlmConnectionRequest;
 import dev.dokimos.server.entity.LlmConnection;
+import dev.dokimos.server.entity.LlmConnectionProtocol;
 import dev.dokimos.server.repository.EvalJobRepository;
 import dev.dokimos.server.repository.LlmConnectionRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,6 +39,59 @@ class LlmConnectionServiceTest {
     private LlmConnectionService service;
 
     @Test
+    void create_defaultsProtocolToResponsesWhenOmitted() {
+        when(connectionRepository.existsByName("conn")).thenReturn(false);
+        when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.create(new CreateLlmConnectionRequest("conn", "https://x", "gpt-4o-mini", null, null, "OPENAI_KEY"));
+
+        ArgumentCaptor<LlmConnection> saved = ArgumentCaptor.forClass(LlmConnection.class);
+        verify(connectionRepository).save(saved.capture());
+        assertThat(saved.getValue().getProtocol()).isEqualTo(LlmConnectionProtocol.RESPONSES);
+    }
+
+    @Test
+    void create_honorsAnExplicitProtocol() {
+        when(connectionRepository.existsByName("conn")).thenReturn(false);
+        when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.create(new CreateLlmConnectionRequest(
+                "conn", "https://x", "gpt-4o-mini", LlmConnectionProtocol.CHAT_COMPLETIONS, null, "OPENAI_KEY"));
+
+        ArgumentCaptor<LlmConnection> saved = ArgumentCaptor.forClass(LlmConnection.class);
+        verify(connectionRepository).save(saved.capture());
+        assertThat(saved.getValue().getProtocol()).isEqualTo(LlmConnectionProtocol.CHAT_COMPLETIONS);
+    }
+
+    @Test
+    void update_replacesProtocolWhenSupplied() {
+        UUID id = UUID.randomUUID();
+        LlmConnection connection = new LlmConnection("conn", "https://x", "gpt-4o-mini");
+        when(connectionRepository.findById(id)).thenReturn(Optional.of(connection));
+        when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(
+                id,
+                new UpdateLlmConnectionRequest(
+                        "conn", "https://x", "gpt-4o-mini", LlmConnectionProtocol.CHAT_COMPLETIONS, null, null));
+
+        assertThat(connection.getProtocol()).isEqualTo(LlmConnectionProtocol.CHAT_COMPLETIONS);
+    }
+
+    @Test
+    void update_keepsProtocolWhenNull() {
+        UUID id = UUID.randomUUID();
+        LlmConnection connection = new LlmConnection("conn", "https://x", "gpt-4o-mini");
+        connection.setProtocol(LlmConnectionProtocol.CHAT_COMPLETIONS);
+        when(connectionRepository.findById(id)).thenReturn(Optional.of(connection));
+        when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(id, new UpdateLlmConnectionRequest("conn", "https://x", "gpt-4o-mini", null, null, null));
+
+        assertThat(connection.getProtocol()).isEqualTo(LlmConnectionProtocol.CHAT_COMPLETIONS);
+    }
+
+    @Test
     void update_replacesFieldsAndKeepsKeyWhenNoneSupplied() {
         UUID id = UUID.randomUUID();
         LlmConnection connection = new LlmConnection("old", "https://old", "gpt-3.5");
@@ -43,8 +99,8 @@ class LlmConnectionServiceTest {
         when(connectionRepository.findById(id)).thenReturn(Optional.of(connection));
         when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        LlmConnectionView view =
-                service.update(id, new UpdateLlmConnectionRequest("new", "https://new", "gpt-4o-mini", null, null));
+        LlmConnectionView view = service.update(
+                id, new UpdateLlmConnectionRequest("new", "https://new", "gpt-4o-mini", null, null, null));
 
         assertThat(view.name()).isEqualTo("new");
         assertThat(view.baseUrl()).isEqualTo("https://new");
@@ -61,7 +117,7 @@ class LlmConnectionServiceTest {
         when(connectionRepository.findById(id)).thenReturn(Optional.of(connection));
         when(connectionRepository.save(any(LlmConnection.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.update(id, new UpdateLlmConnectionRequest("conn", "https://x", "gpt-4o-mini", "sk-new", null));
+        service.update(id, new UpdateLlmConnectionRequest("conn", "https://x", "gpt-4o-mini", null, "sk-new", null));
 
         verify(credentialService).encryptInlineKey(connection, "sk-new");
         assertThat(connection.getCredentialRef()).isNull();
@@ -75,7 +131,7 @@ class LlmConnectionServiceTest {
         when(connectionRepository.existsByName("taken")).thenReturn(true);
 
         assertThatThrownBy(() -> service.update(
-                        id, new UpdateLlmConnectionRequest("taken", "https://x", "gpt-4o-mini", null, null)))
+                        id, new UpdateLlmConnectionRequest("taken", "https://x", "gpt-4o-mini", null, null, null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already exists");
     }

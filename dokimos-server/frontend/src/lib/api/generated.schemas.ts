@@ -46,6 +46,14 @@ export interface AnnotationView {
   updatedAt?: string;
 }
 
+export type UpdateLlmConnectionRequestProtocol = typeof UpdateLlmConnectionRequestProtocol[keyof typeof UpdateLlmConnectionRequestProtocol];
+
+
+export const UpdateLlmConnectionRequestProtocol = {
+  RESPONSES: 'RESPONSES',
+  CHAT_COMPLETIONS: 'CHAT_COMPLETIONS',
+} as const;
+
 export interface UpdateLlmConnectionRequest {
   /** @minLength 1 */
   name?: string;
@@ -53,15 +61,25 @@ export interface UpdateLlmConnectionRequest {
   baseUrl?: string;
   /** @minLength 1 */
   model?: string;
+  protocol?: UpdateLlmConnectionRequestProtocol;
   apiKey?: string;
   credentialRef?: string;
 }
+
+export type LlmConnectionViewProtocol = typeof LlmConnectionViewProtocol[keyof typeof LlmConnectionViewProtocol];
+
+
+export const LlmConnectionViewProtocol = {
+  RESPONSES: 'RESPONSES',
+  CHAT_COMPLETIONS: 'CHAT_COMPLETIONS',
+} as const;
 
 export interface LlmConnectionView {
   id?: string;
   name?: string;
   baseUrl?: string;
   model?: string;
+  protocol?: LlmConnectionViewProtocol;
   credentialRef?: string;
   hasInlineKey?: boolean;
   createdAt?: string;
@@ -159,6 +177,14 @@ export interface CreateRunResponse {
   runId?: string;
 }
 
+export type CreateLlmConnectionRequestProtocol = typeof CreateLlmConnectionRequestProtocol[keyof typeof CreateLlmConnectionRequestProtocol];
+
+
+export const CreateLlmConnectionRequestProtocol = {
+  RESPONSES: 'RESPONSES',
+  CHAT_COMPLETIONS: 'CHAT_COMPLETIONS',
+} as const;
+
 export interface CreateLlmConnectionRequest {
   /** @minLength 1 */
   name?: string;
@@ -166,6 +192,7 @@ export interface CreateLlmConnectionRequest {
   baseUrl?: string;
   /** @minLength 1 */
   model?: string;
+  protocol?: CreateLlmConnectionRequestProtocol;
   apiKey?: string;
   credentialRef?: string;
 }
@@ -338,30 +365,30 @@ export interface ItemSummary {
 
 export interface SortObject {
   empty?: boolean;
-  unsorted?: boolean;
   sorted?: boolean;
+  unsorted?: boolean;
 }
 
 export interface PageableObject {
   offset?: number;
   sort?: SortObject;
-  unpaged?: boolean;
   paged?: boolean;
   pageNumber?: number;
   pageSize?: number;
+  unpaged?: boolean;
 }
 
 export interface PageItemSummary {
-  totalPages?: number;
   totalElements?: number;
+  totalPages?: number;
   first?: boolean;
   last?: boolean;
   size?: number;
   content?: ItemSummary[];
   number?: number;
   sort?: SortObject;
-  pageable?: PageableObject;
   numberOfElements?: number;
+  pageable?: PageableObject;
   empty?: boolean;
 }
 
@@ -410,6 +437,49 @@ export interface EvaluatorAlignment {
 export interface AlignmentView {
   annotatedItems?: number;
   evaluators?: EvaluatorAlignment[];
+}
+
+export type ReviewQueueItemCurrentVerdict = typeof ReviewQueueItemCurrentVerdict[keyof typeof ReviewQueueItemCurrentVerdict];
+
+
+export const ReviewQueueItemCurrentVerdict = {
+  CORRECT: 'CORRECT',
+  INCORRECT: 'INCORRECT',
+  UNSURE: 'UNSURE',
+} as const;
+
+export type ReviewQueueItemInput = {[key: string]: { [key: string]: unknown }};
+
+export type ReviewQueueItemExpectedOutput = {[key: string]: { [key: string]: unknown }};
+
+export type ReviewQueueItemActualOutput = {[key: string]: { [key: string]: unknown }};
+
+export interface ReviewQueueItem {
+  itemId?: string;
+  runId?: string;
+  experimentId?: string;
+  experimentName?: string;
+  projectName?: string;
+  input?: ReviewQueueItemInput;
+  expectedOutput?: ReviewQueueItemExpectedOutput;
+  actualOutput?: ReviewQueueItemActualOutput;
+  evalResults?: EvalSummary[];
+  currentVerdict?: ReviewQueueItemCurrentVerdict;
+  createdAt?: string;
+}
+
+export interface PageReviewQueueItem {
+  totalElements?: number;
+  totalPages?: number;
+  first?: boolean;
+  last?: boolean;
+  size?: number;
+  content?: ReviewQueueItem[];
+  number?: number;
+  sort?: SortObject;
+  numberOfElements?: number;
+  pageable?: PageableObject;
+  empty?: boolean;
 }
 
 export interface ProjectSummary {
@@ -608,6 +678,13 @@ pageable: Pageable;
 };
 
 export type UpdateRun200 = {[key: string]: string};
+
+export type List2Params = {
+projectName?: string;
+experimentId?: string;
+runId?: string;
+pageable: Pageable;
+};
 
 export type GetTrendsParams = {
 limit?: number;

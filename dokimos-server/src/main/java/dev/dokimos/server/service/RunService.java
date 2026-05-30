@@ -263,19 +263,7 @@ public class RunService {
     public RunDetails getRunDetails(UUID runId, Pageable pageable) {
         ExperimentRun run = getRun(runId);
         Experiment experiment = run.getExperiment();
-
-        long totalItems;
-        long passedItems;
-        Double passRate;
-        if (run.getStatus() == RunStatus.RUNNING || run.getStatus() == RunStatus.EVALUATING) {
-            totalItems = itemResultRepository.countByRun(run);
-            passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-            passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
-        } else {
-            totalItems = run.getItemCount();
-            passedItems = run.getPassedCount();
-            passRate = run.getPassRate();
-        }
+        RunMetrics metrics = computeMetrics(run);
 
         Page<ItemResult> itemPage = itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable);
         Map<UUID, AnnotationView> annotationsByItemId = loadAnnotations(itemPage.getContent());
@@ -293,17 +281,17 @@ public class RunService {
                 experiment.getProject().getName(),
                 run.getStatus(),
                 run.getConfig(),
-                totalItems,
-                passedItems,
-                passRate,
+                metrics.totalItems(),
+                metrics.passedItems(),
+                metrics.passRate(),
                 run.getStartedAt(),
                 run.getCompletedAt(),
                 datasetVersionId,
                 datasetVersionNumber,
-                run.getTotalTokensIn(),
-                run.getTotalTokensOut(),
-                run.getTotalCostUsd(),
-                run.getAvgLatencyMs(),
+                metrics.totalTokensIn(),
+                metrics.totalTokensOut(),
+                metrics.totalCostUsd(),
+                metrics.avgLatencyMs(),
                 itemSummaries);
     }
 
@@ -324,18 +312,7 @@ public class RunService {
     }
 
     private RunSummary toRunSummary(ExperimentRun run) {
-        long totalItems;
-        long passedItems;
-        Double passRate;
-        if (run.getStatus() == RunStatus.RUNNING || run.getStatus() == RunStatus.EVALUATING) {
-            totalItems = itemResultRepository.countByRun(run);
-            passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
-            passRate = totalItems > 0 ? (double) passedItems / totalItems : null;
-        } else {
-            totalItems = run.getItemCount();
-            passedItems = run.getPassedCount();
-            passRate = run.getPassRate();
-        }
+        RunMetrics metrics = computeMetrics(run);
 
         DatasetVersion datasetVersion = run.getDatasetVersion();
         UUID datasetVersionId = datasetVersion != null ? datasetVersion.getId() : null;
@@ -345,13 +322,51 @@ public class RunService {
                 run.getId(),
                 run.getStatus(),
                 run.getConfig(),
-                totalItems,
-                passedItems,
-                passRate,
+                metrics.totalItems(),
+                metrics.passedItems(),
+                metrics.passRate(),
                 run.getStartedAt(),
                 run.getCompletedAt(),
                 datasetVersionId,
                 datasetVersionNumber,
+                metrics.totalTokensIn(),
+                metrics.totalTokensOut(),
+                metrics.totalCostUsd(),
+                metrics.avgLatencyMs());
+    }
+
+    /**
+     * Run-level rollups read live from the item results while a run is still RUNNING or EVALUATING, and
+     * from the materialized columns once the run has reached a terminal status. Pass-rate and the
+     * token/cost/latency totals move together so an in-progress run shows accruing cost, not a value
+     * that only appears at completion.
+     */
+    private record RunMetrics(
+            long totalItems,
+            long passedItems,
+            Double passRate,
+            Long totalTokensIn,
+            Long totalTokensOut,
+            Double totalCostUsd,
+            Double avgLatencyMs) {}
+
+    private RunMetrics computeMetrics(ExperimentRun run) {
+        if (run.getStatus() == RunStatus.RUNNING || run.getStatus() == RunStatus.EVALUATING) {
+            long totalItems = itemResultRepository.countByRun(run);
+            long passedItems = itemResultRepository.countItemsWithAllEvalsPassed(run);
+            return new RunMetrics(
+                    totalItems,
+                    passedItems,
+                    totalItems > 0 ? (double) passedItems / totalItems : null,
+                    itemResultRepository.sumTokensInByRun(run),
+                    itemResultRepository.sumTokensOutByRun(run),
+                    itemResultRepository.sumCostByRun(run),
+                    itemResultRepository.avgLatencyByRun(run));
+        }
+        return new RunMetrics(
+                run.getItemCount(),
+                run.getPassedCount(),
+                run.getPassRate(),
                 run.getTotalTokensIn(),
                 run.getTotalTokensOut(),
                 run.getTotalCostUsd(),

@@ -1,5 +1,7 @@
 package dev.dokimos.server.filter;
 
+import dev.dokimos.server.tenant.TenantScope;
+
 /**
  * Authenticated caller.
  *
@@ -28,5 +30,31 @@ public record Principal(String id, Role role, String tenantId) {
      */
     public static Principal anonymous() {
         return new Principal("anonymous", Role.VIEWER, null);
+    }
+
+    /**
+     * Returns whether this is the system principal. The system principal (no-key mode and the legacy
+     * single {@code DOKIMOS_API_KEY}) is the only principal that maps to an unrestricted tenant scope, so
+     * existing single-tenant and no-key deployments keep seeing and stamping every row exactly as before.
+     *
+     * <p>This is identified by the system id rather than {@code tenantId == null}, because an anonymous
+     * keyless reader also carries a null tenant yet must resolve to shared-only, not unrestricted.
+     *
+     * @return true when this is the system principal
+     */
+    public boolean isSystem() {
+        return SYSTEM_ID.equals(id);
+    }
+
+    /**
+     * Resolves the {@link TenantScope} this principal reads and writes under. The system principal maps
+     * to {@link TenantScope#unrestricted()} (every row, null stamp); every other principal (a scoped key
+     * or an anonymous keyless reader) maps to {@link TenantScope#scoped(String)} on its own tenant, which
+     * for a null tenant collapses to shared-only.
+     *
+     * @return the tenant scope for this principal
+     */
+    public TenantScope tenantScope() {
+        return isSystem() ? TenantScope.unrestricted() : TenantScope.scoped(tenantId);
     }
 }

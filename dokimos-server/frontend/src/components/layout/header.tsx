@@ -52,6 +52,16 @@ export default function Header() {
             >
               LLM connections
             </NavLink>
+            <NavLink
+              to="/review-queue"
+              className={({ isActive }) =>
+                isActive
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              Review queue
+            </NavLink>
           </nav>
         </div>
         <ThemeToggleButton

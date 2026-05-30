@@ -2,6 +2,8 @@ package dev.dokimos.server.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -10,8 +12,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A named, reusable pointer to an OpenAI-compatible chat completions endpoint used by the server-side
- * judge. Exactly one credential source is set: {@code credentialRef} names an environment variable
+ * A named, reusable pointer to an OpenAI-compatible endpoint used by the server-side judge. The
+ * {@code protocol} selects whether that endpoint speaks the Responses API or Chat Completions. Exactly
+ * one credential source is set: {@code credentialRef} names an environment variable
  * (or external path) that holds the key, or {@code encryptedApiKey} carries an inline key encrypted at
  * rest. The entity never exposes raw key material; decryption is the responsibility of the credential
  * service.
@@ -32,6 +35,10 @@ public class LlmConnection {
 
     @Column(nullable = false)
     private String model;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    private LlmConnectionProtocol protocol = LlmConnectionProtocol.RESPONSES;
 
     @Column(name = "credential_ref")
     private String credentialRef;
@@ -82,6 +89,14 @@ public class LlmConnection {
 
     public void setModel(String model) {
         this.model = model;
+    }
+
+    public LlmConnectionProtocol getProtocol() {
+        return protocol;
+    }
+
+    public void setProtocol(LlmConnectionProtocol protocol) {
+        this.protocol = protocol;
     }
 
     /** Stamps the connection as just modified. */

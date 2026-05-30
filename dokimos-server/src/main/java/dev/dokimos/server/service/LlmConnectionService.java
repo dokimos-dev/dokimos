@@ -46,6 +46,9 @@ public class LlmConnectionService {
         }
 
         LlmConnection connection = new LlmConnection(request.name(), request.baseUrl(), request.model());
+        if (request.protocol() != null) {
+            connection.setProtocol(request.protocol());
+        }
         if (request.apiKey() != null && !request.apiKey().isBlank()) {
             credentialService.encryptInlineKey(connection, request.apiKey());
         } else {
@@ -93,6 +96,9 @@ public class LlmConnectionService {
         connection.setName(request.name());
         connection.setBaseUrl(request.baseUrl());
         connection.setModel(request.model());
+        if (request.protocol() != null) {
+            connection.setProtocol(request.protocol());
+        }
         if (request.apiKey() != null && !request.apiKey().isBlank()) {
             credentialService.encryptInlineKey(connection, request.apiKey());
             connection.setCredentialRef(null);

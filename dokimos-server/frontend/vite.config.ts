@@ -13,7 +13,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
+      // Scope the dev proxy to the API base so client routes that start with
+      // "/api" (for example /api-keys) are served by the SPA, not proxied.
+      '/api/v1': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

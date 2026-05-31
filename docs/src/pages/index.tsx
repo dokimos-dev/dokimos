@@ -2,10 +2,24 @@ import type { ReactNode } from "react";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
+import { Highlight, Prism, themes, type PrismTheme } from "prism-react-renderer";
 import HomepageFeatures from "@site/src/components/HomepageFeatures";
 import Heading from "@theme/Heading";
 
 import styles from "./index.module.css";
+
+// Java isn't in prism-react-renderer's default language bundle. Register it on
+// the renderer's own Prism instance so the hero snippet tokenizes correctly.
+(globalThis as { Prism?: typeof Prism }).Prism = Prism;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require("prismjs/components/prism-java");
+
+// Same One Dark theme the docs code blocks use, with a transparent surface so
+// the hero panel background shows through.
+const heroTheme: PrismTheme = {
+  ...themes.oneDark,
+  plain: { ...themes.oneDark.plain, backgroundColor: "transparent" },
+};
 
 const HERO_CODE = `@Test
 void answersStayGrounded() {
@@ -55,9 +69,21 @@ function HomepageHeader() {
             <span className={styles.codeDot} />
             <span className={styles.codeName}>RagEvalTest.java</span>
           </div>
-          <pre className={styles.codeBody}>
-            <code>{HERO_CODE}</code>
-          </pre>
+          <Highlight theme={heroTheme} code={HERO_CODE} language="java">
+            {({ tokens, getLineProps, getTokenProps }) => (
+              <pre className={styles.codeBody}>
+                <code>
+                  {tokens.map((line, i) => (
+                    <span key={i} {...getLineProps({ line })} style={{ display: "block" }}>
+                      {line.map((token, key) => (
+                        <span key={key} {...getTokenProps({ token })} />
+                      ))}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            )}
+          </Highlight>
         </div>
       </div>
     </header>

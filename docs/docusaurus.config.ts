@@ -93,21 +93,6 @@ const config: Config = {
         },
       ],
     },
-    footer: {
-      style: "dark",
-      links: [
-        {
-          title: "Community",
-          items: [
-            {
-              label: "GitHub",
-              href: "https://github.com/dokimos-dev/dokimos",
-            },
-          ],
-        },
-      ],
-      copyright: `Copyright © ${new Date().getFullYear()} Dokimos Documentation. Built with Docusaurus.`,
-    },
     prism: {
       theme: prismThemes.oneDark,
       darkTheme: prismThemes.oneDark,

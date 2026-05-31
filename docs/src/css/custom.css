@@ -34,7 +34,8 @@
   --ifm-table-stripe-background: #f7f8fa;
   --ifm-table-border-color: #e3e5ea;
   --ifm-menu-color: #3c424c;
-  --ifm-menu-color-background-active: rgba(109, 77, 240, 0.1);
+  --ifm-menu-color-active: var(--ifm-color-content);
+  --ifm-menu-color-background-active: rgba(109, 77, 240, 0.08);
   --ifm-link-color: var(--ifm-color-primary);
 
   --docusaurus-highlighted-code-line-bg: rgba(109, 77, 240, 0.12);
@@ -68,7 +69,8 @@
   --ifm-table-stripe-background: #12151a;
   --ifm-table-border-color: #23272f;
   --ifm-menu-color: #b4bac4;
-  --ifm-menu-color-background-active: rgba(124, 92, 252, 0.14);
+  --ifm-menu-color-active: var(--ifm-color-content);
+  --ifm-menu-color-background-active: rgba(124, 92, 252, 0.1);
 
   --docusaurus-highlighted-code-line-bg: rgba(124, 92, 252, 0.18);
 
@@ -89,7 +91,7 @@ html {
   font-size: 0.9rem;
 }
 
-/* Sidebar: violet active bar + tint */
+/* Sidebar: subtle tint + thin violet bar, neutral label (matches the app rail) */
 .menu__link {
   font-size: 0.875rem;
   border-radius: 6px;
@@ -97,6 +99,7 @@ html {
 .menu__link--active:not(.menu__link--sublist) {
   font-weight: 600;
   position: relative;
+  color: var(--ifm-color-content);
 }
 .menu__link--active:not(.menu__link--sublist)::before {
   content: "";
@@ -107,7 +110,7 @@ html {
   width: 2px;
   border-radius: 2px;
   background: var(--ifm-color-primary);
-  box-shadow: 0 0 8px var(--ifm-color-primary);
+  opacity: 0.85;
 }
 .menu__list .menu__list {
   font-size: 0.85rem;

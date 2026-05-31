@@ -78,9 +78,7 @@ export default function AppSidebar({ onNavigate }: { onNavigate?: () => void }) 
         className="flex items-center gap-2.5 px-4 pb-3 pt-4 font-semibold tracking-tight"
       >
         <BrandMark />
-        <span className="text-[15px]">
-          Doki<span className="text-[var(--accent-glow)]">mos</span>
-        </span>
+        <span className="text-[15px]">Dokimos</span>
       </Link>
 
       <ProjectSwitcher />

@@ -3,13 +3,29 @@ import { Outlet, useLocation } from "react-router";
 import { X } from "lucide-react";
 import AppSidebar from "./app-sidebar";
 import Topbar from "./topbar";
+import CommandPalette from "./command-palette";
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
 
   // Close the mobile drawer on route change.
   useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  // ⌘K / Ctrl+K toggles the command palette; Esc closes it.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      } else if (e.key === "Escape") {
+        setSearchOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,11 +56,13 @@ export default function Layout() {
       )}
 
       <div className="lg:pl-[252px]">
-        <Topbar onMenuClick={() => setMobileOpen(true)} />
+        <Topbar onMenuClick={() => setMobileOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
         <main className="mx-auto w-full max-w-[1400px] p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
+
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

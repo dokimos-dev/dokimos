@@ -2,7 +2,13 @@ import { Menu, Search } from "lucide-react";
 import Breadcrumbs from "./breadcrumbs";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 
-export default function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
+export default function Topbar({
+  onMenuClick,
+  onOpenSearch,
+}: {
+  onMenuClick: () => void;
+  onOpenSearch: () => void;
+}) {
   const { breadcrumbs } = useBreadcrumbs();
 
   return (
@@ -22,6 +28,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
 
       <button
         type="button"
+        onClick={onOpenSearch}
         className="hidden items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-[12px] text-muted-foreground hover:bg-accent sm:flex"
       >
         <Search className="size-3.5" />

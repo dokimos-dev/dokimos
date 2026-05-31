@@ -1,11 +1,17 @@
 package dev.dokimos.koog
 
+import ai.koog.agents.core.feature.handler.tool.ToolCallCompletedContext
+import ai.koog.agents.features.eventHandler.feature.EventHandlerConfig
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -171,5 +177,30 @@ class KoogTraceCollectorTest {
                 .evaluate(testCase)
                 .score(),
         ).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `collectAgentTrace wires onToolCallCompleted into the collector`() {
+        // Capture the suspend handler the extension registers, then drive it with a mocked
+        // completion context to prove the event-handler wiring records into the collector.
+        val config = mockk<EventHandlerConfig>(relaxed = true)
+        val handlerSlot = slot<suspend (ToolCallCompletedContext) -> Unit>()
+        every { config.onToolCallCompleted(capture(handlerSlot)) } returns Unit
+
+        val collector = KoogTraceCollector()
+        config.collectAgentTrace(collector)
+
+        val context = mockk<ToolCallCompletedContext>()
+        every { context.toolName } returns "search_flights"
+        every { context.toolArgs } returns buildJsonObject { put("origin", "JFK") }
+        every { context.toolResult } returns JsonPrimitive("[]")
+
+        runBlocking { handlerSlot.captured(context) }
+
+        val calls = collector.toAgentTrace().toolCalls()
+        assertThat(calls).hasSize(1)
+        assertThat(calls[0].name()).isEqualTo("search_flights")
+        assertThat(calls[0].arguments()).containsEntry("origin", "JFK")
+        assertThat(calls[0].result()).isEqualTo("[]")
     }
 }

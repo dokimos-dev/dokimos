@@ -8,10 +8,13 @@ import jakarta.servlet.http.HttpServletRequest;
  * Derives the {@link TenantScope} and principal id for the current request from the {@link Principal}
  * the auth filter placed on the request attribute.
  *
- * <p>This is the single seam controllers use so the principal-to-scope mapping lives in one place. When
- * no principal is present (a code path that does not pass through the auth filter, which only runs for
- * {@code /api/v1/**}), the request is treated as the system principal so behavior matches an open,
- * unauthenticated deployment.
+ * <p>This is the single seam controllers use so the principal-to-scope mapping lives in one place. The
+ * auth filter sets the principal attribute on every {@code /api/v1/**} request that reaches a controller
+ * (the system principal in no-key and legacy single-key mode, a scoped or anonymous principal in
+ * authenticated mode), so a request that passed the filter always carries one. The fallbacks below only
+ * apply to a code path that bypasses the filter, and {@link #scope(HttpServletRequest)} fails closed
+ * there: it resolves to a restricted, shared-only scope rather than the unrestricted system scope, so an
+ * unfiltered request can never read another tenant's rows.
  */
 public final class TenantScopeResolver {
 
@@ -30,13 +33,19 @@ public final class TenantScopeResolver {
     }
 
     /**
-     * Resolves the tenant scope the current request reads and writes under.
+     * Resolves the tenant scope the current request reads and writes under. This fails closed: when the
+     * auth filter set no principal (only possible on a code path that bypasses the filter), the request
+     * resolves to a restricted, shared-only scope rather than the unrestricted system scope, so an
+     * unfiltered request can never read another tenant's rows. When a principal is present its own scope
+     * is used unchanged, so a request carrying the system principal (no-key and legacy single-key mode)
+     * still resolves to {@link TenantScope#unrestricted()} and existing deployments are unaffected.
      *
      * @param request the current request
-     * @return the tenant scope for the request
+     * @return the tenant scope for the request, shared-only when no principal was set
      */
     public static TenantScope scope(HttpServletRequest request) {
-        return principal(request).tenantScope();
+        Object attr = request.getAttribute(ApiKeyAuthFilter.PRINCIPAL_ATTRIBUTE);
+        return attr instanceof Principal principal ? principal.tenantScope() : TenantScope.scoped(null);
     }
 
     /**

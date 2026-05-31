@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import axios from "axios";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -37,6 +43,22 @@ const ROLE_LABELS: Record<CreateApiKeyRequestRole, string> = {
   [CreateApiKeyRequestRole.ADMIN]: "Admin",
 };
 
+const ROLE_BADGE_CLASSES: Record<CreateApiKeyRequestRole, string> = {
+  [CreateApiKeyRequestRole.VIEWER]:
+    "border-success/40 bg-pass-tint text-success",
+  [CreateApiKeyRequestRole.EDITOR]:
+    "border-warning/40 bg-warn-tint text-warning",
+  [CreateApiKeyRequestRole.ADMIN]:
+    "border-primary/40 bg-accent-tint text-primary",
+};
+
+function roleBadgeClass(role?: CreateApiKeyRequestRole): string {
+  if (role && ROLE_BADGE_CLASSES[role]) {
+    return ROLE_BADGE_CLASSES[role];
+  }
+  return "border-border text-muted-foreground";
+}
+
 function formatTimestamp(value?: string): string {
   if (!value) {
     return "never";
@@ -70,11 +92,18 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">API keys</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">API keys</h1>
+          <p className="font-prose text-sm text-muted-foreground mt-1 max-w-2xl">
+            Scoped keys for the REST API, SDK reporters, and CI. Role determines
+            write access. Read operations are always open.
+          </p>
+        </div>
         {keys.length > 0 && (
           <Button
+            className="shrink-0"
             onClick={() => {
               setCreateNonce((n) => n + 1);
               setCreateOpen(true);
@@ -93,18 +122,29 @@ export default function ApiKeysPage() {
       )}
 
       {isLoading ? (
-        <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+            <Skeleton className="h-3 w-20" />
+          </div>
           {[1, 2, 3].map((i) => (
-            <div key={i} className="px-4 py-4 border-b last:border-b-0">
-              <Skeleton className="h-4 w-48 mb-2" />
-              <Skeleton className="h-3 w-72" />
+            <div
+              key={i}
+              className="flex items-center gap-4 px-4 py-4 border-b border-border last:border-b-0"
+            >
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-4 w-40 mb-2" />
+                <Skeleton className="h-3 w-72" />
+              </div>
+              <Skeleton className="h-7 w-28 shrink-0" />
             </div>
           ))}
         </div>
       ) : error ? (
-        <p className="text-destructive">
-          Error loading API keys: {error.message}
-        </p>
+        <div className="rounded-lg border border-destructive/40 bg-fail-tint px-4 py-3">
+          <p className="text-sm text-destructive">
+            Error loading API keys: {error.message}
+          </p>
+        </div>
       ) : keys.length === 0 ? (
         <EmptyState
           onCreate={() => {
@@ -113,7 +153,10 @@ export default function ApiKeysPage() {
           }}
         />
       ) : (
-        <ApiKeyList keys={keys} onChanged={handleChanged} />
+        <>
+          <ApiKeyList keys={keys} onChanged={handleChanged} />
+          <RoleReference />
+        </>
       )}
 
       <CreateApiKeyDialog
@@ -126,11 +169,73 @@ export default function ApiKeysPage() {
   );
 }
 
+function SectionHeader({
+  title,
+  right,
+}: {
+  title: string;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        {title}
+      </span>
+      {right ? (
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {right}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function RoleBadge({ role }: { role?: CreateApiKeyRequestRole }) {
+  const label = role ? ROLE_LABELS[role] : "Unknown";
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-[11px] ${roleBadgeClass(
+        role
+      )}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function RoleReference() {
+  return (
+    <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <SectionHeader title="Roles" right="read is always open" />
+      <div className="divide-y divide-border">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <RoleBadge role={CreateApiKeyRequestRole.VIEWER} />
+          <span className="font-prose text-sm text-muted-foreground">
+            Read-only access to runs, traces, and datasets.
+          </span>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <RoleBadge role={CreateApiKeyRequestRole.EDITOR} />
+          <span className="font-prose text-sm text-muted-foreground">
+            Write runs, datasets, and annotations.
+          </span>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <RoleBadge role={CreateApiKeyRequestRole.ADMIN} />
+          <span className="font-prose text-sm text-muted-foreground">
+            Manage keys, connections, and webhooks.
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="rounded-xl border bg-card p-10 text-center">
+    <div className="rounded-lg border border-border bg-card p-10 text-center">
       <h2 className="text-lg font-semibold mb-2">No API keys yet</h2>
-      <p className="text-muted-foreground text-sm mb-6">
+      <p className="font-prose text-muted-foreground text-sm mb-6 max-w-md mx-auto">
         Create an API key to authenticate clients against the server. Each key
         is scoped to a role that controls what it can do.
       </p>
@@ -160,26 +265,35 @@ function CreatedKeyPanel({ created, onDismiss }: CreatedKeyPanelProps) {
   };
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 mb-6">
-      <h2 className="text-base font-semibold mb-1">
-        API key created{name ? ` (${name})` : ""}
-      </h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Copy this key now and store it somewhere safe. For security reasons it
-        will not be shown again.
-      </p>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 min-w-0 break-all rounded-md border bg-background px-3 py-2 text-sm font-mono">
-          {rawKey}
-        </code>
-        <Button variant="outline" size="sm" onClick={handleCopy}>
-          {copied ? "Copied" : "Copy"}
-        </Button>
-        <Button variant="outline" size="sm" onClick={onDismiss}>
-          Done
-        </Button>
+    <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Key created{name ? ` · ${name}` : ""}
+        </span>
       </div>
-    </div>
+      <div className="p-4 space-y-3">
+        <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warn-tint px-3 py-2 text-sm text-warning">
+          <span aria-hidden="true">⚠</span>
+          <span>
+            Copy this key now and store it somewhere safe. For security reasons
+            it will not be shown again.
+          </span>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code className="flex-1 min-w-0 break-all rounded-md border border-border-strong bg-background px-3 py-2 text-[12.5px] font-mono">
+            {rawKey}
+          </code>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={handleCopy}>
+              {copied ? "Copied" : "Copy"}
+            </Button>
+            <Button size="sm" onClick={onDismiss}>
+              Done
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -190,11 +304,17 @@ interface ApiKeyListProps {
 
 function ApiKeyList({ keys, onChanged }: ApiKeyListProps) {
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      {keys.map((apiKey) => (
-        <ApiKeyRow key={apiKey.id} apiKey={apiKey} onChanged={onChanged} />
-      ))}
-    </div>
+    <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <SectionHeader
+        title="Keys"
+        right={`${keys.length} ${keys.length === 1 ? "key" : "keys"}`}
+      />
+      <div>
+        {keys.map((apiKey) => (
+          <ApiKeyRow key={apiKey.id} apiKey={apiKey} onChanged={onChanged} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -216,7 +336,6 @@ function ApiKeyRow({ apiKey, onChanged }: ApiKeyRowProps) {
     apiKey.id ?? ""
   );
 
-  const roleLabel = apiKey.role ? ROLE_LABELS[apiKey.role] : "Unknown";
   const isBusy = isDisabling || isDeleting;
 
   const handleDisable = async () => {
@@ -242,25 +361,27 @@ function ApiKeyRow({ apiKey, onChanged }: ApiKeyRowProps) {
   };
 
   return (
-    <div className="px-4 py-4 border-b last:border-b-0">
-      <div className="flex items-start justify-between gap-4">
+    <div
+      className={`px-4 py-4 border-b border-border last:border-b-0 ${
+        apiKey.enabled === false ? "opacity-80" : ""
+      }`}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold truncate">{apiKey.name}</p>
-            <span className="text-xs rounded-full border px-2 py-0.5 text-muted-foreground">
-              {roleLabel}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[13.5px] font-semibold truncate">
+              {apiKey.name}
+            </p>
+            <RoleBadge role={apiKey.role} />
             {apiKey.enabled === false && (
-              <span className="text-xs rounded-full border border-destructive/40 px-2 py-0.5 text-destructive">
+              <span className="inline-flex items-center justify-center rounded-md border border-destructive/40 bg-fail-tint px-2 py-0.5 text-[11px] text-destructive">
                 Disabled
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Created {formatTimestamp(apiKey.createdAt)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Last used {formatTimestamp(apiKey.lastUsedAt)}
+          <p className="font-mono text-xs text-muted-foreground mt-1.5 tabular-nums">
+            created {formatTimestamp(apiKey.createdAt)} · last used{" "}
+            {formatTimestamp(apiKey.lastUsedAt)}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -327,6 +448,7 @@ function ApiKeyRow({ apiKey, onChanged }: ApiKeyRowProps) {
               <Button
                 variant="outline"
                 size="sm"
+                className="text-destructive hover:text-destructive"
                 onClick={() => {
                   setConfirming("delete");
                   setActionError(null);
@@ -400,72 +522,92 @@ function CreateApiKeyDialog({
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="border rounded-xl p-0 bg-card text-foreground max-w-md w-[calc(100%-2rem)] backdrop:bg-black/50"
+      className="rounded-md border border-border p-0 bg-popover text-popover-foreground max-w-md w-[calc(100%-2rem)] shadow-xl backdrop:bg-black/50"
     >
-      <form onSubmit={handleSubmit} className="p-5">
-        <h3 className="text-base font-bold mb-1">New API key</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          The generated key is shown once after creation. Store it somewhere
-          safe.
-        </p>
-        <div className="mb-3">
-          <label
-            htmlFor="key-name"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
+      <form onSubmit={handleSubmit}>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wider">
+            New API key
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isMutating}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground"
           >
-            Name
-          </label>
-          <input
-            id="key-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="ci-pipeline"
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-            autoFocus
-            required
-          />
+            ✕
+          </button>
         </div>
-        <div className="mb-3">
-          <label
-            htmlFor="key-role"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
-          >
-            Role
-          </label>
-          <select
-            id="key-role"
-            value={role}
-            onChange={(e) =>
-              setRole(e.target.value as CreateApiKeyRequestRole)
-            }
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-          >
-            <option value={CreateApiKeyRequestRole.VIEWER}>
-              Viewer (read only)
-            </option>
-            <option value={CreateApiKeyRequestRole.EDITOR}>
-              Editor (read and write)
-            </option>
-            <option value={CreateApiKeyRequestRole.ADMIN}>
-              Admin (full access)
-            </option>
-          </select>
+        <div className="p-4 space-y-4">
+          <div>
+            <label
+              htmlFor="key-name"
+              className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
+            >
+              Name
+            </label>
+            <input
+              id="key-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ci-nightly"
+              className="w-full border border-border-strong rounded-md px-3 py-2 text-sm font-mono bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+              autoFocus
+              required
+            />
+            <p className="font-prose text-[11px] text-muted-foreground mt-1.5">
+              A label to recognise this key later. It is not part of the
+              credential.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor="key-role"
+              className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
+            >
+              Role
+            </label>
+            <select
+              id="key-role"
+              value={role}
+              onChange={(e) =>
+                setRole(e.target.value as CreateApiKeyRequestRole)
+              }
+              className="w-full border border-border-strong rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+            >
+              <option value={CreateApiKeyRequestRole.VIEWER}>
+                Viewer (read only)
+              </option>
+              <option value={CreateApiKeyRequestRole.EDITOR}>
+                Editor (read and write)
+              </option>
+              <option value={CreateApiKeyRequestRole.ADMIN}>
+                Admin (full access)
+              </option>
+            </select>
+            <p className="font-prose text-[11px] text-muted-foreground mt-1.5">
+              Read operations are open to all keys. Write access is gated by
+              role.
+            </p>
+          </div>
+          {submitError && (
+            <p className="text-sm text-destructive">{submitError}</p>
+          )}
         </div>
-        {submitError && (
-          <p className="text-sm text-destructive mb-3">{submitError}</p>
-        )}
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={onClose}
             disabled={isMutating}
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={isMutating}>
-            {isMutating ? "Creating..." : "Create"}
+          <Button type="submit" size="sm" disabled={isMutating}>
+            {isMutating ? "Creating..." : "Create key"}
           </Button>
         </div>
       </form>

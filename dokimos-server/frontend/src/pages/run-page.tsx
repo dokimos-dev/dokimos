@@ -9,7 +9,6 @@ import type {
 } from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -19,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import MetricCard, { MetricGrid } from "@/components/shared/metric-card";
 import PassRate from "@/components/shared/pass-rate";
 import ScoreCell from "@/components/shared/score-cell";
 import TruncatedText from "@/components/shared/truncated-text";
@@ -62,18 +62,24 @@ function stringify(value: unknown, fallback = ""): string {
 
 function VerdictChip({ verdict }: { verdict: AnnotationViewVerdict }) {
   const config: Record<AnnotationViewVerdict, { label: string; className: string }> = {
-    CORRECT: { label: "correct", className: "bg-success/15 text-success" },
+    CORRECT: {
+      label: "correct",
+      className: "border-success/30 bg-success/10 text-success",
+    },
     INCORRECT: {
       label: "incorrect",
-      className: "bg-destructive/15 text-destructive",
+      className: "border-destructive/30 bg-destructive/10 text-destructive",
     },
-    UNSURE: { label: "unsure", className: "bg-muted text-muted-foreground" },
+    UNSURE: {
+      label: "unsure",
+      className: "border-border bg-muted text-muted-foreground",
+    },
   };
   const { label, className } = config[verdict];
   return (
     <span
       className={
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
+        "inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider " +
         className
       }
     >
@@ -155,68 +161,79 @@ export default function RunPage() {
 
   if (isLoading) {
     return (
-      <div>
-        <Skeleton className="h-8 w-48 mb-6" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <MetricGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <Skeleton className="h-4 w-20 mb-2" />
-                <Skeleton className="h-8 w-16" />
-              </CardContent>
-            </Card>
+            <div
+              key={i}
+              className="rounded-lg border bg-card px-4 py-3.5"
+            >
+              <Skeleton className="h-2.5 w-16" />
+              <Skeleton className="mt-3 h-6 w-20" />
+            </div>
           ))}
+        </MetricGrid>
+        <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>Input</TableHead>
+                  <TableHead>Expected</TableHead>
+                  <TableHead>Actual</TableHead>
+                  <TableHead>Score</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[1, 2, 3].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-48" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-12" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8"></TableHead>
-              <TableHead>Input</TableHead>
-              <TableHead>Expected</TableHead>
-              <TableHead>Actual</TableHead>
-              <TableHead>Score</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[1, 2, 3].map((i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-4 w-4" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-48" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-12" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-6">Run</h1>
-        <p className="text-destructive">Error loading run: {error.message}</p>
+      <div className="rounded-lg border bg-card p-10 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Run
+        </p>
+        <p className="mt-2 text-sm text-destructive">
+          Error loading run: {error.message}
+        </p>
       </div>
     );
   }
 
   if (!run) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-6">Run</h1>
-        <p className="text-muted-foreground">Run not found.</p>
+      <div className="rounded-lg border bg-card p-10 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          Run
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Run not found.</p>
       </div>
     );
   }
@@ -229,51 +246,69 @@ export default function RunPage() {
       ? items.find((item) => (item.id ?? "") === promoteItemId)
       : undefined;
 
+  const passRateValue = run.passRate ?? 0;
+  const passRateTone: "success" | "warning" | "destructive" =
+    passRateValue >= 0.8
+      ? "success"
+      : passRateValue >= 0.5
+        ? "warning"
+        : "destructive";
+  const failedItems = (run.totalItems ?? 0) - (run.passedItems ?? 0);
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <h1 className="text-2xl font-bold">
-          {run.startedAt
-            ? `Run ${format(new Date(run.startedAt), "MMM d, h:mm a")}`
-            : "Run"}
-        </h1>
-        <Button variant="outline" onClick={() => setJudgeDialogOpen(true)}>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {run.startedAt
+              ? `Run · ${format(new Date(run.startedAt), "MMM d, h:mm a")}`
+              : "Run"}
+          </h1>
+          {run.experimentName && (
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {run.experimentName}
+            </p>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          className="shrink-0"
+          onClick={() => setJudgeDialogOpen(true)}
+        >
           Run LLM judge
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Total Items</p>
-            <p className="text-2xl font-bold">{run.totalItems}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Passed</p>
-            <p className="text-2xl font-bold text-success">
-              {run.passedItems}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Pass Rate</p>
-            <p className="text-2xl font-bold">
-              <PassRate rate={run.passRate} />
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">Duration</p>
-            <p className="text-2xl font-bold">
-              {formatDuration(run.startedAt, run.completedAt)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <MetricGrid>
+        <MetricCard
+          label="Total items"
+          value={run.totalItems ?? 0}
+          sub={`${evaluatorNames.length} ${
+            evaluatorNames.length === 1 ? "evaluator" : "evaluators"
+          }`}
+          accent
+        />
+        <MetricCard
+          label="Passed"
+          value={run.passedItems ?? 0}
+          sub={`${failedItems} failed`}
+          tone="success"
+        />
+        <MetricCard
+          label="Pass rate"
+          value={<PassRate rate={run.passRate} />}
+          tone={passRateTone}
+        />
+        <MetricCard
+          label="Duration"
+          value={formatDuration(run.startedAt, run.completedAt)}
+          sub={
+            run.avgLatencyMs != null
+              ? `${Math.round(run.avgLatencyMs)}ms avg latency`
+              : undefined
+          }
+        />
+      </MetricGrid>
 
       <RunMetricCards run={run} />
 

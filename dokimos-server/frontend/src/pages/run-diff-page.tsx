@@ -1,7 +1,15 @@
 import { useEffect, type ReactNode } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, CheckCircle2, Info, Layers, Minus } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  CheckCircle2,
+  Info,
+  Layers,
+  Minus,
+} from "lucide-react";
 import { useDiff } from "@/lib/api/diff-controller/diff-controller";
 import {
   useListRuns,
@@ -25,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import MetricCard, { MetricGrid } from "@/components/shared/metric-card";
 import DeltaCell from "@/components/shared/delta-cell";
 import TruncatedText from "@/components/shared/truncated-text";
 import Pagination from "@/components/shared/pagination";
@@ -97,12 +106,12 @@ interface RunSelectProps {
 
 function RunSelect({ label, value, runs, placeholder, onChange }: RunSelectProps) {
   return (
-    <label className="inline-flex flex-col gap-1">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+    <label className="inline-flex flex-col gap-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
       <select
-        className="h-9 min-w-56 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="h-9 min-w-56 rounded-md border border-border bg-card px-3 font-mono text-[13px] tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -236,32 +245,39 @@ export default function RunDiffPage() {
         : "down";
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Compare runs</h1>
-
-      <div className="flex flex-wrap items-end gap-4 mb-6">
-        <RunSelect
-          label="baseline"
-          value={baselineRunId}
-          runs={runs}
-          placeholder="Pick a baseline run"
-          onChange={handleBaselineChange}
-        />
-        <span className="text-sm font-semibold text-muted-foreground pb-2">
-          vs
-        </span>
-        <RunSelect
-          label="candidate"
-          value={candidateRunId ?? ""}
-          runs={runs}
-          onChange={handleCandidateChange}
-        />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Compare runs</h1>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Per-case delta of every evaluator score across two runs.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <RunSelect
+            label="Baseline"
+            value={baselineRunId}
+            runs={runs}
+            placeholder="Pick a baseline run"
+            onChange={handleBaselineChange}
+          />
+          <span className="pb-2.5 text-muted-foreground">
+            <ArrowRight className="h-4 w-4" />
+          </span>
+          <RunSelect
+            label="Candidate"
+            value={candidateRunId ?? ""}
+            runs={runs}
+            onChange={handleCandidateChange}
+          />
+        </div>
       </div>
 
       {!baselineRunId ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
+        <Card className="border-border bg-card">
+          <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+            <Layers className="h-7 w-7 text-muted-foreground" />
+            <p className="text-[13px] text-muted-foreground">
               Pick a baseline run to compare against.
             </p>
           </CardContent>
@@ -269,28 +285,32 @@ export default function RunDiffPage() {
       ) : isLoading ? (
         <DiffSkeleton />
       ) : error ? (
-        <p className="text-destructive">
-          Error loading diff: {error.message}
-        </p>
+        <Card className="border-destructive/40 bg-card">
+          <CardContent className="flex items-start gap-2 py-4 text-[13px] text-destructive">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Error loading diff: {error.message}</span>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Pass Rate</p>
-                <p
-                  className={cn("text-2xl font-bold flex items-baseline gap-1.5", {
-                    "text-success":
-                      passRateDirection === "up",
-                    "text-destructive":
-                      passRateDirection === "down",
-                  })}
-                >
+        <div className="space-y-5">
+          <MetricGrid>
+            <MetricCard
+              label="Pass rate"
+              accent
+              tone={
+                passRateDirection === "up"
+                  ? "success"
+                  : passRateDirection === "down"
+                    ? "destructive"
+                    : "default"
+              }
+              value={
+                <span className="inline-flex items-baseline gap-1.5">
                   {passRateDirection === "up" && (
-                    <ArrowUp className="h-4 w-4" />
+                    <ArrowUp className="h-4 w-4 self-center" />
                   )}
                   {passRateDirection === "down" && (
-                    <ArrowDown className="h-4 w-4" />
+                    <ArrowDown className="h-4 w-4 self-center" />
                   )}
                   {formatPct(summary?.candidatePassRate)}
                   {passRateDelta != null && passRateDelta !== 0 && (
@@ -299,32 +319,26 @@ export default function RunDiffPage() {
                       {Math.round(passRateDelta * 100)}%
                     </span>
                   )}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  was {formatPct(summary?.baselinePassRate)}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Improved</p>
-                <p className="text-2xl font-bold text-success">
-                  {summary?.improvedCount ?? 0}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Regressed</p>
-                <p className="text-2xl font-bold text-destructive">
-                  {summary?.regressedCount ?? 0}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Verdict</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                </span>
+              }
+              sub={`was ${formatPct(summary?.baselinePassRate)}`}
+            />
+            <MetricCard
+              label="Improved"
+              tone="success"
+              value={summary?.improvedCount ?? 0}
+              sub="cases gained score"
+            />
+            <MetricCard
+              label="Regressed"
+              tone="destructive"
+              value={summary?.regressedCount ?? 0}
+              sub="cases lost score"
+            />
+            <MetricCard
+              label="Verdict"
+              value={
+                <span className="inline-flex items-center gap-2">
                   <span
                     className={cn("inline-block h-2.5 w-2.5 rounded-full", {
                       "bg-success":
@@ -335,13 +349,14 @@ export default function RunDiffPage() {
                     })}
                   />
                   {summary?.significant ? "significant" : "ns"}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+                </span>
+              }
+              sub={summary?.significant ? "p < 0.05" : "not significant"}
+            />
+          </MetricGrid>
 
           {summary?.pairing === "positional" && (
-            <div className="mb-4 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warn-tint px-3 py-2.5 text-[12.5px] text-foreground">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <span>
                 Item-level diff needs both runs on one dataset version. These
@@ -352,10 +367,10 @@ export default function RunDiffPage() {
           )}
 
           {summary && summary.regressedCount === 0 && sharedCount > 0 && (
-              <div className="mb-4 flex items-start gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm text-foreground">
+              <div className="flex items-start gap-2 rounded-md border border-success/40 bg-pass-tint px-3 py-2.5 text-[12.5px] text-foreground">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 <span>
-                  No significant regressions.
+                  <b className="font-semibold">No significant regressions.</b>
                   {(summary.improvedCount ?? 0) > 0 &&
                     ` ${summary.improvedCount} case${summary.improvedCount === 1 ? "" : "s"} improved.`}
                 </span>
@@ -363,10 +378,10 @@ export default function RunDiffPage() {
             )}
 
           {noSharedCases ? (
-            <Card>
-              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                <Layers className="h-8 w-8 text-muted-foreground" />
-                <p className="text-muted-foreground">
+            <Card className="border-border bg-card">
+              <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+                <Layers className="h-7 w-7 text-muted-foreground" />
+                <p className="text-[13px] text-muted-foreground">
                   These runs share no comparable cases, likely because they ran
                   on different dataset versions.
                 </p>
@@ -380,44 +395,54 @@ export default function RunDiffPage() {
               </CardContent>
             </Card>
           ) : (
-            <>
-              <div className="flex items-center gap-2 mb-4">
-                {STATUS_FILTERS.map((filter) => (
-                  <Button
-                    key={filter.value}
-                    variant={status === filter.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleStatusChange(filter.value)}
-                  >
-                    {filter.label}
-                  </Button>
-                ))}
+            <Card className="overflow-hidden border-border bg-card">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Per-case delta
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {STATUS_FILTERS.map((filter) => {
+                    const active = status === filter.value;
+                    return (
+                      <button
+                        key={filter.value}
+                        onClick={() => handleStatusChange(filter.value)}
+                        className={cn(
+                          "rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground",
+                        )}
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {cases.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <p className="text-muted-foreground">
-                      No cases match this filter.
-                    </p>
-                  </CardContent>
-                </Card>
+                <div className="py-14 text-center text-[13px] text-muted-foreground">
+                  No cases match this filter.
+                </div>
               ) : (
                 <>
                   <div className="overflow-x-auto">
                     <DiffTable cases={cases} evaluatorNames={evaluatorNames} />
                   </div>
-                  <Pagination
-                    currentPage={view?.cases?.number ?? 0}
-                    totalItems={view?.cases?.totalElements ?? 0}
-                    pageSize={view?.cases?.size ?? PAGE_SIZE}
-                    onPageChange={handlePageChange}
-                  />
+                  <div className="border-t border-border px-4">
+                    <Pagination
+                      currentPage={view?.cases?.number ?? 0}
+                      totalItems={view?.cases?.totalElements ?? 0}
+                      pageSize={view?.cases?.size ?? PAGE_SIZE}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
                 </>
               )}
-            </>
+            </Card>
           )}
-        </>
+        </div>
       )}
     </div>
   );

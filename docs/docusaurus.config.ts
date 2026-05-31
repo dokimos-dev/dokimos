@@ -58,7 +58,10 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
+    colorMode: {
+      defaultMode: "dark",
+      respectPrefersColorScheme: false,
+    },
     docs: {
       sidebar: {
         hideable: true,
@@ -68,7 +71,7 @@ const config: Config = {
       title: "Dokimos",
       logo: {
         alt: "Dokimos Logo",
-        src: "img/logo.jpeg",
+        src: "img/logo.svg",
       },
       items: [
         {
@@ -106,8 +109,8 @@ const config: Config = {
       copyright: `Copyright © ${new Date().getFullYear()} Dokimos Documentation. Built with Docusaurus.`,
     },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: prismThemes.oneDark,
+      darkTheme: prismThemes.oneDark,
       additionalLanguages: ["java"],
     },
   } satisfies Preset.ThemeConfig,

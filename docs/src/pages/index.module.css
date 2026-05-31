@@ -1,23 +1,106 @@
-/**
- * CSS files with the .module.css suffix will be treated as CSS modules
- * and scoped locally.
- */
+/* Instrument landing hero (scoped CSS module). */
 
-.heroBanner {
-  padding: 4rem 0;
-  text-align: center;
+.hero {
   position: relative;
   overflow: hidden;
+  padding: 5rem 1rem 4rem;
+  background:
+    radial-gradient(1100px 480px at 75% -10%, rgba(124, 92, 252, 0.18), transparent 60%),
+    var(--ifm-background-color);
+  border-bottom: 1px solid var(--dok-border);
+}
+
+.heroInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary-lighter);
+  margin-bottom: 1rem;
+}
+
+.heroTitle {
+  font-size: 2.9rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0 0 1.1rem;
+}
+
+.heroSubtitle {
+  font-size: 1.05rem;
+  color: var(--ifm-color-content-secondary);
+  max-width: 34rem;
+  margin-bottom: 1.8rem;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Hero code panel */
+.heroCode {
+  border: 1px solid var(--dok-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0c0e12;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.codeChrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #20242c;
+  background: #0f1216;
+}
+
+.codeDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2a2f38;
+}
+
+.codeName {
+  margin-left: 8px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.74rem;
+  color: #7a828e;
+}
+
+.codeBody {
+  margin: 0;
+  padding: 18px 20px;
+  background: #0c0e12;
+  color: #d7dbe2;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  overflow-x: auto;
 }
 
 @media screen and (max-width: 996px) {
-  .heroBanner {
-    padding: 2rem;
+  .hero {
+    padding: 3rem 1rem;
   }
-}
-
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .heroTitle {
+    font-size: 2.1rem;
+  }
 }

@@ -182,23 +182,14 @@ class TenantArchitectureTest {
         return loadClasses(subPackage, false);
     }
 
-    /**
-     * Loads every production class under the sub-package and its nested sub-packages, so a rule covering
-     * {@code controller} also covers {@code controller.v1}.
-     */
+    /** Recurses into nested sub-packages, so a rule covering {@code controller} also covers {@code controller.v1}. */
     private static List<Class<?>> classesInRecursive(String subPackage) throws IOException, ClassNotFoundException {
         return loadClasses(subPackage, true);
     }
 
     /**
-     * Loads production classes in the sub-package, scanning the main build output only. The root is
-     * derived from the {@code DokimosServerApplication} class location so the scan never picks up test
-     * classes that happen to share a package name with production code (a service test that injects a
-     * repository to set up a fixture must not count as a production accessor).
-     *
-     * @param subPackage the package under {@link #BASE_PACKAGE} to scan
-     * @param recursive  whether to descend into nested sub-packages
-     * @return the production classes found, never null
+     * Loads production classes in the sub-package, scanning the main build output only so a service test
+     * that injects a repository for a fixture is not counted as a production accessor.
      */
     private static List<Class<?>> loadClasses(String subPackage, boolean recursive)
             throws IOException, ClassNotFoundException {
@@ -222,10 +213,7 @@ class TenantArchitectureTest {
         return classes;
     }
 
-    /**
-     * Resolves the {@code target/classes} directory of the production build from the location of a known
-     * main class, so scans read production output rather than test output.
-     */
+    /** Resolves the production {@code target/classes} root from a known main class, not test output. */
     private static Path mainClassesRoot() {
         String mainClassPath = (BASE_PACKAGE + ".DokimosServerApplication").replace('.', '/') + ".class";
         URL marker = Thread.currentThread().getContextClassLoader().getResource(mainClassPath);

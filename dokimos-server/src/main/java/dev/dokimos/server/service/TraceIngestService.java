@@ -95,8 +95,7 @@ public class TraceIngestService {
         Project project = resolveProject(spans);
         if (project != null) {
             trace.setProjectId(project.getId());
-            // Stamp the trace with its project's tenant so scoped trace reads land in the right tenant.
-            // Ingestion runs without a tenant-scoped principal, so the project is the only tenant signal.
+            // Ingestion has no tenant-scoped principal, so the project is the only tenant signal.
             trace.setTenantId(project.getTenantId());
         }
 
@@ -127,8 +126,7 @@ public class TraceIngestService {
     private Project resolveProject(List<ParsedSpan> spans) {
         for (ParsedSpan span : spans) {
             if (span.projectName() != null && !span.projectName().isBlank()) {
-                // Ingestion derives the soft project link regardless of tenant, so the lookup is
-                // unrestricted; the resulting tenant is then carried onto the trace and its spans.
+                // The soft project link is derived regardless of tenant, so the lookup is unrestricted.
                 Optional<Project> project = projectRepository.findByName(
                         span.projectName(), dev.dokimos.server.tenant.TenantScope.unrestricted());
                 if (project.isPresent()) {

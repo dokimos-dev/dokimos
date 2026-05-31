@@ -130,11 +130,9 @@ public class RunService {
             return;
         }
 
-        // Batch-load the referenced dataset items in one query rather than a PK select per item.
-        // A stale id (its dataset version was deleted between resolve and report) is simply absent
-        // from the map: the FK is SET NULL, so an unlinked result is a valid point-in-time record,
-        // not a reason to fail the whole batch. An id of another tenant is dropped the same way, so a
-        // caller cannot link its run items to a dataset item it cannot see.
+        // A stale id (version deleted between resolve and report) or a foreign-tenant id is simply absent
+        // from the map: the FK is SET NULL, so an unlinked result is a valid point-in-time record and the
+        // batch is not failed, and a caller cannot link to a dataset item it cannot see.
         Map<UUID, DatasetItem> datasetItemsById = loadDatasetItems(request.items(), scope);
 
         List<ItemResult> items = new ArrayList<>(request.items().size());
@@ -407,11 +405,7 @@ public class RunService {
         return byId;
     }
 
-    /**
-     * Returns whether a dataset item is visible under the scope, applying the same own-plus-shared rule
-     * the scoped repositories use. The {@code datasetItemId} comes straight from the request body, so an
-     * item of another tenant must be filtered out before it is linked.
-     */
+    /** Applies the own-plus-shared rule to a dataset item id from the request body, before it is linked. */
     private static boolean visibleUnder(DatasetItem datasetItem, TenantScope scope) {
         if (!scope.restricted()) {
             return true;

@@ -18,11 +18,6 @@ import java.util.function.BiFunction;
  * {@link EntityManager} and applies the {@link TenantPredicate} so individual repositories never touch
  * the entity manager themselves and never expose an unscoped finder.
  *
- * <p>This class is the only place outside a repository that holds an {@code EntityManager}; the ArchUnit
- * backstop forbids services from depending on {@code EntityManager} directly, and forbids tenant
- * repositories from extending {@code CrudRepository}/{@code JpaRepository}, so the scope predicate cannot
- * be bypassed by an inherited finder.
- *
  * @param <T> the scoped entity type
  */
 public class TenantScopedFinder<T> {
@@ -30,25 +25,12 @@ public class TenantScopedFinder<T> {
     private final EntityManager entityManager;
     private final Class<T> entityType;
 
-    /**
-     * Creates a finder for the given entity type.
-     *
-     * @param entityManager the JPA entity manager
-     * @param entityType the scoped entity class
-     */
     public TenantScopedFinder(EntityManager entityManager, Class<T> entityType) {
         this.entityManager = entityManager;
         this.entityType = entityType;
     }
 
-    /**
-     * Loads an entity by id, applying the scope predicate so a row of another tenant is invisible
-     * (returns empty rather than throwing or leaking existence).
-     *
-     * @param id the entity id
-     * @param scope the tenant scope
-     * @return the entity if visible under the scope, otherwise empty
-     */
+    /** Loads an entity by id under the scope; a row of another tenant returns empty, never leaking existence. */
     public Optional<T> findById(UUID id, TenantScope scope) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = cb.createQuery(entityType);
@@ -59,15 +41,7 @@ public class TenantScopedFinder<T> {
                 .findFirst();
     }
 
-    /**
-     * Loads an entity by id under a pessimistic write lock, applying the scope predicate. Used to
-     * serialize concurrent writers (for example run ingestion against run completion) while keeping the
-     * load tenant-scoped.
-     *
-     * @param id the entity id
-     * @param scope the tenant scope
-     * @return the locked entity if visible under the scope, otherwise empty
-     */
+    /** Loads an entity by id under the scope and a pessimistic write lock, to serialize concurrent writers. */
     public Optional<T> findByIdForUpdate(UUID id, TenantScope scope) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = cb.createQuery(entityType);
@@ -83,14 +57,7 @@ public class TenantScopedFinder<T> {
                 .findFirst();
     }
 
-    /**
-     * Returns the first entity matching an extra predicate and visible under the scope, under a
-     * pessimistic write lock. Used by version creation to lock a dataset by name while staying scoped.
-     *
-     * @param scope the tenant scope
-     * @param extra builds the extra predicate (for example a name match)
-     * @return the locked entity, or empty
-     */
+    /** Returns the first entity matching {@code extra} under the scope and a pessimistic write lock. */
     public Optional<T> findFirstForUpdate(TenantScope scope, BiFunction<CriteriaBuilder, Root<T>, Predicate> extra) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = cb.createQuery(entityType);
@@ -105,13 +72,7 @@ public class TenantScopedFinder<T> {
                 .findFirst();
     }
 
-    /**
-     * Lists every entity visible under the scope, with an optional ordering.
-     *
-     * @param scope the tenant scope
-     * @param order builds the order list, or null for no ordering
-     * @return the visible entities
-     */
+    /** Lists every entity visible under the scope, with an optional {@code order}. */
     public List<T> findAll(TenantScope scope, BiFunction<CriteriaBuilder, Root<T>, List<Order>> order) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> query = cb.createQuery(entityType);
@@ -123,14 +84,7 @@ public class TenantScopedFinder<T> {
         return entityManager.createQuery(query).getResultList();
     }
 
-    /**
-     * Lists entities matching an extra predicate and visible under the scope, with an optional ordering.
-     *
-     * @param scope the tenant scope
-     * @param extra builds an extra predicate (for example a parent-id match), or null for none
-     * @param order builds the order list, or null for no ordering
-     * @return the matching, visible entities
-     */
+    /** Lists entities matching {@code extra} and visible under the scope, with an optional {@code order}. */
     public List<T> findWhere(
             TenantScope scope,
             BiFunction<CriteriaBuilder, Root<T>, Predicate> extra,
@@ -150,14 +104,7 @@ public class TenantScopedFinder<T> {
         return entityManager.createQuery(query).getResultList();
     }
 
-    /**
-     * Returns the first entity matching an extra predicate and visible under the scope, ordered as given.
-     *
-     * @param scope the tenant scope
-     * @param extra builds an extra predicate, or null for none
-     * @param order builds the order list, or null for no ordering
-     * @return the first matching entity, or empty
-     */
+    /** Returns the first entity matching {@code extra} and visible under the scope, with an optional {@code order}. */
     public Optional<T> findFirst(
             TenantScope scope,
             BiFunction<CriteriaBuilder, Root<T>, Predicate> extra,
@@ -179,14 +126,8 @@ public class TenantScopedFinder<T> {
     }
 
     /**
-     * Returns a page of entities matching an extra predicate and visible under the scope, ordered as
-     * given. The total count honors the same predicates so paging metadata is correct.
-     *
-     * @param scope the tenant scope
-     * @param extra builds an extra predicate, or null for none
-     * @param order builds the order list, or null for no ordering
-     * @param pageable the page request
-     * @return the requested page of visible entities
+     * Returns a page of entities matching {@code extra} and visible under the scope. The total count
+     * honors the same predicates so paging metadata is correct.
      */
     public org.springframework.data.domain.Page<T> findPage(
             TenantScope scope,
@@ -225,12 +166,7 @@ public class TenantScopedFinder<T> {
         return new org.springframework.data.domain.PageImpl<>(content, pageable, total);
     }
 
-    /**
-     * Counts the entities visible under the scope.
-     *
-     * @param scope the tenant scope
-     * @return the count of visible rows
-     */
+    /** Counts the entities visible under the scope. */
     public long count(TenantScope scope) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Long> query = cb.createQuery(Long.class);

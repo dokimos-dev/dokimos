@@ -11,20 +11,13 @@ public interface ProjectRepositoryFragment extends ScopedRepository<Project> {
 
     /**
      * Looks up a project by name within the scope. A name owned by another tenant is invisible, so two
-     * tenants can each own a project with the same name.
-     *
-     * @param name the project name
-     * @param scope the tenant scope
-     * @return the project if visible, otherwise empty
+     * tenants can each own a project of the same name.
      */
     Optional<Project> findByName(String name, TenantScope scope);
 
     /**
-     * Returns each visible project paired with its experiment count, newest first. The aggregate honors
-     * the scope so a tenant only counts and lists its own and shared projects.
-     *
-     * @param scope the tenant scope
-     * @return rows of {@code [Project, Long]} ordered by creation time descending
+     * Returns each visible project paired with its experiment count, newest first, as {@code [Project,
+     * Long]} rows. The aggregate honors the scope.
      */
     List<Object[]> findAllWithExperimentCount(TenantScope scope);
 }

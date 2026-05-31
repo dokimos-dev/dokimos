@@ -3,22 +3,17 @@ package dev.dokimos.server.tenant;
 /**
  * Immutable tenant visibility used by every scoped repository read and by service-side write stamping.
  *
- * <p>Two shapes exist:
- *
  * <ul>
- *   <li>{@link #unrestricted()} applies no tenant predicate. Reads see every row regardless of tenant,
- *       and writes stamp {@code null} (a shared row). This is the scope of the system principal (no-key
- *       and legacy single-key deployments) and of background workers, so existing single-tenant and
- *       no-key behavior is preserved exactly.
- *   <li>{@link #scoped(String)} applies the predicate {@code tenant_id = :tenantId OR tenant_id IS NULL},
- *       so a tenant sees its own rows plus shared (null-tenant) rows. Writes stamp {@code tenantId}. A
- *       {@code null} tenant id collapses to shared-only: the predicate becomes {@code tenant_id IS NULL}
- *       and writes stamp {@code null}. This is the scope of a scoped API key and of an anonymous keyless
- *       reader (which resolves to {@code scoped(null)}).
+ *   <li>{@link #unrestricted()} applies no predicate; reads see every row and writes stamp {@code null}.
+ *       This is the scope of the system principal (no-key and legacy single-key deployments) and of
+ *       background workers, so existing single-tenant and no-key behavior is preserved exactly.
+ *   <li>{@link #scoped(String)} applies {@code tenant_id = :tenantId OR tenant_id IS NULL}, so a tenant
+ *       sees its own rows plus shared (null-tenant) rows, and writes stamp {@code tenantId}. A {@code
+ *       null} tenant id collapses to shared-only. This is the scope of a scoped API key and of an
+ *       anonymous keyless reader.
  * </ul>
  *
- * <p>Because the scope is a required parameter on every scoped finder, there is no unscoped overload a
- * caller can reach by accident: an unscoped load does not compile.
+ * <p>The scope is required on every finder, so an unscoped load does not compile.
  *
  * @param restricted whether a tenant predicate applies; {@code false} for {@link #unrestricted()}
  * @param tenantId the tenant to filter and stamp by when {@code restricted} is true, possibly {@code null}
@@ -50,11 +45,10 @@ public record TenantScope(boolean restricted, String tenantId) {
     }
 
     /**
-     * Returns the tenant id to stamp on a newly written row. This is {@code null} for the unrestricted
-     * scope (shared) and the scope's tenant id otherwise (which may itself be {@code null} for the
-     * shared-only scope).
+     * Returns the tenant id to stamp on a newly written row, or {@code null} for a shared row (the
+     * unrestricted and shared-only scopes).
      *
-     * @return the tenant id to stamp, or {@code null} for a shared row
+     * @return the tenant id to stamp, or {@code null}
      */
     public String stampTenantId() {
         return restricted ? tenantId : null;

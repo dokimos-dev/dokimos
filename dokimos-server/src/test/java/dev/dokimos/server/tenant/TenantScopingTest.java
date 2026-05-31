@@ -21,13 +21,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Proves the tenant isolation boundary at the repository and service layers. Each scoped read takes a
- * {@link TenantScope}; this verifies that own-plus-shared visibility, foreign-tenant invisibility,
- * shared-only ({@code scoped(null)}) visibility, unrestricted visibility, the project-count aggregate,
- * per-tenant naming, the worker (unrestricted) path, and the cross-tenant by-id 404 all behave per the
- * plan. Backed by the in-memory H2 DataJpaTest stack the rest of the suite uses; the scope predicate is
- * plain JPQL/Criteria, so the behavior matches Postgres (which the migration and Postgres-backed tests
- * cover separately).
+ * Proves the tenant isolation boundary at the repository and service layers: own-plus-shared visibility,
+ * foreign-tenant invisibility, shared-only ({@code scoped(null)}) visibility, unrestricted visibility,
+ * the project-count aggregate, per-tenant naming, the worker path, and the cross-tenant by-id 404. The
+ * scope predicate is plain Criteria, so H2 here matches Postgres (covered separately).
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -107,11 +104,8 @@ class TenantScopingTest {
         stampProject("s1", null);
         stampProject("b1", "tenant-b");
 
-        // tenant A sees its own two plus the one shared row, never tenant B's.
         assertThat(projectService.listProjects(TENANT_A)).hasSize(3);
-        // anonymous sees the shared row only.
         assertThat(projectService.listProjects(ANONYMOUS)).hasSize(1);
-        // a worker sees all four.
         assertThat(projectService.listProjects(WORKER)).hasSize(4);
     }
 
@@ -123,7 +117,6 @@ class TenantScopingTest {
         assertThat(a.getId()).isNotEqualTo(b.getId());
         assertThat(a.getTenantId()).isEqualTo("tenant-a");
         assertThat(b.getTenantId()).isEqualTo("tenant-b");
-        // Each resolves only its own row on a second lookup.
         assertThat(projectService.getOrCreateProject("default", TENANT_A).getId())
                 .isEqualTo(a.getId());
         assertThat(projectService.getOrCreateProject("default", TENANT_B).getId())
@@ -136,12 +129,10 @@ class TenantScopingTest {
         Experiment experimentB = experimentRepository.save(stamp(new Experiment(projectB, "e"), "tenant-b"));
         ExperimentRun runB = runRepository.save(stamp(new ExperimentRun(experimentB, null), "tenant-b"));
 
-        // Tenant A cannot see tenant B's experiment or run by id; both surface as a 404 (IllegalArgument).
         assertThatThrownBy(() -> experimentService.getExperiment(experimentB.getId(), TENANT_A))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not found");
         assertThat(runRepository.findById(runB.getId(), TENANT_A)).isEmpty();
-        // The owning tenant and a worker still see them.
         assertThat(experimentService.getExperiment(experimentB.getId(), TENANT_B))
                 .isNotNull();
         assertThat(runRepository.findById(runB.getId(), WORKER)).isPresent();

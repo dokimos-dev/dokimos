@@ -34,12 +34,10 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Proves that the judge worker stamps each eval result it persists with its parent item's tenant, so a
- * worker-produced result stays visible only under the same tenant scope as the item it belongs to.
- * Runs against a real PostgreSQL instance (Testcontainers) with the production Flyway schema because
- * {@code persistPage} loads the parent item through {@code getReferenceById}, which only resolves a
- * tenant id against a live session. {@code RunService} is mocked since {@code persistPage} never touches
- * it. Self-skips when Docker is unavailable so it stays safe in the normal build.
+ * Proves the judge worker stamps each eval result with its parent item's tenant, so a worker-produced
+ * result stays visible only under the same scope as the item it belongs to. Runs on PostgreSQL
+ * (Testcontainers) with the Flyway schema because {@code persistPage} resolves the parent tenant through
+ * {@code getReferenceById}, which needs a live session. Self-skips when Docker is unavailable.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -136,11 +134,9 @@ class JudgeJobTransactionsPostgresTest {
     @Autowired
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
-    // NOT_SUPPORTED suspends the transaction @DataJpaTest wraps around the test method so the setup
-    // commits before persistPage runs. persistPage uses REQUIRES_NEW, which opens its own transaction
-    // that cannot see rows merely flushed into a never-committed context, so the parent item must be
-    // committed first. The assertion read is wrapped in its own committed transaction for the same
-    // reason.
+    // NOT_SUPPORTED suspends the @DataJpaTest transaction so the setup commits before persistPage runs:
+    // persistPage uses REQUIRES_NEW and cannot see rows only flushed into a never-committed context. The
+    // assertion read is wrapped in its own committed transaction for the same reason.
     @Test
     @org.springframework.transaction.annotation.Transactional(
             propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)

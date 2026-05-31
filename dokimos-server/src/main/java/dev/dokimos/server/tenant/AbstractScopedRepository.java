@@ -8,15 +8,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Base implementation of {@link ScopedRepository} shared by every scoped repository's custom fragment
- * implementation. It owns the {@link EntityManager} and delegates scoped reads to a {@link
- * TenantScopedFinder}. Concrete fragment implementations extend this, pass their entity class up, and add
- * the entity-specific scoped finders.
- *
- * <p>Holding the {@code EntityManager} here, inside the repository layer, is what lets the ArchUnit
- * backstop forbid services from touching {@code EntityManager} directly: the only legitimate place to
- * build a query is a scoped repository, and the only finders a scoped repository exposes require a {@link
- * TenantScope}.
+ * Base implementation of {@link ScopedRepository}. It owns the {@link EntityManager} and delegates scoped
+ * reads to a {@link TenantScopedFinder}; fragment implementations extend this, pass their entity class
+ * up, and add the entity-specific finders. Confining the {@code EntityManager} to this layer is what lets
+ * the architecture backstop forbid services from holding one and bypassing the scope predicate.
  *
  * @param <T> the scoped entity type
  */
@@ -28,20 +23,11 @@ public abstract class AbstractScopedRepository<T> implements ScopedRepository<T>
     private final Class<T> entityType;
     private TenantScopedFinder<T> finder;
 
-    /**
-     * Creates the base for the given entity type.
-     *
-     * @param entityType the scoped entity class
-     */
     protected AbstractScopedRepository(Class<T> entityType) {
         this.entityType = entityType;
     }
 
-    /**
-     * Returns the lazily created tenant-scoped finder bound to this repository's entity manager.
-     *
-     * @return the finder
-     */
+    /** Returns the finder, created lazily so it binds to the injected entity manager. */
     protected TenantScopedFinder<T> finder() {
         if (finder == null) {
             finder = new TenantScopedFinder<>(entityManager, entityType);
@@ -90,14 +76,7 @@ public abstract class AbstractScopedRepository<T> implements ScopedRepository<T>
         entityManager.remove(entityManager.contains(entity) ? entity : entityManager.merge(entity));
     }
 
-    /**
-     * Returns whether the entity has not been persisted yet, used to choose persist over merge. Entities
-     * generate their id on persist, so a null id means new. Reflection reads the {@code id} field once per
-     * call, which is acceptable for the write volume here.
-     *
-     * @param entity the entity to test
-     * @return true when the entity has no id yet
-     */
+    /** Chooses persist over merge: a null {@code id} means the entity has not been persisted yet. */
     protected boolean isNew(Object entity) {
         try {
             var field = findIdField(entity.getClass());

@@ -230,11 +230,7 @@ public class DatasetService {
                 version.getCreatedBy());
     }
 
-    /**
-     * Returns whether an item result is visible under the scope, applying the same own-plus-shared rule
-     * the scoped repositories use. Used by {@code promote}, whose item lookup is by id straight from the
-     * request and therefore must be tenant checked.
-     */
+    /** Applies the own-plus-shared rule to an item looked up by id from the request, so {@code promote} stays scoped. */
     private static boolean visibleUnder(ItemResult item, TenantScope scope) {
         if (!scope.restricted()) {
             return true;

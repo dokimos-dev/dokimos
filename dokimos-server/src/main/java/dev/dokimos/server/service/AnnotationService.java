@@ -111,12 +111,8 @@ public class AnnotationService {
     }
 
     /**
-     * Loads the run through the tenant-scoped finder, then verifies the item result belongs to it. The
-     * scoped run load is the trust boundary: an item is reachable only through a run the caller can
-     * actually see, closing the circular gate where the URL {@code runId} was trusted without a tenant
-     * check.
-     *
-     * @return the loaded, visible run
+     * Loads the run through the scoped finder, then checks the item belongs to it. The scoped run load is
+     * the trust boundary: the URL {@code runId} alone is never trusted.
      */
     private ExperimentRun requireItemResultInRun(UUID runId, UUID itemResultId, TenantScope scope) {
         ExperimentRun run = runRepository

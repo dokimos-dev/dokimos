@@ -1,9 +1,8 @@
--- Tenant data isolation. Adds the tenant_id seam to the child and config tables that did not yet
--- carry it, and makes the project name unique per tenant instead of globally so two tenants can each
--- own a "default" project. Every new column is nullable with no backfill: with no tenants provisioned
--- yet, all existing rows are legitimately shared (null tenant), which the scoped reads treat as visible
--- to everyone. The system principal (no-key and legacy single-key deployments) reads unrestricted and
--- stamps null, so existing deployments behave exactly as before.
+-- Tenant data isolation. Adds the tenant_id seam to the child and config tables that lacked it, and
+-- makes names unique per tenant instead of globally so two tenants can each own a "default" project.
+-- Every new column is nullable with no backfill: existing rows become shared (null tenant), which the
+-- system principal (no-key and legacy single-key deployments) reads unrestricted, so those deployments
+-- behave exactly as before.
 
 -- Child tables loaded by id straight from user input, previously with no tenant column at all. Each is
 -- stamped from its parent on write so a scoped parent query and a scoped child query agree.

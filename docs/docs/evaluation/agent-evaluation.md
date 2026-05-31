@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 AI agents autonomously use tools, reason through multi-step problems, and interact with external APIs. Evaluating them requires more than checking a single response — you need to assess **what tools they used**, **how they used them**, and **whether they accomplished the task**.
 
-Dokimos provides a framework-agnostic agent evaluation system with six evaluators and a portable data model for tool calls and tool definitions.
+Dokimos provides a framework-agnostic agent evaluation system with nine evaluators and a portable data model for tool calls and tool definitions. Five of them are deterministic and need no LLM, so they run in a unit test or CI gate with no API key.
 
 ## Quick Start
 
@@ -88,6 +88,9 @@ val result = experiment {
 |-----------|---------------|:---:|:---:|
 | `ToolCallValidityEvaluator` | Tool calls match their JSON schema (names, required params, types, enums) | No | 1.0 |
 | `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
+| `ToolTrajectoryEvaluator` | Tool-call sequence matches an expected trajectory | No | 1.0 |
+| `ToolErrorEvaluator` | Tool calls succeeded (no error results) | No | 1.0 |
+| `ToolEfficiencyEvaluator` | No redundant tool calls | No | 1.0 |
 | `TaskCompletionEvaluator` | Agent completed the user's requested tasks | Yes | 0.5 |
 | `ToolArgumentHallucinationEvaluator` | Tool call arguments are grounded in user input | Yes | 0.8 |
 | `ToolNameReliabilityEvaluator` | Tool names follow naming conventions (snake_case, conciseness, clarity, ordering, intent) | Optional | 0.8 |
@@ -108,6 +111,128 @@ Compares actual vs expected tool usage. Three match modes:
 | `NAMES_ONLY` (default) | Set of tool names (F1 score) |
 | `NAMES_AND_ORDER` | Names + invocation order (LCS similarity) |
 | `NAMES_AND_ARGS` | Full structural comparison including arguments |
+
+In `NAMES_AND_ARGS` mode, arguments are compared with a tolerant matcher by default, so numerically equal values like `1` and `1.0` are treated as equal. See [Argument Matching](#argument-matching) below.
+
+### ToolTrajectoryEvaluator
+
+Scores the agent's tool-call *sequence* against an expected one, with a selectable match mode. Deterministic, no LLM. Use it to assert how an agent should move through a task while choosing how strict the order and arguments need to be.
+
+| Mode | Meaning | Score |
+|------|---------|-------|
+| `STRICT` | Same calls, same order, arguments match | 0 or 1 |
+| `IN_ORDER` | Expected appears as an ordered subsequence | graded (LCS) |
+| `ANY_ORDER` | Same calls in any order | graded |
+| `SUPERSET` | Actual contains every expected call (extras allowed) | 0 or 1 |
+| `SUBSET` | Every actual call is in expected (omissions allowed) | 0 or 1 |
+| `PRECISION` | Matched / number of actual calls | graded |
+| `RECALL` | Matched / number of expected calls | graded |
+
+Reads `toolCalls` from `actualOutputs` and `expectedOutputs`. The unordered modes use a maximum bipartite matching, so repeated tool names are counted optimally.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ToolTrajectoryEvaluator trajectory = ToolTrajectoryEvaluator.builder()
+    .matchMode(ToolTrajectoryEvaluator.MatchMode.IN_ORDER)
+    .build();
+
+var testCase = EvalTestCase.builder()
+    .actualOutput("toolCalls", trace.toolCalls())
+    .expectedOutput("toolCalls", List.of(
+        ToolCall.of("search_flights", Map.of()),
+        ToolCall.of("book_hotel", Map.of())
+    ))
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val trajectory = toolTrajectory {
+    matchMode = ToolTrajectoryEvaluator.MatchMode.IN_ORDER
+}
+```
+
+  </TabItem>
+</Tabs>
+
+By default only tool names and order are compared. Supply an [argument matcher](#argument-matching) to also assert arguments, optionally overriding it per tool:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ToolTrajectoryEvaluator trajectory = ToolTrajectoryEvaluator.builder()
+    .matchMode(ToolTrajectoryEvaluator.MatchMode.ANY_ORDER)
+    .argumentMatcher(ArgumentMatcher.tolerant())                            // default for every tool
+    .argumentMatcher("book_hotel", ArgumentMatcher.of(ArgMatchMode.SUBSET)) // override one tool
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val trajectory = toolTrajectory {
+    matchMode = ToolTrajectoryEvaluator.MatchMode.ANY_ORDER
+    argumentMatcher = ArgumentMatcher.tolerant()                  // default for every tool
+    argumentMatcher("book_hotel", ArgumentMatcher.of(ArgMatchMode.SUBSET)) // override one tool
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### ToolErrorEvaluator
+
+Inspects each tool call's result and scores the fraction that succeeded. Deterministic, no LLM. A call counts as failed when its result is null or blank, is a JSON object with a top-level `error` field, or matches a custom predicate you supply.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ToolErrorEvaluator toolError = ToolErrorEvaluator.builder()
+    .errorDetector(result -> result.contains("HTTP 500")) // optional, on top of the defaults
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val toolError = toolError {
+    errorDetector = { it.contains("HTTP 500") } // optional, on top of the defaults
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### ToolEfficiencyEvaluator
+
+Detects redundant tool calls. The score is the ratio of distinct calls to total calls, so `1.0` means no redundancy. Two calls are redundant when they share a name and matching arguments; consecutive duplicates are also flagged in the result metadata as a loop signal. Deterministic, no LLM.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ToolEfficiencyEvaluator efficiency = ToolEfficiencyEvaluator.builder().build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val efficiency = toolEfficiency { }
+```
+
+  </TabItem>
+</Tabs>
+
+Efficiency is a signal, not a hard gate: a legitimately repeated call (a retry, say) lowers the score, so tune the threshold to your case.
 
 ### TaskCompletionEvaluator
 
@@ -130,6 +255,50 @@ Without a judge, only the 3 rule-based checks run. Score is based on checks that
 Evaluates tool descriptions with 13 checks. Rule-based checks (always run): `input_arguments_clarity` (params have descriptions), `input_arguments_types` (params have types), `max_num_input_arguments` (≤ 5 by default), `max_optional_input_arguments` (≤ 3 by default). LLM checks (require judge): `general_structure`, `has_examples`, `has_usage_notes`, `intent_over_implementation`, `clarity`, `redundancy`, `input_arguments_enum`, `input_arguments_format`, `return_statement_quality`.
 
 Without a judge, only the 4 rule-based checks run. Score is based on checks that actually ran.
+
+## Argument Matching
+
+`ToolTrajectoryEvaluator` and `ToolCorrectnessEvaluator` (in `NAMES_AND_ARGS` mode) compare arguments through an `ArgumentMatcher`. The default, `TolerantArgumentMatcher`, compares structurally with a few deliberate tolerances:
+
+- **Numbers** compare by value, so `1`, `1.0`, and `1L` are equal. This is always on, because exact map equality treating `1` and `1.0` as different is a JSON number-widening artifact, not a real difference.
+- **Strings** compare exactly by default. Whitespace trimming and case-insensitivity are opt-in, so turning them on never silently changes existing pass/fail outcomes.
+- **Maps and lists** compare recursively with the same rules.
+
+How the key sets are compared is set by `ArgMatchMode`:
+
+| Mode | Actual arguments must... |
+|------|--------------------------|
+| `EXACT` | have the same keys as expected, all values matching |
+| `SUBSET` | contain every expected entry (extra keys allowed) |
+| `SUPERSET` | be contained in expected (omissions allowed) |
+| `IGNORE` | not be compared at all |
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ArgumentMatcher matcher = TolerantArgumentMatcher.builder()
+    .mode(ArgMatchMode.SUBSET)   // only the expected arguments must be present and correct
+    .trimStrings(true)
+    .caseInsensitive(true)
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val matcher = TolerantArgumentMatcher.builder()
+    .mode(ArgMatchMode.SUBSET)   // only the expected arguments must be present and correct
+    .trimStrings(true)
+    .caseInsensitive(true)
+    .build()
+```
+
+  </TabItem>
+</Tabs>
+
+Shortcuts: `ArgumentMatcher.tolerant()` for the default `EXACT` matcher, and `ArgumentMatcher.of(mode)` for a tolerant matcher in another mode. For anything custom, pass a lambda: `(expected, actual) -> ...`.
 
 ## Data Model
 
@@ -178,15 +347,48 @@ Task agentTask = example -> {
 };
 ```
 
+When evaluating a single trace directly, `toTestCase()` is a shortcut that builds a ready-to-use `EvalTestCase`: the tool calls, final response, and reasoning steps go into the actual outputs, and the tool definitions and tasks go into metadata. Use it so the validity and completion evaluators don't fail just because the `tools` or `tasks` entries were left out.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+EvalTestCase testCase = trace.toTestCase(
+    "Find flights from NYC to Paris", // user input
+    tools,                            // List<ToolDefinition>, optional
+    List.of("Search flights"));       // tasks, optional
+
+// Shorter overloads when you don't need every part:
+EvalTestCase justInput = trace.toTestCase("Find flights from NYC to Paris");
+EvalTestCase withTools = trace.toTestCase("Find flights from NYC to Paris", tools);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val testCase = trace.toTestCase(
+    "Find flights from NYC to Paris", // user input
+    tools,                            // List<ToolDefinition>, optional
+    listOf("Search flights"))         // tasks, optional
+
+// Shorter overloads when you don't need every part:
+val justInput = trace.toTestCase("Find flights from NYC to Paris")
+val withTools = trace.toTestCase("Find flights from NYC to Paris", tools)
+```
+
+  </TabItem>
+</Tabs>
+
 ## EvalTestCase Keys
 
 Agent evaluators use these keys in `EvalTestCase`:
 
 | Map | Key | Type | Used by |
 |-----|-----|------|---------|
-| `actualOutputs` | `"toolCalls"` | `List<ToolCall>` | Validity, Correctness, Hallucination |
+| `actualOutputs` | `"toolCalls"` | `List<ToolCall>` | Validity, Correctness, Trajectory, Tool Error, Tool Efficiency, Hallucination |
 | `actualOutputs` | `"output"` | `String` | Task Completion |
-| `expectedOutputs` | `"toolCalls"` | `List<ToolCall>` | Correctness |
+| `expectedOutputs` | `"toolCalls"` | `List<ToolCall>` | Correctness, Trajectory |
 | `metadata` | `"tools"` | `List<ToolDefinition>` | Validity, Name Reliability, Description Reliability |
 | `metadata` | `"tasks"` | `List<String>` | Task Completion |
 | `metadata` | `"constraints"` | `String` | Task Completion |

@@ -60,7 +60,7 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     "ToolArgumentHallucinationEvaluator requires '%s' in actualOutputs".formatted(toolCallsKey));
         }
 
-        List<ToolCall> toolCalls = castToolCalls(rawToolCalls);
+        List<ToolCall> toolCalls = AgentEvalCasts.toolCalls(rawToolCalls, toolCallsKey);
         String userInput = testCase.input();
 
         if (toolCalls.isEmpty()) {
@@ -149,22 +149,6 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
             return response.substring(start, end + 1);
         }
         return response;
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<ToolCall> castToolCalls(Object raw) {
-        if (raw instanceof List<?> list) {
-            if (list.isEmpty()) return List.of();
-            if (list.get(0) instanceof ToolCall) {
-                return (List<ToolCall>) raw;
-            }
-            if (list.get(0) instanceof Map) {
-                return list.stream()
-                        .map(item -> ToolCall.fromMap((Map<String, Object>) item))
-                        .toList();
-            }
-        }
-        throw new EvaluationException("Expected a List of ToolCall objects for key '%s'".formatted(toolCallsKey));
     }
 
     /**

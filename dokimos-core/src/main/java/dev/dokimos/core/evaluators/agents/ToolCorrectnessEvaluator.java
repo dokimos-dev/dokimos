@@ -39,12 +39,14 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
     private final String toolCallsKey;
     private final String expectedToolCallsKey;
     private final MatchMode matchMode;
+    private final ArgumentMatcher argumentMatcher;
 
     private ToolCorrectnessEvaluator(Builder builder) {
         super(builder.name, builder.threshold, builder.evaluationParams);
         this.toolCallsKey = builder.toolCallsKey;
         this.expectedToolCallsKey = builder.expectedToolCallsKey;
         this.matchMode = builder.matchMode;
+        this.argumentMatcher = builder.argumentMatcher;
     }
 
     /**
@@ -70,8 +72,8 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
                     "ToolCorrectnessEvaluator requires '%s' in expectedOutputs".formatted(expectedToolCallsKey));
         }
 
-        List<ToolCall> actualCalls = castToolCalls(rawActual, toolCallsKey);
-        List<ToolCall> expectedCalls = castToolCalls(rawExpected, expectedToolCallsKey);
+        List<ToolCall> actualCalls = AgentEvalCasts.toolCalls(rawActual, toolCallsKey);
+        List<ToolCall> expectedCalls = AgentEvalCasts.toolCalls(rawExpected, expectedToolCallsKey);
 
         return switch (matchMode) {
             case NAMES_ONLY -> evaluateNameSets(actualCalls, expectedCalls);
@@ -177,8 +179,9 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
                 .build();
     }
 
-    private boolean toolCallsMatch(ToolCall a, ToolCall b) {
-        return a.name().equals(b.name()) && a.arguments().equals(b.arguments());
+    private boolean toolCallsMatch(ToolCall actual, ToolCall expected) {
+        return actual.name().equals(expected.name())
+                && argumentMatcher.matches(expected.arguments(), actual.arguments());
     }
 
     private Set<String> extractNames(List<ToolCall> calls) {
@@ -216,22 +219,6 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
         return dp[m][n];
     }
 
-    @SuppressWarnings("unchecked")
-    private List<ToolCall> castToolCalls(Object raw, String key) {
-        if (raw instanceof List<?> list) {
-            if (list.isEmpty()) return List.of();
-            if (list.get(0) instanceof ToolCall) {
-                return (List<ToolCall>) raw;
-            }
-            if (list.get(0) instanceof Map) {
-                return list.stream()
-                        .map(item -> ToolCall.fromMap((Map<String, Object>) item))
-                        .toList();
-            }
-        }
-        throw new EvaluationException("Expected a List of ToolCall objects for key '%s'".formatted(key));
-    }
-
     /**
      * Builder for constructing the evaluator.
      */
@@ -242,6 +229,7 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
         private String toolCallsKey = "toolCalls";
         private String expectedToolCallsKey = "toolCalls";
         private MatchMode matchMode = MatchMode.NAMES_ONLY;
+        private ArgumentMatcher argumentMatcher = ArgumentMatcher.tolerant();
 
         /**
          * Sets the evaluator name.
@@ -306,6 +294,20 @@ public class ToolCorrectnessEvaluator extends BaseEvaluator {
          */
         public Builder matchMode(MatchMode matchMode) {
             this.matchMode = matchMode;
+            return this;
+        }
+
+        /**
+         * Sets the argument matcher used by {@link MatchMode#NAMES_AND_ARGS}.
+         * <p>
+         * Defaults to {@link ArgumentMatcher#tolerant()}, which treats numerically
+         * equal values such as {@code 1} and {@code 1.0} as equal.
+         *
+         * @param argumentMatcher the argument matcher
+         * @return this builder
+         */
+        public Builder argumentMatcher(ArgumentMatcher argumentMatcher) {
+            this.argumentMatcher = argumentMatcher;
             return this;
         }
 

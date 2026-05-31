@@ -52,6 +52,15 @@ fun toolArgumentHallucination(
 fun toolNameReliability(block: ToolNameReliabilityEvaluatorDsl.() -> Unit = {}): ToolNameReliabilityEvaluator =
     ToolNameReliabilityEvaluatorDsl().apply(block).build()
 
+fun toolTrajectory(block: ToolTrajectoryEvaluatorDsl.() -> Unit = {}): ToolTrajectoryEvaluator =
+    ToolTrajectoryEvaluatorDsl().apply(block).build()
+
+fun toolError(block: ToolErrorEvaluatorDsl.() -> Unit = {}): ToolErrorEvaluator =
+    ToolErrorEvaluatorDsl().apply(block).build()
+
+fun toolEfficiency(block: ToolEfficiencyEvaluatorDsl.() -> Unit = {}): ToolEfficiencyEvaluator =
+    ToolEfficiencyEvaluatorDsl().apply(block).build()
+
 fun toolDescriptionReliability(
     block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {
     },

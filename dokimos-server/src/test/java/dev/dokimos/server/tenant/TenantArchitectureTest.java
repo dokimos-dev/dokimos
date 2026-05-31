@@ -19,7 +19,7 @@ import org.springframework.data.repository.Repository;
 
 /**
  * Structural backstop for the tenant isolation boundary, in the spirit of an ArchUnit test but with no
- * extra dependency. It enforces two rules that keep the compile-time scoped-repository design intact:
+ * extra dependency. It enforces three rules that keep the compile-time scoped-repository design intact:
  *
  * <ol>
  *   <li>A tenant entity repository never extends {@link CrudRepository}, {@link JpaRepository}, or {@link
@@ -29,6 +29,11 @@ import org.springframework.data.repository.Repository;
  *   <li>A service never depends on {@link EntityManager} directly. The only legitimate place to build a
  *       query is a scoped repository (whose finders all require a {@link TenantScope}); a service holding
  *       an {@code EntityManager} could bypass the scope predicate entirely.
+ *   <li>The child-row repositories that still extend {@link JpaRepository} (so they expose the unscoped
+ *       {@code findById}/{@code getReferenceById}/{@code findAllById}) may be injected only by an explicit
+ *       allow-list of classes that already reach them behind a documented tenant gate. Any other class
+ *       that injects one fails the build, forcing a reviewer to add it to the allow-list and justify the
+ *       gate rather than silently loading a child row by id from user input.
  * </ol>
  *
  * <p>Infrastructure repositories that carry no tenant column (queues, batches, the API key store) are
@@ -63,6 +68,51 @@ class TenantArchitectureTest {
             "DatasetVersionRepository",
             "TraceSpanRepository",
             "AnnotationRepository");
+
+    /**
+     * The child-row repositories that still extend {@code JpaRepository} and so expose the unscoped
+     * inherited finders. Access to any of these is restricted to {@link #CHILD_REPOSITORY_ACCESSORS}.
+     */
+    private static final List<String> CHILD_REPOSITORIES = List.of(
+            "ItemResultRepository",
+            "EvalResultRepository",
+            "DatasetVersionRepository",
+            "DatasetItemRepository",
+            "TraceSpanRepository",
+            "AnnotationRepository");
+
+    /**
+     * The only classes allowed to inject a {@link #CHILD_REPOSITORIES child repository}. Each reaches its
+     * child rows behind a tenant gate, named alongside it. A new class that injects a child repository is
+     * not on this list, so it fails the build until a reviewer adds it and documents how it gates the
+     * load.
+     */
+    private static final List<String> CHILD_REPOSITORY_ACCESSORS = List.of(
+            // Loads items only by an ExperimentRun the caller already resolved through the scoped run
+            // finder (findByRunWithEvals), never by raw id.
+            "ComparisonSupport",
+            // Loads the run through the scoped run finder (runRepository.findById(runId, scope)) before
+            // reading its items and annotations.
+            "AlignmentService",
+            // Reads items through the tenant-predicated query (findItemsNeedingReview takes the scope),
+            // then batch-loads evals and annotations only for ids that query already returned.
+            "ReviewQueueService",
+            // Worker-side persistence behind a JudgeJob whose run was scoped when the job was enqueued;
+            // stamps each eval result with its parent item's tenant (getReferenceById is used only to
+            // attach a result to an item the job already owns).
+            "JudgeJobTransactions",
+            // Creates versions and items under a Dataset loaded through the scoped findByNameForUpdate,
+            // stamping the dataset's tenant; loads dataset items only behind a visibleUnder(scope) filter.
+            "DatasetService",
+            // Loads the run through the scoped run finder (requireItemResultInRun) before touching the
+            // item result or its annotation.
+            "AnnotationService",
+            // Saves items under a run the service already scoped, and loads dataset items only behind a
+            // visibleUnder(scope) filter (loadDatasetItems).
+            "RunService",
+            // Loads spans only for a Trace resolved through the scoped trace finder
+            // (traceRepository.findById(id, scope)).
+            "TraceQueryService");
 
     @Test
     void tenantRepositoriesDoNotExtendCrudOrJpaRepository() throws Exception {
@@ -103,24 +153,90 @@ class TenantArchitectureTest {
                 .isEmpty();
     }
 
+    @Test
+    void onlyAllowListedClassesInjectChildRepositories() throws Exception {
+        List<String> offenders = new ArrayList<>();
+        List<Class<?>> candidates = new ArrayList<>();
+        candidates.addAll(classesIn("service"));
+        candidates.addAll(classesInRecursive("controller"));
+        candidates.addAll(classesIn("judge"));
+        for (Class<?> type : candidates) {
+            if (CHILD_REPOSITORY_ACCESSORS.contains(type.getSimpleName())) {
+                continue;
+            }
+            for (Field field : type.getDeclaredFields()) {
+                if (CHILD_REPOSITORIES.contains(field.getType().getSimpleName())) {
+                    offenders.add(type.getSimpleName() + "." + field.getName() + " -> "
+                            + field.getType().getSimpleName());
+                }
+            }
+        }
+        assertThat(offenders)
+                .as("a child repository (which still exposes unscoped findById/getReferenceById/findAllById) "
+                        + "may be injected only by an allow-listed accessor that gates the load behind a "
+                        + "tenant scope; add the new class to CHILD_REPOSITORY_ACCESSORS and document its gate")
+                .isEmpty();
+    }
+
     private static List<Class<?>> classesIn(String subPackage) throws IOException, ClassNotFoundException {
+        return loadClasses(subPackage, false);
+    }
+
+    /**
+     * Loads every production class under the sub-package and its nested sub-packages, so a rule covering
+     * {@code controller} also covers {@code controller.v1}.
+     */
+    private static List<Class<?>> classesInRecursive(String subPackage) throws IOException, ClassNotFoundException {
+        return loadClasses(subPackage, true);
+    }
+
+    /**
+     * Loads production classes in the sub-package, scanning the main build output only. The root is
+     * derived from the {@code DokimosServerApplication} class location so the scan never picks up test
+     * classes that happen to share a package name with production code (a service test that injects a
+     * repository to set up a fixture must not count as a production accessor).
+     *
+     * @param subPackage the package under {@link #BASE_PACKAGE} to scan
+     * @param recursive  whether to descend into nested sub-packages
+     * @return the production classes found, never null
+     */
+    private static List<Class<?>> loadClasses(String subPackage, boolean recursive)
+            throws IOException, ClassNotFoundException {
+        Path mainRoot = mainClassesRoot();
         String pkg = BASE_PACKAGE + "." + subPackage;
-        String path = pkg.replace('.', '/');
-        URL root = Thread.currentThread().getContextClassLoader().getResource(path);
-        if (root == null) {
+        Path dir = mainRoot.resolve(pkg.replace('.', '/'));
+        if (!Files.isDirectory(dir)) {
             return List.of();
         }
-        Path dir = Path.of(root.getPath());
         List<Class<?>> classes = new ArrayList<>();
-        try (Stream<Path> files = Files.list(dir)) {
+        try (Stream<Path> files = recursive ? Files.walk(dir) : Files.list(dir)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".class")).toList()) {
-                String className = file.getFileName().toString().replace(".class", "");
+                String relative = mainRoot.relativize(file).toString().replace('/', '.');
+                String className = relative.substring(0, relative.length() - ".class".length());
                 if (className.contains("$")) {
                     continue;
                 }
-                classes.add(Class.forName(pkg + "." + className));
+                classes.add(Class.forName(className));
             }
         }
         return classes;
+    }
+
+    /**
+     * Resolves the {@code target/classes} directory of the production build from the location of a known
+     * main class, so scans read production output rather than test output.
+     */
+    private static Path mainClassesRoot() {
+        String mainClassPath = (BASE_PACKAGE + ".DokimosServerApplication").replace('.', '/') + ".class";
+        URL marker = Thread.currentThread().getContextClassLoader().getResource(mainClassPath);
+        if (marker == null) {
+            throw new IllegalStateException("Could not locate production classes root via " + mainClassPath);
+        }
+        Path markerFile = Path.of(marker.getPath());
+        Path root = markerFile;
+        for (int i = 0; i < mainClassPath.split("/").length; i++) {
+            root = root.getParent();
+        }
+        return root;
     }
 }

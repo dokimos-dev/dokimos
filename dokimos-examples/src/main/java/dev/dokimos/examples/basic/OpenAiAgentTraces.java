@@ -70,6 +70,7 @@ public final class OpenAiAgentTraces {
      */
     public static List<ToolCall> toToolCalls(ChatCompletionMessage message, Function<String, String> resultLookup) {
         return message.toolCalls().orElse(List.of()).stream()
+                .filter(ChatCompletionMessageToolCall::isFunction)
                 .map(call ->
                         toToolCall(call, resultLookup.apply(call.asFunction().id())))
                 .toList();

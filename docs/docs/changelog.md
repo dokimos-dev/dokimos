@@ -9,6 +9,17 @@ description: What shipped and when.
 What shipped and when. For exact version diffs, see the
 [GitHub releases](https://github.com/dokimos-dev/dokimos/releases).
 
+## 0.17.0 (2026-05-31)
+
+- **Tenant data isolation.** A scoped API key can carry a tenant and then reads
+  and writes only its own tenant's data plus shared rows. Tenant repositories
+  expose only scoped finders, so an unscoped load does not compile, and a
+  keyless read sees shared rows only. No-key and legacy single-key deployments
+  are unchanged.
+- **Protobuf OTLP traces.** `POST /api/v1/traces` accepts the
+  `application/x-protobuf` encoding alongside JSON, so a standard OpenTelemetry
+  SDK or collector works without reconfiguring its exporter.
+
 ## 0.16.0 (2026-05-30)
 
 - **Server datasets.** Hold datasets on the server, versioned and shared, and

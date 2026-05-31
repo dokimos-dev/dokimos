@@ -15,16 +15,16 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
   }
 
   return (
-    <nav className="text-sm text-muted-foreground">
+    <nav className="flex items-center gap-2 truncate text-[12px] text-muted-foreground">
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
         return (
-          <span key={item.href}>
-            {index > 0 && <span className="mx-2">/</span>}
+          <span key={item.href} className="flex items-center gap-2">
+            {index > 0 && <span className="text-faint">/</span>}
             {isLast ? (
-              <span className="text-foreground">{item.label}</span>
+              <span className="truncate font-medium text-foreground">{item.label}</span>
             ) : (
-              <Link to={item.href} className="hover:text-foreground">
+              <Link to={item.href} className="truncate transition-colors hover:text-foreground">
                 {item.label}
               </Link>
             )}

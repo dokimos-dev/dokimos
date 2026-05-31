@@ -4,13 +4,18 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 1px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-ui);
+  --font-prose: var(--font-prose-stack);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -28,14 +33,29 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-accent-tint: var(--accent-tint);
+  --color-pass-tint: var(--pass-tint);
+  --color-fail-tint: var(--fail-tint);
+  --color-warn-tint: var(--warn-tint);
+  --color-info-tint: var(--info-tint);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-text-2: var(--text-2);
+  --color-faint: var(--faint);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-kind-llm: var(--k-llm);
+  --color-kind-retriever: var(--k-retriever);
+  --color-kind-tool: var(--k-tool);
+  --color-kind-agent: var(--k-agent);
+  --color-kind-judge: var(--k-judge);
+  --color-kind-guardrail: var(--k-guardrail);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -46,86 +66,144 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Dokimos "Instrument" design system — dark default, IBM Plex Mono UI,
+   electric violet accent, hairline borders, high density. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.54 0.15 150);
-  --warning: oklch(0.53 0.13 60);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+  --radius: 0.375rem;
+
+  --font-ui: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-prose-stack: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* span-kind palette (shared across themes) */
+  --k-llm: #e0a340;
+  --k-retriever: #2db7a3;
+  --k-tool: #9b82ff;
+  --k-agent: #7a828e;
+  --k-judge: #5b8def;
+  --k-guardrail: #e06db0;
+
+  /* Light theme (Instrument) */
+  --background: #fbfbfc;
+  --foreground: #15181e;
+  --card: #ffffff;
+  --card-foreground: #15181e;
+  --popover: #ffffff;
+  --popover-foreground: #15181e;
+  --primary: #6d4df0;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f1f4;
+  --secondary-foreground: #15181e;
+  --muted: #f4f5f7;
+  --muted-foreground: #6b7280;
+  --accent: #f0f1f4;
+  --accent-foreground: #15181e;
+  --accent-glow: #6d4df0;
+  --accent-press: #5b3de0;
+  --accent-tint: rgba(109, 77, 240, 0.1);
+  --accent-tint-2: rgba(109, 77, 240, 0.05);
+  --hover: #f0f1f4;
+  --destructive: #d9534f;
+  --success: #1f9d6b;
+  --warning: #b6791a;
+  --info: #3d6fd6;
+  --pass-tint: rgba(31, 157, 107, 0.11);
+  --fail-tint: rgba(217, 83, 79, 0.11);
+  --warn-tint: rgba(182, 121, 26, 0.11);
+  --info-tint: rgba(61, 111, 214, 0.11);
+  --border: #e3e5ea;
+  --border-strong: #d2d6dd;
+  --input: #e3e5ea;
+  --ring: #6d4df0;
+  --text-2: #3c424c;
+  --faint: #9aa1ac;
+  --code-bg: #f4f5f7;
+  --shadow: 0 8px 28px rgba(20, 22, 30, 0.14);
+  --grid-line: rgba(20, 22, 30, 0.06);
+  --chart-1: #6d4df0;
+  --chart-2: #2db7a3;
+  --chart-3: #e0a340;
+  --chart-4: #5b8def;
+  --chart-5: #e06db0;
+  --sidebar: #f4f5f7;
+  --sidebar-foreground: #15181e;
+  --sidebar-primary: #6d4df0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f1f4;
+  --sidebar-accent-foreground: #15181e;
+  --sidebar-border: #e3e5ea;
+  --sidebar-ring: #6d4df0;
   view-transition-name: root;
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.72 0.19 149);
-  --warning: oklch(0.77 0.16 70);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: #0a0b0e;
+  --foreground: #e4e7ec;
+  --card: #15181e;
+  --card-foreground: #e4e7ec;
+  --popover: #15181e;
+  --popover-foreground: #e4e7ec;
+  --primary: #7c5cfc;
+  --primary-foreground: #ffffff;
+  --secondary: #1b1f27;
+  --secondary-foreground: #e4e7ec;
+  --muted: #0f1115;
+  --muted-foreground: #7a828e;
+  --accent: #181c23;
+  --accent-foreground: #e4e7ec;
+  --accent-glow: #9b82ff;
+  --accent-press: #6d4df0;
+  --accent-tint: rgba(124, 92, 252, 0.14);
+  --accent-tint-2: rgba(124, 92, 252, 0.07);
+  --hover: #181c23;
+  --destructive: #f26d6d;
+  --success: #3fb984;
+  --warning: #e0a340;
+  --info: #5b8def;
+  --pass-tint: rgba(63, 185, 132, 0.13);
+  --fail-tint: rgba(242, 109, 109, 0.13);
+  --warn-tint: rgba(224, 163, 64, 0.13);
+  --info-tint: rgba(91, 141, 239, 0.13);
+  --border: #23272f;
+  --border-strong: #313742;
+  --input: #313742;
+  --ring: #7c5cfc;
+  --text-2: #b4bac4;
+  --faint: #545b66;
+  --code-bg: #0c0e12;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  --grid-line: rgba(255, 255, 255, 0.05);
+  --chart-1: #9b82ff;
+  --chart-2: #2db7a3;
+  --chart-3: #e0a340;
+  --chart-4: #5b8def;
+  --chart-5: #e06db0;
+  --sidebar: #0f1115;
+  --sidebar-foreground: #e4e7ec;
+  --sidebar-primary: #7c5cfc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #181c23;
+  --sidebar-accent-foreground: #e4e7ec;
+  --sidebar-border: #23272f;
+  --sidebar-ring: #7c5cfc;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-feature-settings: "tnum" 1;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Inter for long-form prose where readability beats the mono instrument look. */
+  .font-prose {
+    font-family: var(--font-prose-stack);
   }
   /* Tailwind preflight resets margin to 0 on every element, which overrides the
      user-agent rule that centers a modal dialog. Restore it so dialogs center. */

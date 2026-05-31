@@ -19,11 +19,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     if (stored === "light" || stored === "dark") {
       return stored;
     }
-    // Check system preference
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return "dark";
-    }
-    return "light";
+    // Dark is the default Instrument theme; light is a supported peer.
+    return "dark";
   });
 
   useEffect(() => {

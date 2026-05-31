@@ -234,4 +234,91 @@ class ToolCorrectnessEvaluatorTest {
                 .isInstanceOf(EvaluationException.class)
                 .hasMessageContaining("toolCalls");
     }
+
+    @Test
+    void namesAndArgsRegressionNumericallyEqualArgsMatch() {
+        // REGRESSION: prior exact Map.equals reported 1 vs 1.0 as a mismatch.
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of("nights", 1.0))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("book", Map.of("nights", 1))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void namesAndArgsExactArgsStillMatch() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of("city", "Paris"))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("book", Map.of("city", "Paris"))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void namesAndArgsDifferentArgsStillFail() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of("nights", 2))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("book", Map.of("nights", 3))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void namesAndArgsStringCaseStillStrictByDefault() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of("city", "paris"))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("book", Map.of("city", "Paris"))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void namesAndArgsNumericToleranceAppliesInsideNestedArgs() {
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500.0)))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("search", Map.of("filter", Map.of("maxPrice", 500)))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void namesAndArgsHonorsACustomArgumentMatcher() {
+        // A SUBSET matcher lets the actual call carry extra arguments the expected spec omits.
+        var evaluator = ToolCorrectnessEvaluator.builder()
+                .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)
+                .argumentMatcher(ArgumentMatcher.of(ArgMatchMode.SUBSET))
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("book", Map.of("id", "X", "seat", "12A"))))
+                .expectedOutput("toolCalls", List.of(ToolCall.of("book", Map.of("id", "X"))))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
+    }
 }

@@ -1,5 +1,6 @@
 package dev.dokimos.core.agents;
 
+import dev.dokimos.core.EvalTestCase;
 import java.util.*;
 
 /**
@@ -35,6 +36,56 @@ public record AgentTrace(
                 "output", finalResponse != null ? finalResponse : "",
                 "toolCalls", toolCalls,
                 "reasoningSteps", reasoningSteps);
+    }
+
+    /**
+     * Builds an {@link EvalTestCase} from this trace for the given user input.
+     *
+     * @param input the user input the agent responded to
+     * @return a test case carrying this trace's outputs
+     * @see #toTestCase(String, List, List)
+     */
+    public EvalTestCase toTestCase(String input) {
+        return toTestCase(input, List.of(), List.of());
+    }
+
+    /**
+     * Builds an {@link EvalTestCase} from this trace, also wiring the available tool
+     * definitions into metadata.
+     *
+     * @param input the user input the agent responded to
+     * @param tools the tool definitions available to the agent
+     * @return a test case carrying this trace's outputs and tool definitions
+     * @see #toTestCase(String, List, List)
+     */
+    public EvalTestCase toTestCase(String input, List<ToolDefinition> tools) {
+        return toTestCase(input, tools, List.of());
+    }
+
+    /**
+     * Builds an {@link EvalTestCase} from this trace with everything the agent
+     * evaluators need in one call.
+     * <p>
+     * This populates {@code output}, {@code toolCalls} and {@code reasoningSteps} in
+     * actual outputs, and {@code tools} and {@code tasks} in metadata. It exists so
+     * callers stop hitting {@code EvaluationException} when they forget to add the
+     * {@code tools} or {@code tasks} entries that {@link dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator}
+     * and {@link dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator} require.
+     *
+     * @param input the user input the agent responded to (may be null)
+     * @param tools the tool definitions available to the agent (may be null)
+     * @param tasks the tasks the agent was asked to complete (may be null)
+     * @return a fully-populated test case
+     */
+    public EvalTestCase toTestCase(String input, List<ToolDefinition> tools, List<String> tasks) {
+        var builder = EvalTestCase.builder()
+                .actualOutputs(toOutputMap())
+                .metadata("tools", tools != null ? List.copyOf(tools) : List.of())
+                .metadata("tasks", tasks != null ? List.copyOf(tasks) : List.of());
+        if (input != null) {
+            builder.input(input);
+        }
+        return builder.build();
     }
 
     /**

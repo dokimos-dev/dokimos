@@ -133,6 +133,40 @@ class AgentEvaluatorIT {
     }
 
     @Test
+    void shouldEvaluateTrajectoryAndToolSuccess() {
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", trace.toolCalls())
+                .expectedOutput(
+                        "toolCalls",
+                        List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
+                .build();
+
+        // ANY_ORDER tolerates whichever sequence the model picks for these two independent tools.
+        var trajectory = ToolTrajectoryEvaluator.builder()
+                .matchMode(ToolTrajectoryEvaluator.MatchMode.ANY_ORDER)
+                .build()
+                .evaluate(testCase);
+        assertThat(trajectory.score()).isGreaterThanOrEqualTo(0.5);
+
+        // The canned tool results are all success payloads, so no call should be flagged as an error.
+        var toolError = ToolErrorEvaluator.builder().build().evaluate(testCase);
+        assertThat(toolError.score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void shouldEvaluateToolEfficiency() {
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", trace.toolCalls())
+                .build();
+
+        // A well-behaved agent should not repeat identical calls for this single, unambiguous request.
+        var efficiency = ToolEfficiencyEvaluator.builder().build().evaluate(testCase);
+        assertThat(efficiency.score())
+                .as("Redundant calls: %s", efficiency.metadata().get("redundantCalls"))
+                .isEqualTo(1.0);
+    }
+
+    @Test
     void shouldDetectTaskCompletion() {
         var result = TaskCompletionEvaluator.builder().judge(judge).build().evaluate(buildTestCase());
 

@@ -58,8 +58,8 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
             throw new EvaluationException("ToolCallValidityEvaluator requires '%s' in metadata".formatted(toolsKey));
         }
 
-        List<ToolCall> toolCalls = castToolCalls(rawToolCalls);
-        List<ToolDefinition> tools = castToolDefinitions(rawTools);
+        List<ToolCall> toolCalls = AgentEvalCasts.toolCalls(rawToolCalls, toolCallsKey);
+        List<ToolDefinition> tools = AgentEvalCasts.toolDefinitions(rawTools, toolsKey);
 
         if (toolCalls.isEmpty()) {
             return EvalResult.builder()
@@ -183,38 +183,6 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
                         "Parameter '%s' value '%s' is not in allowed values: %s".formatted(paramName, value, allowed));
             }
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<ToolCall> castToolCalls(Object raw) {
-        if (raw instanceof List<?> list) {
-            if (list.isEmpty()) return List.of();
-            if (list.get(0) instanceof ToolCall) {
-                return (List<ToolCall>) raw;
-            }
-            if (list.get(0) instanceof Map) {
-                return list.stream()
-                        .map(item -> ToolCall.fromMap((Map<String, Object>) item))
-                        .toList();
-            }
-        }
-        throw new EvaluationException("Expected a List of ToolCall objects for key '%s'".formatted(toolCallsKey));
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<ToolDefinition> castToolDefinitions(Object raw) {
-        if (raw instanceof List<?> list) {
-            if (list.isEmpty()) return List.of();
-            if (list.get(0) instanceof ToolDefinition) {
-                return (List<ToolDefinition>) raw;
-            }
-            if (list.get(0) instanceof Map) {
-                return list.stream()
-                        .map(item -> ToolDefinition.fromMap((Map<String, Object>) item))
-                        .toList();
-            }
-        }
-        throw new EvaluationException("Expected a List of ToolDefinition objects for key '%s'".formatted(toolsKey));
     }
 
     /**

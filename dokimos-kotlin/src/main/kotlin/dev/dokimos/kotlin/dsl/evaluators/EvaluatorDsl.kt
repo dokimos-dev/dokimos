@@ -12,13 +12,18 @@ import dev.dokimos.core.evaluators.LLMJudgeEvaluator
 import dev.dokimos.core.evaluators.PrecisionEvaluator
 import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
+import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator
 import dev.dokimos.core.evaluators.agents.ToolArgumentHallucinationEvaluator
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
 import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
 import dev.dokimos.core.evaluators.agents.ToolDescriptionReliabilityEvaluator
+import dev.dokimos.core.evaluators.agents.ToolEfficiencyEvaluator
+import dev.dokimos.core.evaluators.agents.ToolErrorEvaluator
 import dev.dokimos.core.evaluators.agents.ToolNameReliabilityEvaluator
+import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator
 import dev.dokimos.kotlin.dsl.DokimosDsl
+import java.util.function.Predicate
 
 @DokimosDsl
 class EvaluatorsDsl {
@@ -78,6 +83,18 @@ class EvaluatorsDsl {
 
     fun toolDescriptionReliability(block: ToolDescriptionReliabilityEvaluatorDsl.() -> Unit = {}) {
         evaluators += ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolTrajectory(block: ToolTrajectoryEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolTrajectoryEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolError(block: ToolErrorEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolErrorEvaluatorDsl().apply(block).build()
+    }
+
+    fun toolEfficiency(block: ToolEfficiencyEvaluatorDsl.() -> Unit = {}) {
+        evaluators += ToolEfficiencyEvaluatorDsl().apply(block).build()
     }
 
     fun evaluator(evaluator: Evaluator) {
@@ -417,6 +434,72 @@ class ToolDescriptionReliabilityEvaluatorDsl {
             .maxInputArgs(maxInputArgs)
             .evaluationParams(evaluationParams)
         judge?.let { builder.judge(it) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class ToolTrajectoryEvaluatorDsl {
+    var name: String = "Trajectory"
+    var threshold: Double = 1.0
+    var toolCallsKey: String = "toolCalls"
+    var expectedToolCallsKey: String = "toolCalls"
+    var matchMode: ToolTrajectoryEvaluator.MatchMode = ToolTrajectoryEvaluator.MatchMode.IN_ORDER
+    var argumentMatcher: ArgumentMatcher? = null
+    private val toolArgumentMatchers: MutableMap<String, ArgumentMatcher> = mutableMapOf()
+
+    /** Overrides the argument matcher for a single tool by name. */
+    fun argumentMatcher(toolName: String, matcher: ArgumentMatcher) {
+        toolArgumentMatchers[toolName] = matcher
+    }
+
+    fun build(): ToolTrajectoryEvaluator {
+        val builder = ToolTrajectoryEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+            .expectedToolCallsKey(expectedToolCallsKey)
+            .matchMode(matchMode)
+        argumentMatcher?.let { builder.argumentMatcher(it) }
+        toolArgumentMatchers.forEach { (tool, matcher) -> builder.argumentMatcher(tool, matcher) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class ToolErrorEvaluatorDsl {
+    var name: String = "Tool Error"
+    var threshold: Double = 1.0
+    var toolCallsKey: String = "toolCalls"
+    var treatBlankAsError: Boolean = true
+    var detectJsonErrorField: Boolean = true
+    var errorDetector: ((String) -> Boolean)? = null
+
+    fun build(): ToolErrorEvaluator {
+        val builder = ToolErrorEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+            .treatBlankAsError(treatBlankAsError)
+            .detectJsonErrorField(detectJsonErrorField)
+        errorDetector?.let { detector -> builder.errorDetector(Predicate { detector(it) }) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class ToolEfficiencyEvaluatorDsl {
+    var name: String = "Tool Efficiency"
+    var threshold: Double = 1.0
+    var toolCallsKey: String = "toolCalls"
+    var argumentMatcher: ArgumentMatcher? = null
+
+    fun build(): ToolEfficiencyEvaluator {
+        val builder = ToolEfficiencyEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .toolCallsKey(toolCallsKey)
+        argumentMatcher?.let { builder.argumentMatcher(it) }
         return builder.build()
     }
 }

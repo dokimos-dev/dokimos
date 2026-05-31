@@ -8,7 +8,10 @@ import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
+import dev.dokimos.core.evaluators.agents.ArgMatchMode
+import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
+import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator
 import dev.dokimos.kotlin.core.EvalTestCase
 import dev.dokimos.kotlin.dsl.contextualRelevance
 import dev.dokimos.kotlin.dsl.evaluators
@@ -20,7 +23,10 @@ import dev.dokimos.kotlin.dsl.recall
 import dev.dokimos.kotlin.dsl.toolCallValidity
 import dev.dokimos.kotlin.dsl.toolCorrectness
 import dev.dokimos.kotlin.dsl.toolDescriptionReliability
+import dev.dokimos.kotlin.dsl.toolEfficiency
+import dev.dokimos.kotlin.dsl.toolError
 import dev.dokimos.kotlin.dsl.toolNameReliability
+import dev.dokimos.kotlin.dsl.toolTrajectory
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -385,5 +391,65 @@ class EvaluatorDslTest {
 
         assertThat(result.score()).isGreaterThan(0.0)
         assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `toolTrajectory standalone DSL evaluates with match mode and per-tool matcher`() {
+        val evaluator = toolTrajectory {
+            matchMode = ToolTrajectoryEvaluator.MatchMode.ANY_ORDER
+            argumentMatcher = ArgumentMatcher.tolerant()
+            argumentMatcher("book", ArgumentMatcher.of(ArgMatchMode.SUBSET))
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("toolCalls", listOf(ToolCall.of("book", mapOf("id" to "X", "seat" to "A1"))))
+            .expectedOutput("toolCalls", listOf(ToolCall.of("book", mapOf("id" to "X"))))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(1.0)
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `toolError standalone DSL detects failed results`() {
+        val evaluator = toolError {
+            errorDetector = { it.contains("HTTP 500") }
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput(
+                "toolCalls",
+                listOf(
+                    ToolCall.builder().name("ok").result("done").build(),
+                    ToolCall.builder().name("bad").result("HTTP 500 internal").build(),
+                ),
+            )
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(0.5)
+        assertThat(result.success()).isFalse()
+    }
+
+    @Test
+    fun `toolEfficiency standalone DSL flags redundant calls`() {
+        val evaluator = toolEfficiency { }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput(
+                "toolCalls",
+                listOf(
+                    ToolCall.of("search", mapOf("q" to "x")),
+                    ToolCall.of("search", mapOf("q" to "x")),
+                ),
+            )
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(0.5)
     }
 }

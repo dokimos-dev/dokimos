@@ -163,18 +163,12 @@ public class OpenAIAgentEvaluationExample {
 
             for (var toolCall : toolCalls) {
                 var funcToolCall = toolCall.asFunction();
-                var function = funcToolCall.function();
-                String name = function.name();
-                Map<String, Object> args = (Map<String, Object>) function.arguments(Map.class);
+                String name = funcToolCall.function().name();
                 String result = executeToolFunction(name);
 
-                System.out.printf("  Tool call: %s(%s) -> %s%n", name, args, result);
-
-                traceBuilder.addToolCall(ToolCall.builder()
-                        .name(name)
-                        .arguments(args)
-                        .result(result)
-                        .build());
+                ToolCall captured = OpenAiAgentTraces.toToolCall(toolCall, result);
+                System.out.printf("  Tool call: %s(%s) -> %s%n", captured.name(), captured.arguments(), result);
+                traceBuilder.addToolCall(captured);
 
                 paramsBuilder.addMessage(ChatCompletionToolMessageParam.builder()
                         .toolCallId(funcToolCall.id())

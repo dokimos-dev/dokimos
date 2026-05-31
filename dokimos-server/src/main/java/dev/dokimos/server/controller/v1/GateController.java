@@ -3,6 +3,8 @@ package dev.dokimos.server.controller.v1;
 import dev.dokimos.server.dto.v1.GateRequest;
 import dev.dokimos.server.dto.v1.GateResult;
 import dev.dokimos.server.service.GateService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,7 +40,8 @@ public class GateController {
      *     is not terminal, 400 when {@code candidateRunId} is absent
      */
     @PostMapping("/{experimentId}/gate")
-    public GateResult evaluateGate(@PathVariable UUID experimentId, @Valid @RequestBody GateRequest request) {
-        return gateService.evaluateGate(experimentId, request);
+    public GateResult evaluateGate(
+            @PathVariable UUID experimentId, @Valid @RequestBody GateRequest request, HttpServletRequest http) {
+        return gateService.evaluateGate(experimentId, request, TenantScopeResolver.scope(http));
     }
 }

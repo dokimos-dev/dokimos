@@ -6,6 +6,7 @@ import dev.dokimos.server.dto.v1.UpdateLlmConnectionRequest;
 import dev.dokimos.server.entity.LlmConnection;
 import dev.dokimos.server.repository.EvalJobRepository;
 import dev.dokimos.server.repository.LlmConnectionRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -40,12 +41,13 @@ public class LlmConnectionService {
      * @throws IllegalStateException if a connection with the same name already exists (mapped to 409)
      */
     @Transactional
-    public LlmConnectionView create(CreateLlmConnectionRequest request) {
-        if (connectionRepository.existsByName(request.name())) {
+    public LlmConnectionView create(CreateLlmConnectionRequest request, TenantScope scope) {
+        if (connectionRepository.existsByName(request.name(), scope)) {
             throw new IllegalStateException("Connection already exists: " + request.name());
         }
 
         LlmConnection connection = new LlmConnection(request.name(), request.baseUrl(), request.model());
+        connection.setTenantId(scope.stampTenantId());
         if (request.protocol() != null) {
             connection.setProtocol(request.protocol());
         }
@@ -59,20 +61,20 @@ public class LlmConnectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<LlmConnectionView> list() {
-        return connectionRepository.findAll().stream()
+    public List<LlmConnectionView> list(TenantScope scope) {
+        return connectionRepository.findAllOrdered(scope).stream()
                 .map(LlmConnectionView::from)
                 .toList();
     }
 
     /**
-     * Returns a connection by id.
+     * Returns a connection by id, visible under the scope.
      *
-     * @throws IllegalArgumentException if no connection has the id (mapped to 404)
+     * @throws IllegalArgumentException if no connection has the id under the scope (mapped to 404)
      */
     @Transactional(readOnly = true)
-    public LlmConnectionView get(UUID id) {
-        return LlmConnectionView.from(loadConnection(id));
+    public LlmConnectionView get(UUID id, TenantScope scope) {
+        return LlmConnectionView.from(loadConnection(id, scope));
     }
 
     /**
@@ -88,9 +90,9 @@ public class LlmConnectionService {
      *     409)
      */
     @Transactional
-    public LlmConnectionView update(UUID id, UpdateLlmConnectionRequest request) {
-        LlmConnection connection = loadConnection(id);
-        if (!connection.getName().equals(request.name()) && connectionRepository.existsByName(request.name())) {
+    public LlmConnectionView update(UUID id, UpdateLlmConnectionRequest request, TenantScope scope) {
+        LlmConnection connection = loadConnection(id, scope);
+        if (!connection.getName().equals(request.name()) && connectionRepository.existsByName(request.name(), scope)) {
             throw new IllegalStateException("Connection already exists: " + request.name());
         }
         connection.setName(request.name());
@@ -118,15 +120,15 @@ public class LlmConnectionService {
      * @throws IllegalArgumentException if no connection has the id (mapped to 404)
      */
     @Transactional
-    public void delete(UUID id) {
-        LlmConnection connection = loadConnection(id);
+    public void delete(UUID id, TenantScope scope) {
+        LlmConnection connection = loadConnection(id, scope);
         evalJobRepository.deleteByConnectionId(id);
         connectionRepository.delete(connection);
     }
 
-    private LlmConnection loadConnection(UUID id) {
+    private LlmConnection loadConnection(UUID id, TenantScope scope) {
         return connectionRepository
-                .findById(id)
+                .findById(id, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Connection not found: " + id));
     }
 }

@@ -6,22 +6,31 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A named container that owns one or more immutable {@link DatasetVersion}s. The {@code name} is
- * unique across the server and is the human-facing identifier used by API callers.
+ * A named container that owns one or more immutable {@link DatasetVersion}s. The {@code name} is unique
+ * per tenant rather than globally, so two tenants can each own a dataset of the same name. The matching
+ * DB constraint plus a partial unique on the shared (null-tenant) rows lives in migration V14; the
+ * {@code (name, tenant_id)} unique here keeps the Hibernate-generated test schema consistent with it.
  */
 @Entity
-@Table(name = "datasets")
+@Table(
+        name = "datasets",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_dataset_name_tenant",
+                    columnNames = {"name", "tenant_id"})
+        })
 public class Dataset {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(columnDefinition = "text")

@@ -20,6 +20,7 @@ import dev.dokimos.server.filter.ApiKeyAuthFilter;
 import dev.dokimos.server.filter.Principal;
 import dev.dokimos.server.filter.Role;
 import dev.dokimos.server.service.AnnotationService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -54,7 +55,8 @@ class AnnotationControllerTest extends AbstractControllerTest {
         UUID runId = UUID.randomUUID();
         UUID itemResultId = UUID.randomUUID();
         AnnotationView view = view(AnnotationVerdict.INCORRECT, "alice");
-        when(annotationService.upsert(eq(runId), eq(itemResultId), any(AnnotationRequest.class), eq("alice")))
+        when(annotationService.upsert(
+                        eq(runId), eq(itemResultId), any(AnnotationRequest.class), eq("alice"), any(TenantScope.class)))
                 .thenReturn(view);
 
         AnnotationRequest request = new AnnotationRequest(AnnotationVerdict.INCORRECT, Map.of("a", "fixed"), "note");
@@ -83,7 +85,8 @@ class AnnotationControllerTest extends AbstractControllerTest {
     void upsert_returns404WhenItemNotInRun() throws Exception {
         UUID runId = UUID.randomUUID();
         UUID itemResultId = UUID.randomUUID();
-        when(annotationService.upsert(eq(runId), eq(itemResultId), any(AnnotationRequest.class), any()))
+        when(annotationService.upsert(
+                        eq(runId), eq(itemResultId), any(AnnotationRequest.class), any(), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException(
                         "Item result " + itemResultId + " does not belong to run " + runId));
 
@@ -98,7 +101,8 @@ class AnnotationControllerTest extends AbstractControllerTest {
     void get_returns200() throws Exception {
         UUID runId = UUID.randomUUID();
         UUID itemResultId = UUID.randomUUID();
-        when(annotationService.get(runId, itemResultId)).thenReturn(view(AnnotationVerdict.UNSURE, null));
+        when(annotationService.get(eq(runId), eq(itemResultId), any(TenantScope.class)))
+                .thenReturn(view(AnnotationVerdict.UNSURE, null));
 
         mockMvc.perform(get("/api/v1/runs/{runId}/items/{itemResultId}/annotation", runId, itemResultId))
                 .andExpect(status().isOk())
@@ -109,7 +113,7 @@ class AnnotationControllerTest extends AbstractControllerTest {
     void get_returns404WhenMissing() throws Exception {
         UUID runId = UUID.randomUUID();
         UUID itemResultId = UUID.randomUUID();
-        when(annotationService.get(runId, itemResultId))
+        when(annotationService.get(eq(runId), eq(itemResultId), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Annotation not found for item result: " + itemResultId));
 
         mockMvc.perform(get("/api/v1/runs/{runId}/items/{itemResultId}/annotation", runId, itemResultId))
@@ -120,12 +124,12 @@ class AnnotationControllerTest extends AbstractControllerTest {
     void delete_returns204() throws Exception {
         UUID runId = UUID.randomUUID();
         UUID itemResultId = UUID.randomUUID();
-        doNothing().when(annotationService).delete(runId, itemResultId);
+        doNothing().when(annotationService).delete(eq(runId), eq(itemResultId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/runs/{runId}/items/{itemResultId}/annotation", runId, itemResultId))
                 .andExpect(status().isNoContent());
 
-        verify(annotationService).delete(runId, itemResultId);
+        verify(annotationService).delete(eq(runId), eq(itemResultId), any(TenantScope.class));
     }
 
     @Test
@@ -134,7 +138,7 @@ class AnnotationControllerTest extends AbstractControllerTest {
         UUID itemResultId = UUID.randomUUID();
         doThrow(new IllegalArgumentException("Item result " + itemResultId + " does not belong to run " + runId))
                 .when(annotationService)
-                .delete(runId, itemResultId);
+                .delete(eq(runId), eq(itemResultId), any(TenantScope.class));
 
         mockMvc.perform(delete("/api/v1/runs/{runId}/items/{itemResultId}/annotation", runId, itemResultId))
                 .andExpect(status().isNotFound());

@@ -185,6 +185,7 @@ public class ComparisonSupport {
      * @param experiment the experiment the run must belong to
      * @param label      a human-readable label for the run, used in error messages
      * @param runRepository the run repository
+     * @param scope the tenant scope; a run of another tenant is invisible and surfaces as not found
      * @return the loaded run
      * @throws IllegalArgumentException if the run does not exist or belongs to another experiment
      */
@@ -192,12 +193,13 @@ public class ComparisonSupport {
             UUID runId,
             Experiment experiment,
             String label,
-            dev.dokimos.server.repository.ExperimentRunRepository runRepository) {
+            dev.dokimos.server.repository.ExperimentRunRepository runRepository,
+            dev.dokimos.server.tenant.TenantScope scope) {
         if (runId == null) {
             throw new IllegalArgumentException(label + " ID cannot be null");
         }
         ExperimentRun run = runRepository
-                .findById(runId)
+                .findById(runId, scope)
                 .orElseThrow(() -> new IllegalArgumentException(label + " not found: " + runId));
         UUID runExperimentId =
                 Optional.ofNullable(run.getExperiment()).map(Experiment::getId).orElse(null);

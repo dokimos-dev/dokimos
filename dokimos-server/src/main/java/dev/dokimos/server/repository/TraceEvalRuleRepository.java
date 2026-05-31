@@ -1,18 +1,12 @@
 package dev.dokimos.server.repository;
 
 import dev.dokimos.server.entity.TraceEvalRule;
-import java.util.List;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
-public interface TraceEvalRuleRepository extends JpaRepository<TraceEvalRule, UUID> {
-
-    List<TraceEvalRule> findByProjectIdOrderByCreatedAtAsc(UUID projectId);
-
-    /** Enabled rules for a project, used by ingestion to decide which spans to enqueue. */
-    List<TraceEvalRule> findByProjectIdAndEnabledTrue(UUID projectId);
-
-    boolean existsByProjectIdAndName(UUID projectId, String name);
-
-    boolean existsByConnection_Id(UUID connectionId);
-}
+/**
+ * Tenant-scoped repository for {@link TraceEvalRule}. Extends only the empty {@link Repository} plus the
+ * scoped fragments, so every read takes a {@code TenantScope}. Ingestion (off the request thread) lists a
+ * project's enabled rules unrestricted.
+ */
+public interface TraceEvalRuleRepository extends Repository<TraceEvalRule, UUID>, TraceEvalRuleRepositoryFragment {}

@@ -66,6 +66,9 @@ public class TraceSpan {
     @Column(name = "output_text", columnDefinition = "text")
     private String outputText;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -84,6 +87,14 @@ public class TraceSpan {
 
     public Trace getTrace() {
         return trace;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public void setTrace(Trace trace) {

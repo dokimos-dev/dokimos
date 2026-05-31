@@ -76,7 +76,8 @@ public class RegressionAlertService {
                 candidate.getId(),
                 comparisonSupport.datasetVersionId(candidate),
                 candidate.getGitBranch(),
-                PageRequest.of(0, 1));
+                PageRequest.of(0, 1),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
         return candidates.isEmpty() ? null : candidates.get(0);
     }
 

@@ -81,7 +81,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.summary().pairing()).isEqualTo("dataset_item_id");
         assertThat(view.summary().regressedCount()).isPositive();
@@ -118,7 +123,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.summary().regressedCount()).isZero();
         assertThat(view.summary().improvedCount()).isZero();
@@ -142,7 +152,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "REGRESSED", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "REGRESSED",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.cases().content()).isNotEmpty();
         assertThat(view.cases().content())
@@ -166,7 +181,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView page0 = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 2));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 2),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(page0.cases().totalElements()).isEqualTo(5);
         assertThat(page0.cases().totalPages()).isEqualTo(3);
@@ -174,7 +194,12 @@ class DiffServiceTest {
         assertThat(page0.cases().first()).isTrue();
 
         DiffView page2 = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(2, 2));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(2, 2),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
         assertThat(page2.cases().content()).hasSize(1);
         assertThat(page2.cases().last()).isTrue();
     }
@@ -198,7 +223,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.summary().pairing()).isEqualTo("positional");
         assertThat(view.summary().addedCount()).isEqualTo(2);
@@ -220,7 +250,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.summary().removedCount()).isEqualTo(2);
         DiffCase removed = view.cases().content().stream()
@@ -244,7 +279,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.summary().pairing()).isEqualTo("positional");
         assertThat(view.cases().content()).allSatisfy(c -> assertThat(c.index()).startsWith("item-"));
@@ -266,7 +306,12 @@ class DiffServiceTest {
         entityManager.clear();
 
         DiffView view = diffService.listDiff(
-                fixture.experimentId(), candidate.getId(), baseline.getId(), "ALL", PageRequest.of(0, 50));
+                fixture.experimentId(),
+                candidate.getId(),
+                baseline.getId(),
+                "ALL",
+                PageRequest.of(0, 50),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.cases().content()).allSatisfy(c -> assertThat(c.input()).startsWith("cand question "));
     }
@@ -282,7 +327,13 @@ class DiffServiceTest {
         UUID experimentId = fixture.experimentId();
         UUID candidateId = candidate.getId();
         UUID missing = UUID.randomUUID();
-        assertThatThrownBy(() -> diffService.listDiff(experimentId, candidateId, missing, "ALL", PageRequest.of(0, 50)))
+        assertThatThrownBy(() -> diffService.listDiff(
+                        experimentId,
+                        candidateId,
+                        missing,
+                        "ALL",
+                        PageRequest.of(0, 50),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Baseline run not found");
     }
@@ -299,8 +350,13 @@ class DiffServiceTest {
         UUID experimentId = fixture.experimentId();
         UUID candidateId = candidate.getId();
         UUID baselineId = baseline.getId();
-        assertThatThrownBy(
-                        () -> diffService.listDiff(experimentId, candidateId, baselineId, "ALL", PageRequest.of(0, 50)))
+        assertThatThrownBy(() -> diffService.listDiff(
+                        experimentId,
+                        candidateId,
+                        baselineId,
+                        "ALL",
+                        PageRequest.of(0, 50),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("terminal SUCCESS/FAILED");
     }

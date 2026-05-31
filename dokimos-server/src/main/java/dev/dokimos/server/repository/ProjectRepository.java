@@ -1,22 +1,11 @@
 package dev.dokimos.server.repository;
 
 import dev.dokimos.server.entity.Project;
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
 
-public interface ProjectRepository extends JpaRepository<Project, UUID> {
-
-    Optional<Project> findByName(String name);
-
-    @Query("""
-            SELECT p, COUNT(e) as experimentCount
-            FROM Project p
-            LEFT JOIN p.experiments e
-            GROUP BY p
-            ORDER BY p.createdAt DESC
-            """)
-    List<Object[]> findAllWithExperimentCount();
-}
+/**
+ * Tenant-scoped repository for {@link Project}. Extends only the empty {@link Repository} plus the scoped
+ * fragments, so the dangerous inherited finders do not exist and every read takes a {@code TenantScope}.
+ */
+public interface ProjectRepository extends Repository<Project, UUID>, ProjectRepositoryFragment {}

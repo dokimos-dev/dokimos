@@ -126,29 +126,34 @@ class DatasetServiceTest {
 
     @Test
     void createDataset_persistsAndReturns() {
-        Dataset created = datasetService.createDataset("qa", "small QA set");
+        Dataset created = datasetService.createDataset(
+                "qa", "small QA set", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(created.getId()).isNotNull();
         assertThat(created.getName()).isEqualTo("qa");
         assertThat(created.getDescription()).isEqualTo("small QA set");
-        assertThat(datasetRepository.existsByName("qa")).isTrue();
+        assertThat(datasetRepository.existsByName("qa", dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isTrue();
     }
 
     @Test
     void createDataset_duplicateNameRaisesConflict() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        assertThatThrownBy(() -> datasetService.createDataset("qa", "another"))
+        assertThatThrownBy(() -> datasetService.createDataset(
+                        "qa", "another", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Dataset already exists");
     }
 
     @Test
     void createVersion_incrementsAndPersistsItems() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        DatasetVersion v1 = datasetService.createVersion("qa", "first", twoItems(), "alice");
-        DatasetVersion v2 = datasetService.createVersion("qa", "second", twoItems(), "bob");
+        DatasetVersion v1 = datasetService.createVersion(
+                "qa", "first", twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        DatasetVersion v2 = datasetService.createVersion(
+                "qa", "second", twoItems(), "bob", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(v1.getVersion()).isEqualTo(1);
         assertThat(v1.getItemCount()).isEqualTo(2);
@@ -167,28 +172,32 @@ class DatasetServiceTest {
 
     @Test
     void createVersion_emptyItemsRejected() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        assertThatThrownBy(() -> datasetService.createVersion("qa", null, List.of(), "alice"))
+        assertThatThrownBy(() -> datasetService.createVersion(
+                        "qa", null, List.of(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("at least one item");
     }
 
     @Test
     void createVersion_unknownDatasetRaisesNotFound() {
-        assertThatThrownBy(() -> datasetService.createVersion("missing", null, twoItems(), "alice"))
+        assertThatThrownBy(() -> datasetService.createVersion(
+                        "missing", null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Dataset not found");
     }
 
     @Test
     void listDatasets_surfacesLatestVersionAndItemCount() {
-        datasetService.createDataset("qa", "qa set");
-        datasetService.createVersion("qa", null, twoItems(), "alice");
-        datasetService.createVersion("qa", null, twoItems(), "alice");
-        datasetService.createDataset("empty", null);
+        datasetService.createDataset("qa", "qa set", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        datasetService.createVersion(
+                "qa", null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        datasetService.createVersion(
+                "qa", null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        datasetService.createDataset("empty", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        List<DatasetSummary> all = datasetService.listDatasets();
+        List<DatasetSummary> all = datasetService.listDatasets(dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         DatasetSummary qa =
                 all.stream().filter(d -> d.name().equals("qa")).findFirst().orElseThrow();
@@ -207,10 +216,13 @@ class DatasetServiceTest {
         // the collapsed path issues 2 (one for datasets, one for latest-version-per-dataset).
         for (int i = 0; i < 5; i++) {
             String name = "ds-" + i;
-            datasetService.createDataset(name, null);
-            datasetService.createVersion(name, null, twoItems(), "alice");
-            datasetService.createVersion(name, null, twoItems(), "alice");
-            datasetService.createVersion(name, null, twoItems(), "alice");
+            datasetService.createDataset(name, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
+            datasetService.createVersion(
+                    name, null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+            datasetService.createVersion(
+                    name, null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+            datasetService.createVersion(
+                    name, null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
         }
 
         // Flush pending writes from the create loop before resetting stats so the auto-flush
@@ -219,7 +231,7 @@ class DatasetServiceTest {
         Statistics stats = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
         stats.clear();
 
-        List<DatasetSummary> all = datasetService.listDatasets();
+        List<DatasetSummary> all = datasetService.listDatasets(dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(all).hasSize(5);
         // Every dataset reports its latest (third) version with two items each.
@@ -235,11 +247,14 @@ class DatasetServiceTest {
 
     @Test
     void getDatasetDetails_listsVersionsNewestFirst() {
-        datasetService.createDataset("qa", null);
-        datasetService.createVersion("qa", "v1", twoItems(), "alice");
-        datasetService.createVersion("qa", "v2", twoItems(), "bob");
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
+        datasetService.createVersion(
+                "qa", "v1", twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        datasetService.createVersion(
+                "qa", "v2", twoItems(), "bob", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        DatasetDetails details = datasetService.getDatasetDetails("qa");
+        DatasetDetails details =
+                datasetService.getDatasetDetails("qa", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(details.versions()).hasSize(2);
         assertThat(details.versions().get(0).version()).isEqualTo(2);
@@ -252,42 +267,49 @@ class DatasetServiceTest {
         // Hibernate-generated schema omits the cascade clause (no @OnDelete on the entity). The
         // real cascade and the SET NULL on experiment_runs.dataset_version_id are verified end
         // to end against PostgreSQL in FlywayMigrationTest.v5BuildsDatasetTables.
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        datasetService.deleteDataset("qa");
+        datasetService.deleteDataset("qa", dev.dokimos.server.tenant.TenantScope.unrestricted());
         entityManager.flush();
 
-        assertThat(datasetRepository.existsByName("qa")).isFalse();
+        assertThat(datasetRepository.existsByName("qa", dev.dokimos.server.tenant.TenantScope.unrestricted()))
+                .isFalse();
     }
 
     @Test
     void deleteDataset_unknownRaisesNotFound() {
-        assertThatThrownBy(() -> datasetService.deleteDataset("missing"))
+        assertThatThrownBy(() ->
+                        datasetService.deleteDataset("missing", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Dataset not found");
     }
 
     @Test
     void getLatestVersion_noVersionsRaisesNotFound() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        assertThatThrownBy(() -> datasetService.getLatestVersion("qa"))
+        assertThatThrownBy(() ->
+                        datasetService.getLatestVersion("qa", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("no versions");
     }
 
     @Test
     void createRun_withDatasetLink_setsDatasetVersionOnRun() {
-        datasetService.createDataset("qa", null);
-        DatasetVersion version = datasetService.createVersion("qa", null, twoItems(), "alice");
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
+        DatasetVersion version = datasetService.createVersion(
+                "qa", null, twoItems(), "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         Project project = projectRepository.save(new Project("p"));
         Experiment experiment = experimentRepository.save(new Experiment(project, "e"));
 
         CreateRunRequest request = new CreateRunRequest("e", null, null, null, null, null, "qa", 1);
 
-        ExperimentRun created = runService.createRun(experiment, request);
-        ExperimentRun reloaded = runRepository.findById(created.getId()).orElseThrow();
+        ExperimentRun created =
+                runService.createRun(experiment, request, dev.dokimos.server.tenant.TenantScope.unrestricted());
+        ExperimentRun reloaded = runRepository
+                .findById(created.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted())
+                .orElseThrow();
 
         assertThat(reloaded.getDatasetVersion()).isNotNull();
         assertThat(reloaded.getDatasetVersion().getId()).isEqualTo(version.getId());
@@ -301,7 +323,8 @@ class DatasetServiceTest {
 
         CreateRunRequest request = new CreateRunRequest("e", null, null, null, null, null, "qa", null);
 
-        assertThatThrownBy(() -> runService.createRun(experiment, request))
+        assertThatThrownBy(() ->
+                        runService.createRun(experiment, request, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must be set together");
     }
@@ -313,7 +336,8 @@ class DatasetServiceTest {
 
         CreateRunRequest request = new CreateRunRequest("e", null, null, null, null, null, null, 1);
 
-        assertThatThrownBy(() -> runService.createRun(experiment, request))
+        assertThatThrownBy(() ->
+                        runService.createRun(experiment, request, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must be set together");
     }
@@ -324,15 +348,18 @@ class DatasetServiceTest {
         Experiment experiment = experimentRepository.save(new Experiment(project, "e"));
 
         CreateRunRequest request = new CreateRunRequest("e", null, null, null, null, null);
-        ExperimentRun created = runService.createRun(experiment, request);
+        ExperimentRun created =
+                runService.createRun(experiment, request, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        ExperimentRun reloaded = runRepository.findById(created.getId()).orElseThrow();
+        ExperimentRun reloaded = runRepository
+                .findById(created.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted())
+                .orElseThrow();
         assertThat(reloaded.getDatasetVersion()).isNull();
     }
 
     @Test
     void promote_createsNewVersionWithOverrideAndFallback() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ItemResult overridden = newItemResult(Map.of("q", "one"), Map.of("a", "orig one"), Map.of("tag", "t1"));
         ItemResult fallback = newItemResult(Map.of("q", "two"), Map.of("a", "orig two"), null);
@@ -344,14 +371,16 @@ class DatasetServiceTest {
                         new PromoteRequest.PromoteItem(overridden.getId(), Map.of("a", "corrected one")),
                         new PromoteRequest.PromoteItem(fallback.getId(), null)));
 
-        DatasetVersionDetails details = datasetService.promote(request, "alice");
+        DatasetVersionDetails details =
+                datasetService.promote(request, "alice", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(details.datasetName()).isEqualTo("qa");
         assertThat(details.version()).isEqualTo(1);
         assertThat(details.itemCount()).isEqualTo(2);
         assertThat(details.createdBy()).isEqualTo("alice");
 
-        DatasetVersion version = datasetService.getVersion("qa", 1);
+        DatasetVersion version =
+                datasetService.getVersion("qa", 1, dev.dokimos.server.tenant.TenantScope.unrestricted());
         List<DatasetItem> items = itemRepository
                 .findByDatasetVersionOrderByOrdinalAsc(version, PageRequest.of(0, 10))
                 .getContent();
@@ -367,12 +396,13 @@ class DatasetServiceTest {
 
     @Test
     void promote_missingItemResultRaisesNotFound() {
-        datasetService.createDataset("qa", null);
+        datasetService.createDataset("qa", null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         PromoteRequest request = new PromoteRequest(
                 "qa", null, List.of(new PromoteRequest.PromoteItem(java.util.UUID.randomUUID(), null)));
 
-        assertThatThrownBy(() -> datasetService.promote(request, "alice"))
+        assertThatThrownBy(() ->
+                        datasetService.promote(request, "alice", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Item result not found");
     }

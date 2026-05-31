@@ -38,8 +38,10 @@ class AnnotationServiceTest {
     static class TestConfig {
         @org.springframework.context.annotation.Bean
         AnnotationService annotationService(
-                AnnotationRepository annotationRepository, ItemResultRepository itemResultRepository) {
-            return new AnnotationService(annotationRepository, itemResultRepository);
+                AnnotationRepository annotationRepository,
+                ItemResultRepository itemResultRepository,
+                ExperimentRunRepository runRepository) {
+            return new AnnotationService(annotationRepository, itemResultRepository, runRepository);
         }
     }
 
@@ -72,7 +74,8 @@ class AnnotationServiceTest {
                 fixture.runId,
                 fixture.itemResultId,
                 new AnnotationRequest(AnnotationVerdict.INCORRECT, Map.of("a", "fixed"), "first note"),
-                "alice");
+                "alice",
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(created.verdict()).isEqualTo(AnnotationVerdict.INCORRECT);
         assertThat(created.overriddenExpectedOutput()).containsEntry("a", "fixed");
@@ -84,7 +87,8 @@ class AnnotationServiceTest {
                 fixture.runId,
                 fixture.itemResultId,
                 new AnnotationRequest(AnnotationVerdict.CORRECT, null, "second note"),
-                "bob");
+                "bob",
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(updated.id()).isEqualTo(created.id());
         assertThat(updated.verdict()).isEqualTo(AnnotationVerdict.CORRECT);
@@ -99,9 +103,14 @@ class AnnotationServiceTest {
     void get_returnsExistingAnnotation() {
         Fixture fixture = newRunWithItem();
         annotationService.upsert(
-                fixture.runId, fixture.itemResultId, new AnnotationRequest(AnnotationVerdict.UNSURE, null, null), null);
+                fixture.runId,
+                fixture.itemResultId,
+                new AnnotationRequest(AnnotationVerdict.UNSURE, null, null),
+                null,
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        AnnotationView view = annotationService.get(fixture.runId, fixture.itemResultId);
+        AnnotationView view = annotationService.get(
+                fixture.runId, fixture.itemResultId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.verdict()).isEqualTo(AnnotationVerdict.UNSURE);
     }
@@ -110,7 +119,8 @@ class AnnotationServiceTest {
     void get_onUnannotatedItemRaisesNotFound() {
         Fixture fixture = newRunWithItem();
 
-        assertThatThrownBy(() -> annotationService.get(fixture.runId, fixture.itemResultId))
+        assertThatThrownBy(() -> annotationService.get(
+                        fixture.runId, fixture.itemResultId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Annotation not found");
     }
@@ -122,9 +132,11 @@ class AnnotationServiceTest {
                 fixture.runId,
                 fixture.itemResultId,
                 new AnnotationRequest(AnnotationVerdict.CORRECT, null, null),
-                null);
+                null,
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
-        annotationService.delete(fixture.runId, fixture.itemResultId);
+        annotationService.delete(
+                fixture.runId, fixture.itemResultId, dev.dokimos.server.tenant.TenantScope.unrestricted());
         entityManager.flush();
 
         assertThat(annotationRepository.findByItemResultId(fixture.itemResultId))
@@ -140,7 +152,8 @@ class AnnotationServiceTest {
                         otherRunId,
                         fixture.itemResultId,
                         new AnnotationRequest(AnnotationVerdict.CORRECT, null, null),
-                        null))
+                        null,
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not belong to run");
     }
@@ -153,7 +166,8 @@ class AnnotationServiceTest {
                         run.getId(),
                         UUID.randomUUID(),
                         new AnnotationRequest(AnnotationVerdict.CORRECT, null, null),
-                        null))
+                        null,
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Item result not found");
     }

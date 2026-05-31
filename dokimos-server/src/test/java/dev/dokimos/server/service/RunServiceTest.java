@@ -107,10 +107,11 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.SUCCESS), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -126,12 +127,13 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
         when(itemResultRepository.countByRun(run)).thenReturn(10L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(7L);
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.SUCCESS), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -151,11 +153,12 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
         when(itemResultRepository.countByRun(run)).thenReturn(0L);
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.SUCCESS), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -171,7 +174,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         Map<String, Object> evalMetadata = Map.of("model", "gpt-4", "tokens", 42);
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
@@ -181,7 +184,7 @@ class RunServiceTest {
                 List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", evalMetadata)),
                 true)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getEvalResults().get(0).getMetadata()).isEqualTo(evalMetadata);
@@ -196,7 +199,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         DatasetItem datasetItem = new DatasetItem(null, 0, Map.of("input", "q"), Map.of("output", "a"), null);
         setField(datasetItem, "id", datasetItemId);
         when(datasetItemRepository.findAllById(List.of(datasetItemId))).thenReturn(List.of(datasetItem));
@@ -210,7 +213,7 @@ class RunServiceTest {
                 true,
                 datasetItemId)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getDatasetItem()).isSameAs(datasetItem);
@@ -225,14 +228,14 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(datasetItemRepository.findAllById(List.of(staleId))).thenReturn(List.of());
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "q"), Map.of("output", "a"), Map.of("output", "a"), null, null, true, staleId)));
 
         // A stale id must not fail the batch; the item is stored unlinked.
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(1);
@@ -247,7 +250,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "q"),
@@ -262,7 +265,7 @@ class RunServiceTest {
                 0.002,
                 430L)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(1);
@@ -280,7 +283,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
         when(itemResultRepository.countByRun(run)).thenReturn(3L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(2L);
@@ -289,7 +292,8 @@ class RunServiceTest {
         when(itemResultRepository.sumCostByRun(run)).thenReturn(0.006);
         when(itemResultRepository.avgLatencyByRun(run)).thenReturn(412.5);
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.SUCCESS), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -308,7 +312,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
         when(itemResultRepository.countByRun(run)).thenReturn(2L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(1L);
@@ -317,7 +321,8 @@ class RunServiceTest {
         when(itemResultRepository.sumCostByRun(run)).thenReturn(null);
         when(itemResultRepository.avgLatencyByRun(run)).thenReturn(null);
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.SUCCESS), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -335,10 +340,11 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ExperimentRun.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        runService.updateRun(runId, new UpdateRunRequest(RunStatus.RUNNING));
+        runService.updateRun(
+                runId, new UpdateRunRequest(RunStatus.RUNNING), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         ArgumentCaptor<ExperimentRun> captor = ArgumentCaptor.forClass(ExperimentRun.class);
         verify(runRepository).save(captor.capture());
@@ -348,9 +354,12 @@ class RunServiceTest {
     @Test
     void updateRun_shouldThrowWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.empty());
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS)))
+        assertThatThrownBy(() -> runService.updateRun(
+                        runId,
+                        new UpdateRunRequest(RunStatus.SUCCESS),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run not found");
     }
@@ -362,9 +371,12 @@ class RunServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.EVALUATING);
         setField(run, "id", runId);
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
-        assertThatThrownBy(() -> runService.updateRun(runId, new UpdateRunRequest(RunStatus.SUCCESS)))
+        assertThatThrownBy(() -> runService.updateRun(
+                        runId,
+                        new UpdateRunRequest(RunStatus.SUCCESS),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("evaluating");
 
@@ -373,7 +385,10 @@ class RunServiceTest {
 
     @Test
     void updateRun_shouldThrowWhenIdIsNull() {
-        assertThatThrownBy(() -> runService.updateRun(null, new UpdateRunRequest(RunStatus.SUCCESS)))
+        assertThatThrownBy(() -> runService.updateRun(
+                        null,
+                        new UpdateRunRequest(RunStatus.SUCCESS),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run ID cannot be null");
     }
@@ -386,7 +401,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "What is 2+2?"),
@@ -395,7 +410,7 @@ class RunServiceTest {
                 List.of(new AddItemsRequest.EvalData("exact-match", 1.0, 0.9, true, "Correct", Map.of())),
                 true)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(1);
@@ -414,7 +429,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         AddItemsRequest request = new AddItemsRequest(List.of(
                 new AddItemsRequest.ItemData(
@@ -432,7 +447,7 @@ class RunServiceTest {
                                 new AddItemsRequest.EvalData("relevance", 0.5, 0.9, false, "weak", Map.of())),
                         false)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved).hasSize(2);
@@ -450,12 +465,12 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "test"), Map.of("output", "expected"), Map.of("output", "actual"), null, false)));
 
-        runService.addItems(runId, request, null);
+        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         List<ItemResult> saved = captureSavedItems();
         assertThat(saved.get(0).getEvalResults()).isEmpty();
@@ -469,12 +484,13 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
         AddItemsRequest request = new AddItemsRequest(List.of(new AddItemsRequest.ItemData(
                 Map.of("input", "q"), Map.of("output", "a"), Map.of("output", "a"), null, true)));
 
-        assertThatThrownBy(() -> runService.addItems(runId, request, null))
+        assertThatThrownBy(() ->
+                        runService.addItems(runId, request, null, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Cannot add items to a run that is not RUNNING");
     }
@@ -487,7 +503,7 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         // First call sees no recorded key, second call sees the key recorded by the first.
         when(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(runId, "key-1"))
                 .thenReturn(false)
@@ -495,8 +511,8 @@ class RunServiceTest {
 
         AddItemsRequest request = singleItemRequest();
 
-        runService.addItems(runId, request, "key-1");
-        runService.addItems(runId, request, "key-1");
+        runService.addItems(runId, request, "key-1", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        runService.addItems(runId, request, "key-1", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         // Items are inserted only on the first call; the retry is a no-op.
         verify(itemResultRepository, times(1)).saveAll(any());
@@ -512,14 +528,14 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
         when(ingestedBatchRepository.existsByRunIdAndIdempotencyKey(eq(runId), any()))
                 .thenReturn(false);
 
         AddItemsRequest request = singleItemRequest();
 
-        runService.addItems(runId, request, "key-1");
-        runService.addItems(runId, request, "key-2");
+        runService.addItems(runId, request, "key-1", dev.dokimos.server.tenant.TenantScope.unrestricted());
+        runService.addItems(runId, request, "key-2", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         verify(itemResultRepository, times(2)).saveAll(any());
         verify(ingestedBatchRepository, times(2)).save(any(IngestedBatch.class));
@@ -533,9 +549,9 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
         setField(run, "id", runId);
 
-        when(runRepository.findByIdForUpdate(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findByIdForUpdate(eq(runId), any())).thenReturn(Optional.of(run));
 
-        runService.addItems(runId, singleItemRequest(), null);
+        runService.addItems(runId, singleItemRequest(), null, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         // Backward compatible path: items are inserted, no dedup lookup or record happens.
         verify(itemResultRepository, times(1)).saveAll(any());
@@ -561,9 +577,9 @@ class RunServiceTest {
         setMaterializedCounts(run1, 10, 8);
         setMaterializedCounts(run2, 5, 2);
 
-        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run1, run2));
+        when(runRepository.findByExperiment(eq(experiment), any())).thenReturn(List.of(run1, run2));
 
-        List<RunSummary> result = runService.listRuns(experiment);
+        List<RunSummary> result = runService.listRuns(experiment, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).status()).isEqualTo(RunStatus.SUCCESS);
@@ -579,9 +595,9 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setMaterializedCounts(run, 0, 0);
 
-        when(runRepository.findByExperimentOrderByStartedAtDesc(experiment)).thenReturn(List.of(run));
+        when(runRepository.findByExperiment(eq(experiment), any())).thenReturn(List.of(run));
 
-        List<RunSummary> result = runService.listRuns(experiment);
+        List<RunSummary> result = runService.listRuns(experiment, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.get(0).passRate()).isNull();
     }
@@ -598,10 +614,11 @@ class RunServiceTest {
         Pageable pageable = PageRequest.of(0, 50);
         Page<ItemResult> emptyPage = new PageImpl<>(List.of());
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
         when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(emptyPage);
 
-        RunDetails result = runService.getRunDetails(runId, pageable);
+        RunDetails result =
+                runService.getRunDetails(runId, pageable, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.id()).isEqualTo(runId);
         assertThat(result.experimentName()).isEqualTo("my-experiment");
@@ -620,7 +637,7 @@ class RunServiceTest {
         setField(run, "id", runId);
 
         Pageable pageable = PageRequest.of(0, 50);
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
         when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(new PageImpl<>(List.of()));
         when(itemResultRepository.countByRun(run)).thenReturn(3L);
         when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(2L);
@@ -629,7 +646,8 @@ class RunServiceTest {
         when(itemResultRepository.sumCostByRun(run)).thenReturn(0.006);
         when(itemResultRepository.avgLatencyByRun(run)).thenReturn(412.5);
 
-        RunDetails result = runService.getRunDetails(runId, pageable);
+        RunDetails result =
+                runService.getRunDetails(runId, pageable, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.totalItems()).isEqualTo(3);
         assertThat(result.passedItems()).isEqualTo(2);
@@ -642,9 +660,10 @@ class RunServiceTest {
     @Test
     void getRunDetails_shouldThrowWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
-        when(runRepository.findById(runId)).thenReturn(Optional.empty());
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> runService.getRunDetails(runId, PageRequest.of(0, 50)))
+        assertThatThrownBy(() -> runService.getRunDetails(
+                        runId, PageRequest.of(0, 50), dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run not found");
     }
@@ -657,9 +676,9 @@ class RunServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setField(run, "id", runId);
 
-        when(runRepository.findById(runId)).thenReturn(Optional.of(run));
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
 
-        runService.deleteRun(runId);
+        runService.deleteRun(runId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         verify(runRepository).delete(run);
     }
@@ -667,9 +686,9 @@ class RunServiceTest {
     @Test
     void deleteRun_shouldThrowWhenNotFound() {
         UUID runId = UUID.randomUUID();
-        when(runRepository.findById(runId)).thenReturn(Optional.empty());
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> runService.deleteRun(runId))
+        assertThatThrownBy(() -> runService.deleteRun(runId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run not found");
     }

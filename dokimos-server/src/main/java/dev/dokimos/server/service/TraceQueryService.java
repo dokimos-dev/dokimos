@@ -8,6 +8,7 @@ import dev.dokimos.server.entity.Trace;
 import dev.dokimos.server.repository.TraceEvalJobRepository;
 import dev.dokimos.server.repository.TraceRepository;
 import dev.dokimos.server.repository.TraceSpanRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -38,10 +39,10 @@ public class TraceQueryService {
      * @return a page of trace summaries
      */
     @Transactional(readOnly = true)
-    public Page<TraceSummary> listTraces(UUID projectId, Pageable pageable) {
+    public Page<TraceSummary> listTraces(UUID projectId, Pageable pageable, TenantScope scope) {
         Page<Trace> page = projectId == null
-                ? traceRepository.findAllByOrderByCreatedAtDesc(pageable)
-                : traceRepository.findByProjectIdOrderByCreatedAtDesc(projectId, pageable);
+                ? traceRepository.findAllOrdered(pageable, scope)
+                : traceRepository.findByProjectId(projectId, pageable, scope);
         return page.map(TraceSummary::from);
     }
 
@@ -54,9 +55,10 @@ public class TraceQueryService {
      * @throws IllegalArgumentException if no trace has the id (mapped to 404)
      */
     @Transactional(readOnly = true)
-    public TraceDetail getTrace(UUID id) {
-        Trace trace =
-                traceRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Trace not found: " + id));
+    public TraceDetail getTrace(UUID id, TenantScope scope) {
+        Trace trace = traceRepository
+                .findById(id, scope)
+                .orElseThrow(() -> new IllegalArgumentException("Trace not found: " + id));
 
         List<SpanView> spans = spanRepository.findByTrace_IdOrderByStartTimeUnixNanoAsc(id).stream()
                 .map(SpanView::from)

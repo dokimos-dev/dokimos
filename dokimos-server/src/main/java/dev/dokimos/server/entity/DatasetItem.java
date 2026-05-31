@@ -55,6 +55,9 @@ public class DatasetItem {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     protected DatasetItem() {}
 
     public DatasetItem(
@@ -76,6 +79,14 @@ public class DatasetItem {
 
     public DatasetVersion getDatasetVersion() {
         return datasetVersion;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public int getOrdinal() {

@@ -1,13 +1,12 @@
 package dev.dokimos.server.repository;
 
 import dev.dokimos.server.entity.LlmConnection;
-import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
-public interface LlmConnectionRepository extends JpaRepository<LlmConnection, UUID> {
-
-    Optional<LlmConnection> findByName(String name);
-
-    boolean existsByName(String name);
-}
+/**
+ * Tenant-scoped repository for {@link LlmConnection}. Extends only the empty {@link Repository} plus the
+ * scoped fragments, so every read takes a {@code TenantScope}. Connection names are unique per tenant, so
+ * the uniqueness guard uses {@code existsByName} scoped to the caller.
+ */
+public interface LlmConnectionRepository extends Repository<LlmConnection, UUID>, LlmConnectionRepositoryFragment {}

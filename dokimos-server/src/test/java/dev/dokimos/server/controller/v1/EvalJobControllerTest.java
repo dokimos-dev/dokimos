@@ -14,6 +14,7 @@ import dev.dokimos.server.dto.v1.EnqueueJudgeRequest;
 import dev.dokimos.server.dto.v1.EvalJobView;
 import dev.dokimos.server.entity.EvalJobStatus;
 import dev.dokimos.server.service.EvalJobService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -57,7 +58,7 @@ class EvalJobControllerTest extends AbstractControllerTest {
     @Test
     void enqueue_shouldReturn201() throws Exception {
         UUID jobId = UUID.randomUUID();
-        when(jobService.enqueue(eq(runId), any())).thenReturn(view(jobId));
+        when(jobService.enqueue(eq(runId), any(), any(TenantScope.class))).thenReturn(view(jobId));
 
         mockMvc.perform(post("/api/v1/runs/" + runId + "/judge-jobs")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -71,7 +72,7 @@ class EvalJobControllerTest extends AbstractControllerTest {
     void enqueue_shouldReturn409OnDuplicateJob() throws Exception {
         doThrow(new IllegalStateException("A judge job already exists"))
                 .when(jobService)
-                .enqueue(eq(runId), any());
+                .enqueue(eq(runId), any(), any(TenantScope.class));
 
         mockMvc.perform(post("/api/v1/runs/" + runId + "/judge-jobs")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -92,7 +93,7 @@ class EvalJobControllerTest extends AbstractControllerTest {
 
     @Test
     void list_shouldReturnEmptyList() throws Exception {
-        when(jobService.getJobsForRun(runId)).thenReturn(List.of());
+        when(jobService.getJobsForRun(eq(runId), any(TenantScope.class))).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/runs/" + runId + "/judge-jobs"))
                 .andExpect(status().isOk())

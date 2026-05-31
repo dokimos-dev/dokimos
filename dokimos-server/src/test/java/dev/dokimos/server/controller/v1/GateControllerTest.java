@@ -11,6 +11,7 @@ import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.GateRequest;
 import dev.dokimos.server.dto.v1.GateResult;
 import dev.dokimos.server.service.GateService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,8 @@ class GateControllerTest extends AbstractControllerTest {
                 List.of(),
                 List.of(),
                 false);
-        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class))).thenReturn(verdict);
+        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class), any(TenantScope.class)))
+                .thenReturn(verdict);
 
         GateRequest request = new GateRequest(candidateId, null, null);
         mockMvc.perform(post("/api/v1/experiments/{experimentId}/gate", experimentId)
@@ -78,7 +80,7 @@ class GateControllerTest extends AbstractControllerTest {
     void evaluateGate_returns404WhenExperimentOrRunMissing() throws Exception {
         UUID experimentId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
-        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class)))
+        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Candidate run not found: " + candidateId));
 
         GateRequest request = new GateRequest(candidateId, null, null);
@@ -93,7 +95,7 @@ class GateControllerTest extends AbstractControllerTest {
     void evaluateGate_returns409WhenCandidateNotTerminal() throws Exception {
         UUID experimentId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
-        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class)))
+        when(gateService.evaluateGate(eq(experimentId), any(GateRequest.class), any(TenantScope.class)))
                 .thenThrow(new IllegalStateException("Candidate run is still RUNNING: " + candidateId));
 
         GateRequest request = new GateRequest(candidateId, null, null);

@@ -16,7 +16,6 @@ import dev.dokimos.server.entity.Project;
 import dev.dokimos.server.entity.RunStatus;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
-import dev.dokimos.server.repository.ItemResultRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -39,24 +38,22 @@ class ExperimentServiceTest {
     @Mock
     private ExperimentRunRepository runRepository;
 
-    @Mock
-    private ItemResultRepository itemResultRepository;
-
     private ExperimentService experimentService;
 
     @BeforeEach
     void setUp() {
-        experimentService = new ExperimentService(experimentRepository, runRepository, itemResultRepository);
+        experimentService = new ExperimentService(experimentRepository, runRepository);
     }
 
     @Test
     void getOrCreateExperiment_shouldReturnExisting() {
         Project project = createProject("my-project");
         Experiment existing = createExperiment(project, "my-experiment");
-        when(experimentRepository.findByProjectAndName(project, "my-experiment"))
+        when(experimentRepository.findByProjectAndName(eq(project), eq("my-experiment"), any()))
                 .thenReturn(Optional.of(existing));
 
-        Experiment result = experimentService.getOrCreateExperiment(project, "my-experiment");
+        Experiment result = experimentService.getOrCreateExperiment(
+                project, "my-experiment", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).isEqualTo(existing);
         verify(experimentRepository, never()).save(any());
@@ -65,11 +62,12 @@ class ExperimentServiceTest {
     @Test
     void getOrCreateExperiment_shouldCreateNew() {
         Project project = createProject("my-project");
-        when(experimentRepository.findByProjectAndName(project, "new-experiment"))
+        when(experimentRepository.findByProjectAndName(eq(project), eq("new-experiment"), any()))
                 .thenReturn(Optional.empty());
         when(experimentRepository.save(any(Experiment.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Experiment result = experimentService.getOrCreateExperiment(project, "new-experiment");
+        Experiment result = experimentService.getOrCreateExperiment(
+                project, "new-experiment", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.getName()).isEqualTo("new-experiment");
         verify(experimentRepository).save(any(Experiment.class));
@@ -81,9 +79,10 @@ class ExperimentServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
         setField(experiment, "id", experimentId);
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.of(experiment));
 
-        Experiment result = experimentService.getExperiment(experimentId);
+        Experiment result =
+                experimentService.getExperiment(experimentId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).isEqualTo(experiment);
     }
@@ -91,16 +90,18 @@ class ExperimentServiceTest {
     @Test
     void getExperiment_shouldThrowWhenNotFound() {
         UUID experimentId = UUID.randomUUID();
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.empty());
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> experimentService.getExperiment(experimentId))
+        assertThatThrownBy(() -> experimentService.getExperiment(
+                        experimentId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Experiment not found");
     }
 
     @Test
     void getExperiment_shouldThrowWhenIdIsNull() {
-        assertThatThrownBy(() -> experimentService.getExperiment(null))
+        assertThatThrownBy(() ->
+                        experimentService.getExperiment(null, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Experiment ID cannot be null");
     }
@@ -111,9 +112,9 @@ class ExperimentServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
         setField(experiment, "id", experimentId);
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.of(experiment));
 
-        experimentService.deleteExperiment(experimentId);
+        experimentService.deleteExperiment(experimentId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         verify(experimentRepository).delete(experiment);
     }
@@ -121,9 +122,10 @@ class ExperimentServiceTest {
     @Test
     void deleteExperiment_shouldThrowWhenNotFound() {
         UUID experimentId = UUID.randomUUID();
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.empty());
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> experimentService.deleteExperiment(experimentId))
+        assertThatThrownBy(() -> experimentService.deleteExperiment(
+                        experimentId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Experiment not found");
     }
@@ -135,11 +137,11 @@ class ExperimentServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setMaterializedCounts(run, 10, 8);
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
-        when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
-                .thenReturn(Optional.of(run));
+        when(experimentRepository.findByProject(eq(project), any())).thenReturn(List.of(experiment));
+        when(runRepository.findFirstByExperiment(eq(experiment), any())).thenReturn(Optional.of(run));
 
-        List<ExperimentSummary> result = experimentService.listExperiments(project);
+        List<ExperimentSummary> result =
+                experimentService.listExperiments(project, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).name()).isEqualTo("my-experiment");
@@ -153,11 +155,11 @@ class ExperimentServiceTest {
         Project project = createProject("my-project");
         Experiment experiment = createExperiment(project, "my-experiment");
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
-        when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
-                .thenReturn(Optional.empty());
+        when(experimentRepository.findByProject(eq(project), any())).thenReturn(List.of(experiment));
+        when(runRepository.findFirstByExperiment(eq(experiment), any())).thenReturn(Optional.empty());
 
-        List<ExperimentSummary> result = experimentService.listExperiments(project);
+        List<ExperimentSummary> result =
+                experimentService.listExperiments(project, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).latestRun()).isNull();
@@ -169,11 +171,11 @@ class ExperimentServiceTest {
         Experiment experiment = createExperiment(project, "my-experiment");
         ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
 
-        when(experimentRepository.findByProjectOrderByCreatedAtDesc(project)).thenReturn(List.of(experiment));
-        when(runRepository.findFirstByExperimentOrderByStartedAtDesc(experiment))
-                .thenReturn(Optional.of(run));
+        when(experimentRepository.findByProject(eq(project), any())).thenReturn(List.of(experiment));
+        when(runRepository.findFirstByExperiment(eq(experiment), any())).thenReturn(Optional.of(run));
 
-        List<ExperimentSummary> result = experimentService.listExperiments(project);
+        List<ExperimentSummary> result =
+                experimentService.listExperiments(project, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.get(0).latestRun().passRate()).isNull();
     }
@@ -189,11 +191,12 @@ class ExperimentServiceTest {
         setMaterializedCounts(run1, 10, 8);
         setMaterializedCounts(run2, 5, 5);
 
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
-        when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class)))
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.of(experiment));
+        when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class), any()))
                 .thenReturn(List.of(run1, run2));
 
-        TrendData result = experimentService.getTrends(experimentId, 20);
+        TrendData result =
+                experimentService.getTrends(experimentId, 20, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.experimentName()).isEqualTo("my-experiment");
         assertThat(result.runs()).hasSize(2);
@@ -208,11 +211,12 @@ class ExperimentServiceTest {
         ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
         setMaterializedCounts(run, 0, 0);
 
-        when(experimentRepository.findById(experimentId)).thenReturn(Optional.of(experiment));
-        when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class)))
+        when(experimentRepository.findById(eq(experimentId), any())).thenReturn(Optional.of(experiment));
+        when(runRepository.findCompletedRunsByExperiment(eq(experiment), any(PageRequest.class), any()))
                 .thenReturn(List.of(run));
 
-        TrendData result = experimentService.getTrends(experimentId, 20);
+        TrendData result =
+                experimentService.getTrends(experimentId, 20, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.runs().get(0).passRate()).isEqualTo(0.0);
     }

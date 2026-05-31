@@ -3,6 +3,7 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,9 +38,10 @@ class ProjectServiceTest {
     @Test
     void getOrCreateProject_shouldReturnExistingProject() {
         Project existing = createProject("my-project");
-        when(projectRepository.findByName("my-project")).thenReturn(Optional.of(existing));
+        when(projectRepository.findByName(eq("my-project"), any())).thenReturn(Optional.of(existing));
 
-        Project result = projectService.getOrCreateProject("my-project");
+        Project result =
+                projectService.getOrCreateProject("my-project", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).isEqualTo(existing);
         verify(projectRepository, never()).save(any());
@@ -47,10 +49,11 @@ class ProjectServiceTest {
 
     @Test
     void getOrCreateProject_shouldCreateNewProject() {
-        when(projectRepository.findByName("new-project")).thenReturn(Optional.empty());
+        when(projectRepository.findByName(eq("new-project"), any())).thenReturn(Optional.empty());
         when(projectRepository.save(any(Project.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Project result = projectService.getOrCreateProject("new-project");
+        Project result =
+                projectService.getOrCreateProject("new-project", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result.getName()).isEqualTo("new-project");
         verify(projectRepository).save(any(Project.class));
@@ -59,18 +62,19 @@ class ProjectServiceTest {
     @Test
     void getProject_shouldReturnProject() {
         Project project = createProject("my-project");
-        when(projectRepository.findByName("my-project")).thenReturn(Optional.of(project));
+        when(projectRepository.findByName(eq("my-project"), any())).thenReturn(Optional.of(project));
 
-        Project result = projectService.getProject("my-project");
+        Project result = projectService.getProject("my-project", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).isEqualTo(project);
     }
 
     @Test
     void getProject_shouldThrowWhenNotFound() {
-        when(projectRepository.findByName("unknown")).thenReturn(Optional.empty());
+        when(projectRepository.findByName(eq("unknown"), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> projectService.getProject("unknown"))
+        assertThatThrownBy(() ->
+                        projectService.getProject("unknown", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Project not found: unknown");
     }
@@ -81,9 +85,9 @@ class ProjectServiceTest {
         Project project2 = createProject("project-2");
 
         List<Object[]> rows = List.of(new Object[] {project1, 5L}, new Object[] {project2, 3L});
-        when(projectRepository.findAllWithExperimentCount()).thenReturn(rows);
+        when(projectRepository.findAllWithExperimentCount(any())).thenReturn(rows);
 
-        List<ProjectSummary> result = projectService.listProjects();
+        List<ProjectSummary> result = projectService.listProjects(dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).name()).isEqualTo("project-1");
@@ -94,9 +98,9 @@ class ProjectServiceTest {
 
     @Test
     void listProjects_shouldReturnEmptyList() {
-        when(projectRepository.findAllWithExperimentCount()).thenReturn(List.of());
+        when(projectRepository.findAllWithExperimentCount(any())).thenReturn(List.of());
 
-        List<ProjectSummary> result = projectService.listProjects();
+        List<ProjectSummary> result = projectService.listProjects(dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(result).isEmpty();
     }
@@ -104,18 +108,19 @@ class ProjectServiceTest {
     @Test
     void deleteProject_shouldDeleteWhenFound() {
         Project project = createProject("my-project");
-        when(projectRepository.findByName("my-project")).thenReturn(Optional.of(project));
+        when(projectRepository.findByName(eq("my-project"), any())).thenReturn(Optional.of(project));
 
-        projectService.deleteProject("my-project");
+        projectService.deleteProject("my-project", dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         verify(projectRepository).delete(project);
     }
 
     @Test
     void deleteProject_shouldThrowWhenNotFound() {
-        when(projectRepository.findByName("unknown")).thenReturn(Optional.empty());
+        when(projectRepository.findByName(eq("unknown"), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> projectService.deleteProject("unknown"))
+        assertThatThrownBy(() ->
+                        projectService.deleteProject("unknown", dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Project not found: unknown");
     }

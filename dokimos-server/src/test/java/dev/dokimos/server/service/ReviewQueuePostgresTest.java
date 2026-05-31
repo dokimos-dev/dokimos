@@ -15,6 +15,7 @@ import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
 import dev.dokimos.server.repository.ItemResultRepository;
 import dev.dokimos.server.repository.ProjectRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -131,7 +132,8 @@ class ReviewQueuePostgresTest {
         annotate(correct, AnnotationVerdict.CORRECT);
         annotate(incorrect, AnnotationVerdict.INCORRECT);
 
-        Page<ReviewQueueItem> page = reviewQueueService.list(null, null, null, PageRequest.of(0, 50));
+        Page<ReviewQueueItem> page =
+                reviewQueueService.list(null, null, null, PageRequest.of(0, 50), TenantScope.unrestricted());
 
         assertThat(page.getContent())
                 .extracting(ReviewQueueItem::itemId)
@@ -146,7 +148,8 @@ class ReviewQueuePostgresTest {
         ItemResult unsure = persistItem(run);
         annotate(unsure, AnnotationVerdict.UNSURE);
 
-        Page<ReviewQueueItem> page = reviewQueueService.list(null, null, null, PageRequest.of(0, 50));
+        Page<ReviewQueueItem> page =
+                reviewQueueService.list(null, null, null, PageRequest.of(0, 50), TenantScope.unrestricted());
 
         assertThat(itemFor(page.getContent(), unsure).currentVerdict()).isEqualTo(AnnotationVerdict.UNSURE);
         assertThat(itemFor(page.getContent(), unannotated).currentVerdict()).isNull();
@@ -161,21 +164,43 @@ class ReviewQueuePostgresTest {
         ItemResult itemTwo = persistItem(runTwo);
 
         assertThat(reviewQueueService
-                        .list(null, null, runOne.getId(), PageRequest.of(0, 50))
+                        .list(null, null, runOne.getId(), PageRequest.of(0, 50), TenantScope.unrestricted())
                         .getContent())
                 .extracting(ReviewQueueItem::itemId)
                 .containsExactly(itemOne.getId());
 
         assertThat(reviewQueueService
-                        .list("delta", null, null, PageRequest.of(0, 50))
+                        .list("delta", null, null, PageRequest.of(0, 50), TenantScope.unrestricted())
                         .getContent())
                 .extracting(ReviewQueueItem::itemId)
                 .containsExactly(itemTwo.getId());
 
         assertThat(reviewQueueService
-                        .list("no-such-project", null, null, PageRequest.of(0, 50))
+                        .list("no-such-project", null, null, PageRequest.of(0, 50), TenantScope.unrestricted())
                         .getContent())
                 .isEmpty();
+    }
+
+    @Test
+    void list_shouldScopeByTenant() {
+        assumeTrue(DOCKER_AVAILABLE, "Docker not available");
+        ExperimentRun run = persistRun("epsilon", "exp-e");
+        ItemResult tenantA = persistItem(run, "tenant-a");
+        ItemResult tenantB = persistItem(run, "tenant-b");
+        ItemResult shared = persistItem(run, null);
+
+        assertThat(reviewQueueService
+                        .list(null, null, null, PageRequest.of(0, 50), TenantScope.scoped("tenant-a"))
+                        .getContent())
+                .extracting(ReviewQueueItem::itemId)
+                .containsExactlyInAnyOrder(tenantA.getId(), shared.getId())
+                .doesNotContain(tenantB.getId());
+
+        assertThat(reviewQueueService
+                        .list(null, null, null, PageRequest.of(0, 50), TenantScope.scoped(null))
+                        .getContent())
+                .extracting(ReviewQueueItem::itemId)
+                .containsExactly(shared.getId());
     }
 
     private static ReviewQueueItem itemFor(List<ReviewQueueItem> items, ItemResult target) {
@@ -194,6 +219,12 @@ class ReviewQueuePostgresTest {
     private ItemResult persistItem(ExperimentRun run) {
         return itemResultRepository.save(
                 new ItemResult(run, Map.of("q", "x"), Map.of("a", "y"), Map.of("a", "y"), Map.of()));
+    }
+
+    private ItemResult persistItem(ExperimentRun run, String tenantId) {
+        ItemResult item = new ItemResult(run, Map.of("q", "x"), Map.of("a", "y"), Map.of("a", "y"), Map.of());
+        item.setTenantId(tenantId);
+        return itemResultRepository.save(item);
     }
 
     private void annotate(ItemResult item, AnnotationVerdict verdict) {

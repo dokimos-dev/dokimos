@@ -13,6 +13,7 @@ import dev.dokimos.server.entity.ExperimentRun;
 import dev.dokimos.server.entity.ItemResult;
 import dev.dokimos.server.repository.ExperimentRepository;
 import dev.dokimos.server.repository.ExperimentRunRepository;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -80,15 +81,20 @@ public class DiffService {
      */
     @Transactional(readOnly = true)
     public DiffView listDiff(
-            UUID experimentId, UUID candidateRunId, UUID baselineRunId, String statusFilter, Pageable pageable) {
+            UUID experimentId,
+            UUID candidateRunId,
+            UUID baselineRunId,
+            String statusFilter,
+            Pageable pageable,
+            TenantScope scope) {
         StatusFilter filter = StatusFilter.parse(statusFilter);
 
-        Experiment experiment = getExperiment(experimentId);
+        Experiment experiment = getExperiment(experimentId, scope);
         ExperimentRun candidate =
-                comparisonSupport.getRunInExperiment(candidateRunId, experiment, "Candidate run", runRepository);
+                comparisonSupport.getRunInExperiment(candidateRunId, experiment, "Candidate run", runRepository, scope);
         comparisonSupport.requireTerminal(candidate, "Candidate run");
         ExperimentRun baseline =
-                comparisonSupport.getRunInExperiment(baselineRunId, experiment, "Baseline run", runRepository);
+                comparisonSupport.getRunInExperiment(baselineRunId, experiment, "Baseline run", runRepository, scope);
         comparisonSupport.requireTerminal(baseline, "Baseline run");
 
         ComparisonSupport.ComparisonOutcome outcome = comparisonSupport.compare(baseline, candidate);
@@ -202,12 +208,12 @@ public class DiffService {
         return new org.springframework.data.domain.PageImpl<>(content, pageable, cases.size());
     }
 
-    private Experiment getExperiment(UUID experimentId) {
+    private Experiment getExperiment(UUID experimentId, TenantScope scope) {
         if (experimentId == null) {
             throw new IllegalArgumentException("Experiment ID cannot be null");
         }
         return experimentRepository
-                .findById(experimentId)
+                .findById(experimentId, scope)
                 .orElseThrow(() -> new IllegalArgumentException("Experiment not found: " + experimentId));
     }
 

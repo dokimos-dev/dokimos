@@ -1,15 +1,12 @@
 package dev.dokimos.server.repository;
 
 import dev.dokimos.server.entity.AlertWebhook;
-import dev.dokimos.server.entity.Project;
-import java.util.List;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
-public interface AlertWebhookRepository extends JpaRepository<AlertWebhook, UUID> {
-
-    List<AlertWebhook> findByProjectOrderByCreatedAtAsc(Project project);
-
-    /** Resolves the enabled webhooks of a project, the set dispatched to on a regressing run. */
-    List<AlertWebhook> findByProjectIdAndEnabledTrue(UUID projectId);
-}
+/**
+ * Tenant-scoped repository for {@link AlertWebhook}. Extends only the empty {@link Repository} plus the
+ * scoped fragments, so every read takes a {@code TenantScope}. The dispatcher path lists a project's
+ * enabled webhooks unrestricted (a regression alert fires regardless of the caller's tenant).
+ */
+public interface AlertWebhookRepository extends Repository<AlertWebhook, UUID>, AlertWebhookRepositoryFragment {}

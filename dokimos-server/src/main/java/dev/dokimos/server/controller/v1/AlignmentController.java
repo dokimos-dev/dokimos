@@ -2,6 +2,8 @@ package dev.dokimos.server.controller.v1;
 
 import dev.dokimos.server.dto.v1.AlignmentView;
 import dev.dokimos.server.service.AlignmentService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,7 +32,7 @@ public class AlignmentController {
      * @return HTTP 200 with the per-evaluator agreement breakdown; 404 when the run does not exist
      */
     @GetMapping("/{runId}/alignment")
-    public AlignmentView alignment(@PathVariable UUID runId) {
-        return alignmentService.getAlignment(runId);
+    public AlignmentView alignment(@PathVariable UUID runId, HttpServletRequest http) {
+        return alignmentService.getAlignment(runId, TenantScopeResolver.scope(http));
     }
 }

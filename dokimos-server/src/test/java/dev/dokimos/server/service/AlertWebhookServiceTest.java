@@ -3,6 +3,7 @@ package dev.dokimos.server.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -44,15 +45,17 @@ class AlertWebhookServiceTest {
     void create_shouldSaveEnabledWebhookAndNeverExposeSecret() {
         UUID projectId = UUID.randomUUID();
         Project project = project(projectId);
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project));
         when(webhookRepository.save(any(AlertWebhook.class))).thenAnswer(inv -> {
             AlertWebhook w = inv.getArgument(0);
             setField(w, "id", UUID.randomUUID());
             return w;
         });
 
-        AlertWebhookView view =
-                service.create(projectId, new CreateAlertWebhookRequest("https://hooks.test/x", "shh", null));
+        AlertWebhookView view = service.create(
+                projectId,
+                new CreateAlertWebhookRequest("https://hooks.test/x", "shh", null),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.enabled()).isTrue();
         assertThat(view.hasSecret()).isTrue();
@@ -66,11 +69,13 @@ class AlertWebhookServiceTest {
     @Test
     void create_shouldTreatBlankSecretAsNoSecret() {
         UUID projectId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project(projectId)));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project(projectId)));
         when(webhookRepository.save(any(AlertWebhook.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        AlertWebhookView view =
-                service.create(projectId, new CreateAlertWebhookRequest("https://hooks.test/x", "  ", false));
+        AlertWebhookView view = service.create(
+                projectId,
+                new CreateAlertWebhookRequest("https://hooks.test/x", "  ", false),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.hasSecret()).isFalse();
         assertThat(view.enabled()).isFalse();
@@ -79,10 +84,12 @@ class AlertWebhookServiceTest {
     @Test
     void create_shouldThrowWhenProjectMissing() {
         UUID projectId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() ->
-                        service.create(projectId, new CreateAlertWebhookRequest("https://hooks.test/x", null, null)))
+        assertThatThrownBy(() -> service.create(
+                        projectId,
+                        new CreateAlertWebhookRequest("https://hooks.test/x", null, null),
+                        dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Project not found");
     }
@@ -95,11 +102,15 @@ class AlertWebhookServiceTest {
         AlertWebhook webhook = new AlertWebhook(project, "https://old.test", "original", true);
         setField(webhook, "id", webhookId);
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(webhookRepository.findById(webhookId)).thenReturn(Optional.of(webhook));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project));
+        when(webhookRepository.findById(eq(webhookId), any())).thenReturn(Optional.of(webhook));
         when(webhookRepository.save(any(AlertWebhook.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.update(projectId, webhookId, new UpdateAlertWebhookRequest("https://new.test", " ", false));
+        service.update(
+                projectId,
+                webhookId,
+                new UpdateAlertWebhookRequest("https://new.test", " ", false),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(webhook.getUrl()).isEqualTo("https://new.test");
         assertThat(webhook.isEnabled()).isFalse();
@@ -114,11 +125,15 @@ class AlertWebhookServiceTest {
         AlertWebhook webhook = new AlertWebhook(project, "https://old.test", "original", true);
         setField(webhook, "id", webhookId);
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(webhookRepository.findById(webhookId)).thenReturn(Optional.of(webhook));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project));
+        when(webhookRepository.findById(eq(webhookId), any())).thenReturn(Optional.of(webhook));
         when(webhookRepository.save(any(AlertWebhook.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.update(projectId, webhookId, new UpdateAlertWebhookRequest("https://new.test", "rotated", true));
+        service.update(
+                projectId,
+                webhookId,
+                new UpdateAlertWebhookRequest("https://new.test", "rotated", true),
+                dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(webhook.getSecret()).isEqualTo("rotated");
     }
@@ -131,10 +146,11 @@ class AlertWebhookServiceTest {
         AlertWebhook webhook = new AlertWebhook(project(otherProjectId), "https://x.test", null, true);
         setField(webhook, "id", webhookId);
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project(projectId)));
-        when(webhookRepository.findById(webhookId)).thenReturn(Optional.of(webhook));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project(projectId)));
+        when(webhookRepository.findById(eq(webhookId), any())).thenReturn(Optional.of(webhook));
 
-        assertThatThrownBy(() -> service.get(projectId, webhookId))
+        assertThatThrownBy(
+                        () -> service.get(projectId, webhookId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not belong to project");
     }
@@ -146,10 +162,10 @@ class AlertWebhookServiceTest {
         AlertWebhook webhook = new AlertWebhook(project(projectId), "https://x.test", null, true);
         setField(webhook, "id", webhookId);
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project(projectId)));
-        when(webhookRepository.findById(webhookId)).thenReturn(Optional.of(webhook));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project(projectId)));
+        when(webhookRepository.findById(eq(webhookId), any())).thenReturn(Optional.of(webhook));
 
-        service.delete(projectId, webhookId);
+        service.delete(projectId, webhookId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         verify(webhookRepository).delete(webhook);
     }
@@ -158,10 +174,11 @@ class AlertWebhookServiceTest {
     void delete_shouldNotDeleteWhenWebhookMissing() {
         UUID projectId = UUID.randomUUID();
         UUID webhookId = UUID.randomUUID();
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project(projectId)));
-        when(webhookRepository.findById(webhookId)).thenReturn(Optional.empty());
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project(projectId)));
+        when(webhookRepository.findById(eq(webhookId), any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.delete(projectId, webhookId))
+        assertThatThrownBy(() ->
+                        service.delete(projectId, webhookId, dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Webhook not found");
         verify(webhookRepository, never()).delete(any());
@@ -174,10 +191,10 @@ class AlertWebhookServiceTest {
         AlertWebhook w = new AlertWebhook(project, "https://x.test", "sec", true);
         setField(w, "id", UUID.randomUUID());
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(webhookRepository.findByProjectOrderByCreatedAtAsc(project)).thenReturn(List.of(w));
+        when(projectRepository.findById(eq(projectId), any())).thenReturn(Optional.of(project));
+        when(webhookRepository.findByProject(eq(project), any())).thenReturn(List.of(w));
 
-        List<AlertWebhookView> views = service.list(projectId);
+        List<AlertWebhookView> views = service.list(projectId, dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(views).hasSize(1);
         assertThat(views.get(0).hasSecret()).isTrue();

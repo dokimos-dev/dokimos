@@ -13,6 +13,7 @@ import dev.dokimos.server.dto.v1.DiffSummary;
 import dev.dokimos.server.dto.v1.DiffView;
 import dev.dokimos.server.dto.v1.PageResponse;
 import dev.dokimos.server.service.DiffService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +62,13 @@ class DiffControllerTest extends AbstractControllerTest {
         UUID experimentId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
         UUID baselineId = UUID.randomUUID();
-        when(diffService.listDiff(eq(experimentId), eq(candidateId), eq(baselineId), any(), any(Pageable.class)))
+        when(diffService.listDiff(
+                        eq(experimentId),
+                        eq(candidateId),
+                        eq(baselineId),
+                        any(),
+                        any(Pageable.class),
+                        any(TenantScope.class)))
                 .thenReturn(sampleView(baselineId, candidateId));
 
         mockMvc.perform(get("/api/v1/experiments/{e}/runs/{c}/diff", experimentId, candidateId)
@@ -99,7 +106,13 @@ class DiffControllerTest extends AbstractControllerTest {
         UUID experimentId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
         UUID baselineId = UUID.randomUUID();
-        when(diffService.listDiff(eq(experimentId), eq(candidateId), eq(baselineId), any(), any(Pageable.class)))
+        when(diffService.listDiff(
+                        eq(experimentId),
+                        eq(candidateId),
+                        eq(baselineId),
+                        any(),
+                        any(Pageable.class),
+                        any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Candidate run not found: " + candidateId));
 
         mockMvc.perform(get("/api/v1/experiments/{e}/runs/{c}/diff", experimentId, candidateId)
@@ -113,7 +126,13 @@ class DiffControllerTest extends AbstractControllerTest {
         UUID experimentId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
         UUID baselineId = UUID.randomUUID();
-        when(diffService.listDiff(eq(experimentId), eq(candidateId), eq(baselineId), any(), any(Pageable.class)))
+        when(diffService.listDiff(
+                        eq(experimentId),
+                        eq(candidateId),
+                        eq(baselineId),
+                        any(),
+                        any(Pageable.class),
+                        any(TenantScope.class)))
                 .thenThrow(new IllegalStateException("Candidate run is not in a terminal SUCCESS/FAILED status"));
 
         mockMvc.perform(get("/api/v1/experiments/{e}/runs/{c}/diff", experimentId, candidateId)

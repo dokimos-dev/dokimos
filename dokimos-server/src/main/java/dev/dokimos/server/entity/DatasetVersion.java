@@ -52,6 +52,9 @@ public class DatasetVersion {
     @Column(name = "item_count", nullable = false)
     private int itemCount;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     protected DatasetVersion() {}
 
     public DatasetVersion(Dataset dataset, int version, String description, String createdBy, int itemCount) {
@@ -69,6 +72,14 @@ public class DatasetVersion {
 
     public Dataset getDataset() {
         return dataset;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public int getVersion() {

@@ -1,5 +1,6 @@
 package dev.dokimos.server.controller.v1;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.dokimos.server.controller.GlobalExceptionHandler;
 import dev.dokimos.server.dto.v1.AlignmentView;
 import dev.dokimos.server.service.AlignmentService;
+import dev.dokimos.server.tenant.TenantScope;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,7 +43,7 @@ class AlignmentControllerTest extends AbstractControllerTest {
                 List.of(
                         new AlignmentView.EvaluatorAlignment("accuracy", 2, 2, 1, 1.0),
                         new AlignmentView.EvaluatorAlignment("relevance", 0, 0, 1, null)));
-        when(alignmentService.getAlignment(eq(runId))).thenReturn(view);
+        when(alignmentService.getAlignment(eq(runId), any(TenantScope.class))).thenReturn(view);
 
         mockMvc.perform(get("/api/v1/runs/{runId}/alignment", runId))
                 .andExpect(status().isOk())
@@ -57,7 +59,7 @@ class AlignmentControllerTest extends AbstractControllerTest {
     @Test
     void alignment_returns404WhenRunMissing() throws Exception {
         UUID runId = UUID.randomUUID();
-        when(alignmentService.getAlignment(eq(runId)))
+        when(alignmentService.getAlignment(eq(runId), any(TenantScope.class)))
                 .thenThrow(new IllegalArgumentException("Run not found: " + runId));
 
         mockMvc.perform(get("/api/v1/runs/{runId}/alignment", runId))

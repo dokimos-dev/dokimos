@@ -98,6 +98,18 @@ Backward compatibility is preserved. When no key is configured at all, the serve
 Because key management requires `ADMIN`, keep at least one admin credential available (the legacy `DOKIMOS_API_KEY`, or an admin scoped key). Otherwise, after you create only non admin scoped keys, no one can manage keys through the API.
 :::
 
+## Tenant isolation
+
+A scoped key can carry a `tenantId`. When it does, that key reads and writes only its own tenant's data plus shared (untenanted) rows, and new rows it creates are stamped with its tenant. Keys without a tenant, the legacy `DOKIMOS_API_KEY`, and no-key mode are unscoped and see everything, so single-tenant and existing deployments are unaffected.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/api-keys \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -d '{ "name": "team-acme", "role": "EDITOR", "tenantId": "acme" }'
+```
+
+Tenant management (creating or administering tenants) is not a separate feature yet. A tenant exists implicitly as soon as a key is scoped to it, and shared rows (those written by an unscoped key) stay visible to every tenant.
+
 ## UI Authentication with Reverse Proxy
 
 For restricting access to the web UI, the server can be placed behind a reverse proxy that handles authentication.

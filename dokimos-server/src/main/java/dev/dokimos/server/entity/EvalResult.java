@@ -44,6 +44,9 @@ public class EvalResult {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     protected EvalResult() {}
 
     public EvalResult(String evaluatorName, double score, Double threshold, boolean success, String reason) {
@@ -64,6 +67,14 @@ public class EvalResult {
 
     void setItemResult(ItemResult itemResult) {
         this.itemResult = itemResult;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+        this.tenantId = tenantId;
     }
 
     public String getEvaluatorName() {

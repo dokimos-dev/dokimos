@@ -7,20 +7,33 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * A project groups experiments. The name is unique per tenant rather than globally, so two tenants can
+ * each own a project of the same name (for example "default"). The matching DB constraint plus a partial
+ * unique on the shared (null-tenant) rows lives in migration V14; the {@code (name, tenant_id)} unique
+ * here keeps the Hibernate-generated test schema consistent with it.
+ */
 @Entity
-@Table(name = "projects")
+@Table(
+        name = "projects",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uq_project_name_tenant",
+                    columnNames = {"name", "tenant_id"})
+        })
 public class Project {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)

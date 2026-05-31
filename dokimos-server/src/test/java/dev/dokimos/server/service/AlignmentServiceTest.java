@@ -71,7 +71,8 @@ class AlignmentServiceTest {
         annotate(itemWithEval(run, "accuracy", true), AnnotationVerdict.CORRECT);
         annotate(itemWithEval(run, "accuracy", false), AnnotationVerdict.INCORRECT);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.annotatedItems()).isEqualTo(2);
         AlignmentView.EvaluatorAlignment accuracy = only(view);
@@ -88,7 +89,8 @@ class AlignmentServiceTest {
         annotate(itemWithEval(run, "accuracy", true), AnnotationVerdict.INCORRECT);
         annotate(itemWithEval(run, "accuracy", false), AnnotationVerdict.CORRECT);
 
-        AlignmentView.EvaluatorAlignment accuracy = only(alignmentService.getAlignment(run.getId()));
+        AlignmentView.EvaluatorAlignment accuracy =
+                only(alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted()));
 
         assertThat(accuracy.comparableCount()).isEqualTo(2);
         assertThat(accuracy.agreedCount()).isZero();
@@ -101,7 +103,8 @@ class AlignmentServiceTest {
         annotate(itemWithEval(run, "accuracy", true), AnnotationVerdict.CORRECT);
         annotate(itemWithEval(run, "accuracy", false), AnnotationVerdict.UNSURE);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
         AlignmentView.EvaluatorAlignment accuracy = only(view);
 
         assertThat(view.annotatedItems()).isEqualTo(2);
@@ -117,7 +120,8 @@ class AlignmentServiceTest {
         annotate(itemWithEval(run, "accuracy", true), AnnotationVerdict.CORRECT);
         itemWithEval(run, "accuracy", false);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
         AlignmentView.EvaluatorAlignment accuracy = only(view);
 
         assertThat(view.annotatedItems()).isEqualTo(1);
@@ -141,7 +145,8 @@ class AlignmentServiceTest {
         itemResultRepository.save(second);
         annotate(second, AnnotationVerdict.CORRECT);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         AlignmentView.EvaluatorAlignment accuracy = byName(view, "accuracy");
         AlignmentView.EvaluatorAlignment relevance = byName(view, "relevance");
@@ -163,7 +168,8 @@ class AlignmentServiceTest {
         itemResultRepository.save(second);
         annotate(second, AnnotationVerdict.CORRECT);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(byName(view, "accuracy").comparableCount()).isEqualTo(2);
         AlignmentView.EvaluatorAlignment toxicity = byName(view, "toxicity");
@@ -176,7 +182,8 @@ class AlignmentServiceTest {
         ExperimentRun run = newRun();
         annotate(itemWithEval(run, "accuracy", true), AnnotationVerdict.UNSURE);
 
-        AlignmentView.EvaluatorAlignment accuracy = only(alignmentService.getAlignment(run.getId()));
+        AlignmentView.EvaluatorAlignment accuracy =
+                only(alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted()));
 
         assertThat(accuracy.comparableCount()).isZero();
         assertThat(accuracy.excludedUnsure()).isEqualTo(1);
@@ -189,7 +196,8 @@ class AlignmentServiceTest {
         itemWithEval(run, "accuracy", true);
         itemWithEval(run, "accuracy", false);
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.annotatedItems()).isZero();
         assertThat(view.evaluators()).isEmpty();
@@ -199,7 +207,8 @@ class AlignmentServiceTest {
     void emptyRun_hasNoEvaluators() {
         ExperimentRun run = newRun();
 
-        AlignmentView view = alignmentService.getAlignment(run.getId());
+        AlignmentView view =
+                alignmentService.getAlignment(run.getId(), dev.dokimos.server.tenant.TenantScope.unrestricted());
 
         assertThat(view.annotatedItems()).isZero();
         assertThat(view.evaluators()).isEmpty();
@@ -207,7 +216,8 @@ class AlignmentServiceTest {
 
     @Test
     void missingRunRaisesNotFound() {
-        assertThatThrownBy(() -> alignmentService.getAlignment(UUID.randomUUID()))
+        assertThatThrownBy(() -> alignmentService.getAlignment(
+                        UUID.randomUUID(), dev.dokimos.server.tenant.TenantScope.unrestricted()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Run not found");
     }

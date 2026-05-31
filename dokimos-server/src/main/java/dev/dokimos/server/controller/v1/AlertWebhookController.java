@@ -4,6 +4,8 @@ import dev.dokimos.server.dto.v1.AlertWebhookView;
 import dev.dokimos.server.dto.v1.CreateAlertWebhookRequest;
 import dev.dokimos.server.dto.v1.UpdateAlertWebhookRequest;
 import dev.dokimos.server.service.AlertWebhookService;
+import dev.dokimos.server.tenant.TenantScopeResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -37,37 +39,42 @@ public class AlertWebhookController {
     /** Registers a webhook for the project. Returns 201 with a {@code Location} header. */
     @PostMapping
     public ResponseEntity<AlertWebhookView> createAlertWebhook(
-            @PathVariable UUID projectId, @Valid @RequestBody CreateAlertWebhookRequest request) {
-        AlertWebhookView view = webhookService.create(projectId, request);
+            @PathVariable UUID projectId,
+            @Valid @RequestBody CreateAlertWebhookRequest request,
+            HttpServletRequest http) {
+        AlertWebhookView view = webhookService.create(projectId, request, TenantScopeResolver.scope(http));
         return ResponseEntity.created(URI.create("/api/v1/projects/" + projectId + "/alert-webhooks/" + view.id()))
                 .body(view);
     }
 
     /** Lists the project's webhooks. The signing secret is never included. */
     @GetMapping
-    public List<AlertWebhookView> listAlertWebhooks(@PathVariable UUID projectId) {
-        return webhookService.list(projectId);
+    public List<AlertWebhookView> listAlertWebhooks(@PathVariable UUID projectId, HttpServletRequest http) {
+        return webhookService.list(projectId, TenantScopeResolver.scope(http));
     }
 
-    /** Returns one webhook, or 404 if the project or webhook does not exist. */
+    /** Returns one webhook, or 404 if the project or webhook does not exist or belongs to another tenant. */
     @GetMapping("/{webhookId}")
-    public AlertWebhookView getAlertWebhook(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
-        return webhookService.get(projectId, webhookId);
+    public AlertWebhookView getAlertWebhook(
+            @PathVariable UUID projectId, @PathVariable UUID webhookId, HttpServletRequest http) {
+        return webhookService.get(projectId, webhookId, TenantScopeResolver.scope(http));
     }
 
-    /** Updates a webhook. Returns 404 if the project or webhook does not exist. */
+    /** Updates a webhook. Returns 404 if the project or webhook does not exist or belongs to another tenant. */
     @PutMapping("/{webhookId}")
     public AlertWebhookView updateAlertWebhook(
             @PathVariable UUID projectId,
             @PathVariable UUID webhookId,
-            @Valid @RequestBody UpdateAlertWebhookRequest request) {
-        return webhookService.update(projectId, webhookId, request);
+            @Valid @RequestBody UpdateAlertWebhookRequest request,
+            HttpServletRequest http) {
+        return webhookService.update(projectId, webhookId, request, TenantScopeResolver.scope(http));
     }
 
-    /** Deletes a webhook. Returns 404 if the project or webhook does not exist. */
+    /** Deletes a webhook. Returns 404 if the project or webhook does not exist or belongs to another tenant. */
     @DeleteMapping("/{webhookId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAlertWebhook(@PathVariable UUID projectId, @PathVariable UUID webhookId) {
-        webhookService.delete(projectId, webhookId);
+    public void deleteAlertWebhook(
+            @PathVariable UUID projectId, @PathVariable UUID webhookId, HttpServletRequest http) {
+        webhookService.delete(projectId, webhookId, TenantScopeResolver.scope(http));
     }
 }

@@ -1,0 +1,119 @@
+.timeline {
+  position: relative;
+  margin-top: 2rem;
+}
+
+.release {
+  position: relative;
+  margin-left: 5px;
+  padding: 0 0 2.25rem 1.75rem;
+  border-left: 1px solid var(--ifm-toc-border-color);
+}
+.release:last-child {
+  border-left-color: transparent;
+}
+
+.node {
+  position: absolute;
+  left: -5px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ifm-background-surface-color);
+  border: 2px solid var(--ifm-color-emphasis-300);
+}
+.current .node {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 0 0 4px rgba(124, 92, 252, 0.18);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.ver {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.2rem;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.tag {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ifm-color-primary);
+  background: rgba(124, 92, 252, 0.14);
+  border: 1px solid rgba(124, 92, 252, 0.3);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.date {
+  margin-left: auto;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  color: var(--ifm-color-content-secondary);
+}
+.lead {
+  margin: 0.7rem 0 1.1rem;
+  color: var(--ifm-color-content-secondary);
+  max-width: 46rem;
+}
+
+.group {
+  margin-bottom: 1rem;
+}
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.label {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--ifm-toc-border-color);
+}
+.added {
+  color: #1f9d6b;
+  background: rgba(31, 157, 107, 0.13);
+}
+.changed {
+  color: var(--ifm-color-primary);
+  background: rgba(124, 92, 252, 0.13);
+}
+.fixed {
+  color: #b6791a;
+  background: rgba(182, 121, 26, 0.14);
+}
+[data-theme="dark"] .added {
+  color: #3fb984;
+}
+[data-theme="dark"] .fixed {
+  color: #e0a340;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.list li {
+  margin-bottom: 0.5rem;
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+.list li strong {
+  color: var(--ifm-heading-color);
+}

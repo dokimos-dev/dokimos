@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import MetricCard, { MetricGrid } from "@/components/shared/metric-card";
 import PassRate from "@/components/shared/pass-rate";
 import ScoreCell from "@/components/shared/score-cell";
-import TruncatedText from "@/components/shared/truncated-text";
+import ValuePreview from "@/components/shared/value-preview";
 import JsonDisplay from "@/components/shared/json-display";
 import Pagination from "@/components/shared/pagination";
 import AnnotationControls from "@/components/runs/annotation-controls";
@@ -48,16 +48,6 @@ function formatDuration(
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}m ${remainingSeconds}s`;
-}
-
-function stringify(value: unknown, fallback = ""): string {
-  if (value == null) return fallback;
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
 }
 
 function VerdictChip({ verdict }: { verdict: AnnotationViewVerdict }) {
@@ -350,28 +340,19 @@ export default function RunPage() {
                             <ChevronRight className="h-4 w-4" />
                           )}
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
+                        <TableCell className="max-w-[280px] align-top">
                           <div className="flex items-center gap-2 min-w-0">
                             {item.annotation?.verdict && (
                               <VerdictChip verdict={item.annotation.verdict} />
                             )}
-                            <TruncatedText
-                              text={stringify(item.input)}
-                              maxLength={100}
-                            />
+                            <ValuePreview value={item.input} className="min-w-0 flex-1" />
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
-                          <TruncatedText
-                            text={stringify(item.expectedOutput, "—")}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top">
+                          <ValuePreview value={item.expectedOutput} />
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
-                          <TruncatedText
-                            text={stringify(item.actualOutput)}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top">
+                          <ValuePreview value={item.actualOutput} />
                         </TableCell>
                         {evaluatorNames.map((name) => {
                           const evalResult = item.evalResults?.find(

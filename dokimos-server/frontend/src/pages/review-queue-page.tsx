@@ -16,22 +16,12 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScoreCell from "@/components/shared/score-cell";
-import TruncatedText from "@/components/shared/truncated-text";
+import ValuePreview from "@/components/shared/value-preview";
 import JsonDisplay from "@/components/shared/json-display";
 import Pagination from "@/components/shared/pagination";
 import AnnotationControls from "@/components/runs/annotation-controls";
 
 const PAGE_SIZE = 50;
-
-function stringify(value: unknown, fallback = ""): string {
-  if (value == null) return fallback;
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
 
 function evaluatorNamesOf(items: ReviewQueueItem[]): string[] {
   const names = new Set<string>();
@@ -231,30 +221,21 @@ export default function ReviewQueuePage() {
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
+                        <TableCell className="max-w-[280px] align-top">
                           <div className="flex items-center gap-2 min-w-0">
                             {item.currentVerdict === "UNSURE" && (
-                              <span className="inline-flex items-center rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              <span className="inline-flex shrink-0 items-center rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                                 unsure
                               </span>
                             )}
-                            <TruncatedText
-                              text={stringify(item.input)}
-                              maxLength={100}
-                            />
+                            <ValuePreview value={item.input} className="min-w-0 flex-1" />
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-xs align-top text-muted-foreground">
-                          <TruncatedText
-                            text={stringify(item.expectedOutput, "—")}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top text-muted-foreground">
+                          <ValuePreview value={item.expectedOutput} />
                         </TableCell>
-                        <TableCell className="max-w-xs align-top text-muted-foreground">
-                          <TruncatedText
-                            text={stringify(item.actualOutput)}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top text-muted-foreground">
+                          <ValuePreview value={item.actualOutput} />
                         </TableCell>
                         {evaluatorNames.map((name) => {
                           const evalResult = item.evalResults?.find(

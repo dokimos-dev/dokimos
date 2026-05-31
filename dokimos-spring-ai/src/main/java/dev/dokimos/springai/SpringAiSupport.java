@@ -1,12 +1,20 @@
 package dev.dokimos.springai;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.agents.ToolCall;
+import dev.dokimos.core.agents.ToolDefinition;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.evaluation.EvaluationRequest;
@@ -210,5 +218,141 @@ public final class SpringAiSupport {
         metadata.put("score", (float) result.score());
 
         return new EvaluationResponse(result.success(), result.reason(), metadata);
+    }
+
+    private static final ObjectMapper TOOL_ARG_MAPPER = new ObjectMapper();
+
+    /**
+     * Builds an {@link AgentTrace} from a Spring AI {@link AssistantMessage}.
+     *
+     * <p>The message's text becomes the final response and its
+     * {@code getToolCalls()} become {@link ToolCall}s with parsed arguments. Tool
+     * results are not part of an {@code AssistantMessage}; use
+     * {@link #toAgentTrace(AssistantMessage, List)} to attach them.
+     *
+     * @param message the assistant message (may be null)
+     * @return an agent trace, never null
+     */
+    public static AgentTrace toAgentTrace(AssistantMessage message) {
+        return toAgentTrace(message, List.of());
+    }
+
+    /**
+     * Builds an {@link AgentTrace} from a Spring AI {@link AssistantMessage} and the
+     * tool responses produced for it.
+     *
+     * <p>Each tool call is matched to its result by tool-call id from the supplied
+     * {@link ToolResponseMessage}s, so the resulting trace carries both the agent's
+     * tool calls and what those tools returned.
+     *
+     * <pre>{@code
+     * AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages);
+     * EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+     * }</pre>
+     *
+     * @param message       the assistant message (may be null)
+     * @param toolResponses the tool response messages whose responses carry results (may be null)
+     * @return an agent trace, never null
+     */
+    public static AgentTrace toAgentTrace(AssistantMessage message, List<ToolResponseMessage> toolResponses) {
+        AgentTrace.Builder builder = AgentTrace.builder().toolCalls(toToolCalls(message, toolResponses));
+        if (message != null && message.getText() != null) {
+            builder.finalResponse(message.getText());
+        }
+        return builder.build();
+    }
+
+    /**
+     * Extracts {@link ToolCall}s from a Spring AI {@link AssistantMessage} without results.
+     *
+     * @param message the assistant message (may be null)
+     * @return the tool calls in order, or an empty list
+     */
+    public static List<ToolCall> toToolCalls(AssistantMessage message) {
+        return toToolCalls(message, List.of());
+    }
+
+    /**
+     * Extracts {@link ToolCall}s from a Spring AI {@link AssistantMessage}, attaching
+     * results from the supplied tool responses by tool-call id.
+     *
+     * @param message       the assistant message (may be null)
+     * @param toolResponses the tool response messages (may be null)
+     * @return the tool calls in order, or an empty list
+     */
+    public static List<ToolCall> toToolCalls(AssistantMessage message, List<ToolResponseMessage> toolResponses) {
+        if (message == null || message.getToolCalls() == null) {
+            return List.of();
+        }
+        Map<String, String> resultsById = resultsById(toolResponses);
+        return message.getToolCalls().stream()
+                .map(call -> ToolCall.builder()
+                        .name(call.name())
+                        .arguments(parseArguments(call.arguments()))
+                        .result(resultsById.get(call.id()))
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Converts Spring AI {@link org.springframework.ai.tool.definition.ToolDefinition}s
+     * to Dokimos {@link ToolDefinition}s so tool calls can be evaluated against the
+     * tools the agent was given.
+     *
+     * @param toolDefinitions the Spring AI tool definitions (may be null)
+     * @return the Dokimos tool definitions, or an empty list
+     */
+    public static List<ToolDefinition> toToolDefinitions(
+            List<org.springframework.ai.tool.definition.ToolDefinition> toolDefinitions) {
+        if (toolDefinitions == null) {
+            return List.of();
+        }
+        return toolDefinitions.stream()
+                .map(def -> ToolDefinition.builder()
+                        .name(def.name())
+                        .description(def.description() != null ? def.description() : "")
+                        .inputSchema(parseSchema(def.inputSchema()))
+                        .build())
+                .toList();
+    }
+
+    private static Map<String, String> resultsById(List<ToolResponseMessage> toolResponses) {
+        if (toolResponses == null) {
+            return Map.of();
+        }
+        Map<String, String> byId = new LinkedHashMap<>();
+        for (ToolResponseMessage message : toolResponses) {
+            if (message.getResponses() == null) {
+                continue;
+            }
+            for (ToolResponseMessage.ToolResponse response : message.getResponses()) {
+                byId.put(response.id(), response.responseData());
+            }
+        }
+        return byId;
+    }
+
+    private static Map<String, Object> parseArguments(String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> parsed = TOOL_ARG_MAPPER.readValue(argumentsJson, new TypeReference<>() {});
+            return parsed != null ? parsed : Map.of();
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    private static Map<String, Object> parseSchema(String schemaJson) {
+        if (schemaJson == null || schemaJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> parsed = TOOL_ARG_MAPPER.readValue(schemaJson, new TypeReference<>() {});
+            return parsed != null ? parsed : Map.of();
+        } catch (Exception e) {
+            return Map.of();
+        }
     }
 }

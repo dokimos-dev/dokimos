@@ -93,136 +93,175 @@ export default function DatasetMainPane({ datasetName }: DatasetMainPaneProps) {
 
   if (datasetLoading) {
     return (
-      <div>
-        <Skeleton className="h-6 w-40 mb-3" />
-        <Skeleton className="h-4 w-64 mb-6" />
-        <Skeleton className="h-48 w-full" />
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border">
+          <Skeleton className="h-3.5 w-32" />
+        </div>
+        <div className="p-5">
+          <Skeleton className="h-3.5 w-3/5 mb-2" />
+          <Skeleton className="h-3 w-2/5" />
+        </div>
+        <div className="border-t border-border p-5 space-y-3">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-4/5" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/4" />
+        </div>
       </div>
     );
   }
 
   if (datasetError) {
     return (
-      <p className="text-destructive">Error loading dataset: {datasetError.message}</p>
+      <p className="text-sm text-destructive">Error loading dataset: {datasetError.message}</p>
     );
   }
 
   if (!dataset) {
-    return <p className="text-muted-foreground">Dataset not found.</p>;
+    return <p className="text-sm text-muted-foreground">Dataset not found.</p>;
   }
 
   const hasVersions = sortedVersions.length > 0;
   const items = itemsPage?.content ?? [];
 
   return (
-    <div>
-      <div className="flex items-center gap-3 flex-wrap mb-1">
-        <h2 className="text-lg font-bold">{dataset.name}</h2>
-        {hasVersions && selectedVersion != null && (
-          <select
-            value={selectedVersion}
-            onChange={(e) => {
-              setSelectedVersion(Number(e.target.value));
-              setCurrentPage(0);
-            }}
-            className="min-h-9 border rounded-md px-3 py-1 text-xs bg-card text-foreground"
-            aria-label="Select version"
-          >
-            {sortedVersions.map((v) => (
-              <option key={v.id ?? v.version} value={v.version ?? 0}>
-                version v{v.version}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {hasVersions ? (
-        <p className="text-xs text-muted-foreground mb-4">
-          {formatProvenance(version, itemsPage?.totalElements)}
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground mb-4">
-          No versions yet. Push a version from the SDK to get started.
-        </p>
-      )}
-
-      <div className="flex justify-between items-center gap-2 mb-3 flex-wrap">
-        <div className="text-sm text-muted-foreground">
-          {dataset.description}
-        </div>
-        <div className="flex gap-2">
+    <section className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="flex flex-col gap-3 px-5 py-3.5 border-b border-border sm:flex-row sm:items-center sm:justify-between">
+        <span className="font-mono text-[13px] font-semibold truncate">{dataset.name}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasVersions && selectedVersion != null && (
+            <select
+              value={selectedVersion}
+              onChange={(e) => {
+                setSelectedVersion(Number(e.target.value));
+                setCurrentPage(0);
+              }}
+              className="min-h-8 border border-border rounded-md px-2.5 py-1 text-xs font-mono bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              aria-label="Select version"
+            >
+              {sortedVersions.map((v) => (
+                <option key={v.id ?? v.version} value={v.version ?? 0}>
+                  v{v.version}
+                </option>
+              ))}
+            </select>
+          )}
           <Button variant="outline" size="sm" disabled title="Coming soon">
             Import JSON/CSV
           </Button>
           <Button size="sm" disabled title="Coming soon">
-            + Add item
+            <PlusIcon className="size-4" />
+            Add item
           </Button>
         </div>
       </div>
 
+      <div className="px-5 py-4 border-b border-border">
+        {dataset.description && (
+          <p className="font-prose text-[13px] text-muted-foreground mb-2 max-w-[64ch]">
+            {dataset.description}
+          </p>
+        )}
+        {hasVersions ? (
+          <p className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
+            {formatProvenance(version, itemsPage?.totalElements)}
+          </p>
+        ) : (
+          <p className="font-prose text-[12.5px] text-muted-foreground">
+            No versions yet. Push a version from the SDK to get started.
+          </p>
+        )}
+      </div>
+
       {!hasVersions ? (
-        <div className="rounded-xl border bg-card p-10 text-center">
+        <div className="p-10 text-center">
           <h3 className="text-base font-semibold mb-2">No versions yet</h3>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm font-prose">
             Use the SDK to push items into <span className="font-mono">{dataset.name}</span>.
             Versions will appear here once they exist.
           </p>
         </div>
       ) : versionLoading || itemsLoading ? (
-        <Skeleton className="h-48 w-full" />
+        <div className="p-5 space-y-3">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-4/5" />
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-3/4" />
+        </div>
       ) : versionError ? (
-        <p className="text-destructive">Error loading version: {versionError.message}</p>
+        <p className="p-5 text-sm text-destructive">Error loading version: {versionError.message}</p>
       ) : itemsError ? (
-        <p className="text-destructive">Error loading items: {itemsError.message}</p>
+        <p className="p-5 text-sm text-destructive">Error loading items: {itemsError.message}</p>
       ) : items.length === 0 ? (
-        <div className="rounded-xl border bg-card p-10 text-center">
+        <div className="p-10 text-center">
           <h3 className="text-base font-semibold mb-2">No items in this version</h3>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm font-prose">
             Push items to this dataset version via the SDK to see them here.
           </p>
         </div>
       ) : (
         <>
-          <div className="rounded-xl border overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-1/2">Input</TableHead>
-                    <TableHead>Expected output</TableHead>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-1/2 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Input
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Expected output
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id ?? item.ordinal}>
+                    <TableCell className="align-top font-mono text-[12.5px]">
+                      <TruncatedText
+                        text={stringify(item.inputs)}
+                        maxLength={140}
+                      />
+                    </TableCell>
+                    <TableCell className="align-top font-mono text-[12.5px]">
+                      <TruncatedText
+                        text={stringify(item.expectedOutputs, "—")}
+                        maxLength={140}
+                      />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id ?? item.ordinal}>
-                      <TableCell className="align-top">
-                        <TruncatedText
-                          text={stringify(item.inputs)}
-                          maxLength={140}
-                        />
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <TruncatedText
-                          text={stringify(item.expectedOutputs, "—")}
-                          maxLength={140}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-          <Pagination
-            currentPage={itemsPage?.number ?? currentPage}
-            totalItems={itemsPage?.totalElements ?? 0}
-            pageSize={itemsPage?.size ?? PAGE_SIZE}
-            onPageChange={setCurrentPage}
-          />
+          <div className="px-5 pb-1">
+            <Pagination
+              currentPage={itemsPage?.number ?? currentPage}
+              totalItems={itemsPage?.totalElements ?? 0}
+              pageSize={itemsPage?.size ?? PAGE_SIZE}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         </>
       )}
-    </div>
+    </section>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
   );
 }
 

@@ -1,5 +1,5 @@
-/* Dokimos docs — "Instrument" theme. Dark default, amber accent,
-   IBM Plex Mono for code, Inter for prose. Mirrors the app design system. */
+/* Docs "Instrument" theme: dark default, amber accent, IBM Plex Mono for
+   code, Inter for prose. Mirrors the app design system. */
 
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap");
 
@@ -91,7 +91,7 @@ html {
   font-size: 0.9rem;
 }
 
-/* Sidebar: subtle tint + thin violet bar, neutral label (matches the app rail) */
+/* Sidebar: subtle tint + thin accent bar, neutral label (matches the app rail) */
 .menu__link {
   font-size: 0.875rem;
   border-radius: 6px;

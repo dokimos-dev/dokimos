@@ -19,7 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     if (stored === "light" || stored === "dark") {
       return stored;
     }
-    // Dark is the default Instrument theme; light is a supported peer.
+    // Dark is the default; light is supported.
     return "dark";
   });
 

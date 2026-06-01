@@ -13,7 +13,7 @@ export interface TrendPoint {
   value: number; // 0..100 pass rate
 }
 
-/** Pass-rate trend over an experiment's runs, styled for Instrument. */
+/** Pass-rate trend over an experiment's runs. */
 export default function TrendChart({ data, height = 200 }: { data: TrendPoint[]; height?: number }) {
   return (
     <ResponsiveContainer width="100%" height={height}>

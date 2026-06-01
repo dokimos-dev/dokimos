@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Consistent centered empty/zero state used across list pages. */
+/** Centered empty/zero state used across list pages. */
 export default function EmptyState({
   title,
   description,

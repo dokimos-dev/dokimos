@@ -4,9 +4,8 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
-// One Dark, but on the Instrument near-black panel instead of its default slate
-// (#282c34), which reads washed-out gray against the dark docs surface. Keeps
-// the code blocks visually identical to the landing hero.
+// One Dark on the near-black Instrument panel (#0c0e12) instead of its default
+// slate, which reads gray against the dark docs. Matches the landing hero.
 const oneDarkInk = {
   ...prismThemes.oneDark,
   plain: { ...prismThemes.oneDark.plain, backgroundColor: "#0c0e12" },

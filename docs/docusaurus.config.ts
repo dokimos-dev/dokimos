@@ -4,6 +4,14 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
+// One Dark, but on the Instrument near-black panel instead of its default slate
+// (#282c34), which reads washed-out gray against the dark docs surface. Keeps
+// the code blocks visually identical to the landing hero.
+const oneDarkInk = {
+  ...prismThemes.oneDark,
+  plain: { ...prismThemes.oneDark.plain, backgroundColor: "#0c0e12" },
+};
+
 const config: Config = {
   title: "Dokimos | LLM Evaluation Framework for Java",
   tagline: "An Evaluation Framework for LLM applications in Java.",
@@ -94,8 +102,8 @@ const config: Config = {
       ],
     },
     prism: {
-      theme: prismThemes.oneDark,
-      darkTheme: prismThemes.oneDark,
+      theme: oneDarkInk,
+      darkTheme: oneDarkInk,
       additionalLanguages: ["java"],
     },
   } satisfies Preset.ThemeConfig,

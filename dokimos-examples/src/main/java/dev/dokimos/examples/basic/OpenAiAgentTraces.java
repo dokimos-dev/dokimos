@@ -13,8 +13,6 @@ import java.util.function.Function;
  *
  * <p>This is the glue an application writes once to evaluate an OpenAI agent: capture the model's
  * tool calls as the conversation runs, then turn them into a trace the agent evaluators understand.
- * It lives in the examples module rather than a published artifact because it depends on the OpenAI
- * SDK, which callers bring themselves.
  *
  * <p>Typical use inside a tool-calling loop:
  *

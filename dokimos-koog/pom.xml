@@ -13,13 +13,7 @@
     <properties>
         <koog.version>0.6.1</koog.version>
         <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
-        <!--
-          Koog 0.6.1 pulls kotlinx-serialization 1.6.3 transitively, but the Kotlin 2.3.10
-          serialization compiler plugin (enabled below to serialize tool args) generates serializers
-          against the 1.9.x runtime ABI. Running the 2.3.10-plugin output on 1.6.3 throws
-          AbstractMethodError (typeParametersSerializers()). Pin the runtime to 1.9.0 so the
-          plugin-generated serializers and the runtime agree. Module-local only by design.
-        -->
+        <!-- Match the serialization runtime to the Kotlin 2.3.10 plugin ABI; koog's transitive 1.6.3 throws AbstractMethodError at runtime. -->
         <kotlinx.serialization.version>1.9.0</kotlinx.serialization.version>
         <mockk.version>1.14.6</mockk.version>
         <kotlin.version>2.3.10</kotlin.version>

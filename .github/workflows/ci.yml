@@ -113,9 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each version below was verified locally to compile and pass the adapter's tests.
-        # Koog is pinned: its event-handler API changes across minor versions, so a
-        # cross-version matrix would not compile. Bump this when koog is upgraded.
+        # Koog is pinned to one version: its event-handler API shifts across minors.
         include:
           - module: dokimos-langchain4j
             property: langchain4j.version

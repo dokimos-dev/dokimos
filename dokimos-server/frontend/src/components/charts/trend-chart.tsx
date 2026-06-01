@@ -20,8 +20,8 @@ export default function TrendChart({ data, height = 200 }: { data: TrendPoint[];
       <AreaChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid stroke="var(--grid-line)" vertical={false} />
@@ -57,11 +57,11 @@ export default function TrendChart({ data, height = 200 }: { data: TrendPoint[];
         <Area
           type="monotone"
           dataKey="value"
-          stroke="var(--accent)"
+          stroke="var(--chart-1)"
           strokeWidth={2}
           fill="url(#trendFill)"
-          dot={{ r: 2.5, fill: "var(--accent)", strokeWidth: 0 }}
-          activeDot={{ r: 4, fill: "var(--accent)", stroke: "var(--background)", strokeWidth: 2 }}
+          dot={{ r: 2.5, fill: "var(--chart-1)", strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: "var(--chart-1)", stroke: "var(--background)", strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>

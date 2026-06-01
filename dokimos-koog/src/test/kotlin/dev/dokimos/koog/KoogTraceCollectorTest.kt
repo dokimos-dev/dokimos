@@ -1,17 +1,11 @@
 package dev.dokimos.koog
 
-import ai.koog.agents.core.feature.handler.tool.ToolCallCompletedContext
-import ai.koog.agents.features.eventHandler.feature.EventHandlerConfig
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.slot
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -180,27 +174,76 @@ class KoogTraceCollectorTest {
     }
 
     @Test
-    fun `collectAgentTrace wires onToolCallCompleted into the collector`() {
-        // Capture the suspend handler the extension registers, then drive it with a mocked
-        // completion context to prove the event-handler wiring records into the collector.
-        val config = mockk<EventHandlerConfig>(relaxed = true)
-        val handlerSlot = slot<suspend (ToolCallCompletedContext) -> Unit>()
-        every { config.onToolCallCompleted(capture(handlerSlot)) } returns Unit
-
+    fun `arguments shaped like Koog's post-0_7 JSON model are read by duck-typing`() {
         val collector = KoogTraceCollector()
-        config.collectAgentTrace(collector)
+        collector.record(
+            "search",
+            FakeObject(
+                linkedMapOf(
+                    "origin" to FakeString("JFK"),
+                    "n" to FakeLiteral("3"),
+                    "rate" to FakeLiteral("1.5"),
+                    "flag" to FakeLiteral("true"),
+                    "filter" to FakeObject(linkedMapOf("area" to FakeString("EU"))),
+                    "tags" to FakeArray(listOf(FakeString("a"), FakeString("b"))),
+                    "missing" to FakeNull,
+                ),
+            ),
+            FakeString("[]"),
+        )
 
-        val context = mockk<ToolCallCompletedContext>()
-        every { context.toolName } returns "search_flights"
-        every { context.toolArgs } returns buildJsonObject { put("origin", "JFK") }
-        every { context.toolResult } returns JsonPrimitive("[]")
+        val args = collector.toAgentTrace().toolCalls()[0].arguments()
+        assertThat(args["origin"]).isEqualTo("JFK")
+        assertThat(args["n"]).isEqualTo(3L)
+        assertThat(args["rate"]).isEqualTo(1.5)
+        assertThat(args["flag"]).isEqualTo(true)
+        assertThat(args["filter"]).isEqualTo(mapOf("area" to "EU"))
+        assertThat(args["tags"]).isEqualTo(listOf("a", "b"))
+        assertThat(args).doesNotContainKey("missing")
+    }
 
-        runBlocking { handlerSlot.captured(context) }
+    @Test
+    fun `a string result shaped like Koog's post-0_7 model is unwrapped, an object is compact JSON`() {
+        val collector = KoogTraceCollector()
+        collector.record("a", FakeObject(linkedMapOf()), FakeString("hello"))
+        collector.record("b", FakeObject(linkedMapOf()), FakeObject(linkedMapOf("ok" to FakeLiteral("true"))))
+        collector.record("c", FakeObject(linkedMapOf()), FakeNull)
 
         val calls = collector.toAgentTrace().toolCalls()
-        assertThat(calls).hasSize(1)
-        assertThat(calls[0].name()).isEqualTo("search_flights")
-        assertThat(calls[0].arguments()).containsEntry("origin", "JFK")
-        assertThat(calls[0].result()).isEqualTo("[]")
+        assertThat(calls[0].result()).isEqualTo("hello")
+        assertThat(calls[1].result()).isEqualTo("{\"ok\":true}")
+        assertThat(calls[2].result()).isNull()
+    }
+
+    /**
+     * Doubles that mimic the shape of Koog's `ai.koog.serialization` JSON nodes (0.7.0 onward)
+     * without depending on those types, so the collector's reflective walk is exercised against the
+     * post-0.7 hierarchy as well as the kotlinx one used elsewhere in this test.
+     */
+    private class FakeObject(private val entries: Map<String, Any?>) {
+        fun getEntries(): Map<String, Any?> = entries
+    }
+
+    private class FakeArray(private val elements: List<Any?>) {
+        fun getElements(): List<Any?> = elements
+    }
+
+    private class FakeString(private val content: String) {
+        fun getContent(): String = content
+
+        fun isString(): Boolean = true
+    }
+
+    private class FakeLiteral(private val content: String) {
+        fun getContent(): String = content
+
+        fun isString(): Boolean = false
+    }
+
+    /** Mirrors a JSON-null node: a non-string primitive whose content is the literal "null". */
+    private object FakeNull {
+        fun getContent(): String = "null"
+
+        fun isString(): Boolean = false
     }
 }

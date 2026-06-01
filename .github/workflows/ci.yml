@@ -113,7 +113,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Koog is pinned to one version: its event-handler API shifts across minors.
+        # The koog rows disable the koog-live-it profile: that test builds an agent with koog's
+        # construction API, which only resolves on the floor version, while the adapter itself
+        # supports the whole range.
         include:
           - module: dokimos-langchain4j
             property: langchain4j.version
@@ -129,7 +131,20 @@ jobs:
             version: '1.1.6'
           - module: dokimos-koog
             property: koog.version
-            version: '0.6.1'
+            version: '0.6.4'
+            profiles: '-P!koog-live-it'
+          - module: dokimos-koog
+            property: koog.version
+            version: '0.7.3'
+            profiles: '-P!koog-live-it'
+          - module: dokimos-koog
+            property: koog.version
+            version: '0.8.0'
+            profiles: '-P!koog-live-it'
+          - module: dokimos-koog
+            property: koog.version
+            version: '1.0.0'
+            profiles: '-P!koog-live-it'
 
     steps:
       - uses: actions/checkout@v4
@@ -142,4 +157,4 @@ jobs:
           cache: 'maven'
 
       - name: Test ${{ matrix.module }} against ${{ matrix.property }}=${{ matrix.version }}
-        run: mvn -B -U test -pl ${{ matrix.module }} -am -D${{ matrix.property }}=${{ matrix.version }}
+        run: mvn -B -U test -pl ${{ matrix.module }} -am -D${{ matrix.property }}=${{ matrix.version }} ${{ matrix.profiles }}

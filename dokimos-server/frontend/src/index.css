@@ -67,7 +67,7 @@
 }
 
 /* Dokimos "Instrument" design system — dark default, IBM Plex Mono UI,
-   electric violet accent, hairline borders, high density. */
+   amber accent, hairline borders, high density. */
 :root {
   --radius: 0.375rem;
 
@@ -89,7 +89,7 @@
   --card-foreground: #15181e;
   --popover: #ffffff;
   --popover-foreground: #15181e;
-  --primary: #6d4df0;
+  --primary: #9a6a00;
   --primary-foreground: #ffffff;
   --secondary: #f0f1f4;
   --secondary-foreground: #15181e;
@@ -97,41 +97,41 @@
   --muted-foreground: #6b7280;
   --accent: #f0f1f4;
   --accent-foreground: #15181e;
-  --accent-glow: #6d4df0;
-  --accent-press: #5b3de0;
-  --accent-tint: rgba(109, 77, 240, 0.1);
-  --accent-tint-2: rgba(109, 77, 240, 0.05);
+  --accent-glow: #b07d10;
+  --accent-press: #7e5600;
+  --accent-tint: rgba(154, 106, 0, 0.1);
+  --accent-tint-2: rgba(154, 106, 0, 0.05);
   --hover: #f0f1f4;
   --destructive: #d9534f;
   --success: #1f9d6b;
-  --warning: #b6791a;
+  --warning: #bb5e12;
   --info: #3d6fd6;
   --pass-tint: rgba(31, 157, 107, 0.11);
   --fail-tint: rgba(217, 83, 79, 0.11);
-  --warn-tint: rgba(182, 121, 26, 0.11);
+  --warn-tint: rgba(187, 94, 18, 0.11);
   --info-tint: rgba(61, 111, 214, 0.11);
   --border: #e3e5ea;
   --border-strong: #d2d6dd;
   --input: #e3e5ea;
-  --ring: #6d4df0;
+  --ring: #9a6a00;
   --text-2: #3c424c;
   --faint: #9aa1ac;
   --code-bg: #f4f5f7;
   --shadow: 0 8px 28px rgba(20, 22, 30, 0.14);
   --grid-line: rgba(20, 22, 30, 0.06);
-  --chart-1: #6d4df0;
+  --chart-1: #b07a12;
   --chart-2: #2db7a3;
-  --chart-3: #e0a340;
+  --chart-3: #e0773a;
   --chart-4: #5b8def;
   --chart-5: #e06db0;
   --sidebar: #f4f5f7;
   --sidebar-foreground: #15181e;
-  --sidebar-primary: #6d4df0;
+  --sidebar-primary: #9a6a00;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #f0f1f4;
   --sidebar-accent-foreground: #15181e;
   --sidebar-border: #e3e5ea;
-  --sidebar-ring: #6d4df0;
+  --sidebar-ring: #9a6a00;
   view-transition-name: root;
 }
 
@@ -142,49 +142,49 @@
   --card-foreground: #e4e7ec;
   --popover: #15181e;
   --popover-foreground: #e4e7ec;
-  --primary: #7c5cfc;
-  --primary-foreground: #ffffff;
+  --primary: #e6a93a;
+  --primary-foreground: #18130a;
   --secondary: #1b1f27;
   --secondary-foreground: #e4e7ec;
   --muted: #0f1115;
   --muted-foreground: #7a828e;
   --accent: #181c23;
   --accent-foreground: #e4e7ec;
-  --accent-glow: #9b82ff;
-  --accent-press: #6d4df0;
-  --accent-tint: rgba(124, 92, 252, 0.14);
-  --accent-tint-2: rgba(124, 92, 252, 0.07);
+  --accent-glow: #f2be57;
+  --accent-press: #c98e22;
+  --accent-tint: rgba(230, 169, 58, 0.14);
+  --accent-tint-2: rgba(230, 169, 58, 0.07);
   --hover: #181c23;
   --destructive: #f26d6d;
   --success: #3fb984;
-  --warning: #e0a340;
+  --warning: #e2843a;
   --info: #5b8def;
   --pass-tint: rgba(63, 185, 132, 0.13);
   --fail-tint: rgba(242, 109, 109, 0.13);
-  --warn-tint: rgba(224, 163, 64, 0.13);
+  --warn-tint: rgba(226, 132, 58, 0.13);
   --info-tint: rgba(91, 141, 239, 0.13);
   --border: #23272f;
   --border-strong: #313742;
   --input: #313742;
-  --ring: #7c5cfc;
+  --ring: #e6a93a;
   --text-2: #b4bac4;
   --faint: #545b66;
   --code-bg: #0c0e12;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   --grid-line: rgba(255, 255, 255, 0.05);
-  --chart-1: #9b82ff;
+  --chart-1: #e6a93a;
   --chart-2: #2db7a3;
-  --chart-3: #e0a340;
+  --chart-3: #e0773a;
   --chart-4: #5b8def;
   --chart-5: #e06db0;
   --sidebar: #0f1115;
   --sidebar-foreground: #e4e7ec;
-  --sidebar-primary: #7c5cfc;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: #e6a93a;
+  --sidebar-primary-foreground: #18130a;
   --sidebar-accent: #181c23;
   --sidebar-accent-foreground: #e4e7ec;
   --sidebar-border: #23272f;
-  --sidebar-ring: #7c5cfc;
+  --sidebar-ring: #e6a93a;
 }
 
 @layer base {

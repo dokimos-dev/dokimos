@@ -5,7 +5,7 @@
   overflow: hidden;
   padding: 5rem 1rem 4rem;
   background:
-    radial-gradient(1100px 480px at 75% -10%, rgba(124, 92, 252, 0.18), transparent 60%),
+    radial-gradient(1100px 480px at 75% -10%, rgba(230, 169, 58, 0.16), transparent 60%),
     var(--ifm-background-color);
   border-bottom: 1px solid var(--dok-border);
 }

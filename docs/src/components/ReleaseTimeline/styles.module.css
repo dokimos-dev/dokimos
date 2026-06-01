@@ -26,7 +26,7 @@
 .current .node {
   background: var(--ifm-color-primary);
   border-color: var(--ifm-color-primary);
-  box-shadow: 0 0 0 4px rgba(124, 92, 252, 0.18);
+  box-shadow: 0 0 0 4px rgba(230, 169, 58, 0.18);
 }
 
 .head {
@@ -47,8 +47,8 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--ifm-color-primary);
-  background: rgba(124, 92, 252, 0.14);
-  border: 1px solid rgba(124, 92, 252, 0.3);
+  background: rgba(230, 169, 58, 0.14);
+  border: 1px solid rgba(230, 169, 58, 0.3);
   border-radius: 999px;
   padding: 2px 8px;
 }
@@ -92,11 +92,11 @@
 }
 .changed {
   color: var(--ifm-color-primary);
-  background: rgba(124, 92, 252, 0.13);
+  background: rgba(230, 169, 58, 0.13);
 }
 .fixed {
-  color: #b6791a;
-  background: rgba(182, 121, 26, 0.14);
+  color: #c2630f;
+  background: rgba(194, 99, 15, 0.14);
 }
 [data-theme="dark"] .added {
   color: #3fb984;

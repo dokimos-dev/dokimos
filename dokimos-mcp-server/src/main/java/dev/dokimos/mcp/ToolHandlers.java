@@ -600,7 +600,11 @@ public class ToolHandlers {
         if (value instanceof Number n) {
             return n.doubleValue();
         }
-        return Double.parseDouble(value.toString());
+        try {
+            return Double.parseDouble(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("'" + key + "' must be a number, got: " + value);
+        }
     }
 
     private static int intOrDefault(Map<String, Object> args, String key, int defaultValue) {

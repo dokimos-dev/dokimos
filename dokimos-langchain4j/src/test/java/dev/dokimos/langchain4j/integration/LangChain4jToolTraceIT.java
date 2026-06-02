@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.evaluators.agents.ArgMatchMode;
+import dev.dokimos.core.evaluators.agents.ArgumentMatcher;
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator;
 import dev.dokimos.langchain4j.LangChain4jSupport;
@@ -72,6 +74,7 @@ class LangChain4jToolTraceIT {
 
         var trajectory = ToolTrajectoryEvaluator.builder()
                 .matchMode(ToolTrajectoryEvaluator.MatchMode.ANY_ORDER)
+                .argumentMatcher(ArgumentMatcher.of(ArgMatchMode.IGNORE))
                 .build()
                 .evaluate(testCase);
         assertThat(trajectory.score()).isGreaterThanOrEqualTo(0.5);

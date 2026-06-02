@@ -200,7 +200,12 @@ public class DatasetRunExtension
         Matcher matcher = INVOCATION_SEGMENT.matcher(context.getUniqueId());
         int oneBased = -1;
         while (matcher.find()) {
-            oneBased = Integer.parseInt(matcher.group(1));
+            try {
+                oneBased = Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException e) {
+                // A pathologically large invocation number is not a usable index.
+                oneBased = -1;
+            }
         }
         // JUnit numbers invocations as #1, #2, ...; the dataset index is one less.
         return oneBased < 1 ? -1 : oneBased - 1;

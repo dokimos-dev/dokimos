@@ -5,6 +5,7 @@ import { useList2 } from "@/lib/api/review-queue-controller/review-queue-control
 import { useListProjects } from "@/lib/api/project-controller/project-controller";
 import type { ReviewQueueItem } from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
+import EmptyState from "@/components/shared/empty-state";
 import {
   Table,
   TableBody,
@@ -15,22 +16,12 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScoreCell from "@/components/shared/score-cell";
-import TruncatedText from "@/components/shared/truncated-text";
+import ValuePreview from "@/components/shared/value-preview";
 import JsonDisplay from "@/components/shared/json-display";
 import Pagination from "@/components/shared/pagination";
 import AnnotationControls from "@/components/runs/annotation-controls";
 
 const PAGE_SIZE = 50;
-
-function stringify(value: unknown, fallback = ""): string {
-  if (value == null) return fallback;
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
 
 function evaluatorNamesOf(items: ReviewQueueItem[]): string[] {
   const names = new Set<string>();
@@ -92,11 +83,19 @@ export default function ReviewQueuePage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2 gap-4">
-        <h1 className="text-2xl font-bold">Review queue</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">
+            Review queue
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Run items that still need a human verdict: never annotated, or
+            marked unsure. Annotating an item removes it from the queue.
+          </p>
+        </div>
         <select
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          className="h-9 shrink-0 rounded-md border border-border bg-card px-3 font-mono text-sm"
           value={projectName}
           onChange={(e) => handleProjectChange(e.target.value)}
         >
@@ -108,66 +107,101 @@ export default function ReviewQueuePage() {
           ))}
         </select>
       </div>
-      <p className="text-muted-foreground mb-6">
-        Run items that still need a human verdict: never annotated, or marked
-        unsure. Annotating an item removes it from the queue.
-      </p>
 
       {isLoading ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8"></TableHead>
-              <TableHead>Input</TableHead>
-              <TableHead>Expected</TableHead>
-              <TableHead>Actual</TableHead>
-              <TableHead>Run</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[1, 2, 3].map((i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-4 w-4" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-48" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-32" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : error ? (
-        <p className="text-destructive">
-          Error loading review queue: {error.message}
-        </p>
-      ) : items.length === 0 ? (
-        <p className="text-muted-foreground">
-          Nothing to review. Every item has a verdict.
-        </p>
-      ) : (
-        <>
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center border-b border-border px-4 py-3">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Items awaiting review
+            </span>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
-                  <TableHead>Input</TableHead>
-                  <TableHead>Expected</TableHead>
-                  <TableHead>Actual</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Input
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Expected
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Actual
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Run
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[1, 2, 3].map((i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-48" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ) : error ? (
+        <p className="text-destructive">
+          Error loading review queue: {error.message}
+        </p>
+      ) : items.length === 0 ? (
+        <EmptyState
+          title="All caught up"
+          description="Nothing to review. Every item has a verdict."
+        />
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Items awaiting review
+            </span>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {page?.totalElements ?? items.length} pending
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Input
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Expected
+                  </TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Actual
+                  </TableHead>
                   {evaluatorNames.map((name) => (
-                    <TableHead key={name}>{name}</TableHead>
+                    <TableHead
+                      key={name}
+                      className="text-right text-[11px] uppercase tracking-wider"
+                    >
+                      {name}
+                    </TableHead>
                   ))}
-                  <TableHead>Run</TableHead>
+                  <TableHead className="text-[11px] uppercase tracking-wider">
+                    Run
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -182,49 +216,43 @@ export default function ReviewQueuePage() {
                       >
                         <TableCell>
                           {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
+                        <TableCell className="max-w-[280px] align-top">
                           <div className="flex items-center gap-2 min-w-0">
                             {item.currentVerdict === "UNSURE" && (
-                              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              <span className="inline-flex shrink-0 items-center rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                                 unsure
                               </span>
                             )}
-                            <TruncatedText
-                              text={stringify(item.input)}
-                              maxLength={100}
-                            />
+                            <ValuePreview value={item.input} className="min-w-0 flex-1" />
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
-                          <TruncatedText
-                            text={stringify(item.expectedOutput, "—")}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top text-muted-foreground">
+                          <ValuePreview value={item.expectedOutput} />
                         </TableCell>
-                        <TableCell className="max-w-xs align-top">
-                          <TruncatedText
-                            text={stringify(item.actualOutput)}
-                            maxLength={80}
-                          />
+                        <TableCell className="max-w-[240px] align-top text-muted-foreground">
+                          <ValuePreview value={item.actualOutput} />
                         </TableCell>
                         {evaluatorNames.map((name) => {
                           const evalResult = item.evalResults?.find(
                             (e) => e.evaluatorName === name
                           );
                           return (
-                            <TableCell key={name}>
+                            <TableCell
+                              key={name}
+                              className="text-right align-top"
+                            >
                               {evalResult ? (
                                 <ScoreCell
                                   score={evalResult.score ?? 0}
                                   success={evalResult.success ?? false}
                                 />
                               ) : (
-                                "—"
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
                           );
@@ -235,7 +263,7 @@ export default function ReviewQueuePage() {
                         >
                           <Link
                             to={`/runs/${item.runId}`}
-                            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                            className="font-mono text-sm text-muted-foreground hover:text-primary hover:underline"
                           >
                             {item.experimentName ?? "run"}
                           </Link>
@@ -245,49 +273,56 @@ export default function ReviewQueuePage() {
                         <TableRow>
                           <TableCell
                             colSpan={5 + evaluatorNames.length}
-                            className="bg-muted/50"
+                            className="bg-muted/40 p-0"
                           >
-                            <div className="p-4 space-y-4">
-                              <div className="text-sm text-muted-foreground">
-                                {item.projectName} ·{" "}
+                            <div className="space-y-5 border-t border-border p-5">
+                              <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="font-mono text-muted-foreground">
+                                  {item.projectName}
+                                </span>
+                                <span className="text-muted-foreground">/</span>
                                 <Link
                                   to={`/runs/${item.runId}`}
-                                  className="hover:text-foreground hover:underline"
+                                  className="font-mono text-muted-foreground hover:text-primary hover:underline"
                                 >
                                   {item.experimentName}
                                 </Link>
                               </div>
-                              <div>
-                                <h4 className="text-sm font-medium mb-2">
-                                  Input
-                                </h4>
-                                <JsonDisplay data={item.input} />
-                              </div>
-                              {item.expectedOutput && (
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2">
-                                    Expected Output
-                                  </h4>
-                                  <JsonDisplay data={item.expectedOutput} />
+                              <div className="grid gap-4 md:grid-cols-3">
+                                <div className="space-y-2">
+                                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                    Input
+                                  </div>
+                                  <JsonDisplay data={item.input} />
                                 </div>
-                              )}
-                              <div>
-                                <h4 className="text-sm font-medium mb-2">
-                                  Actual Output
-                                </h4>
-                                <JsonDisplay data={item.actualOutput} />
+                                {item.expectedOutput && (
+                                  <div className="space-y-2">
+                                    <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                      Expected output
+                                    </div>
+                                    <JsonDisplay data={item.expectedOutput} />
+                                  </div>
+                                )}
+                                <div className="space-y-2">
+                                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                    Actual output
+                                  </div>
+                                  <JsonDisplay data={item.actualOutput} />
+                                </div>
                               </div>
-                              <AnnotationControls
-                                key={`${itemId}-${item.currentVerdict ?? "none"}`}
-                                runId={item.runId ?? ""}
-                                itemResultId={itemId}
-                                annotation={
-                                  item.currentVerdict
-                                    ? { verdict: item.currentVerdict }
-                                    : undefined
-                                }
-                                onChanged={() => mutate()}
-                              />
+                              <div className="border-t border-border pt-5">
+                                <AnnotationControls
+                                  key={`${itemId}-${item.currentVerdict ?? "none"}`}
+                                  runId={item.runId ?? ""}
+                                  itemResultId={itemId}
+                                  annotation={
+                                    item.currentVerdict
+                                      ? { verdict: item.currentVerdict }
+                                      : undefined
+                                  }
+                                  onChanged={() => mutate()}
+                                />
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -298,13 +333,15 @@ export default function ReviewQueuePage() {
               </TableBody>
             </Table>
           </div>
-          <Pagination
-            currentPage={page?.number ?? 0}
-            totalItems={page?.totalElements ?? 0}
-            pageSize={page?.size ?? PAGE_SIZE}
-            onPageChange={handlePageChange}
-          />
-        </>
+          <div className="border-t border-border px-4 py-3">
+            <Pagination
+              currentPage={page?.number ?? 0}
+              totalItems={page?.totalElements ?? 0}
+              pageSize={page?.size ?? PAGE_SIZE}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

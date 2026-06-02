@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Dokimos">
+  <title>Dokimos</title>
+  <rect width="100" height="100" rx="22" fill="#000"/>
+  <path d="M76 24 76 76 24 76Z M68.7 38.6 68.7 68.7 38.6 68.7Z" fill="#fff" fill-rule="evenodd"/>
+</svg>

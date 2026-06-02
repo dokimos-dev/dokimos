@@ -4,11 +4,23 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
+// One Dark on the near-black Instrument panel (#0c0e12) instead of its default
+// slate, which reads gray against the dark docs. Matches the landing hero.
+const oneDarkInk = {
+  ...prismThemes.oneDark,
+  plain: { ...prismThemes.oneDark.plain, backgroundColor: "#0c0e12" },
+};
+
 const config: Config = {
   title: "Dokimos | LLM Evaluation Framework for Java",
   tagline: "An Evaluation Framework for LLM applications in Java.",
   favicon: "img/favicon.ico",
   staticDirectories: ["public", "static"],
+
+  // Latest released version, surfaced in the landing page install snippet.
+  customFields: {
+    dokimosVersion: "0.17.0",
+  },
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -58,7 +70,10 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
+    colorMode: {
+      defaultMode: "dark",
+      respectPrefersColorScheme: false,
+    },
     docs: {
       sidebar: {
         hideable: true,
@@ -68,7 +83,7 @@ const config: Config = {
       title: "Dokimos",
       logo: {
         alt: "Dokimos Logo",
-        src: "img/logo.jpeg",
+        src: "img/logo.svg",
       },
       items: [
         {
@@ -90,24 +105,9 @@ const config: Config = {
         },
       ],
     },
-    footer: {
-      style: "dark",
-      links: [
-        {
-          title: "Community",
-          items: [
-            {
-              label: "GitHub",
-              href: "https://github.com/dokimos-dev/dokimos",
-            },
-          ],
-        },
-      ],
-      copyright: `Copyright © ${new Date().getFullYear()} Dokimos Documentation. Built with Docusaurus.`,
-    },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: oneDarkInk,
+      darkTheme: oneDarkInk,
       additionalLanguages: ["java"],
     },
   } satisfies Preset.ThemeConfig,

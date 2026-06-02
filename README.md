@@ -5,7 +5,7 @@
 <h1 align="center">Dokimos</h1>
 
 <p align="center">
-  <strong>LLM Evaluation Framework for Java</strong>
+  <strong>LLM evaluation framework for Java and Kotlin</strong>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 
 Dokimos is an evaluation framework for LLM applications in Java and Kotlin. It helps you evaluate responses, track quality over time, and catch regressions before they reach production.
 
-It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you can run evaluations as part of your existing test suite and CI/CD pipeline.
+It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you can run evaluations as part of your existing test suite and CI/CD pipeline. It evaluates both LLM responses and agent behavior, including tool calls and execution traces.
 
 ## Why Dokimos?
 

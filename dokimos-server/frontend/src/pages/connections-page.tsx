@@ -14,6 +14,7 @@ import type {
 import { CreateLlmConnectionRequestProtocol } from "@/lib/api/generated.schemas";
 import { useBreadcrumbs } from "@/lib/breadcrumb-context";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -58,26 +59,47 @@ export default function ConnectionsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">LLM connections</h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            LLM connections
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            OpenAI-compatible endpoints used by judges and trace eval rules.
+          </p>
+        </div>
         {connections.length > 0 && (
           <Button onClick={() => setCreateOpen(true)}>New connection</Button>
         )}
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="px-4 py-4 border-b last:border-b-0">
-              <Skeleton className="h-4 w-48 mb-2" />
-              <Skeleton className="h-3 w-72" />
+            <div
+              key={i}
+              className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-3 w-3 rounded-full" />
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-18 ml-auto rounded-full" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-3 w-[70%]" />
+                <Skeleton className="h-3 w-[50%]" />
+              </div>
             </div>
           ))}
         </div>
       ) : error ? (
-        <p className="text-destructive">
-          Error loading connections: {error.message}
-        </p>
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <h2 className="text-base font-semibold mb-2">
+            Couldn't load connections
+          </h2>
+          <p className="text-destructive text-sm">{error.message}</p>
+        </div>
       ) : connections.length === 0 ? (
         <EmptyState onCreate={() => setCreateOpen(true)} />
       ) : (
@@ -111,12 +133,30 @@ export default function ConnectionsPage() {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="rounded-xl border bg-card p-10 text-center">
-      <h2 className="text-lg font-semibold mb-2">No LLM connections yet</h2>
-      <p className="text-muted-foreground text-sm mb-6">
-        Add a connection to an OpenAI compatible endpoint so you can run LLM
-        judges against your runs.
-      </p>
+    <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center text-center gap-4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border bg-accent text-muted-foreground">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-6 w-6"
+        >
+          <path d="M9 2v6" />
+          <path d="M15 2v6" />
+          <path d="M7 8h10v3a5 5 0 0 1-10 0z" />
+          <path d="M12 16v6" />
+        </svg>
+      </div>
+      <div>
+        <h2 className="text-base font-semibold mb-1">No LLM connections yet</h2>
+        <p className="text-muted-foreground text-sm">
+          Add a connection to an OpenAI compatible endpoint so you can run LLM
+          judges against your runs.
+        </p>
+      </div>
       <Button onClick={onCreate}>New connection</Button>
     </div>
   );
@@ -130,7 +170,7 @@ interface ConnectionListProps {
 
 function ConnectionList({ connections, onEdit, onChanged }: ConnectionListProps) {
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {connections.map((connection) => (
         <ConnectionRow
           key={connection.id}
@@ -162,6 +202,8 @@ function ConnectionRow({ connection, onEdit, onChanged }: ConnectionRowProps) {
     : connection.credentialRef
       ? connection.credentialRef
       : "no credential";
+  const hasCredential = connection.hasInlineKey || !!connection.credentialRef;
+  const isResponses = connection.protocol === "RESPONSES";
 
   const handleDelete = async () => {
     setDeleteError(null);
@@ -175,72 +217,101 @@ function ConnectionRow({ connection, onEdit, onChanged }: ConnectionRowProps) {
   };
 
   return (
-    <div className="px-4 py-4 border-b last:border-b-0">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{connection.name}</p>
-          <p className="text-sm text-muted-foreground truncate">
-            {connection.model}
-          </p>
-          <p className="text-xs text-muted-foreground truncate mt-1">
+    <div className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <span
+          className={`h-2 w-2 shrink-0 rounded-full ${
+            hasCredential ? "bg-success" : "bg-warning"
+          }`}
+          aria-hidden="true"
+        />
+        <span className="font-mono text-sm font-semibold truncate">
+          {connection.name}
+        </span>
+        <span className="font-mono text-xs text-muted-foreground truncate">
+          {connection.model}
+        </span>
+        <Badge
+          variant={isResponses ? "default" : "outline"}
+          className="ml-auto shrink-0 rounded-md font-mono text-[10px] uppercase tracking-wider"
+        >
+          {protocolLabel(connection.protocol)}
+        </Badge>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline gap-3 text-xs">
+          <span className="w-20 shrink-0 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Base URL
+          </span>
+          <span className="font-mono truncate text-foreground">
             {connection.baseUrl}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            API: {protocolLabel(connection.protocol)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Credential: {credentialSource}
-          </p>
+          </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {confirming ? (
-            <>
-              <span className="text-xs text-muted-foreground">Delete?</span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Confirm"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setConfirming(false);
-                  setDeleteError(null);
-                }}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(connection)}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setConfirming(true);
-                  setDeleteError(null);
-                }}
-              >
-                Delete
-              </Button>
-            </>
-          )}
+        <div className="flex items-baseline gap-3 text-xs">
+          <span className="w-20 shrink-0 text-[11px] uppercase tracking-wider text-muted-foreground">
+            Credential
+          </span>
+          <span
+            className={`font-mono truncate ${
+              hasCredential ? "text-foreground" : "text-warning"
+            }`}
+          >
+            {credentialSource}
+          </span>
         </div>
       </div>
+
+      <div className="flex items-center gap-2 mt-1 pt-4 border-t border-border">
+        {confirming ? (
+          <>
+            <span className="text-xs text-muted-foreground">Delete?</span>
+            <span className="ml-auto" />
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Confirm"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setConfirming(false);
+                setDeleteError(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <>
+            <span className="ml-auto" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(connection)}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setConfirming(true);
+                setDeleteError(null);
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        )}
+      </div>
       {deleteError && (
-        <p className="text-sm text-destructive mt-2">{deleteError}</p>
+        <p className="text-sm text-destructive">{deleteError}</p>
       )}
     </div>
   );
@@ -342,114 +413,128 @@ function ConnectionDialog({
     }
   };
 
+  const inputClass =
+    "w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary";
+  const labelClass =
+    "block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5";
+
   return (
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="border rounded-xl p-0 bg-card text-foreground max-w-md w-[calc(100%-2rem)] backdrop:bg-black/50"
+      className="rounded-md border border-border p-0 bg-popover text-popover-foreground max-w-md w-[calc(100%-2rem)] backdrop:bg-black/60"
     >
-      <form onSubmit={handleSubmit} className="p-5">
-        <h3 className="text-base font-bold mb-1">
-          {mode === "edit" ? "Edit connection" : "New connection"}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Connect to an OpenAI compatible endpoint used by LLM judges.
-        </p>
-        <div className="mb-3">
-          <label
-            htmlFor="conn-name"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
+      <form onSubmit={handleSubmit}>
+        <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+          <h3 className="font-mono text-sm font-semibold uppercase tracking-wider">
+            {mode === "edit" ? "Edit connection" : "New connection"}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground"
           >
-            Name
-          </label>
-          <input
-            id="conn-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="openai-judge"
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-            autoFocus
-            required
-          />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
         </div>
-        <div className="mb-3">
-          <label
-            htmlFor="conn-base-url"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
-          >
-            Base URL
-          </label>
-          <input
-            id="conn-base-url"
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-            required
-          />
+        <div className="px-5 py-4 flex flex-col gap-4">
+          <div>
+            <label htmlFor="conn-name" className={labelClass}>
+              Name
+            </label>
+            <input
+              id="conn-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="openai-judge"
+              className={inputClass}
+              autoFocus
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="conn-base-url" className={labelClass}>
+              Base URL
+            </label>
+            <input
+              id="conn-base-url"
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className={inputClass}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="conn-model" className={labelClass}>
+              Model
+            </label>
+            <input
+              id="conn-model"
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className={inputClass}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="conn-protocol" className={labelClass}>
+              API
+            </label>
+            <select
+              id="conn-protocol"
+              value={protocol}
+              onChange={(e) =>
+                setProtocol(
+                  e.target.value as CreateLlmConnectionRequestProtocol
+                )
+              }
+              className={inputClass}
+            >
+              <option value={CreateLlmConnectionRequestProtocol.RESPONSES}>
+                Responses (recommended)
+              </option>
+              <option
+                value={CreateLlmConnectionRequestProtocol.CHAT_COMPLETIONS}
+              >
+                Chat Completions
+              </option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="conn-api-key" className={labelClass}>
+              API key
+            </label>
+            <input
+              id="conn-api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={
+                mode === "edit" ? "leave blank to keep current key" : "sk-..."
+              }
+              className={inputClass}
+            />
+          </div>
+          {submitError && (
+            <p className="text-sm text-destructive">{submitError}</p>
+          )}
         </div>
-        <div className="mb-3">
-          <label
-            htmlFor="conn-model"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
-          >
-            Model
-          </label>
-          <input
-            id="conn-model"
-            type="text"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label
-            htmlFor="conn-protocol"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
-          >
-            API
-          </label>
-          <select
-            id="conn-protocol"
-            value={protocol}
-            onChange={(e) =>
-              setProtocol(e.target.value as CreateLlmConnectionRequestProtocol)
-            }
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-          >
-            <option value={CreateLlmConnectionRequestProtocol.RESPONSES}>
-              Responses (recommended)
-            </option>
-            <option value={CreateLlmConnectionRequestProtocol.CHAT_COMPLETIONS}>
-              Chat Completions
-            </option>
-          </select>
-        </div>
-        <div className="mb-3">
-          <label
-            htmlFor="conn-api-key"
-            className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1"
-          >
-            API key
-          </label>
-          <input
-            id="conn-api-key"
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={
-              mode === "edit" ? "leave blank to keep current key" : "sk-..."
-            }
-            className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground"
-          />
-        </div>
-        {submitError && (
-          <p className="text-sm text-destructive mb-3">{submitError}</p>
-        )}
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
           <Button
             type="button"
             variant="outline"

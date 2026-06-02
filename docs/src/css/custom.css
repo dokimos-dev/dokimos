@@ -1,30 +1,190 @@
-/**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
- */
+/* Docs "Instrument" theme: dark default, amber accent, IBM Plex Mono for
+   code, Inter for prose. Mirrors the app design system. */
 
-/* You can override the default Infima variables here. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap");
+
 :root {
-  --ifm-color-primary: #000000;
-  --ifm-color-primary-dark: #000000;
-  --ifm-color-primary-darker: #000000;
-  --ifm-color-primary-darkest: #000000;
-  --ifm-color-primary-light: #262626;
-  --ifm-color-primary-lighter: #404040;
-  --ifm-color-primary-lightest: #525252;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-color-primary: #9a6a00;
+  --ifm-color-primary-dark: #8a5f00;
+  --ifm-color-primary-darker: #815900;
+  --ifm-color-primary-darkest: #6a4900;
+  --ifm-color-primary-light: #b07c10;
+  --ifm-color-primary-lighter: #c08a1a;
+  --ifm-color-primary-lightest: #d49e2e;
+
+  --ifm-font-family-base: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --ifm-font-family-monospace: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ifm-code-font-size: 90%;
+  --ifm-global-radius: 6px;
+
+  --ifm-background-color: #fbfbfc;
+  --ifm-background-surface-color: #ffffff;
+  --ifm-color-content: #15181e;
+  --ifm-color-content-secondary: #6b7280;
+  --ifm-heading-color: #0f1115;
+
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-navbar-shadow: inset 0 -1px 0 #e3e5ea;
+  --ifm-toc-border-color: #e3e5ea;
+  --ifm-color-emphasis-200: #e3e5ea;
+  --ifm-color-emphasis-300: #d2d6dd;
+
+  --ifm-code-background: #f0f1f4;
+  --ifm-pre-background: #0c0e12;
+  --ifm-table-stripe-background: #f7f8fa;
+  --ifm-table-border-color: #e3e5ea;
+  --ifm-menu-color: #3c424c;
+  --ifm-menu-color-active: var(--ifm-color-content);
+  --ifm-menu-color-background-active: rgba(154, 106, 0, 0.08);
+  --ifm-link-color: var(--ifm-color-primary);
+
+  --docusaurus-highlighted-code-line-bg: rgba(154, 106, 0, 0.12);
+
+  --dok-border: #e3e5ea;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
-  --ifm-color-primary: #ffffff;
-  --ifm-color-primary-dark: #e5e5e5;
-  --ifm-color-primary-darker: #d4d4d4;
-  --ifm-color-primary-darkest: #a3a3a3;
-  --ifm-color-primary-light: #ffffff;
-  --ifm-color-primary-lighter: #ffffff;
-  --ifm-color-primary-lightest: #ffffff;
-  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+[data-theme="dark"] {
+  --ifm-color-primary: #e6a93a;
+  --ifm-color-primary-dark: #d99e2a;
+  --ifm-color-primary-darker: #cc931f;
+  --ifm-color-primary-darkest: #a8791a;
+  --ifm-color-primary-light: #eab456;
+  --ifm-color-primary-lighter: #eebd6b;
+  --ifm-color-primary-lightest: #f4d196;
+
+  --ifm-background-color: #0a0b0e;
+  --ifm-background-surface-color: #0f1115;
+  --ifm-color-content: #e4e7ec;
+  --ifm-color-content-secondary: #7a828e;
+  --ifm-heading-color: #f2f4f7;
+
+  --ifm-navbar-background-color: #0f1115;
+  --ifm-navbar-shadow: inset 0 -1px 0 #23272f;
+  --ifm-toc-border-color: #23272f;
+  --ifm-color-emphasis-200: #23272f;
+  --ifm-color-emphasis-300: #313742;
+
+  --ifm-code-background: #181c23;
+  --ifm-pre-background: #0c0e12;
+  --ifm-table-stripe-background: #12151a;
+  --ifm-table-border-color: #23272f;
+  --ifm-menu-color: #b4bac4;
+  --ifm-menu-color-active: var(--ifm-color-content);
+  --ifm-menu-color-background-active: rgba(230, 169, 58, 0.1);
+
+  --docusaurus-highlighted-code-line-bg: rgba(230, 169, 58, 0.18);
+
+  --dok-border: #23272f;
+}
+
+html {
+  font-feature-settings: "tnum" 1;
+}
+
+/* Navbar: hairline, mono brand */
+.navbar__title {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.navbar__link {
+  font-size: 0.9rem;
+}
+
+/* Sidebar: subtle tint + thin accent bar, neutral label (matches the app rail) */
+.menu__link {
+  font-size: 0.875rem;
+  border-radius: 6px;
+}
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+  position: relative;
+  color: var(--ifm-color-content);
+}
+.menu__link--active:not(.menu__link--sublist)::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--ifm-color-primary);
+  opacity: 0.85;
+}
+.menu__list .menu__list {
+  font-size: 0.85rem;
+}
+
+/* TOC */
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+/* Headings + prose */
+.markdown h1 {
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+.markdown h2 {
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+}
+article {
+  font-size: 16px;
+}
+
+/* Code blocks: hairline, mono */
+.theme-code-block,
+pre[class*="language-"] {
+  border: 1px solid var(--dok-border);
+  border-radius: 8px;
+}
+code {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 4px;
+  font-family: var(--ifm-font-family-monospace);
+}
+.prism-code {
+  font-family: var(--ifm-font-family-monospace);
+}
+
+/* Tabs (Java/Kotlin) */
+.tabs__item {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 6px 6px 0 0;
+}
+.tabs__item--active {
+  color: var(--ifm-color-primary);
+  border-bottom-color: var(--ifm-color-primary);
+}
+
+/* Admonitions: hairline */
+.theme-admonition {
+  border: 1px solid var(--dok-border);
+  border-radius: 8px;
+}
+
+/* Tables */
+.markdown table th {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: var(--ifm-color-content-secondary);
+}
+.markdown table {
+  font-size: 0.9rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Buttons */
+.button--primary {
+  --ifm-button-background-color: var(--ifm-color-primary);
+  --ifm-button-border-color: var(--ifm-color-primary);
 }

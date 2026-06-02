@@ -24,16 +24,34 @@ Before writing code, read the data model files and any relevant evaluator files 
 |-----------|---------------|:---:|:---:|
 | `ToolCallValidityEvaluator` | Tool calls match JSON schema (names, required params, types, enums) | No | 1.0 |
 | `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
+| `ToolTrajectoryEvaluator` | Tool-call sequence matches an expected trajectory (selectable match mode) | No | 1.0 |
+| `ToolErrorEvaluator` | Tool calls succeeded (no error results) | No | 1.0 |
+| `ToolEfficiencyEvaluator` | No redundant or duplicate tool calls | No | 1.0 |
 | `TaskCompletionEvaluator` | Agent completed the user's tasks | Yes | 0.5 |
 | `ToolArgumentHallucinationEvaluator` | Arguments are grounded in user input | Yes | 0.8 |
 | `ToolNameReliabilityEvaluator` | Tool names follow conventions (snake_case, conciseness, clarity, ordering, intent) | Optional | 0.8 |
 | `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well-crafted (structure, clarity, args documented, examples, usage notes) | Optional | 0.8 |
 
+Five of the nine are deterministic and need no LLM (`ToolCallValidity`, `ToolCorrectness`, `ToolTrajectory`, `ToolError`, `ToolEfficiency`), so they run in a unit test or CI gate with no API key.
+
+`ToolTrajectoryEvaluator` match modes: `STRICT`, `IN_ORDER` (default, LCS), `ANY_ORDER`, `SUPERSET`, `SUBSET`, `PRECISION`, `RECALL`. Supply an `ArgumentMatcher` to also assert arguments, optionally per tool.
+
 ## Data model essentials
 
 - **`ToolCall`**: A tool invocation record (name, arguments map, optional result string, optional metadata). Create with `ToolCall.of(name, args)` or `ToolCall.builder()`.
 - **`ToolDefinition`**: A tool's contract (name, description, JSON Schema map for arguments). Create with `ToolDefinition.of(name, desc, schema)`. The schema must follow JSON Schema format with `"type": "object"`, `"properties"`, and optional `"required"`.
-- **`AgentTrace`**: Wraps a full agent execution (tool calls, reasoning steps, final response). Build with `AgentTrace.builder().addToolCall(...).finalResponse(...).build()`. Call `toOutputMap()` to get a map with keys `"output"`, `"toolCalls"`, `"reasoningSteps"` for use in `EvalTestCase`.
+- **`AgentTrace`**: Wraps a full agent execution (tool calls, reasoning steps, final response). Build with `AgentTrace.builder().addToolCall(...).finalResponse(...).build()`. Call `toOutputMap()` to get a map with keys `"output"`, `"toolCalls"`, `"reasoningSteps"` for use in `EvalTestCase`. `trace.toTestCase(input, tools, tasks)` is a shortcut that builds a ready-to-use `EvalTestCase` (tools and tasks are optional overloads).
+
+## Extracting traces from a framework
+
+Do not hand-build `AgentTrace` if the agent runs on a supported framework. Each extractor turns a framework run into a trace:
+
+- **LangChain4j** (`dokimos-langchain4j`): `LangChain4jSupport.toAgentTrace(result)` from an `AiServices` `Result<T>`; `toToolDefinitions(specs)` for the tools.
+- **Spring AI** (`dokimos-spring-ai`): `SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages)` (results matched by tool-call id); `toToolDefinitions(defs)`.
+- **Koog** (`dokimos-koog`): install a `KoogTraceCollector` via `collectAgentTrace(collector)` in the event handler, run the agent, then `collector.toAgentTrace(response)`.
+- **OpenAI Java SDK**: copy the `OpenAiAgentTraces` bridge from `dokimos-examples` (not a published module) and build the trace as the tool-calling loop runs.
+
+See the agent-evaluation guide for the full extractor reference: https://dokimos.dev/evaluation/agent-evaluation
 
 ## EvalTestCase key conventions
 
@@ -41,9 +59,9 @@ Evaluators read from specific keys in `EvalTestCase` maps:
 
 | Map | Key | Type | Used by |
 |-----|-----|------|---------|
-| `actualOutputs` | `"toolCalls"` | `List<ToolCall>` | Validity, Correctness, Hallucination |
+| `actualOutputs` | `"toolCalls"` | `List<ToolCall>` | Validity, Correctness, Trajectory, Tool Error, Tool Efficiency, Hallucination |
 | `actualOutputs` | `"output"` | `String` | Task Completion |
-| `expectedOutputs` | `"toolCalls"` | `List<ToolCall>` | Correctness |
+| `expectedOutputs` | `"toolCalls"` | `List<ToolCall>` | Correctness, Trajectory |
 | `metadata` | `"tools"` | `List<ToolDefinition>` | Validity, Name Reliability, Description Reliability |
 | `metadata` | `"tasks"` | `List<String>` | Task Completion |
 | `metadata` | `"constraints"` | `String` | Task Completion |
@@ -146,6 +164,9 @@ val validity = toolCallValidity { threshold = 1.0 }
 evaluators {
     toolCallValidity { strictMode = true }
     toolCorrectness { matchMode = ToolCorrectnessEvaluator.MatchMode.NAMES_ONLY }
+    toolTrajectory { matchMode = ToolTrajectoryEvaluator.MatchMode.IN_ORDER }
+    toolError { }
+    toolEfficiency { }
     taskCompletion(judge) { threshold = 0.5 }
     toolArgumentHallucination(judge) { threshold = 0.8 }
     toolNameReliability { judge = judgeLM }

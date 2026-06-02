@@ -88,6 +88,27 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
+`simpleTask(model)` writes the response under the default `"output"` key. To use a different key, pass it as the second argument:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+// Writes the response under "answer" instead of "output"
+Task task = LangChain4jSupport.simpleTask(model, "answer");
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Writes the response under "answer" instead of "output"
+val task = LangChain4jSupport.simpleTask(model, "answer")
+```
+
+  </TabItem>
+</Tabs>
+
 ### Using ChatModel as LLM Judge
 
 Convert a `ChatModel` to a `JudgeLM` for evaluation:

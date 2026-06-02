@@ -159,7 +159,7 @@ val trajectory = toolTrajectory {
   </TabItem>
 </Tabs>
 
-By default only tool names and order are compared. Supply an [argument matcher](#argument-matching) to also assert arguments, optionally overriding it per tool:
+By default arguments are compared with a tolerant matcher, so numerically equal values like `1` and `1.0` match. To compare tool names and order only, pass `ArgumentMatcher.of(ArgMatchMode.IGNORE)`. You can also override the matcher per tool:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">

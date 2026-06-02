@@ -366,6 +366,61 @@ fun shouldAnswerQuestions(example: Example) {
   </TabItem>
 </Tabs>
 
+### Reporting Real Outputs
+
+When a test class declares a static `@DatasetReporter` field, `@DatasetSource` opens a run and reports each invocation as an item result. By default that item is empty. Declare a `DatasetItemRecorder` parameter on the test method and populate it so the reported item carries the actual outputs and eval results the test produced.
+
+```java
+import dev.dokimos.core.EvalResult;
+import dev.dokimos.core.Reporter;
+import dev.dokimos.junit.DatasetItemRecorder;
+import dev.dokimos.junit.DatasetReporter;
+import dev.dokimos.junit.DatasetSource;
+import org.junit.jupiter.params.ParameterizedTest;
+
+class SupportEvaluationTest {
+
+    @DatasetReporter
+    static final Reporter reporter = new DokimosServerReporter(serverConfig);
+
+    @ParameterizedTest
+    @DatasetSource("classpath:datasets/support-qa.json")
+    void shouldAnswerSupportQuestions(Example example, DatasetItemRecorder recorder) {
+        String answer = supportBot.generate(example.input());
+        EvalTestCase testCase = example.toTestCase(answer);
+
+        recorder.actualOutput("output", answer);
+        for (Evaluator evaluator : evaluators) {
+            EvalResult result = evaluator.evaluate(testCase);
+            recorder.evalResult(result);
+        }
+
+        Assertions.assertEval(testCase, evaluators);
+    }
+}
+```
+
+A fresh recorder is supplied per invocation, so you never reset it between examples. The recorder methods are chainable: `actualOutput(String key, Object value)`, `actualOutputs(Map<String, Object> outputs)`, `evalResult(EvalResult result)`, and `evalResults(List<EvalResult> results)`.
+
+### Run Metadata
+
+When a `@DatasetReporter` field is present, `@DatasetSource` forwards metadata to the reporter. Use `entries` for type-safe key-value pairs:
+
+```java
+@ParameterizedTest
+@DatasetSource(
+    value = "classpath:datasets/support-qa.json",
+    entries = {
+        @MetadataEntry(key = "model", value = "gpt-4"),
+        @MetadataEntry(key = "temperature", value = "0")
+    })
+void shouldAnswerSupportQuestions(Example example) {
+    // ...
+}
+```
+
+The alternating-string `metadata = {"model", "gpt-4", "temperature", "0"}` form also works. When both are set, `entries` takes precedence.
+
 ## CI/CD Integration
 
 ### Maven

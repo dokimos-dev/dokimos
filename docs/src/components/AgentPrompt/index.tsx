@@ -3,11 +3,6 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 
 import styles from "./styles.module.css";
 
-/**
- * A copy-paste prompt for a coding agent (Cursor, Claude Code, and similar). A developer
- * pastes it into their agent to get a first Dokimos eval written against their own code,
- * without reading the docs first. The dependency version tracks the configured release.
- */
 export default function AgentPrompt(): ReactNode {
   const { siteConfig } = useDocusaurusContext();
   const version = (siteConfig.customFields?.dokimosVersion as string) ?? "latest";

@@ -9,11 +9,6 @@ import styles from "./styles.module.css";
 
 type Props = WrapperProps<typeof FooterType>;
 
-/**
- * Adds an action row above the standard doc footer so a reader can hand the page to a
- * coding agent: copy the page as markdown, or open it in ChatGPT or Claude. The markdown
- * is the version emitted by docusaurus-plugin-llms, served under /docs/<page>.md.
- */
 export default function FooterWrapper(props: Props): ReactNode {
   const { metadata } = useDoc();
   const { siteConfig } = useDocusaurusContext();

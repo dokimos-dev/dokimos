@@ -69,6 +69,30 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    [
+      // Generates /llms.txt (an index), /llms-full.txt (all docs in one file), and a
+      // .md version of every page, so coding agents can read the docs without parsing HTML.
+      "docusaurus-plugin-llms",
+      {
+        title: "Dokimos",
+        description:
+          "The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, run evals in JUnit and CI, and integrate with Spring AI, LangChain4j, and Koog.",
+        generateMarkdownFiles: true,
+        includeOrder: [
+          "overview.md",
+          "getting-started/*.md",
+          "evaluation/agent-evaluation.md",
+          "evaluation/*.md",
+          "integrations/*.md",
+          "server/*.md",
+          "tutorials/*.md",
+        ],
+        ignoreFiles: ["changelog*"],
+      },
+    ],
+  ],
+
   themeConfig: {
     colorMode: {
       defaultMode: "dark",

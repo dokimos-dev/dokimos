@@ -1,11 +1,51 @@
 .features {
-  display: flex;
-  align-items: center;
-  padding: 2rem 0;
-  width: 100%;
+  padding: 4rem 1rem 5rem;
+  background: var(--ifm-background-color);
 }
 
-.featureSvg {
-  height: 200px;
-  width: 200px;
+.grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.card {
+  border: 1px solid var(--dok-border);
+  border-radius: 12px;
+  padding: 1.6rem 1.5rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  font-size: 1.15rem;
+  color: var(--ifm-color-primary);
+  background: rgba(230, 169, 58, 0.1);
+  border: 1px solid var(--dok-border);
+  margin-bottom: 1rem;
+}
+
+.cardTitle {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.cardText {
+  font-size: 0.92rem;
+  color: var(--ifm-color-content-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+@media screen and (max-width: 996px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }

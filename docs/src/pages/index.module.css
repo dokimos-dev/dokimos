@@ -49,6 +49,34 @@
   flex-wrap: wrap;
 }
 
+/* Social-proof strip under the hero buttons */
+.proofStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  list-style: none;
+  margin: 1.8rem 0 0;
+  padding: 0;
+}
+
+.proofItem {
+  position: relative;
+  font-size: 0.85rem;
+  color: var(--ifm-color-content-secondary);
+  padding-left: 1.1rem;
+}
+
+.proofItem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+}
+
 /* Hero code panel */
 .heroCode {
   border: 1px solid var(--dok-border);
@@ -92,6 +120,43 @@
   overflow-x: auto;
 }
 
+/* Install band */
+.installBand {
+  padding: 4rem 1rem;
+  border-bottom: 1px solid var(--dok-border);
+  background: var(--ifm-background-color);
+}
+
+.installInner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.installTitle {
+  font-size: 1.8rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.8rem;
+}
+
+.installSubtitle {
+  font-size: 1rem;
+  color: var(--ifm-color-content-secondary);
+  max-width: 30rem;
+  margin: 0;
+}
+
+.installCode {
+  border: 1px solid var(--dok-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0c0e12;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
 @media screen and (max-width: 996px) {
   .hero {
     padding: 3rem 1rem;
@@ -102,5 +167,9 @@
   }
   .heroTitle {
     font-size: 2.1rem;
+  }
+  .installInner {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 }

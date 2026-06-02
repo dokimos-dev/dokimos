@@ -36,6 +36,19 @@ void answersStayGrounded() {
     assertThat(result.passRate()).isGreaterThan(0.9);
 }`;
 
+const installCode = (version: string) => `<dependency>
+    <groupId>dev.dokimos</groupId>
+    <artifactId>dokimos-junit</artifactId>
+    <version>${version}</version>
+    <scope>test</scope>
+</dependency>`;
+
+const PROOF_POINTS = [
+  "Runs in JUnit and CI",
+  "Spring AI, LangChain4j, and Koog",
+  "MIT licensed, on Maven Central",
+];
+
 function HomepageHeader() {
   return (
     <header className={styles.hero}>
@@ -43,12 +56,12 @@ function HomepageHeader() {
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>LLM evaluation for the JVM</span>
           <Heading as="h1" className={styles.heroTitle}>
-            Test, track, and trust your LLM apps in Java and Kotlin.
+            The LLM evaluation framework for Java and Kotlin.
           </Heading>
           <p className={styles.heroSubtitle}>
-            Evaluate responses, track quality over time, and catch regressions before they reach
-            production. Integrates with JUnit, LangChain4j, and Spring AI so evaluations run in your
-            existing test suite and CI.
+            Evaluate responses and agent tool calls, track quality over time, and catch regressions
+            before they ship. Runs in the JUnit suite and CI you already have, one dependency, no new
+            infrastructure. Works with Spring AI, LangChain4j, and Koog.
           </p>
           <div className={styles.heroButtons}>
             <Link className="button button--primary button--lg" to="/overview">
@@ -61,6 +74,13 @@ function HomepageHeader() {
               View on GitHub ↗
             </Link>
           </div>
+          <ul className={styles.proofStrip}>
+            {PROOF_POINTS.map((point) => (
+              <li key={point} className={styles.proofItem}>
+                {point}
+              </li>
+            ))}
+          </ul>
         </div>
         <div className={styles.heroCode}>
           <div className={styles.codeChrome}>
@@ -90,15 +110,59 @@ function HomepageHeader() {
   );
 }
 
+function InstallBand() {
+  const { siteConfig } = useDocusaurusContext();
+  const version = (siteConfig.customFields?.dokimosVersion as string) ?? "latest";
+  return (
+    <section className={styles.installBand}>
+      <div className={styles.installInner}>
+        <div className={styles.installCopy}>
+          <Heading as="h2" className={styles.installTitle}>
+            Add one test dependency. No migration.
+          </Heading>
+          <p className={styles.installSubtitle}>
+            Dokimos installs like any other test library and runs in the build you already have.
+            Gradle and Kotlin DSL builds are supported too.
+          </p>
+        </div>
+        <div className={styles.installCode}>
+          <div className={styles.codeChrome}>
+            <span className={styles.codeDot} />
+            <span className={styles.codeDot} />
+            <span className={styles.codeDot} />
+            <span className={styles.codeName}>pom.xml</span>
+          </div>
+          <Highlight theme={heroTheme} code={installCode(version)} language="markup">
+            {({ tokens, getLineProps, getTokenProps }) => (
+              <pre className={styles.codeBody}>
+                <code>
+                  {tokens.map((line, i) => (
+                    <span key={i} {...getLineProps({ line })} style={{ display: "block" }}>
+                      {line.map((token, key) => (
+                        <span key={key} {...getTokenProps({ token })} />
+                      ))}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+            )}
+          </Highlight>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home(): ReactNode {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
       title={siteConfig.title}
-      description="Evaluate LLM responses, track quality over time, and catch regressions before they reach production. Integrates with JUnit, LangChain4j, and Spring AI."
+      description="The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, catch regressions in JUnit and CI, and integrate with Spring AI, LangChain4j, and Koog."
     >
       <HomepageHeader />
       <main>
+        <InstallBand />
         <HomepageFeatures />
       </main>
     </Layout>

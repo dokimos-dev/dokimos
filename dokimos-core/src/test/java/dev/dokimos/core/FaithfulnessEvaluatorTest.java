@@ -330,6 +330,42 @@ class FaithfulnessEvaluatorTest {
         assertThat(result.success()).isTrue();
     }
 
+    @Test
+    void shouldParseProseWrappedJson() {
+        JudgeLM judge = prompt -> {
+            if (prompt.contains("Extract the factual truths")) {
+                return "Sure, here they are: [\"Paris is the capital\"] Hope that helps.";
+            }
+            if (prompt.contains("break it down into individual claims")) {
+                return "The claims are: [\"Paris is the capital\"]";
+            }
+            if (prompt.contains("Compare each CLAIM")) {
+                return "My verdicts: [{\"verdict\": \"Yes\", \"reasoning\": \"Matches\"}]";
+            }
+            return "All claims supported.";
+        };
+
+        var evaluator = FaithfulnessEvaluator.builder().judge(judge).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Tell me about Paris")
+                .actualOutput("context", "Paris is the capital")
+                .actualOutput("Paris is the capital")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void shouldRequireJudgeOnBuild() {
+        assertThatThrownBy(() -> FaithfulnessEvaluator.builder().build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JudgeLM");
+    }
+
     private static class MockJudge implements JudgeLM {
         private String truthsResponse;
         private String claimsResponse;

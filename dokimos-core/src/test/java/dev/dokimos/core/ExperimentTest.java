@@ -5,11 +5,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.dokimos.core.evaluators.ExactMatchEvaluator;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ExperimentTest {
+
+    private static Evaluator passingEvaluator() {
+        return new Evaluator() {
+            @Override
+            public EvalResult evaluate(EvalTestCase testCase) {
+                return EvalResult.success("noop", 1.0, "ok");
+            }
+
+            @Override
+            public String name() {
+                return "noop";
+            }
+
+            @Override
+            public double threshold() {
+                return 0.5;
+            }
+        };
+    }
 
     @Test
     void shouldRunTaskOnEachExample() {
@@ -25,6 +45,7 @@ class ExperimentTest {
                 .name("math-experiment")
                 .dataset(dataset)
                 .task(task)
+                .evaluator(passingEvaluator())
                 .build()
                 .run();
 
@@ -134,6 +155,7 @@ class ExperimentTest {
                 .description("Testing greeting responses")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "Hi there"))
+                .evaluator(passingEvaluator())
                 .metadata("model", "gpt-5")
                 .metadata("promptVersion", "2.1")
                 .build()
@@ -178,6 +200,7 @@ class ExperimentTest {
                 .name("reporter-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", example.expectedOutput()))
+                .evaluator(passingEvaluator())
                 .reporter(tracker)
                 .build()
                 .run();
@@ -195,6 +218,7 @@ class ExperimentTest {
                 .name("my-experiment")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .metadata("model", "gpt-5")
                 .metadata("version", "1.0")
                 .reporter(tracker)
@@ -241,6 +265,7 @@ class ExperimentTest {
                 .name("success-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .reporter(tracker)
                 .build()
                 .run();
@@ -249,24 +274,27 @@ class ExperimentTest {
     }
 
     @Test
-    void shouldCompleteRunWithFailedOnException() {
+    void shouldIsolateTaskExceptionAndCompleteRun() {
         var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
 
         var tracker = new TrackingReporter();
 
-        assertThatThrownBy(() -> Experiment.builder()
-                        .name("failure-test")
-                        .dataset(dataset)
-                        .task(example -> {
-                            throw new RuntimeException("Task failed");
-                        })
-                        .reporter(tracker)
-                        .build()
-                        .run())
-                .isInstanceOf(RuntimeException.class);
+        var result = Experiment.builder()
+                .name("failure-test")
+                .dataset(dataset)
+                .task(example -> {
+                    throw new RuntimeException("Task failed");
+                })
+                .evaluator(passingEvaluator())
+                .reporter(tracker)
+                .build()
+                .run();
 
-        assertThat(tracker.completeRunStatus).isEqualTo(RunStatus.FAILED);
-        assertThat(tracker.calls).contains("completeRun", "flush");
+        // A failing item no longer aborts the run; it is recorded as unsuccessful.
+        assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.itemResults().get(0).success()).isFalse();
+        assertThat(tracker.completeRunStatus).isEqualTo(RunStatus.SUCCESS);
+        assertThat(tracker.calls).contains("reportItem", "completeRun", "flush");
     }
 
     @Test
@@ -279,6 +307,7 @@ class ExperimentTest {
                 .name("handle-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .reporter(tracker)
                 .build()
                 .run();
@@ -296,6 +325,7 @@ class ExperimentTest {
                 .name("noop-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .build()
                 .run();
 
@@ -310,6 +340,7 @@ class ExperimentTest {
                 .name("null-reporter-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .reporter(null)
                 .build()
                 .run();
@@ -329,6 +360,7 @@ class ExperimentTest {
                 .name("parallel-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", example.expectedOutput()))
+                .evaluator(passingEvaluator())
                 .parallelism(2)
                 .build()
                 .run();
@@ -345,6 +377,7 @@ class ExperimentTest {
                 .name("multi-run-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", example.expectedOutput()))
+                .evaluator(passingEvaluator())
                 .runs(3)
                 .build()
                 .run();
@@ -365,6 +398,7 @@ class ExperimentTest {
                 .name("parallel-multi-run-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", example.expectedOutput()))
+                .evaluator(passingEvaluator())
                 .parallelism(2)
                 .runs(2)
                 .build()
@@ -407,6 +441,7 @@ class ExperimentTest {
                 .name("multi-run-reporter-test")
                 .dataset(dataset)
                 .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
                 .reporter(tracker)
                 .runs(2)
                 .build()
@@ -423,6 +458,269 @@ class ExperimentTest {
                         "reportItem",
                         "completeRun",
                         "flush");
+    }
+
+    @Test
+    void shouldRunWhenTaskReturnsMapWithNullValue() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+
+        Task task = example -> {
+            Map<String, Object> outputs = new HashMap<>();
+            outputs.put("output", null);
+            return outputs;
+        };
+
+        var result = Experiment.builder()
+                .name("null-value-test")
+                .dataset(dataset)
+                .task(task)
+                .evaluator(passingEvaluator())
+                .build()
+                .run();
+
+        assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.itemResults().get(0).actualOutputs()).containsKey("output");
+        assertThat(result.itemResults().get(0).actualOutputs().get("output")).isNull();
+    }
+
+    @Test
+    void shouldIsolateOneFailingExampleAndCompleteRunSequentially() {
+        var result = runWithOneFailingExample(1);
+
+        assertThat(result.itemResults()).hasSize(3);
+        assertThat(result.itemResults().stream().filter(r -> !r.success()).count())
+                .isEqualTo(1);
+        assertThat(result.itemResults().stream().filter(ItemResult::success).count())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void shouldIsolateOneFailingExampleAndCompleteRunInParallel() {
+        var result = runWithOneFailingExample(2);
+
+        assertThat(result.itemResults()).hasSize(3);
+        assertThat(result.itemResults().stream().filter(r -> !r.success()).count())
+                .isEqualTo(1);
+        assertThat(result.itemResults().stream().filter(ItemResult::success).count())
+                .isEqualTo(2);
+    }
+
+    private ExperimentResult runWithOneFailingExample(int parallelism) {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q1", "a1"))
+                .addExample(Example.of("boom", "a2"))
+                .addExample(Example.of("q3", "a3"))
+                .build();
+
+        Task task = example -> {
+            if (example.input().equals("boom")) {
+                throw new RuntimeException("task blew up");
+            }
+            return Map.of("output", example.expectedOutput());
+        };
+
+        return Experiment.builder()
+                .name("isolation-test")
+                .dataset(dataset)
+                .task(task)
+                .evaluator(passingEvaluator())
+                .parallelism(parallelism)
+                .build()
+                .run();
+    }
+
+    @Test
+    void shouldIsolateFailingEvaluator() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+
+        Evaluator throwing = new Evaluator() {
+            @Override
+            public EvalResult evaluate(EvalTestCase testCase) {
+                throw new RuntimeException("evaluator blew up");
+            }
+
+            @Override
+            public String name() {
+                return "throwing";
+            }
+
+            @Override
+            public double threshold() {
+                return 0.5;
+            }
+        };
+
+        var result = Experiment.builder()
+                .name("evaluator-failure-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .evaluator(throwing)
+                .build()
+                .run();
+
+        assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.itemResults().get(0).success()).isFalse();
+    }
+
+    @Test
+    void shouldCloseReporterWhenAutoCloseEnabled() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+        var reporter = new RecordingReporter();
+
+        Experiment.builder()
+                .name("auto-close-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
+                .reporter(reporter)
+                .autoCloseReporter(true)
+                .build()
+                .run();
+
+        assertThat(reporter.closed).isTrue();
+    }
+
+    @Test
+    void shouldNotCloseReporterByDefault() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+        var reporter = new RecordingReporter();
+
+        Experiment.builder()
+                .name("no-auto-close-test")
+                .dataset(dataset)
+                .task(example -> Map.of("output", "result"))
+                .evaluator(passingEvaluator())
+                .reporter(reporter)
+                .build()
+                .run();
+
+        assertThat(reporter.closed).isFalse();
+    }
+
+    @Test
+    void shouldThrowOnEmptyDataset() {
+        var dataset = Dataset.builder().name("empty").build();
+
+        assertThatThrownBy(() -> Experiment.builder()
+                        .name("empty-dataset-test")
+                        .dataset(dataset)
+                        .task(example -> Map.of())
+                        .evaluator(passingEvaluator())
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("at least one example");
+    }
+
+    @Test
+    void shouldThrowWhenNoEvaluators() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+
+        assertThatThrownBy(() -> Experiment.builder()
+                        .name("no-evaluator-test")
+                        .dataset(dataset)
+                        .task(example -> Map.of())
+                        .build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("evaluator");
+    }
+
+    @Test
+    void measuredTaskCarriesMetricsThroughToItemResult() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+        var metrics = new CallMetrics(10, 20, 0.5, 123L);
+
+        MeasuredTask task = example -> new TaskResult(Map.of("output", "a"), metrics);
+
+        var result = Experiment.builder()
+                .name("measured")
+                .dataset(dataset)
+                .measuredTask(task)
+                .evaluator(passingEvaluator())
+                .build()
+                .run();
+
+        assertThat(result.itemResults()).hasSize(1);
+        assertThat(result.itemResults().get(0).metrics()).isEqualTo(metrics);
+        assertThat(result.itemResults().get(0).actualOutputs()).containsEntry("output", "a");
+    }
+
+    @Test
+    void plainTaskStillWorksWithNullMetrics() {
+        var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
+
+        Task task = example -> Map.of("output", "a");
+
+        var result = Experiment.builder()
+                .name("plain")
+                .dataset(dataset)
+                .task(task)
+                .evaluator(passingEvaluator())
+                .build()
+                .run();
+
+        assertThat(result.itemResults()).hasSize(1);
+        assertThat(result.itemResults().get(0).metrics()).isNull();
+    }
+
+    @Test
+    void measuredTaskThatThrowsIsIsolated() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("ok", "a"))
+                .addExample(Example.of("boom", "a"))
+                .build();
+
+        MeasuredTask task = example -> {
+            if ("boom".equals(example.input())) {
+                throw new RuntimeException("kaboom");
+            }
+            return new TaskResult(Map.of("output", "a"), new CallMetrics(1, 1, 0.0, 1L));
+        };
+
+        var result = Experiment.builder()
+                .name("isolated")
+                .dataset(dataset)
+                .measuredTask(task)
+                .evaluator(passingEvaluator())
+                .build()
+                .run();
+
+        assertThat(result.itemResults()).hasSize(2);
+        assertThat(result.itemResults().get(0).success()).isTrue();
+        assertThat(result.itemResults().get(0).metrics()).isNotNull();
+        assertThat(result.itemResults().get(1).success()).isFalse();
+        assertThat(result.itemResults().get(1).evalResults()).isEmpty();
+    }
+
+    private static class RecordingReporter implements Reporter {
+        final List<String> calls = new ArrayList<>();
+        boolean closed = false;
+
+        @Override
+        public RunHandle startRun(String experimentName, Map<String, Object> metadata) {
+            calls.add("startRun");
+            return new RunHandle("recording-run-id");
+        }
+
+        @Override
+        public void reportItem(RunHandle handle, ItemResult result) {
+            calls.add("reportItem");
+        }
+
+        @Override
+        public void completeRun(RunHandle handle, RunStatus status) {
+            calls.add("completeRun");
+        }
+
+        @Override
+        public void flush() {
+            calls.add("flush");
+        }
+
+        @Override
+        public void close() {
+            calls.add("close");
+            closed = true;
+        }
     }
 
     /**

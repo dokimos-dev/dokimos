@@ -200,4 +200,22 @@ class TaskCompletionEvaluatorTest {
 
         assertThat(result.score()).isEqualTo(1.0);
     }
+
+    @Test
+    void taskCompletionParsesProsePrefixedJudgeReply() {
+        JudgeLM mockJudge = prompt -> "Sure, here is my assessment:\n"
+                + "{\"tasks\": [{\"task\": \"Book hotel\", \"completed\": true, \"reason\": \"Done\"}]}";
+
+        var evaluator = TaskCompletionEvaluator.builder().judge(mockJudge).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Book a hotel")
+                .metadata("tasks", List.of("Book hotel"))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.reason()).contains("1/1");
+    }
 }

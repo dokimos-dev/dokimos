@@ -1,7 +1,6 @@
 package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -18,7 +17,6 @@ import org.slf4j.LoggerFactory;
  */
 public class LLMJudgeEvaluator extends BaseEvaluator {
     private static final Logger LOGGER = LoggerFactory.getLogger(LLMJudgeEvaluator.class);
-    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private final String criteria;
     private final double minScore;
     private final double maxScore;
@@ -73,21 +71,29 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response) {
         try {
-            String json = LlmResponseUtils.stripMarkdown(response);
-            JsonNode node = OBJECT_MAPPER.readTree(json);
-            double score = node.get("score").asDouble();
+            JsonNode node = LlmResponseUtils.parseTree(response);
+            double score = normalizeScore(node.get("score").asDouble());
             String reason = node.has("reason") ? node.get("reason").asText() : "No reason provided.";
 
             return EvalResult.builder()
                     .name(name)
                     .score(score)
-                    .threshold(threshold)
+                    .threshold(normalizeScore(threshold))
                     .reason(reason)
                     .build();
         } catch (Exception e) {
             LOGGER.error("Error parsing LLM judge response: {}", response, e);
             return EvalResult.failure(name, 0.0, "Failed to parse LLM response: " + e.getMessage());
         }
+    }
+
+    private double normalizeScore(double raw) {
+        // A default 0..1 range leaves scores untouched; a custom range maps onto [0,1].
+        if (minScore == 0.0 && maxScore == 1.0) {
+            return raw;
+        }
+        double normalized = (raw - minScore) / (maxScore - minScore);
+        return Math.max(0.0, Math.min(1.0, normalized));
     }
 
     public static class Builder {
@@ -147,10 +153,15 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
          * Sets the expected score range for the LLM response.
          *
          * @param min the minimum score value
-         * @param max the maximum score value
+         * @param max the maximum score value (must be greater than {@code min})
          * @return this builder
+         * @throws IllegalArgumentException if {@code max} is not greater than {@code min}
          */
         public Builder scoreRange(double min, double max) {
+            if (max <= min) {
+                throw new IllegalArgumentException(
+                        "scoreRange max (" + max + ") must be greater than min (" + min + ")");
+            }
             this.minScore = min;
             this.maxScore = max;
             return this;

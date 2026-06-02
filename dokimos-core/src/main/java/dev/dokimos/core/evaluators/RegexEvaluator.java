@@ -121,6 +121,9 @@ public class RegexEvaluator extends BaseEvaluator {
          * @return a new regex evaluator
          */
         public RegexEvaluator build() {
+            if (pattern == null || pattern.isBlank()) {
+                throw new IllegalStateException("A regex pattern is required; call .pattern(...) before build()");
+            }
             return new RegexEvaluator(this);
         }
     }

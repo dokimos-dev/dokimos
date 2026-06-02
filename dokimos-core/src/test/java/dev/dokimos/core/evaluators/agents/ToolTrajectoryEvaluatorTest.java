@@ -131,12 +131,25 @@ class ToolTrajectoryEvaluatorTest {
     @DisplayName("argument matching")
     class Arguments {
         @Test
-        @DisplayName("default ignores arguments")
-        void ignoresArgsByDefault() {
+        @DisplayName("default compares arguments")
+        void comparesArgsByDefault() {
             var actual = List.of(ToolCall.of("search", Map.of("q", "shoes")));
             var expected = List.of(ToolCall.of("search", Map.of("q", "boots")));
             var result = ToolTrajectoryEvaluator.builder()
                     .matchMode(ToolTrajectoryEvaluator.MatchMode.STRICT)
+                    .build()
+                    .evaluate(testCase(actual, expected));
+            assertThat(result.score()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("explicit IGNORE matcher compares names only")
+        void ignoreMatcherComparesNamesOnly() {
+            var actual = List.of(ToolCall.of("search", Map.of("q", "shoes")));
+            var expected = List.of(ToolCall.of("search", Map.of("q", "boots")));
+            var result = ToolTrajectoryEvaluator.builder()
+                    .matchMode(ToolTrajectoryEvaluator.MatchMode.STRICT)
+                    .argumentMatcher(ArgumentMatcher.of(ArgMatchMode.IGNORE))
                     .build()
                     .evaluate(testCase(actual, expected));
             assertThat(result.score()).isEqualTo(1.0);
@@ -154,6 +167,18 @@ class ToolTrajectoryEvaluatorTest {
                     .evaluate(testCase(actual, expected));
             // search args differ -> strict fails
             assertThat(result.score()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("default matcher passes under STRICT when arguments match")
+        void defaultMatcherPassesWhenArgumentsMatch() {
+            var actual = List.of(ToolCall.of("search", Map.of("q", "shoes")));
+            var expected = List.of(ToolCall.of("search", Map.of("q", "shoes")));
+            var result = ToolTrajectoryEvaluator.builder()
+                    .matchMode(ToolTrajectoryEvaluator.MatchMode.STRICT)
+                    .build()
+                    .evaluate(testCase(actual, expected));
+            assertThat(result.score()).isEqualTo(1.0);
         }
     }
 

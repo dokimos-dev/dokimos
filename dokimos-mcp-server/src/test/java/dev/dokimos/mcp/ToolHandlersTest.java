@@ -9,6 +9,7 @@ import dev.dokimos.mcp.store.JsonResultStore;
 import dev.dokimos.mcp.store.ResultStore;
 import dev.dokimos.mcp.store.RunRecord;
 import io.modelcontextprotocol.spec.McpSchema;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -376,6 +377,29 @@ class ToolHandlersTest {
         assertThat(result.isError()).isTrue();
         String text = ((McpSchema.TextContent) result.content().get(0)).text();
         assertThat(text).contains("Unsupported dataset format");
+    }
+
+    @Test
+    void defaultModelConstantIsTheSingleAdvertisedDefault() throws Exception {
+        // The run_evaluation tool schema advertises the model default. It must be derived from the
+        // same constant the handler falls back to, so the two cannot drift.
+        McpSchema.JsonSchema schema = runEvaluationSchema();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelProperty =
+                (Map<String, Object>) schema.properties().get("model");
+        String advertised = modelProperty.get("description").toString();
+
+        assertThat(ToolHandlers.DEFAULT_MODEL).isNotBlank();
+        assertThat(advertised).contains(ToolHandlers.DEFAULT_MODEL);
+        assertThat(advertised).isEqualTo("OpenAI model name (default: " + ToolHandlers.DEFAULT_MODEL + ")");
+    }
+
+    private static McpSchema.JsonSchema runEvaluationSchema() throws Exception {
+        Method method = DokimosMcpServer.class.getDeclaredMethod("runEvaluationTool");
+        method.setAccessible(true);
+        McpSchema.Tool tool = (McpSchema.Tool) method.invoke(null);
+        return tool.inputSchema();
     }
 
     private Map<String, Object> parseResponse(McpSchema.CallToolResult result) throws Exception {

@@ -198,6 +198,10 @@ class ExampleDsl {
         metadata.putAll(values)
     }
 
+    fun metadata(values: Map<String, Any>) {
+        metadata.putAll(values)
+    }
+
     fun build(): Example {
         val builder = Example.builder()
         inputs.forEach { (k, v) -> builder.input(k, v) }

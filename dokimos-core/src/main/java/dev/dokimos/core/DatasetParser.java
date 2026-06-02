@@ -12,15 +12,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 public final class DatasetParser {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final char BOM = '﻿';
 
     private DatasetParser() {}
 
     public static Dataset parseJson(String json) {
+        json = stripBom(json);
         try {
             Map<String, Object> root = MAPPER.readValue(json, new TypeReference<>() {});
 
@@ -87,7 +88,7 @@ public final class DatasetParser {
      * @return the parsed dataset
      */
     public static Dataset parseJsonl(String jsonl, String name) {
-        try (BufferedReader reader = new BufferedReader(new StringReader(jsonl))) {
+        try (BufferedReader reader = new BufferedReader(new StringReader(stripBom(jsonl)))) {
             return parseJsonl(reader, name);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to parse JSONL dataset", e);
@@ -101,6 +102,9 @@ public final class DatasetParser {
 
         while ((line = reader.readLine()) != null) {
             lineNumber++;
+            if (lineNumber == 1) {
+                line = stripBom(line);
+            }
             if (line.isBlank()) continue;
 
             try {
@@ -124,52 +128,51 @@ public final class DatasetParser {
     }
 
     public static Dataset parseCsv(String csv, String name, char delimiter) {
-        try (BufferedReader reader = new BufferedReader(new StringReader(csv))) {
-            String headerLine = reader.readLine();
-            if (headerLine == null) {
-                throw new IllegalArgumentException("The provided CSV is empty");
-            }
-
-            String[] headers = headerLine.split(Pattern.quote(String.valueOf(delimiter)));
-            int inputIdx = findColumnIndex(headers, "input");
-            int outputIdx = findColumnIndex(headers, "expectedOutput", "expected_output", "output");
-
-            if (inputIdx == -1) {
-                throw new IllegalArgumentException("CSV must have an 'input' column");
-            }
-
-            List<Example> examples = new ArrayList<>();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) continue;
-
-                String[] values = parseCsvLine(line, delimiter);
-
-                Map<String, Object> inputs = new HashMap<>();
-                Map<String, Object> expectedOutputs = new HashMap<>();
-                Map<String, Object> metadata = new HashMap<>();
-
-                for (int i = 0; i < headers.length && i < values.length; i++) {
-                    String header = headers[i].trim();
-                    String value = values[i].trim();
-
-                    if (i == inputIdx) {
-                        inputs.put("input", value);
-                    } else if (i == outputIdx) {
-                        expectedOutputs.put("output", value);
-                    } else {
-                        metadata.put(header, value);
-                    }
-                }
-
-                examples.add(new Example(inputs, expectedOutputs, metadata));
-            }
-
-            return Dataset.builder().name(name).addExamples(examples).build();
-
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to parse CSV dataset", e);
+        List<List<String>> rows = parseCsvRecords(stripBom(csv), delimiter);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("The provided CSV is empty");
         }
+
+        List<String> headerRow = rows.get(0);
+        String[] headers = headerRow.toArray(new String[0]);
+        // Headers are unquoted identifiers, so trim them for matching.
+        for (int i = 0; i < headers.length; i++) {
+            headers[i] = headers[i].trim();
+        }
+
+        int inputIdx = findColumnIndex(headers, "input");
+        int outputIdx = findColumnIndex(headers, "expectedOutput", "expected_output", "output");
+
+        if (inputIdx == -1) {
+            throw new IllegalArgumentException(
+                    "CSV must have an 'input' column. Found columns: " + String.join(", ", headers));
+        }
+
+        List<Example> examples = new ArrayList<>();
+        for (int r = 1; r < rows.size(); r++) {
+            List<String> values = rows.get(r);
+
+            Map<String, Object> inputs = new HashMap<>();
+            Map<String, Object> expectedOutputs = new HashMap<>();
+            Map<String, Object> metadata = new HashMap<>();
+
+            for (int i = 0; i < headers.length && i < values.size(); i++) {
+                String header = headers[i];
+                String value = values.get(i);
+
+                if (i == inputIdx) {
+                    inputs.put("input", value);
+                } else if (i == outputIdx) {
+                    expectedOutputs.put("output", value);
+                } else {
+                    metadata.put(header, value);
+                }
+            }
+
+            examples.add(new Example(inputs, expectedOutputs, metadata));
+        }
+
+        return Dataset.builder().name(name).addExamples(examples).build();
     }
 
     private static int findColumnIndex(String[] headers, String... candidates) {
@@ -184,23 +187,83 @@ public final class DatasetParser {
         return -1;
     }
 
-    private static String[] parseCsvLine(String line, char delimiter) {
-        List<String> values = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
+    /**
+     * Parses CSV text into rows of fields using a single stateful scanner over the
+     * entire text (RFC 4180). A quoted field may contain the delimiter, a newline,
+     * and doubled quotes (two double-quote chars collapse to one literal quote).
+     * Whitespace inside quoted fields is preserved; unquoted fields are trimmed.
+     */
+    private static List<List<String>> parseCsvRecords(String csv, char delimiter) {
+        List<List<String>> rows = new ArrayList<>();
+        List<String> current = new ArrayList<>();
+        StringBuilder field = new StringBuilder();
         boolean inQuotes = false;
+        boolean quotedField = false;
+        boolean rowHasContent = false;
 
-        for (char c : line.toCharArray()) {
+        int len = csv.length();
+        for (int i = 0; i < len; i++) {
+            char c = csv.charAt(i);
+
+            if (inQuotes) {
+                if (c == '"') {
+                    if (i + 1 < len && csv.charAt(i + 1) == '"') {
+                        field.append('"');
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    field.append(c);
+                }
+                continue;
+            }
+
             if (c == '"') {
-                inQuotes = !inQuotes;
-            } else if (c == delimiter && !inQuotes) {
-                values.add(current.toString());
-                current = new StringBuilder();
+                inQuotes = true;
+                quotedField = true;
+                rowHasContent = true;
+            } else if (c == delimiter) {
+                current.add(finishField(field, quotedField));
+                field.setLength(0);
+                quotedField = false;
+                rowHasContent = true;
+            } else if (c == '\n' || c == '\r') {
+                // Swallow a CRLF pair as a single line terminator.
+                if (c == '\r' && i + 1 < len && csv.charAt(i + 1) == '\n') {
+                    i++;
+                }
+                if (rowHasContent || !current.isEmpty() || field.length() > 0) {
+                    current.add(finishField(field, quotedField));
+                    rows.add(current);
+                    current = new ArrayList<>();
+                    field.setLength(0);
+                    quotedField = false;
+                    rowHasContent = false;
+                }
             } else {
-                current.append(c);
+                field.append(c);
+                rowHasContent = true;
             }
         }
-        values.add(current.toString());
 
-        return values.toArray(new String[0]);
+        if (rowHasContent || !current.isEmpty() || field.length() > 0) {
+            current.add(finishField(field, quotedField));
+            rows.add(current);
+        }
+
+        return rows;
+    }
+
+    private static String finishField(StringBuilder field, boolean quoted) {
+        String value = field.toString();
+        return quoted ? value : value.trim();
+    }
+
+    private static String stripBom(String text) {
+        if (text != null && !text.isEmpty() && text.charAt(0) == BOM) {
+            return text.substring(1);
+        }
+        return text;
     }
 }

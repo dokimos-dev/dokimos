@@ -21,7 +21,9 @@ import java.util.Map;
  * their names are equal and their arguments match under an {@link ArgumentMatcher}.
  * Argument matching is configurable per tool via
  * {@link Builder#argumentMatcher(String, ArgumentMatcher)}; the default matcher
- * compares names only ({@link ArgMatchMode#IGNORE}).
+ * compares arguments tolerantly ({@link ArgumentMatcher#tolerant()}). Use
+ * {@link Builder#argumentMatcher(ArgumentMatcher)} with
+ * {@code ArgumentMatcher.of(ArgMatchMode.IGNORE)} to compare names only.
  * <p>
  * Match modes:
  * <ul>
@@ -296,7 +298,7 @@ public class ToolTrajectoryEvaluator extends BaseEvaluator {
         private String toolCallsKey = "toolCalls";
         private String expectedToolCallsKey = "toolCalls";
         private MatchMode matchMode = MatchMode.IN_ORDER;
-        private ArgumentMatcher defaultMatcher = ArgumentMatcher.of(ArgMatchMode.IGNORE);
+        private ArgumentMatcher defaultMatcher = ArgumentMatcher.tolerant();
         private final Map<String, ArgumentMatcher> perToolMatchers = new HashMap<>();
 
         /**
@@ -368,8 +370,9 @@ public class ToolTrajectoryEvaluator extends BaseEvaluator {
         /**
          * Sets the default argument matcher applied to every tool unless overridden.
          * <p>
-         * Defaults to {@link ArgMatchMode#IGNORE}, so by default only tool names and
-         * order are compared. Supply a tolerant or exact matcher to also assert arguments.
+         * Defaults to {@link ArgumentMatcher#tolerant()}, so arguments are compared by
+         * default. Supply {@code ArgumentMatcher.of(ArgMatchMode.IGNORE)} to compare tool
+         * names and order only.
          *
          * @param matcher the default argument matcher
          * @return this builder

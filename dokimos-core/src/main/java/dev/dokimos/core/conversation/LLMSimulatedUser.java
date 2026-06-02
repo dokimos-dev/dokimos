@@ -57,6 +57,9 @@ public class LLMSimulatedUser implements SimulatedUser {
         // Generate dynamic response using LLM
         String prompt = buildPrompt(trajectory);
         String response = judge.generate(prompt);
+        if (response == null) {
+            throw new IllegalStateException("JudgeLM returned a null response while generating a user message");
+        }
         return Message.user(response.trim());
     }
 

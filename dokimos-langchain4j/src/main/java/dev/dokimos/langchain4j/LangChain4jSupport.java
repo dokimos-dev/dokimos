@@ -100,7 +100,13 @@ public final class LangChain4jSupport {
      * @return a JudgeLM that delegates to the ChatModel
      */
     public static JudgeLM asJudge(ChatModel model) {
-        return model::chat;
+        return prompt -> {
+            String content = model.chat(prompt);
+            if (content == null) {
+                throw new IllegalStateException("Judge response content was null");
+            }
+            return content;
+        };
     }
 
     /**
@@ -121,7 +127,32 @@ public final class LangChain4jSupport {
      * @return a Task suitable for the Experiment
      */
     public static Task simpleTask(ChatModel model) {
-        return example -> Map.of(OUTPUT_KEY, model.chat(example.input()));
+        return simpleTask(model, OUTPUT_KEY);
+    }
+
+    /**
+     * Creates a simple {@link Task} for Q&amp;A evaluation that writes the response
+     * under a caller-chosen key.
+     *
+     * <p>Behaves like {@link #simpleTask(ChatModel)} but lets you override the
+     * {@link #OUTPUT_KEY default output key} when your evaluators or dataset expect
+     * a different name.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * ChatModel model = OpenAiChatModel.builder()...build();
+     * Task task = LangChain4jSupport.simpleTask(model, "answer");
+     * }</pre>
+     *
+     * @param model     the ChatModel to evaluate
+     * @param outputKey the key for the output in the result map
+     * @return a Task suitable for the Experiment
+     */
+    public static Task simpleTask(ChatModel model, String outputKey) {
+        return example -> {
+            String output = model.chat(example.input());
+            return Map.of(outputKey, output != null ? output : "");
+        };
     }
 
     /**
@@ -384,6 +415,18 @@ public final class LangChain4jSupport {
         String type = jsonType(element);
         if (type != null) {
             map.put("type", type);
+        }
+        if (element instanceof JsonArraySchema array && array.items() != null) {
+            map.put("items", elementToMap(array.items()));
+        } else if (element instanceof JsonObjectSchema object) {
+            Map<String, Object> properties = new LinkedHashMap<>();
+            if (object.properties() != null) {
+                object.properties().forEach((name, child) -> properties.put(name, elementToMap(child)));
+            }
+            map.put("properties", properties);
+            if (object.required() != null && !object.required().isEmpty()) {
+                map.put("required", List.copyOf(object.required()));
+            }
         }
         return map;
     }

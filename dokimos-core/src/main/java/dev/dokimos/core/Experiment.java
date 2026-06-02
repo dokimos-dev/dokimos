@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An evaluation experiment that runs a task against a dataset and evaluates the
@@ -17,15 +19,18 @@ import java.util.concurrent.Executors;
  */
 public class Experiment {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Experiment.class);
+
     private final String name;
     private final String description;
     private final Dataset dataset;
-    private final Task task;
+    private final MeasuredTask task;
     private final List<Evaluator> evaluators;
     private final Map<String, Object> metadata;
     private final Reporter reporter;
     private final int parallelism;
     private final int runs;
+    private final boolean autoCloseReporter;
 
     private Experiment(Builder builder) {
         this.name = builder.name;
@@ -37,6 +42,7 @@ public class Experiment {
         this.reporter = builder.reporter;
         this.parallelism = builder.parallelism;
         this.runs = builder.runs;
+        this.autoCloseReporter = builder.autoCloseReporter;
     }
 
     public static Builder builder() {
@@ -56,9 +62,15 @@ public class Experiment {
     public ExperimentResult run() {
         List<RunResult> runResults = new ArrayList<>();
 
-        for (int runIndex = 0; runIndex < runs; runIndex++) {
-            RunResult runResult = executeSingleRun(runIndex);
-            runResults.add(runResult);
+        try {
+            for (int runIndex = 0; runIndex < runs; runIndex++) {
+                RunResult runResult = executeSingleRun(runIndex);
+                runResults.add(runResult);
+            }
+        } finally {
+            if (autoCloseReporter) {
+                reporter.close();
+            }
         }
 
         return new ExperimentResult(name, description, metadata, runResults);
@@ -114,14 +126,22 @@ public class Experiment {
     }
 
     private ItemResult runSingleExample(Example example) {
-        Map<String, Object> actualOutputs = task.run(example);
-        EvalTestCase testCase = example.toTestCase(actualOutputs);
+        Map<String, Object> actualOutputs = null;
+        try {
+            TaskResult taskResult = task.run(example);
+            actualOutputs = taskResult.outputs();
+            EvalTestCase testCase = example.toTestCase(actualOutputs);
 
-        List<EvalResult> evalResults = evaluators.stream()
-                .map(evaluator -> evaluator.evaluate(testCase))
-                .toList();
+            List<EvalResult> evalResults = evaluators.stream()
+                    .map(evaluator -> evaluator.evaluate(testCase))
+                    .toList();
 
-        return new ItemResult(example, actualOutputs, evalResults);
+            return new ItemResult(example, actualOutputs, evalResults, taskResult.metrics());
+        } catch (RuntimeException e) {
+            // Isolate per-example failures so one bad item does not abort the whole run.
+            LOGGER.warn("Evaluation failed for example, recording it as failed: {}", example.input(), e);
+            return new ItemResult(example, actualOutputs, List.of());
+        }
     }
 
     public static class Builder {
@@ -130,10 +150,11 @@ public class Experiment {
         private String name = "unnamed";
         private String description = "";
         private Dataset dataset;
-        private Task task;
+        private MeasuredTask task;
         private Reporter reporter = NoOpReporter.INSTANCE;
         private int parallelism = 1;
         private int runs = 1;
+        private boolean autoCloseReporter = false;
 
         /**
          * Sets the experiment name.
@@ -175,7 +196,21 @@ public class Experiment {
          * @return builder
          */
         public Builder task(Task task) {
-            this.task = task;
+            this.task = task != null ? example -> TaskResult.of(task.run(example)) : null;
+            return this;
+        }
+
+        /**
+         * Sets a measured task that carries {@link CallMetrics} through to each {@link ItemResult}.
+         * <p>
+         * Named distinctly from {@link #task(Task)} so a lambda passed to {@code task(...)} is never
+         * ambiguous between the two functional interfaces.
+         *
+         * @param measuredTask The task to generate outputs and metrics from examples.
+         * @return builder
+         */
+        public Builder measuredTask(MeasuredTask measuredTask) {
+            this.task = measuredTask;
             return this;
         }
 
@@ -283,10 +318,26 @@ public class Experiment {
         }
 
         /**
+         * Controls whether {@link Experiment#run()} closes the reporter after the run completes.
+         * <p>
+         * When enabled, the reporter is closed (in addition to being flushed) once all runs
+         * finish. Defaults to {@code false} so the caller retains ownership of the reporter
+         * lifecycle.
+         *
+         * @param autoCloseReporter whether to close the reporter after the run completes
+         * @return builder
+         */
+        public Builder autoCloseReporter(boolean autoCloseReporter) {
+            this.autoCloseReporter = autoCloseReporter;
+            return this;
+        }
+
+        /**
          * Builds the experiment.
          *
          * @return a new experiment
-         * @throws IllegalStateException if dataset or task is not set
+         * @throws IllegalStateException if dataset or task is not set, the dataset has no
+         *                               examples, or no evaluators were added
          */
         public Experiment build() {
             if (dataset == null) {
@@ -294,6 +345,12 @@ public class Experiment {
             }
             if (task == null) {
                 throw new IllegalStateException("Task is required");
+            }
+            if (dataset.examples().isEmpty()) {
+                throw new IllegalStateException("Dataset must contain at least one example");
+            }
+            if (evaluators.isEmpty()) {
+                throw new IllegalStateException("At least one evaluator is required");
             }
 
             return new Experiment(this);

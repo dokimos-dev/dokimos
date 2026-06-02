@@ -103,4 +103,22 @@ class ExtTest {
         assertThat(testCase.actualOutputs()).containsEntry("output", "answer")
         assertThat(testCase.actualOutputs()).containsEntry("context", listOf("Doc1"))
     }
+
+    @Test
+    fun `evalCase builds with input and actualOutput`() {
+        val testCase = evalCase("q", "a")
+
+        assertThat(testCase.inputs()).containsEntry("input", "q")
+        assertThat(testCase.actualOutputs()).containsEntry("output", "a")
+        assertThat(testCase.expectedOutputs()).isEmpty()
+    }
+
+    @Test
+    fun `evalCase builds with expectedOutput`() {
+        val testCase = evalCase("q", "a", "exp")
+
+        assertThat(testCase.inputs()).containsEntry("input", "q")
+        assertThat(testCase.actualOutputs()).containsEntry("output", "a")
+        assertThat(testCase.expectedOutputs()).containsEntry("output", "exp")
+    }
 }

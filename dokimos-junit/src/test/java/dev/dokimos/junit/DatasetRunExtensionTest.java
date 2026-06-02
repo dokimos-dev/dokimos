@@ -12,14 +12,19 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
 import dev.dokimos.core.Reporter;
 import dev.dokimos.core.RunHandle;
 import dev.dokimos.core.RunStatus;
+import dev.dokimos.junit.DatasetRunExtension.DatasetItemRecorder;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +34,8 @@ import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
+import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
+import org.junit.platform.launcher.listeners.TestExecutionSummary;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -78,15 +85,40 @@ class DatasetRunExtensionTest {
             }
             """;
 
+    private static final String TWO_EXAMPLES = """
+            {
+              "examples": [
+                {"input": "Capital of France?", "expectedOutput": "Paris"},
+                {"input": "Capital of Germany?", "expectedOutput": "Berlin"}
+              ]
+            }
+            """;
+
+    private static final String DISTINCT_EXAMPLES = """
+            {
+              "examples": [
+                {"input": "Capital of France?", "expectedOutput": "Paris"},
+                {"input": "Capital of Germany?", "expectedOutput": "Berlin"},
+                {"input": "Capital of Italy?", "expectedOutput": "Rome"},
+                {"input": "Capital of Spain?", "expectedOutput": "Madrid"}
+              ]
+            }
+            """;
+
+    /** Inputs actually passed to each invocation of the {@link DistinctFixture} test method, in order. */
+    private static final List<String> RECEIVED = new CopyOnWriteArrayList<>();
+
     @BeforeEach
     void setUp() {
         reporter = mock(Reporter.class);
         when(reporter.startRun(any(), anyMap())).thenReturn(new RunHandle("run-1"));
+        RECEIVED.clear();
     }
 
     @AfterEach
     void tearDown() {
         reporter = null;
+        RECEIVED.clear();
     }
 
     private static void run(Class<?> testClass) {
@@ -95,6 +127,28 @@ class DatasetRunExtensionTest {
                 .selectors(selectClass(testClass))
                 .build();
         launcher.execute(request);
+    }
+
+    private static TestExecutionSummary runWithSummary(Class<?> testClass) {
+        Launcher launcher = LauncherFactory.create();
+        SummaryGeneratingListener listener = new SummaryGeneratingListener();
+        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                .selectors(selectClass(testClass))
+                .build();
+        launcher.execute(request, listener);
+        return listener.getSummary();
+    }
+
+    private static String failureText(TestExecutionSummary summary) {
+        StringWriter writer = new StringWriter();
+        for (TestExecutionSummary.Failure failure : summary.getFailures()) {
+            for (Throwable t = failure.getException(); t != null; t = t.getCause()) {
+                writer.append(String.valueOf(t.getMessage())).append('\n');
+            }
+        }
+        // Include the full stack output as a fallback so wrapped causes are always covered.
+        summary.printFailuresTo(new PrintWriter(writer));
+        return writer.toString();
     }
 
     @Test
@@ -187,6 +241,69 @@ class DatasetRunExtensionTest {
         verify(reporter, never()).close();
     }
 
+    @Test
+    void reportedExampleMatchesTheExamplePassedToEachInvocation() {
+        run(DistinctFixture.class);
+
+        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
+        verify(reporter, times(4)).reportItem(any(), captor.capture());
+
+        List<String> reported = new ArrayList<>();
+        for (ItemResult result : captor.getAllValues()) {
+            reported.add(result.example().inputs().get("input").toString());
+        }
+
+        // The example reported for each invocation must be the one the test method actually received,
+        // regardless of how many invocations ran or in which order the store was written.
+        assertThat(reported).hasSize(4);
+        assertThat(reported).containsExactlyInAnyOrderElementsOf(RECEIVED);
+        assertThat(reported).containsExactlyElementsOf(RECEIVED);
+    }
+
+    @Test
+    void missingResourceProducesMessageNamingDatasetSourceAndResource() {
+        TestExecutionSummary summary = runWithSummary(MissingResourceFixture.class);
+
+        assertThat(summary.getTotalFailureCount()).isGreaterThan(0);
+
+        String text = failureText(summary);
+        assertThat(text).contains("@DatasetSource");
+        assertThat(text).contains("classpath:datasets/does-not-exist.json");
+    }
+
+    @Test
+    void recorderSuppliesActualOutputsAndEvalResults() {
+        run(RecordingFixture.class);
+
+        ArgumentCaptor<ItemResult> captor = ArgumentCaptor.forClass(ItemResult.class);
+        verify(reporter, times(2)).reportItem(any(), captor.capture());
+
+        for (ItemResult result : captor.getAllValues()) {
+            assertThat(result.actualOutputs())
+                    .containsEntry("output", "answer-for:" + result.example().input());
+            assertThat(result.evalResults()).hasSize(1);
+            assertThat(result.evalResults().get(0).name()).isEqualTo("exact");
+        }
+    }
+
+    @Test
+    void typedEntriesMetadataReachesStartedRun() {
+        run(TypedMetadataFixture.class);
+
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(reporter).startRun(any(), captor.capture());
+        assertThat(captor.getValue()).containsEntry("model", "gpt-x").containsEntry("temperature", "0.2");
+    }
+
+    @Test
+    void legacyStringMetadataStillWorks() {
+        run(LegacyMetadataFixture.class);
+
+        ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(reporter).startRun(any(), captor.capture());
+        assertThat(captor.getValue()).containsEntry("model", "gpt-4").containsEntry("temperature", "0");
+    }
+
     static class PassingFixture {
 
         @DatasetReporter
@@ -245,6 +362,105 @@ class DatasetRunExtensionTest {
                 metadata = {"model", "gpt-4", "temperature", "0"})
         void withMetadata(Example example) {
             assertThat(example.input()).isNotBlank();
+        }
+    }
+
+    static class DistinctFixture {
+
+        @DatasetReporter
+        static final Reporter reporter = FORWARDING;
+
+        @ParameterizedTest
+        @DatasetSource(json = DISTINCT_EXAMPLES)
+        void runs(Example example) {
+            RECEIVED.add(example.inputs().get("input").toString());
+        }
+    }
+
+    static class MissingResourceFixture {
+
+        @DatasetReporter
+        static final Reporter reporter = NoOpForwarding.INSTANCE;
+
+        @ParameterizedTest
+        @DatasetSource("classpath:datasets/does-not-exist.json")
+        void runs(Example example) {
+            assertThat(example).isNotNull();
+        }
+    }
+
+    static class RecordingFixture {
+
+        @DatasetReporter
+        static final Reporter reporter = FORWARDING;
+
+        @ParameterizedTest
+        @DatasetSource(json = TWO_EXAMPLES)
+        void records(Example example, DatasetItemRecorder recorder) {
+            recorder.actualOutput("output", "answer-for:" + example.input())
+                    .evalResult(EvalResult.success("exact", 1.0, "matched"));
+        }
+    }
+
+    static class TypedMetadataFixture {
+
+        @DatasetReporter
+        static final Reporter reporter = FORWARDING;
+
+        @ParameterizedTest
+        @DatasetSource(
+                json = TWO_EXAMPLES,
+                entries = {
+                    @MetadataEntry(key = "model", value = "gpt-x"),
+                    @MetadataEntry(key = "temperature", value = "0.2")
+                })
+        void typed(Example example) {
+            assertThat(example.input()).isNotBlank();
+        }
+    }
+
+    static class LegacyMetadataFixture {
+
+        @DatasetReporter
+        static final Reporter reporter = FORWARDING;
+
+        @ParameterizedTest
+        @DatasetSource(
+                json = TWO_EXAMPLES,
+                metadata = {"model", "gpt-4", "temperature", "0"})
+        void legacy(Example example) {
+            assertThat(example.input()).isNotBlank();
+        }
+    }
+
+    /** No-op reporter for fixtures whose datasets fail to load before any invocation runs. */
+    private static final class NoOpForwarding implements Reporter {
+
+        static final NoOpForwarding INSTANCE = new NoOpForwarding();
+
+        @Override
+        public RunHandle startRun(String experimentName, Map<String, Object> metadata) {
+            return new RunHandle("noop");
+        }
+
+        @Override
+        public void reportItem(RunHandle handle, ItemResult result) {
+            // no-op
+        }
+
+        @Override
+        public void completeRun(RunHandle handle, RunStatus status) {
+            // no-op
+        }
+
+        @Override
+        public void flush() {
+            // no-op
+        }
+
+        @Override
+        public void close() {
+            // no-op
         }
     }
 }

@@ -354,4 +354,31 @@ class TrajectoryEvaluatorTest {
 
         assertThat(result.metadata()).containsEntry("turnCount", 2);
     }
+
+    @Test
+    void shouldTreatNonNumericScoreAsParseFailureNotSilentZero() {
+        JudgeLM mockJudge = prompt -> """
+                {"score": "high", "reason": "Great conversation"}
+                """;
+
+        TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
+                .name("Test")
+                .judge(mockJudge)
+                .criterion(TrajectoryEvaluationCriteria.userSatisfaction())
+                .build();
+
+        ConversationTrajectory trajectory = ConversationTrajectory.builder()
+                .userMessage("Test")
+                .assistantMessage("Response")
+                .build();
+
+        EvalTestCase testCase =
+                EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
+
+        EvalResult result = evaluator.evaluate(testCase);
+
+        // A non-numeric score must surface as a parse failure, not a silent 0.0 judgment
+        assertThat(result.score()).isEqualTo(0.0);
+        assertThat(result.reason()).contains("Failed to parse evaluation");
+    }
 }

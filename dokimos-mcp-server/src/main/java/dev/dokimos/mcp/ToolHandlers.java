@@ -45,6 +45,9 @@ public class ToolHandlers {
 
     private static final Logger log = LoggerFactory.getLogger(ToolHandlers.class);
 
+    /** Default OpenAI model used when a run_evaluation call does not specify one. */
+    public static final String DEFAULT_MODEL = "gpt-5.5";
+
     private final ResultStore store;
     private final ObjectMapper json;
 
@@ -59,46 +62,56 @@ public class ToolHandlers {
     public McpSchema.CallToolResult handleRunEvaluation(Map<String, Object> arguments) {
         try {
             String datasetPath = requireString(arguments, "dataset_path");
-            String model = stringOrDefault(arguments, "model", "gpt-5.5");
-            double temperature = doubleOrDefault(arguments, "temperature", 0.0);
+            String model = stringOrDefault(arguments, "model", DEFAULT_MODEL);
+            // Omit temperature entirely unless the caller specified one, so models that reject a
+            // non-default temperature do not reject the request.
+            Double temperature = nullableDouble(arguments, "temperature");
             String evaluatorType = stringOrDefault(arguments, "evaluator", "exact_match");
             String criteria = stringOrDefault(arguments, "criteria", null);
             double threshold = doubleOrDefault(arguments, "threshold", 0.7);
             String experimentName = stringOrDefault(arguments, "experiment_name", "mcp-evaluation");
 
             Dataset dataset = loadDataset(datasetPath);
+
+            // The OpenAI client owns a connection pool and dispatcher threads; close it once the run
+            // is done so those resources are always released. OpenAIClient exposes close() but does
+            // not implement AutoCloseable, so it cannot be a try-with-resources target.
             OpenAIClient openai = buildOpenAIClient();
-            Task task = buildTask(openai, model, temperature);
-            List<Evaluator> evaluators = buildEvaluators(evaluatorType, criteria, threshold, openai, model);
+            try {
+                Task task = buildTask(openai, model, temperature);
+                List<Evaluator> evaluators = buildEvaluators(evaluatorType, criteria, threshold, openai, model);
 
-            ExperimentResult result = Experiment.builder()
-                    .name(experimentName)
-                    .dataset(dataset)
-                    .task(task)
-                    .evaluators(evaluators)
-                    .build()
-                    .run();
+                ExperimentResult result = Experiment.builder()
+                        .name(experimentName)
+                        .dataset(dataset)
+                        .task(task)
+                        .evaluators(evaluators)
+                        .build()
+                        .run();
 
-            RunRecord record = toRunRecord(result, dataset, datasetPath, model, temperature);
-            store.save(record);
+                RunRecord record = toRunRecord(result, dataset, datasetPath, model, temperature);
+                store.save(record);
 
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("run_id", record.id());
-            response.put("experiment_name", experimentName);
-            response.put("dataset", dataset.name());
-            response.put("model", model);
-            response.put("total_examples", result.totalCount());
-            response.put("pass_rate", result.passRate());
-            response.put("pass_count", (int) result.passCount());
-            response.put("fail_count", (int) result.failCount());
+                Map<String, Object> response = new LinkedHashMap<>();
+                response.put("run_id", record.id());
+                response.put("experiment_name", experimentName);
+                response.put("dataset", dataset.name());
+                response.put("model", model);
+                response.put("total_examples", result.totalCount());
+                response.put("pass_rate", result.passRate());
+                response.put("pass_count", (int) result.passCount());
+                response.put("fail_count", (int) result.failCount());
 
-            Map<String, Double> scores = new LinkedHashMap<>();
-            for (String name : result.evaluatorNames()) {
-                scores.put(name, result.averageScore(name));
+                Map<String, Double> scores = new LinkedHashMap<>();
+                for (String name : result.evaluatorNames()) {
+                    scores.put(name, result.averageScore(name));
+                }
+                response.put("average_scores", scores);
+
+                return textResult(response);
+            } finally {
+                openai.close();
             }
-            response.put("average_scores", scores);
-
-            return textResult(response);
         } catch (Exception e) {
             return errorResult("run_evaluation failed: " + e.getMessage());
         }
@@ -425,20 +438,21 @@ public class ToolHandlers {
         return OpenAIOkHttpClient.builder().apiKey(apiKey).build();
     }
 
-    private Task buildTask(OpenAIClient openai, String model, double temperature) {
+    private Task buildTask(OpenAIClient openai, String model, Double temperature) {
         return example -> {
             String input = example.input();
             if (input == null || input.isBlank()) {
                 return Map.of("output", "");
             }
 
-            ChatCompletion completion = openai.chat()
-                    .completions()
-                    .create(ChatCompletionCreateParams.builder()
-                            .model(ChatModel.of(model))
-                            .temperature(temperature)
-                            .addUserMessage(input)
-                            .build());
+            ChatCompletionCreateParams.Builder params = ChatCompletionCreateParams.builder()
+                    .model(ChatModel.of(model))
+                    .addUserMessage(input);
+            if (temperature != null) {
+                params.temperature(temperature);
+            }
+
+            ChatCompletion completion = openai.chat().completions().create(params.build());
 
             String output = completion.choices().get(0).message().content().orElse("");
             return Map.of("output", output);
@@ -482,7 +496,7 @@ public class ToolHandlers {
     }
 
     private RunRecord toRunRecord(
-            ExperimentResult result, Dataset dataset, String datasetPath, String model, double temperature) {
+            ExperimentResult result, Dataset dataset, String datasetPath, String model, Double temperature) {
         String runId = UUID.randomUUID().toString().substring(0, 8);
 
         Map<String, Double> averageScores = new LinkedHashMap<>();
@@ -570,6 +584,18 @@ public class ToolHandlers {
         Object value = args.get(key);
         if (value == null) {
             return defaultValue;
+        }
+        if (value instanceof Number n) {
+            return n.doubleValue();
+        }
+        return Double.parseDouble(value.toString());
+    }
+
+    // Returns the value as a double when the caller supplied it, or null when the key is absent.
+    private static Double nullableDouble(Map<String, Object> args, String key) {
+        Object value = args.get(key);
+        if (value == null) {
+            return null;
         }
         if (value instanceof Number n) {
             return n.doubleValue();

@@ -156,6 +156,17 @@ class SpringAiSupportTest {
     }
 
     @Test
+    void toEvaluationResponse_shouldPopulateScoreField() {
+        EvalResult result = EvalResult.success("relevancy", 0.87, "Highly relevant");
+
+        EvaluationResponse response = SpringAiSupport.toEvaluationResponse(result);
+
+        assertThat(response.getScore()).isEqualTo(0.87f);
+        assertThat(response.getMetadata()).containsEntry("score", 0.87f);
+        assertThat(response.isPass()).isTrue();
+    }
+
+    @Test
     void toEvaluationResponse_shouldMapReason() {
         EvalResult result = EvalResult.success("coherence", 0.92, "The response is well-structured and coherent");
 

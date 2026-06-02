@@ -74,7 +74,7 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
         }
 
         String prompt = buildPrompt(userInput, toolCalls);
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
+        String response = judge.generate(prompt);
 
         return parseResponse(response, toolCalls.size());
     }
@@ -113,9 +113,8 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response, int totalCalls) {
         try {
-            String json = extractJsonArray(response);
             List<Map<String, Object>> verdicts =
-                    OBJECT_MAPPER.readValue(json, new TypeReference<List<Map<String, Object>>>() {});
+                    LlmResponseUtils.parse(response, new TypeReference<List<Map<String, Object>>>() {});
 
             long grounded = verdicts.stream()
                     .filter(v -> Boolean.TRUE.equals(v.get("grounded")))
@@ -139,16 +138,6 @@ public class ToolArgumentHallucinationEvaluator extends BaseEvaluator {
                     .reason("Failed to parse judge response: " + e.getMessage())
                     .build();
         }
-    }
-
-    private static String extractJsonArray(String response) {
-        // Find the first '[' and last ']' to extract the JSON array
-        int start = response.indexOf('[');
-        int end = response.lastIndexOf(']');
-        if (start >= 0 && end > start) {
-            return response.substring(start, end + 1);
-        }
-        return response;
     }
 
     /**

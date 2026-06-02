@@ -3,10 +3,14 @@ package dev.dokimos.langchain4j;
 import static org.assertj.core.api.Assertions.*;
 
 import dev.dokimos.core.Example;
+import dev.dokimos.core.agents.ToolDefinition;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.json.JsonArraySchema;
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
+import dev.langchain4j.model.chat.request.json.JsonStringSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
@@ -179,5 +183,120 @@ class LangChain4jSupportTest {
         @SuppressWarnings("unchecked")
         List<String> context = (List<String>) outputs.get("context");
         assertThat(context).isEmpty();
+    }
+
+    @Test
+    void simpleTask_shouldProduceNonNullOutputWhenModelReturnsNull() {
+        var task = LangChain4jSupport.simpleTask(nullReturningModel());
+
+        var example = Example.of("What is the answer?", "42");
+        Map<String, Object> outputs = task.run(example);
+
+        assertThat(outputs).containsEntry("output", "");
+    }
+
+    @Test
+    void asJudge_shouldThrowWhenModelReturnsNull() {
+        var judge = LangChain4jSupport.asJudge(nullReturningModel());
+
+        assertThatThrownBy(() -> judge.generate("Test prompt"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Judge response content was null");
+    }
+
+    @Test
+    void toToolDefinition_shouldRecurseIntoArrayAndObjectParameters() {
+        JsonObjectSchema parameters = JsonObjectSchema.builder()
+                .addProperty(
+                        "tags",
+                        JsonArraySchema.builder()
+                                .items(JsonStringSchema.builder().build())
+                                .build())
+                .addProperty(
+                        "address",
+                        JsonObjectSchema.builder()
+                                .addProperty("city", JsonStringSchema.builder().build())
+                                .required("city")
+                                .build())
+                .build();
+
+        var specification = dev.langchain4j.agent.tool.ToolSpecification.builder()
+                .name("create_user")
+                .description("Creates a user")
+                .parameters(parameters)
+                .build();
+
+        ToolDefinition definition = LangChain4jSupport.toToolDefinition(specification);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties =
+                (Map<String, Object>) definition.inputSchema().get("properties");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> tags = (Map<String, Object>) properties.get("tags");
+        assertThat(tags).containsEntry("type", "array");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> items = (Map<String, Object>) tags.get("items");
+        assertThat(items).containsEntry("type", "string");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> address = (Map<String, Object>) properties.get("address");
+        assertThat(address).containsEntry("type", "object");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> addressProps = (Map<String, Object>) address.get("properties");
+        assertThat(addressProps).containsKey("city");
+        assertThat(address).containsEntry("required", List.of("city"));
+    }
+
+    @Test
+    void simpleTask_withOutputKey_shouldWriteUnderChosenKey() {
+        var task = LangChain4jSupport.simpleTask(respondingWith("The answer is 47"), "answer");
+
+        Map<String, Object> outputs = task.run(Example.of("What is 45+2?", "47"));
+
+        assertThat(outputs).containsEntry("answer", "The answer is 47").doesNotContainKey("output");
+    }
+
+    @Test
+    void simpleTask_noKeyOverload_shouldStillUseDefaultKey() {
+        var task = LangChain4jSupport.simpleTask(respondingWith("The answer is 47"));
+
+        Map<String, Object> outputs = task.run(Example.of("What is 45+2?", "47"));
+
+        assertThat(outputs).containsEntry(LangChain4jSupport.OUTPUT_KEY, "The answer is 47");
+    }
+
+    @Test
+    void simpleTask_withOutputKey_shouldGuardAgainstNullResponse() {
+        var task = LangChain4jSupport.simpleTask(nullReturningModel(), "answer");
+
+        Map<String, Object> outputs = task.run(Example.of("Question?", "Expected"));
+
+        assertThat(outputs.get("answer")).isNotNull().isEqualTo("");
+    }
+
+    private static ChatModel nullReturningModel() {
+        return new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                throw new UnsupportedOperationException("not used");
+            }
+
+            @Override
+            public String chat(String userMessage) {
+                return null;
+            }
+        };
+    }
+
+    private static ChatModel respondingWith(String response) {
+        return new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                return ChatResponse.builder()
+                        .aiMessage(AiMessage.from(response))
+                        .build();
+            }
+        };
     }
 }

@@ -1,6 +1,9 @@
 package dev.dokimos.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 
@@ -98,5 +101,31 @@ public final class LlmResponseUtils {
             return stripped.substring(start, end + 1);
         }
         return stripped;
+    }
+
+    /**
+     * Extracts the JSON payload from an LLM response (dropping any surrounding prose or code fence)
+     * and parses it leniently into the requested type.
+     *
+     * @param response the LLM response that may wrap JSON in prose or a code fence
+     * @param type     the target type to deserialize into
+     * @param <T>      the deserialized type
+     * @return the parsed value
+     * @throws JsonProcessingException if the extracted payload cannot be parsed
+     */
+    public static <T> T parse(String response, TypeReference<T> type) throws JsonProcessingException {
+        return LENIENT_MAPPER.readValue(extractJson(response), type);
+    }
+
+    /**
+     * Extracts the JSON payload from an LLM response (dropping any surrounding prose or code fence)
+     * and parses it leniently into a tree.
+     *
+     * @param response the LLM response that may wrap JSON in prose or a code fence
+     * @return the parsed JSON tree
+     * @throws JsonProcessingException if the extracted payload cannot be parsed
+     */
+    public static JsonNode parseTree(String response) throws JsonProcessingException {
+        return LENIENT_MAPPER.readTree(extractJson(response));
     }
 }

@@ -97,13 +97,17 @@ public class DokimosMcpServer {
                                                 "description",
                                                 "Path to the dataset file (JSON, CSV, or JSONL)"),
                                 "model",
-                                        Map.of("type", "string", "description", "OpenAI model name (default: gpt-5.5)"),
+                                        Map.of(
+                                                "type",
+                                                "string",
+                                                "description",
+                                                "OpenAI model name (default: " + ToolHandlers.DEFAULT_MODEL + ")"),
                                 "temperature",
                                         Map.of(
                                                 "type",
                                                 "number",
                                                 "description",
-                                                "Sampling temperature, 0.0 to 2.0 (default: 0.0)"),
+                                                "Sampling temperature, 0.0 to 2.0 (omitted when unset, using the model default)"),
                                 "evaluator",
                                         Map.of(
                                                 "type",

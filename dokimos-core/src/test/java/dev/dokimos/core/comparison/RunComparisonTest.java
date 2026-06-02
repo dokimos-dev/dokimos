@@ -378,8 +378,9 @@ class RunComparisonTest {
         assertThat(result.evaluatorDeltas())
                 .allSatisfy(d -> assertThat(d.status()).isEqualTo(ComparisonStatus.UNCHANGED));
         assertThat(result.significantRegressedCount()).isZero();
-        // The pass rate alone drives the regression verdict.
-        assertThat(result.passRateSignificance().method()).isEqualTo("mcnemar");
+        // Scores are continuous, so the pass-rate test uses the permutation path; the pass rate alone
+        // still drives the regression verdict.
+        assertThat(result.passRateSignificance().method()).isEqualTo("permutation");
         assertThat(result.passRateRegressed()).isTrue();
         assertThat(result.hasRegressions()).isTrue();
         assertThat(result.regressedCount()).isEqualTo(12);
@@ -460,6 +461,86 @@ class RunComparisonTest {
                         () -> RunComparison.builder().bootstrapIterations(0).build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("bootstrapIterations");
+    }
+
+    @Test
+    void shouldNotUseMcNemarForSingleRunContinuousScores() {
+        // A single run per side but with continuous (non-binary) evaluator scores. The McNemar path
+        // would binarize on passProbability and discard the magnitude, so the continuous permutation
+        // path must be chosen instead.
+        List<RunResult> baseline = continuousRun(0.81, 0.79, 0.82, 0.78, 0.80, 0.83, 0.77, 0.80);
+        List<RunResult> candidate = continuousRun(0.80, 0.80, 0.81, 0.79, 0.79, 0.82, 0.78, 0.81);
+
+        RunComparisonResult result = RunComparison.create().compare(baseline, candidate);
+
+        assertThat(result.passRateSignificance().method()).isEqualTo("permutation");
+    }
+
+    @Test
+    void shouldStillUseMcNemarForGenuinelyBinarySingleRun() {
+        // Genuinely binary single run: behavior must be unchanged and still route through McNemar.
+        List<ItemResult> baseItems = new ArrayList<>();
+        List<ItemResult> candItems = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            baseItems.add(binaryItem(true));
+            candItems.add(binaryItem(false));
+        }
+        for (int i = 0; i < 2; i++) {
+            baseItems.add(binaryItem(false));
+            candItems.add(binaryItem(true));
+        }
+
+        RunComparisonResult result = RunComparison.create()
+                .compare(List.of(new RunResult(0, baseItems)), List.of(new RunResult(0, candItems)));
+
+        assertThat(result.passRateSignificance().method()).isEqualTo("mcnemar");
+        assertThat(result.passRateSignificance().significant()).isTrue();
+    }
+
+    @Test
+    void shouldPairOnlyOverlapWhenPositionPairedRunsDifferInLength() {
+        // No itemKey: items pair by position. Baseline has 3 items, candidate has 2. The overlapping
+        // two positions pair, and the single trailing baseline item surfaces as REMOVED rather than
+        // crashing or mis-aligning.
+        List<ItemResult> baseItems =
+                List.of(continuousItem("p0", 0.8), continuousItem("p1", 0.7), continuousItem("p2", 0.6));
+        List<ItemResult> candItems = List.of(continuousItem("c0", 0.8), continuousItem("c1", 0.7));
+
+        RunComparisonResult result = RunComparison.create()
+                .compare(List.of(new RunResult(0, baseItems)), List.of(new RunResult(0, candItems)));
+
+        // Two overlapping positions paired, one trailing baseline item unmatched (REMOVED).
+        assertThat(result.removedCount()).isEqualTo(1);
+        assertThat(result.addedCount()).isZero();
+        assertThat(result.items()).hasSize(3);
+        assertThat(result.items().stream()
+                        .filter(i -> i.status() == ComparisonStatus.REMOVED)
+                        .count())
+                .isEqualTo(1L);
+        // The trailing position is the one reported unmatched, not a mis-paired earlier index.
+        ItemComparison removed = result.items().stream()
+                .filter(i -> i.status() == ComparisonStatus.REMOVED)
+                .findFirst()
+                .orElseThrow();
+        assertThat(removed.key()).isEqualTo("item-2");
+    }
+
+    @Test
+    void shouldReportExtraCandidatePositionsAsAddedWhenCandidateLonger() {
+        List<ItemResult> baseItems = List.of(continuousItem("p0", 0.8), continuousItem("p1", 0.7));
+        List<ItemResult> candItems =
+                List.of(continuousItem("c0", 0.8), continuousItem("c1", 0.7), continuousItem("c2", 0.6));
+
+        RunComparisonResult result = RunComparison.create()
+                .compare(List.of(new RunResult(0, baseItems)), List.of(new RunResult(0, candItems)));
+
+        assertThat(result.addedCount()).isEqualTo(1);
+        assertThat(result.removedCount()).isZero();
+        ItemComparison added = result.items().stream()
+                .filter(i -> i.status() == ComparisonStatus.ADDED)
+                .findFirst()
+                .orElseThrow();
+        assertThat(added.key()).isEqualTo("item-2");
     }
 
     private static List<RunResult> continuousRun(double... scores) {

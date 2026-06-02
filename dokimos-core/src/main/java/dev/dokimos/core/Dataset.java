@@ -32,6 +32,20 @@ public record Dataset(String name, String description, List<Example> examples) i
     }
 
     /**
+     * Loads a dataset from a URI or path through the resolver registry.
+     * <p>
+     * A single entry point that dispatches {@code classpath:} URIs, {@code file:} URIs,
+     * and plain filesystem paths (resolved by file extension) to the appropriate resolver.
+     *
+     * @param uriOrPath the dataset URI or filesystem path
+     * @return the resolved dataset
+     * @throws DatasetResolutionException if no resolver supports the URI
+     */
+    public static Dataset load(String uriOrPath) {
+        return DatasetResolverRegistry.getInstance().resolve(uriOrPath);
+    }
+
+    /**
      * Loads a dataset from a JSON file.
      *
      * @param path the file path

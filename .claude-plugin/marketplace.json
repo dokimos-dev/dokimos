@@ -67,6 +67,14 @@
       "version": "0.1.0",
       "category": "integration",
       "tags": ["spring-ai", "spring", "evaluation"]
+    },
+    {
+      "name": "evaluate-openai",
+      "source": "./plugins/evaluate-openai",
+      "description": "Set up evaluation of an OpenAI Java SDK tool-calling agent using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["openai", "agent", "tool-call", "evaluation"]
     }
   ]
 }

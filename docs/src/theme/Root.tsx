@@ -1,7 +1,12 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Velm } from "@velmhq/embed-react";
 
 export default function Root({ children }: { children: React.ReactNode }) {
+  // Release Cmd/Ctrl+K from the Velm widget so docs search owns it.
+  useEffect(() => {
+    document.getElementById("velm-embed-launcher")?.setAttribute("data-hotkey", "off");
+  }, []);
+
   return (
     <>
       {children}

@@ -1,0 +1,110 @@
+/* Navbar trigger button */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--dok-border);
+  border-radius: 8px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.trigger:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-content);
+}
+
+.triggerLabel {
+  margin-right: 4px;
+}
+
+.triggerKbd {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 3px 5px;
+  border: 1px solid var(--dok-border);
+  border-radius: 4px;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content-secondary);
+}
+
+@media (max-width: 600px) {
+  .triggerLabel,
+  .triggerKbd {
+    display: none;
+  }
+  .trigger {
+    padding: 0 9px;
+  }
+}
+
+/* Modal */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 1rem 1rem;
+}
+
+.modal {
+  width: 100%;
+  max-width: 580px;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--dok-border);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  padding: 14px;
+}
+
+/* Make the wrapped search input fill the modal. autocomplete.js inserts an
+   inline-block span around the input, so force the whole chain full-width. */
+.modal :global(.navbar__search) {
+  display: block;
+  width: 100%;
+}
+
+.modal :global(.navbar__search) > span {
+  display: block !important;
+  width: 100% !important;
+}
+
+/* Override the base navbar pill styling so the input fills the modal. */
+.modal :global(.navbar__search-input) {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--dok-border);
+  font-size: 1rem;
+  background-position: 14px center;
+  padding-left: 2.6rem;
+}
+
+.modalHint {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--ifm-color-content-secondary);
+}
+
+.modalHint kbd {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  border: 1px solid var(--dok-border);
+  border-radius: 4px;
+}

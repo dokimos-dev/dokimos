@@ -87,10 +87,12 @@ public class RecallEvaluator extends BaseEvaluator {
                     .build();
         }
 
-        long truePositives = matchingStrategy.countMatches(retrieved, expected);
-        double recall = (double) truePositives / expected.size();
+        // Set-based recall: distinct relevant items covered, over distinct relevant items.
+        int relevant = (int) expected.stream().distinct().count();
+        long truePositives = matchingStrategy.countCovered(retrieved, expected);
+        double recall = Math.max(0.0, Math.min(1.0, (double) truePositives / relevant));
 
-        String reason = generateReason(truePositives, expected.size(), recall);
+        String reason = generateReason(truePositives, relevant, recall);
 
         return EvalResult.builder()
                 .name(name)
@@ -99,7 +101,7 @@ public class RecallEvaluator extends BaseEvaluator {
                 .reason(reason)
                 .metadata(Map.of(
                         "retrieved", retrieved.size(),
-                        "relevant", expected.size(),
+                        "relevant", relevant,
                         "truePositives", truePositives))
                 .build();
     }

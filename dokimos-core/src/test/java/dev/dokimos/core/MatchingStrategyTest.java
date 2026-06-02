@@ -142,6 +142,46 @@ class MatchingStrategyTest {
     }
 
     @Test
+    void countMatchesShouldDeduplicateRetrieved() {
+        var strategy = MatchingStrategy.byEquality();
+
+        // "a" appears twice but must only be counted once.
+        long matches = strategy.countMatches(List.of("a", "a", "b"), List.of("a"));
+
+        assertThat(matches).isEqualTo(1);
+    }
+
+    @Test
+    void countCoveredShouldCountDistinctExpectedItems() {
+        var strategy = MatchingStrategy.byEquality();
+
+        var retrieved = List.of("a", "a", "b");
+        var expected = List.of("a", "c");
+
+        // Only "a" is covered; duplicate retrieved "a" does not double-count.
+        assertThat(strategy.countCovered(retrieved, expected)).isEqualTo(1);
+    }
+
+    @Test
+    void countCoveredShouldNeverExceedDistinctExpectedSize() {
+        var strategy = MatchingStrategy.byEquality();
+
+        var retrieved = List.of("a", "a", "a", "a", "b");
+        var expected = List.of("a");
+
+        assertThat(strategy.countCovered(retrieved, expected)).isEqualTo(1);
+    }
+
+    @Test
+    void countCoveredShouldHandleEmptyCollections() {
+        var strategy = MatchingStrategy.byEquality();
+
+        assertThat(strategy.countCovered(List.of(), List.of("a", "b"))).isEqualTo(0);
+        assertThat(strategy.countCovered(List.of("a", "b"), List.of())).isEqualTo(0);
+        assertThat(strategy.countCovered(List.of(), List.of())).isEqualTo(0);
+    }
+
+    @Test
     void countMatchesShouldHandleEmptyCollections() {
         var strategy = MatchingStrategy.byEquality();
 

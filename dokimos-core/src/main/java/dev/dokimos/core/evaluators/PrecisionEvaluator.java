@@ -88,10 +88,12 @@ public class PrecisionEvaluator extends BaseEvaluator {
                     .build();
         }
 
+        // Set-based precision: distinct relevant retrieved items, over distinct retrieved items.
+        int retrievedCount = (int) retrieved.stream().distinct().count();
         long truePositives = matchingStrategy.countMatches(retrieved, expected);
-        double precision = (double) truePositives / retrieved.size();
+        double precision = Math.max(0.0, Math.min(1.0, (double) truePositives / retrievedCount));
 
-        String reason = generateReason(truePositives, retrieved.size(), precision);
+        String reason = generateReason(truePositives, retrievedCount, precision);
 
         return EvalResult.builder()
                 .name(name)
@@ -99,7 +101,7 @@ public class PrecisionEvaluator extends BaseEvaluator {
                 .threshold(threshold)
                 .reason(reason)
                 .metadata(Map.of(
-                        "retrieved", retrieved.size(),
+                        "retrieved", retrievedCount,
                         "relevant", expected.size(),
                         "truePositives", truePositives))
                 .build();

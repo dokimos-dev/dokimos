@@ -26,18 +26,36 @@ public interface MatchingStrategy {
     boolean matches(Object retrieved, Object expected);
 
     /**
-     * Counts how many retrieved items match any expected item.
+     * Counts how many distinct retrieved items match any expected item.
      * <p>
      * Default implementation iterates through all pairs. Implementations may
      * override for better performance with specific data structures.
      *
      * @param retrieved the retrieved items
      * @param expected  the expected (ground truth) items
-     * @return the number of retrieved items that match at least one expected item
+     * @return the number of distinct retrieved items that match at least one expected item
      */
     default long countMatches(Collection<?> retrieved, Collection<?> expected) {
         return retrieved.stream()
+                .distinct()
                 .filter(r -> expected.stream().anyMatch(e -> matches(r, e)))
+                .count();
+    }
+
+    /**
+     * Counts how many distinct expected items are covered by any retrieved item.
+     * <p>
+     * Default implementation iterates through all pairs. Implementations may
+     * override for better performance with specific data structures.
+     *
+     * @param retrieved the retrieved items
+     * @param expected  the expected (ground truth) items
+     * @return the number of distinct expected items covered by at least one retrieved item
+     */
+    default long countCovered(Collection<?> retrieved, Collection<?> expected) {
+        return expected.stream()
+                .distinct()
+                .filter(e -> retrieved.stream().anyMatch(r -> matches(r, e)))
                 .count();
     }
 

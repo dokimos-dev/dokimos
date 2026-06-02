@@ -380,6 +380,79 @@ val withTools = trace.toTestCase("Find flights from NYC to Paris", tools)
   </TabItem>
 </Tabs>
 
+## Extracting Traces from Your Framework
+
+The examples above assume you already have an `AgentTrace`. In practice your agent runs on a framework, and Dokimos ships extractors that turn a framework's own run result into an `AgentTrace` so you don't hand-write the mapping. Each one captures the tool calls (name, parsed arguments, and result) and the final response.
+
+<Tabs groupId="framework" defaultValue="langchain4j">
+  <TabItem value="langchain4j" label="LangChain4j">
+
+`AiServices` methods that return `Result<T>` carry the tool executions for a run. Pass the result to `LangChain4jSupport.toAgentTrace`, and convert the tool specifications with `toToolDefinitions` so the validity and reliability evaluators can see the tools the agent was given.
+
+```java
+import dev.dokimos.langchain4j.LangChain4jSupport;
+
+Result<String> result = assistant.chat(userMessage);
+
+AgentTrace trace = LangChain4jSupport.toAgentTrace(result);
+List<ToolDefinition> tools = LangChain4jSupport.toToolDefinitions(toolSpecifications);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+```
+
+  </TabItem>
+  <TabItem value="spring-ai" label="Spring AI">
+
+An `AssistantMessage` carries the tool calls the model made; the results come back in the `ToolResponseMessage`s. Pass both so the trace carries the calls and what the tools returned (matched by tool-call id).
+
+```java
+import dev.dokimos.springai.SpringAiSupport;
+
+AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages);
+List<ToolDefinition> tools = SpringAiSupport.toToolDefinitions(toolDefinitions);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+```
+
+  </TabItem>
+  <TabItem value="koog" label="Koog">
+
+Koog reports tool calls through its event handler. Install a `KoogTraceCollector` with `collectAgentTrace`, run the agent, then read the trace.
+
+```kotlin
+import dev.dokimos.koog.KoogTraceCollector
+import dev.dokimos.koog.collectAgentTrace
+
+val collector = KoogTraceCollector()
+val agent = AIAgent(/* ... */) {
+    install(EventHandler) { collectAgentTrace(collector) }
+}
+
+val response = agent.run(userInput)
+val testCase = collector.toAgentTrace(response).toTestCase(userInput, tools)
+```
+
+The collector is framework-version tolerant: it reads the completion context reflectively, so one build works across Koog 0.6.4 through 1.0.0.
+
+  </TabItem>
+  <TabItem value="openai" label="OpenAI">
+
+The OpenAI Java SDK has no published Dokimos module, so a small reusable bridge lives in the examples module (copy it into your project). It turns the SDK's tool calls into Dokimos `ToolCall`s as your tool-calling loop runs.
+
+```java
+AgentTrace.Builder trace = AgentTrace.builder();
+for (var toolCall : message.toolCalls().orElse(List.of())) {
+    String result = myApp.execute(toolCall);
+    trace.addToolCall(OpenAiAgentTraces.toToolCall(toolCall, result));
+}
+trace.finalResponse(finalMessage.content().orElse(""));
+
+EvalTestCase testCase = trace.build().toTestCase(userMessage, tools);
+```
+
+  </TabItem>
+</Tabs>
+
 ## EvalTestCase Keys
 
 Agent evaluators use these keys in `EvalTestCase`:

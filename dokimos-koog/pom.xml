@@ -11,8 +11,14 @@
     </parent>
 
     <properties>
-        <koog.version>0.6.1</koog.version>
+        <!--
+          Compiled against the oldest supported koog. Koog is a provided dependency and the
+          event-handler glue is reflective, so the artifact runs unchanged against 0.6.4 through
+          1.0.0; the adapter-compat CI matrix exercises that range.
+        -->
+        <koog.version>0.6.4</koog.version>
         <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
+        <kotlinx.serialization.version>1.9.0</kotlinx.serialization.version>
         <mockk.version>1.14.6</mockk.version>
         <kotlin.version>2.3.10</kotlin.version>
         <maven.javadoc.skip>true</maven.javadoc.skip>
@@ -142,4 +148,73 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          The live integration test builds a real agent with koog's agent-construction API, which
+          only resolves on the 0.6.x floor and needs the kotlinx-serialization compiler plugin to
+          serialize its tool arguments. It is compiled in normal builds but excluded from the
+          adapter-compat matrix (which runs with -P!koog-live-it) so the matrix can sweep koog
+          versions the construction API does not support.
+        -->
+        <profile>
+            <id>koog-live-it</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlinx</groupId>
+                        <artifactId>kotlinx-serialization-core-jvm</artifactId>
+                        <version>${kotlinx.serialization.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlinx</groupId>
+                        <artifactId>kotlinx-serialization-json-jvm</artifactId>
+                        <version>${kotlinx.serialization.version}</version>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-live-it-source</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>${project.basedir}/src/it/kotlin</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-plugin</artifactId>
+                        <configuration>
+                            <compilerPlugins>
+                                <plugin>kotlinx-serialization</plugin>
+                            </compilerPlugins>
+                        </configuration>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.jetbrains.kotlin</groupId>
+                                <artifactId>kotlin-maven-serialization</artifactId>
+                                <version>${kotlin.version}</version>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

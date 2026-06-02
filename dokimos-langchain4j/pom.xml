@@ -16,6 +16,9 @@
 
     <properties>
         <langchain4j.version>1.9.1</langchain4j.version>
+        <!-- The embeddings models version independently of langchain4j core, so this is pinned separately. -->
+        <langchain4j.embeddings.version>1.9.1-beta17</langchain4j.embeddings.version>
+        <mockito.version>5.14.2</mockito.version>
     </properties>
 
     <dependencies>
@@ -42,7 +45,7 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings-bge-small-en-v15-q</artifactId>
-            <version>${langchain4j.version}-beta17</version>
+            <version>${langchain4j.embeddings.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -62,6 +65,13 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
 

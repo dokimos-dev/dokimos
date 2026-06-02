@@ -1,11 +1,27 @@
 package dev.dokimos.langchain4j;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.Task;
+import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.agents.ToolCall;
+import dev.dokimos.core.agents.ToolDefinition;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.json.JsonArraySchema;
+import dev.langchain4j.model.chat.request.json.JsonBooleanSchema;
+import dev.langchain4j.model.chat.request.json.JsonIntegerSchema;
+import dev.langchain4j.model.chat.request.json.JsonNumberSchema;
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchemaElement;
+import dev.langchain4j.model.chat.request.json.JsonStringSchema;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
+import dev.langchain4j.service.tool.ToolExecution;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -247,5 +263,138 @@ public final class LangChain4jSupport {
                     return entry;
                 })
                 .toList();
+    }
+
+    private static final ObjectMapper TOOL_ARG_MAPPER = new ObjectMapper();
+
+    /**
+     * Builds an {@link AgentTrace} from a LangChain4j {@link Result}.
+     *
+     * <p>The result's {@code content()} becomes the final response and its
+     * {@code toolExecutions()} become {@link ToolCall}s carrying the tool name, parsed
+     * arguments, and the tool result string. Use it to evaluate tool-calling agents
+     * built with {@code AiServices} that return {@code Result<T>}.
+     *
+     * <pre>{@code
+     * Result<String> result = assistant.chat(userMessage);
+     * AgentTrace trace = LangChain4jSupport.toAgentTrace(result);
+     * EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+     * }</pre>
+     *
+     * @param result the LangChain4j result (may be null)
+     * @return an agent trace, never null
+     */
+    public static AgentTrace toAgentTrace(Result<?> result) {
+        AgentTrace.Builder builder = AgentTrace.builder().toolCalls(toToolCalls(result));
+        if (result != null && result.content() != null) {
+            builder.finalResponse(String.valueOf(result.content()));
+        }
+        return builder.build();
+    }
+
+    /**
+     * Extracts {@link ToolCall}s from a LangChain4j {@link Result} in execution order.
+     *
+     * @param result the result (may be null)
+     * @return the tool calls, or an empty list when there are none
+     */
+    public static List<ToolCall> toToolCalls(Result<?> result) {
+        if (result == null || result.toolExecutions() == null) {
+            return List.of();
+        }
+        return result.toolExecutions().stream()
+                .map(LangChain4jSupport::toToolCall)
+                .toList();
+    }
+
+    /**
+     * Converts a single LangChain4j {@link ToolExecution} to a {@link ToolCall}.
+     *
+     * @param execution the tool execution
+     * @return the tool call
+     */
+    public static ToolCall toToolCall(ToolExecution execution) {
+        ToolExecutionRequest request = execution.request();
+        return ToolCall.builder()
+                .name(request.name())
+                .arguments(parseArguments(request.arguments()))
+                .result(execution.result())
+                .build();
+    }
+
+    /**
+     * Converts LangChain4j {@link ToolSpecification}s to {@link ToolDefinition}s so tool
+     * calls can be evaluated against the tools the agent was given.
+     *
+     * @param specifications the tool specifications (may be null)
+     * @return the tool definitions, or an empty list
+     */
+    public static List<ToolDefinition> toToolDefinitions(List<ToolSpecification> specifications) {
+        if (specifications == null) {
+            return List.of();
+        }
+        return specifications.stream().map(LangChain4jSupport::toToolDefinition).toList();
+    }
+
+    /**
+     * Converts a single {@link ToolSpecification} to a {@link ToolDefinition}.
+     *
+     * @param specification the tool specification
+     * @return the tool definition
+     */
+    public static ToolDefinition toToolDefinition(ToolSpecification specification) {
+        return ToolDefinition.builder()
+                .name(specification.name())
+                .description(specification.description() != null ? specification.description() : "")
+                .inputSchema(toSchemaMap(specification.parameters()))
+                .build();
+    }
+
+    private static Map<String, Object> parseArguments(String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> parsed = TOOL_ARG_MAPPER.readValue(argumentsJson, new TypeReference<>() {});
+            return parsed != null ? parsed : Map.of();
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
+    private static Map<String, Object> toSchemaMap(JsonObjectSchema schema) {
+        if (schema == null) {
+            return Map.of();
+        }
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("type", "object");
+        Map<String, Object> properties = new LinkedHashMap<>();
+        if (schema.properties() != null) {
+            schema.properties().forEach((name, element) -> properties.put(name, elementToMap(element)));
+        }
+        map.put("properties", properties);
+        if (schema.required() != null && !schema.required().isEmpty()) {
+            map.put("required", List.copyOf(schema.required()));
+        }
+        return map;
+    }
+
+    private static Map<String, Object> elementToMap(JsonSchemaElement element) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        String type = jsonType(element);
+        if (type != null) {
+            map.put("type", type);
+        }
+        return map;
+    }
+
+    private static String jsonType(JsonSchemaElement element) {
+        if (element instanceof JsonStringSchema) return "string";
+        if (element instanceof JsonIntegerSchema) return "integer";
+        if (element instanceof JsonNumberSchema) return "number";
+        if (element instanceof JsonBooleanSchema) return "boolean";
+        if (element instanceof JsonArraySchema) return "array";
+        if (element instanceof JsonObjectSchema) return "object";
+        return null;
     }
 }

@@ -144,14 +144,13 @@ const config: Config = {
 
   themes: [
     [
-      // Offline search on "/"; the Velm chat widget keeps Cmd/Ctrl+K.
+      // Offline search index. src/theme/SearchBar owns the Cmd+K shortcut.
       require.resolve("@easyops-cn/docusaurus-search-local"),
       {
         hashed: true,
         indexBlog: false,
         docsRouteBasePath: "/",
-        searchBarShortcut: true,
-        searchBarShortcutKeymap: "/",
+        searchBarShortcut: false,
       },
     ],
   ],

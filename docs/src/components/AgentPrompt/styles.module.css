@@ -1,0 +1,51 @@
+.wrap {
+  border: 1px solid var(--dok-border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1.5rem 0 2rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--dok-border);
+  background: var(--ifm-background-color);
+}
+
+.label {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary-lighter);
+}
+
+.copy {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  background: transparent;
+  border: 1px solid var(--dok-border);
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.copy:hover {
+  background: var(--ifm-color-emphasis-300);
+}
+
+.body {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  background: transparent;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}

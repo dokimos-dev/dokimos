@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import AgentPrompt from '@site/src/components/AgentPrompt';
+
 # Dokimos Overview
 
 Dokimos is an open-source Evaluation Framework for LLM applications in Java and Kotlin. It works with AI frameworks (Spring AI, LangChain4j, or plain Java) and helps you:
@@ -12,6 +14,10 @@ Dokimos is an open-source Evaluation Framework for LLM applications in Java and 
 4. Track experiment results over time with an optional server and web UI
 
 Dokimos aims to bring the evaluation tooling that Python developers have to the Java ecosystem.
+
+Using a coding agent? Paste this to get a first eval written against your own code.
+
+<AgentPrompt />
 
 Read the **[Getting started Guide](./getting-started/installation)**.
 

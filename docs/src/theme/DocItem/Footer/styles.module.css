@@ -1,0 +1,33 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  margin: 2rem 0 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--dok-border);
+}
+
+.label {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ifm-color-content-secondary);
+}
+
+.action {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--dok-border);
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.action:hover {
+  background: var(--ifm-color-emphasis-200);
+  text-decoration: none;
+}

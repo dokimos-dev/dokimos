@@ -5,7 +5,7 @@
 <h1 align="center">Dokimos</h1>
 
 <p align="center">
-  <strong>LLM evaluation framework for Java and Kotlin</strong>
+  <strong>The LLM evaluation framework for Java and Kotlin</strong>
 </p>
 
 <p align="center">

@@ -27,6 +27,10 @@ Lean more about what you can build with `dokimos` by exploring the [examples mod
 
 The optional **[server](./server/overview)** closes the loop from a single run to a system that holds quality steady over time. You hold datasets on the server and pin tests to a version with [server datasets](./server/datasets), fail a build when a run regresses against its baseline with the [CI regression gate](./server/ci-gate), score runs and traces with the [server LLM judge](./server/llm-judge), evaluate [production traces](./server/traces) online as they arrive, get a webhook on a quality drop with [regression alerting](./server/alerting), and turn the items evaluators got wrong into new dataset versions through [review and curation](./server/curation). See the [server overview](./server/overview) for how the pieces fit together.
 
+## For AI agents
+
+Point a coding agent at the machine-readable docs: [llms.txt](https://dokimos.dev/llms.txt) indexes the documentation, and [llms-full.txt](https://dokimos.dev/llms-full.txt) is the whole thing in one file. Every page also has a markdown version and an "Open in ChatGPT / Claude" action in its footer.
+
 ## What's Next
 
 We're actively working on expanding Dokimos with features that make evaluation in Java easier and more powerful:

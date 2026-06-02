@@ -22,9 +22,9 @@ const RELEASES: Release[] = [
             title: "Protobuf OTLP traces",
             body: (
               <>
-                <code>POST /api/v1/traces</code> accepts the <code>application/x-protobuf</code> encoding
-                alongside JSON, so a standard OpenTelemetry SDK or collector works without reconfiguring its
-                exporter.
+                <code>POST /api/v1/traces</code> accepts the <code>application/x-protobuf</code>{" "}
+                encoding alongside JSON, so a standard OpenTelemetry SDK or collector works without
+                reconfiguring its exporter.
               </>
             ),
           },
@@ -44,9 +44,9 @@ const RELEASES: Release[] = [
             title: "Server datasets",
             body: (
               <>
-                Hold datasets on the server, versioned and shared, and pin a test to an exact version with a{" "}
-                <code>dataset://name@version</code> URI. The SDK resolver caches offline, so a pinned version
-                still resolves when the server is briefly unreachable.
+                Hold datasets on the server, versioned and shared, and pin a test to an exact
+                version with a <code>dataset://name@version</code> URI. The SDK resolver caches
+                offline, so a pinned version still resolves when the server is briefly unreachable.
               </>
             ),
           },
@@ -92,7 +92,10 @@ export default function ReleaseTimeline() {
   return (
     <div className={styles.timeline}>
       {RELEASES.map((rel) => (
-        <section key={rel.version} className={`${styles.release} ${rel.latest ? styles.current : ""}`}>
+        <section
+          key={rel.version}
+          className={`${styles.release} ${rel.latest ? styles.current : ""}`}
+        >
           <span className={styles.node} aria-hidden="true" />
           <div className={styles.head}>
             <h2 id={slug(rel.version)} className={styles.ver}>
@@ -105,7 +108,9 @@ export default function ReleaseTimeline() {
           {rel.groups.map((g) => (
             <div key={g.label} className={styles.group}>
               <div className={styles.groupHead}>
-                <span className={`${styles.label} ${styles[g.label.toLowerCase()]}`}>{g.label}</span>
+                <span className={`${styles.label} ${styles[g.label.toLowerCase()]}`}>
+                  {g.label}
+                </span>
                 <span className={styles.rule} />
               </div>
               <ul className={styles.list}>

@@ -234,6 +234,46 @@ class PrecisionEvaluatorTest {
     }
 
     @Test
+    void shouldDeduplicateRetrievedForDocumentLevelPrecision() {
+        var evaluator = PrecisionEvaluator.builder()
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a", "a", "c")) // "a" retrieved twice
+                .expectedOutput("relevant", List.of("a"))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // Distinct retrieved set is {a, c}; "a" is relevant -> 1/2, not 2/3.
+        assertThat(result.score()).isCloseTo(0.5, within(0.001));
+        assertThat(result.score()).isBetween(0.0, 1.0);
+        assertThat(result.metadata().get("retrieved")).isEqualTo(2);
+        assertThat(result.metadata().get("truePositives")).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldStayInRangeWhenAllRetrievedAreDuplicateRelevant() {
+        var evaluator = PrecisionEvaluator.builder()
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a", "a", "a"))
+                .expectedOutput("relevant", List.of("a"))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
     void shouldRespectCustomThreshold() {
         var evaluator = PrecisionEvaluator.builder()
                 .retrievedKey("retrieved")

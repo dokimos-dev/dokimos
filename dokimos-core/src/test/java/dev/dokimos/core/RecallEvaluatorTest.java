@@ -232,6 +232,90 @@ class RecallEvaluatorTest {
     }
 
     @Test
+    void shouldNotExceedOneWhenRetrievedContainsDuplicates() {
+        var evaluator = RecallEvaluator.builder()
+                .name("r")
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .matchingStrategy(MatchingStrategy.caseInsensitive())
+                .threshold(1.0)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a", "a", "b")) // "a" retrieved twice
+                .expectedOutput("relevant", List.of("a"))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // The single relevant item "a" was found: recall must be exactly 1.0, not 2.0.
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.score()).isBetween(0.0, 1.0);
+        assertThat(result.metadata().get("truePositives")).isEqualTo(1L);
+        assertThat(result.metadata().get("relevant")).isEqualTo(1);
+    }
+
+    @Test
+    void shouldStayInRangeRegardlessOfDuplicateCount() {
+        var evaluator = RecallEvaluator.builder()
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a", "a", "a", "a", "b"))
+                .expectedOutput("relevant", List.of("a"))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // Four duplicate matches previously produced recall = 4.0.
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.score()).isLessThanOrEqualTo(1.0);
+    }
+
+    @Test
+    void shouldComputeDistinctRecallWithDuplicatesAndAMiss() {
+        var evaluator = RecallEvaluator.builder()
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a", "a", "b")) // covers "a" only
+                .expectedOutput("relevant", List.of("a", "c")) // "c" is missed
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // 1 of 2 distinct relevant items covered.
+        assertThat(result.score()).isCloseTo(0.5, within(0.001));
+    }
+
+    @Test
+    void shouldDeduplicateRelevantItemsInDenominator() {
+        var evaluator = RecallEvaluator.builder()
+                .retrievedKey("retrieved")
+                .expectedKey("relevant")
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("retrieved", List.of("a"))
+                .expectedOutput("relevant", List.of("a", "a", "b")) // duplicate relevant "a"
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        // Distinct relevant set is {a, b}; "a" is found -> 1/2.
+        assertThat(result.score()).isCloseTo(0.5, within(0.001));
+        assertThat(result.metadata().get("relevant")).isEqualTo(2);
+    }
+
+    @Test
     void shouldRespectCustomThreshold() {
         var evaluator = RecallEvaluator.builder()
                 .retrievedKey("retrieved")

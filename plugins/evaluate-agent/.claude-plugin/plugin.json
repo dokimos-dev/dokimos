@@ -1,6 +1,6 @@
 {
   "name": "evaluate-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Set up evaluation of AI agents with tool call validation, correctness checks, task completion, and tool reliability using Dokimos. Framework-agnostic — works with any agent framework.",
   "author": {
     "name": "Dokimos Contributors",

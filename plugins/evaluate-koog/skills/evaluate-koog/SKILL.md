@@ -10,6 +10,7 @@ Set up Dokimos evaluation for a Koog AI agent. The user will describe their agen
 ## Where things live
 
 - **Koog support**: `dokimos-koog/src/main/kotlin/dev/dokimos/koog/KoogSupport.kt`
+- **Trace collector**: `dokimos-koog/src/main/kotlin/dev/dokimos/koog/KoogTraceCollector.kt`
 - **Koog tests**: `dokimos-koog/src/test/kotlin/dev/dokimos/koog/`
 - **Maven dependency**: `dev.dokimos:dokimos-koog`
 
@@ -93,7 +94,27 @@ The user needs `dokimos-koog`:
 </dependency>
 ```
 
-Koog itself is a provided-scope dependency — the user must bring their own version.
+Koog itself is a provided-scope dependency — the user must bring their own version. The collector reads the event context reflectively, so one build works across Koog 0.6.4 through 1.0.0.
+
+## Evaluating tool calls, not just final output
+
+If the Koog agent uses tools, capture its tool calls with `KoogTraceCollector` and evaluate them with the agent evaluators. Install the collector on the agent's event handler with `collectAgentTrace`, run the agent, then read the trace.
+
+```kotlin
+import dev.dokimos.koog.KoogTraceCollector
+import dev.dokimos.koog.collectAgentTrace
+
+val collector = KoogTraceCollector()
+val agent = AIAgent(/* ... */) {
+    install(EventHandler) { collectAgentTrace(collector) }
+}
+
+val response = agent.run(userInput)
+val testCase = collector.toAgentTrace(response).toTestCase(userInput, tools)
+val validity = toolCallValidity { }.evaluate(testCase)
+```
+
+For the full agent evaluator set, use the `evaluate-agent` skill.
 
 ## Steps
 

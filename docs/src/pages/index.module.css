@@ -77,13 +77,39 @@
   background: var(--ifm-color-primary);
 }
 
+.proofBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  border: 1px solid var(--dok-border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.proofBadge:hover {
+  border-color: var(--ifm-color-primary);
+  background: rgba(230, 169, 58, 0.08);
+  text-decoration: none;
+}
+
+.proofBadge svg {
+  width: 13px;
+  height: 13px;
+}
+
 /* Hero code panel */
 .heroCode {
   border: 1px solid var(--dok-border);
   border-radius: 10px;
   overflow: hidden;
-  background: #0c0e12;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  background: var(--dok-code-bg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 .codeChrome {
@@ -91,70 +117,320 @@
   align-items: center;
   gap: 7px;
   padding: 10px 14px;
-  border-bottom: 1px solid #20242c;
-  background: #0f1216;
+  border-bottom: 1px solid var(--dok-code-chrome-border);
+  background: var(--dok-code-chrome);
 }
 
 .codeDot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #2a2f38;
+  background: var(--dok-code-dot);
 }
 
 .codeName {
   margin-left: 8px;
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.74rem;
-  color: #7a828e;
+  color: var(--dok-code-name);
 }
 
 .codeBody {
   margin: 0;
   padding: 18px 20px;
-  background: #0c0e12;
-  color: #d7dbe2;
+  background: var(--dok-code-bg);
+  color: var(--dok-code-text);
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.8rem;
   line-height: 1.65;
   overflow-x: auto;
 }
 
-/* Install band */
-.installBand {
+/* Get started your way band */
+.band {
   padding: 4rem 1rem;
   border-bottom: 1px solid var(--dok-border);
   background: var(--ifm-background-color);
 }
 
-.installInner {
+.bandInner {
   max-width: 1180px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
-  align-items: center;
 }
 
-.installTitle {
-  font-size: 1.8rem;
+.bandHead {
+  text-align: center;
+  margin-bottom: 2.2rem;
+}
+
+.bandTitle {
+  font-size: 1.9rem;
   letter-spacing: -0.02em;
-  margin: 0 0 0.8rem;
+  margin: 0 0 0.6rem;
 }
 
-.installSubtitle {
+.bandSubtitle {
   font-size: 1rem;
   color: var(--ifm-color-content-secondary);
-  max-width: 30rem;
-  margin: 0;
+  margin: 0 0 1.6rem;
 }
 
-.installCode {
+.toggle {
+  display: inline-flex;
   border: 1px solid var(--dok-border);
-  border-radius: 10px;
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.seg {
+  border: 0;
+  background: transparent;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 7px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.segActive {
+  background: var(--ifm-color-primary);
+  color: var(--dok-on-primary);
+}
+
+.panelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.infoCard {
+  border: 1px solid var(--dok-border);
+  border-radius: 12px;
+  padding: 1.4rem 1.5rem;
+  background: var(--ifm-background-surface-color);
+}
+
+.infoTitle {
+  font-size: 1.05rem;
+  margin: 0 0 0.4rem;
+}
+
+.infoLead {
+  font-size: 0.9rem;
+  color: var(--ifm-color-content-secondary);
+  margin: 0 0 1rem;
+}
+
+.infoNote {
+  font-size: 0.82rem;
+  color: var(--ifm-color-content-secondary);
+  margin: 0.9rem 0 0;
+}
+
+.infoNote a {
+  color: var(--ifm-color-primary);
+}
+
+/* code snippet inside a card */
+.snippet {
+  border: 1px solid var(--dok-border);
+  border-radius: 8px;
   overflow: hidden;
-  background: #0c0e12;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  background: var(--dok-code-bg);
+}
+
+.snippetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--dok-code-chrome-border);
+  background: var(--dok-code-chrome);
+}
+
+.snippetLabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  color: var(--dok-code-name);
+}
+
+.copyBtn {
+  background: transparent;
+  border: 1px solid var(--dok-border);
+  border-radius: 5px;
+  color: var(--ifm-color-content-secondary);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.copyBtn:hover {
+  color: var(--ifm-font-color-base);
+  border-color: #353b45;
+}
+
+.copied {
+  color: var(--ifm-color-primary) !important;
+  border-color: var(--ifm-color-primary) !important;
+}
+
+/* agent one-liner */
+.oneliner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--ifm-color-primary-darker);
+  border-radius: 8px;
+  padding: 12px 12px 12px 14px;
+  background: rgba(230, 169, 58, 0.06);
+}
+
+.oneliner code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ifm-font-color-base);
+  background: transparent;
+}
+
+.onelinerCopy {
+  flex-shrink: 0;
+  border: 1px solid var(--ifm-color-primary-darker);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ifm-color-primary);
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.onelinerCopy:hover {
+  background: rgba(230, 169, 58, 0.12);
+}
+
+/* skill install commands */
+.cmdList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cmd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--dok-code-bg);
+  border: 1px solid var(--dok-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.74rem;
+}
+
+.cmdPrompt {
+  color: var(--ifm-color-primary);
+}
+
+.cmdText {
+  color: var(--ifm-font-color-base);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.cmdCopy {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--dok-border);
+  border-radius: 5px;
+  color: var(--ifm-color-content-secondary);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.66rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.cmdCopy:hover {
+  color: var(--ifm-font-color-base);
+  border-color: #353b45;
+}
+
+/* agent fetch endpoints */
+.agentFetch {
+  margin-top: 1.2rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--dok-border);
+}
+
+.agentFetchLabel {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ifm-color-primary);
+}
+
+.endpointList {
+  list-style: none;
+  margin: 0.7rem 0 0.9rem;
+  padding: 0;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+}
+
+.endpointList li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--dok-border);
+}
+
+.endpointList li:last-child {
+  border-bottom: 0;
+}
+
+.endpointList a {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+
+.endpointList a:hover {
+  text-decoration: underline;
+}
+
+.epNote {
+  margin-left: auto;
+  font-family: var(--ifm-font-family-base);
+  font-size: 0.72rem;
+  color: var(--ifm-color-content-secondary);
+}
+
+.agentWarn {
+  font-size: 0.78rem;
+  color: var(--ifm-color-content-secondary);
+  border-left: 2px solid var(--ifm-color-primary);
+  padding-left: 12px;
+  margin: 0;
 }
 
 @media screen and (max-width: 996px) {
@@ -168,8 +444,7 @@
   .heroTitle {
     font-size: 2.1rem;
   }
-  .installInner {
+  .panelGrid {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
   }
 }

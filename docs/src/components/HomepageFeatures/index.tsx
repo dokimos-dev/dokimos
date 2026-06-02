@@ -1,52 +1,56 @@
 import type { ReactNode } from "react";
-import clsx from "clsx";
 import Heading from "@theme/Heading";
 import styles from "./styles.module.css";
 
 type FeatureItem = {
   title: string;
-  Svg: React.ComponentType<React.ComponentProps<"svg">>;
+  glyph: string;
   description: ReactNode;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: "Dataset-Driven Evaluation",
-    Svg: require("@site/static/img/dokimos-dataset-driven-evals.svg").default,
+    title: "Dataset-driven evaluation",
+    glyph: "▦",
     description: (
       <>
-        Load test cases from JSON or CSV files, or create them programmatically.
-        Run the same dataset across experiments or JUnit tests.
+        Load test cases from JSON or CSV, or build them in code. Run the same dataset across
+        experiments and JUnit tests, and track quality as it changes.
       </>
     ),
   },
   {
-    title: "Built-in Evaluators",
-    Svg: require("@site/static/img/built-in-evaluators.svg").default,
-    description: <>Use built-in and LLM-based evaluators out of the box.</>,
-  },
-  {
-    title: "Framework Integration",
-    Svg: require("@site/static/img/framework-integration.svg").default,
+    title: "Built-in and agent evaluators",
+    glyph: "◆",
     description: (
       <>
-        Works with JUnit for parameterized testing and LangChain4j for
-        evaluating AI Services. Integrate into existing CI/CD pipelines.
+        Hallucination, faithfulness, contextual relevance, and LLM-as-judge, plus tool-call
+        validity, trajectory, and task completion for agents.
+      </>
+    ),
+  },
+  {
+    title: "Framework integration",
+    glyph: "⌘",
+    description: (
+      <>
+        Works with JUnit, Spring AI, LangChain4j, and Koog, so evaluations run in the test suite and
+        CI you already have.
       </>
     ),
   },
 ];
 
-function Feature({ title, Svg, description }: FeatureItem) {
+function Feature({ title, glyph, description }: FeatureItem) {
   return (
-    <div className={clsx("col col--4")}>
-      <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
-      </div>
-      <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
-        <p>{description}</p>
-      </div>
+    <div className={styles.card}>
+      <span className={styles.glyph} aria-hidden="true">
+        {glyph}
+      </span>
+      <Heading as="h3" className={styles.cardTitle}>
+        {title}
+      </Heading>
+      <p className={styles.cardText}>{description}</p>
     </div>
   );
 }
@@ -54,12 +58,10 @@ function Feature({ title, Svg, description }: FeatureItem) {
 export default function HomepageFeatures(): ReactNode {
   return (
     <section className={styles.features}>
-      <div className="container">
-        <div className="row">
-          {FeatureList.map((props, idx) => (
-            <Feature key={idx} {...props} />
-          ))}
-        </div>
+      <div className={styles.grid}>
+        {FeatureList.map((props) => (
+          <Feature key={props.title} {...props} />
+        ))}
       </div>
     </section>
   );

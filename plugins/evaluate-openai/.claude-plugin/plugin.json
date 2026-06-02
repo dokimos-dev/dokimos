@@ -1,0 +1,19 @@
+{
+  "name": "evaluate-openai",
+  "version": "0.1.0",
+  "description": "Set up evaluation of an OpenAI Java SDK agent with Dokimos. Captures tool calls from a tool-calling loop into an AgentTrace using the OpenAiAgentTraces bridge, then evaluates them with the agent evaluators.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/evaluation/agent-evaluation",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "openai",
+    "agent",
+    "tool-call",
+    "llm-evaluation"
+  ]
+}

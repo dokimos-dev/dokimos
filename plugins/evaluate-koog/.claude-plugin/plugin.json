@@ -1,6 +1,6 @@
 {
   "name": "evaluate-koog",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Set up evaluation of Koog AI agents using Dokimos. Wires Koog agents as the system under test or as LLM judges via KoogSupport utilities, with Kotlin DSL support.",
   "author": {
     "name": "Dokimos Contributors",

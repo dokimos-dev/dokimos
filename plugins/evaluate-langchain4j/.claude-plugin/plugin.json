@@ -1,6 +1,6 @@
 {
   "name": "evaluate-langchain4j",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Set up evaluation of LangChain4j applications and RAG pipelines using Dokimos. Provides task and judge creation via LangChain4jSupport, with evaluators for faithfulness, contextual relevance, and hallucination.",
   "author": {
     "name": "Dokimos Contributors",

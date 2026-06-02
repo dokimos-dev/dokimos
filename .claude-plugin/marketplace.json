@@ -40,7 +40,7 @@
       "name": "evaluate-agent",
       "source": "./plugins/evaluate-agent",
       "description": "Set up evaluation of AI agents with tool call validation, correctness checks, and task completion using Dokimos",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "integration",
       "tags": ["agent", "tool-call", "evaluation", "java", "kotlin"]
     },
@@ -48,7 +48,7 @@
       "name": "evaluate-koog",
       "source": "./plugins/evaluate-koog",
       "description": "Set up evaluation of Koog AI agents using Dokimos",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "integration",
       "tags": ["koog", "kotlin", "agent", "evaluation"]
     },
@@ -56,7 +56,7 @@
       "name": "evaluate-langchain4j",
       "source": "./plugins/evaluate-langchain4j",
       "description": "Set up evaluation of LangChain4j applications and RAG pipelines using Dokimos",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "integration",
       "tags": ["langchain4j", "rag", "evaluation"]
     },
@@ -64,9 +64,17 @@
       "name": "evaluate-spring-ai",
       "source": "./plugins/evaluate-spring-ai",
       "description": "Set up evaluation of Spring AI applications using Dokimos",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "integration",
       "tags": ["spring-ai", "spring", "evaluation"]
+    },
+    {
+      "name": "evaluate-openai",
+      "source": "./plugins/evaluate-openai",
+      "description": "Set up evaluation of an OpenAI Java SDK tool-calling agent using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["openai", "agent", "tool-call", "evaluation"]
     }
   ]
 }

@@ -213,6 +213,9 @@
   border-radius: 12px;
   padding: 1.4rem 1.5rem;
   background: var(--ifm-background-surface-color);
+  /* Allow the card to shrink below the code block's intrinsic width;
+     without this a grid item keeps min-width:auto and overflows on mobile. */
+  min-width: 0;
 }
 
 .infoTitle {

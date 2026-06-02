@@ -107,6 +107,20 @@ EvaluationResponse response = SpringAiSupport.toEvaluationResponse(result);
 
 Spring AI itself is a provided-scope dependency — the user must bring their own version.
 
+## Evaluating an agent, not just chat or RAG
+
+If the Spring AI app calls tools, evaluate its tool calls with the agent evaluators. An `AssistantMessage` carries the tool calls the model made; the results come back in the `ToolResponseMessage`s. `SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages)` builds an `AgentTrace` (results matched to calls by tool-call id), and `toToolDefinitions(defs)` converts the tool definitions.
+
+```java
+AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages);
+List<ToolDefinition> tools = SpringAiSupport.toToolDefinitions(toolDefinitions);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+var validity = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
+```
+
+For the full agent evaluator set, use the `evaluate-agent` skill.
+
 ## Steps
 
 1. Understand from `$ARGUMENTS` what the Spring AI application does

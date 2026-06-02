@@ -108,6 +108,22 @@ ExperimentResult result = Experiment.builder()
 
 LangChain4j itself is a provided-scope dependency — the user must bring their own version.
 
+## Evaluating an agent, not just RAG
+
+If the LangChain4j app uses tools (an `AiService` whose method returns `Result<T>`), evaluate its tool calls with the agent evaluators. `LangChain4jSupport.toAgentTrace(result)` turns the run into an `AgentTrace`, and `toToolDefinitions(specs)` converts the tool specifications so the validity and reliability evaluators can see the tools the agent was given.
+
+```java
+Result<String> result = assistant.chat(userMessage);
+
+AgentTrace trace = LangChain4jSupport.toAgentTrace(result);
+List<ToolDefinition> tools = LangChain4jSupport.toToolDefinitions(toolSpecifications);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
+var validity = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
+```
+
+For the full agent evaluator set, use the `evaluate-agent` skill.
+
 ## Steps
 
 1. Understand from `$ARGUMENTS` what the LangChain4j application does (Q&A, RAG, chat, etc.)

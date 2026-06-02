@@ -1,6 +1,6 @@
 {
   "name": "evaluate-spring-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Set up evaluation of Spring AI applications using Dokimos. Provides judge creation and type conversion via SpringAiSupport, with @SpringBootTest integration for evaluations in CI.",
   "author": {
     "name": "Dokimos Contributors",

@@ -11,10 +11,8 @@ const oneDarkInk = {
   plain: { ...prismThemes.oneDark.plain, backgroundColor: "#0c0e12" },
 };
 
-// Instruction header prepended to llms.txt and llms-full.txt. An agent that fetches
-// llms.txt gets a usable procedure, not just a link index. Modeled on the ICP skills
-// pattern: tell the agent to trust the fetched docs over pre-training, then how to add
-// an eval. The page list that the plugin generates follows this block.
+// Prepended to llms.txt and llms-full.txt so a fetching agent gets a procedure,
+// not just a link index. The generated page list follows this block.
 const LLMS_ROOT_CONTENT = `## Critical: do not rely on pre-training knowledge
 
 Dokimos evolves with every release. Evaluator APIs, the agent trace model, builder
@@ -119,8 +117,7 @@ const config: Config = {
 
   plugins: [
     [
-      // Generates /llms.txt (an index), /llms-full.txt (all docs in one file), and a
-      // .md version of every page, so coding agents can read the docs without parsing HTML.
+      // Generates /llms.txt, /llms-full.txt, and a .md per page.
       "docusaurus-plugin-llms",
       {
         title: "Dokimos",
@@ -141,15 +138,13 @@ const config: Config = {
         ignoreFiles: ["changelog*"],
       },
     ],
-    // Serves the agent skills from this origin: /.well-known/skills/index.json
-    // plus each plugin's SKILL.md, generated from the plugin marketplace.
+    // Serves /.well-known/skills/index.json and each plugin's SKILL.md.
     "./plugins/skills-registry.js",
   ],
 
   themes: [
     [
-      // Offline search. The Velm chat widget keeps Cmd/Ctrl+K, so search uses
-      // "/" (the GitHub-style focus-search shortcut) to avoid colliding.
+      // Offline search on "/"; the Velm chat widget keeps Cmd/Ctrl+K.
       require.resolve("@easyops-cn/docusaurus-search-local"),
       {
         hashed: true,

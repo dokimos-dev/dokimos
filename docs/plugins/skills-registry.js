@@ -1,7 +1,5 @@
-// Serves the Dokimos agent skills from this docs origin: copies each plugin's
-// SKILL.md into /.well-known/skills/<name>/SKILL.md and writes an index.json
-// listing them, generated from the plugin marketplace. Same origin as llms.txt,
-// snapshotted to each docs deploy (not a moving raw.githubusercontent link).
+// Copies each plugin's SKILL.md into /.well-known/skills/<name>/SKILL.md and
+// writes an index.json, generated from .claude-plugin/marketplace.json.
 const fs = require("fs");
 const path = require("path");
 

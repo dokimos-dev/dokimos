@@ -24,8 +24,8 @@ const FeatureList: FeatureItem[] = [
     glyph: "◆",
     description: (
       <>
-        Hallucination, faithfulness, contextual relevance, and LLM-as-judge, plus tool-call validity,
-        trajectory, and task completion for agents.
+        Hallucination, faithfulness, contextual relevance, and LLM-as-judge, plus tool-call
+        validity, trajectory, and task completion for agents.
       </>
     ),
   },

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import { useColorMode } from "@docusaurus/theme-common";
 import Layout from "@theme/Layout";
 import { Highlight, Prism, themes, type PrismTheme } from "prism-react-renderer";
 import HomepageFeatures from "@site/src/components/HomepageFeatures";
@@ -8,17 +9,19 @@ import Heading from "@theme/Heading";
 
 import styles from "./index.module.css";
 
-// Java isn't in prism-react-renderer's default language bundle. Register it on
-// the renderer's own Prism instance so the hero snippet tokenizes correctly.
+// Register Java; it isn't in prism-react-renderer's default bundle.
 (globalThis as { Prism?: typeof Prism }).Prism = Prism;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("prismjs/components/prism-java");
 
-// Same One Dark theme the docs code blocks use, with a transparent surface so
-// the hero panel background shows through.
-const heroTheme: PrismTheme = {
+// Transparent so the theme-aware panel background shows through.
+const darkSyntax: PrismTheme = {
   ...themes.oneDark,
   plain: { ...themes.oneDark.plain, backgroundColor: "transparent" },
+};
+const lightSyntax: PrismTheme = {
+  ...themes.oneLight,
+  plain: { ...themes.oneLight.plain, backgroundColor: "transparent" },
 };
 
 const HERO_CODE = `class RagEvalTest {
@@ -75,8 +78,13 @@ const ENDPOINTS = [
 ];
 
 function CodeBlock({ code, language }: { code: string; language: string }) {
+  const { colorMode } = useColorMode();
   return (
-    <Highlight theme={heroTheme} code={code} language={language}>
+    <Highlight
+      theme={colorMode === "dark" ? darkSyntax : lightSyntax}
+      code={code}
+      language={language}
+    >
       {({ tokens, getLineProps, getTokenProps }) => (
         <pre className={styles.codeBody}>
           <code>
@@ -123,8 +131,8 @@ function HomepageHeader() {
           </Heading>
           <p className={styles.heroSubtitle}>
             Evaluate responses and agent tool calls, track quality over time, and catch regressions
-            before they ship. Runs in the JUnit suite and CI you already have, one dependency, no new
-            infrastructure. Works with Spring AI, LangChain4j, and Koog.
+            before they ship. Runs in the JUnit suite and CI you already have, one dependency, no
+            new infrastructure. Works with Spring AI, LangChain4j, and Koog.
           </p>
           <div className={styles.heroButtons}>
             <Link className="button button--primary button--lg" to="/overview">
@@ -181,8 +189,8 @@ function HumansPanel({ version }: { version: string }) {
           <CodeBlock code={pomCode(version)} language="markup" />
         </div>
         <p className={styles.infoNote}>
-          Pulls in <code>dokimos-core</code>. Gradle and the Spring AI, LangChain4j, and Koog modules
-          are in the <Link to="/getting-started/installation">install guide</Link>.
+          Pulls in <code>dokimos-core</code>. Gradle and the Spring AI, LangChain4j, and Koog
+          modules are in the <Link to="/getting-started/installation">install guide</Link>.
         </p>
       </div>
       <div className={styles.infoCard}>
@@ -211,8 +219,8 @@ function AgentsPanel() {
       <div className={styles.infoCard}>
         <h3 className={styles.infoTitle}>Hand it to your coding agent</h3>
         <p className={styles.infoLead}>
-          One line. Paste it into Claude Code, Cursor, or any agent. The fetched instructions tell it
-          how to add Dokimos evals to your project, with the current API.
+          One line. Paste it into Claude Code, Cursor, or any agent. The fetched instructions tell
+          it how to add Dokimos evals to your project, with the current API.
         </p>
         <div className={styles.oneliner}>
           <code>{AGENT_ONELINER}</code>
@@ -228,22 +236,25 @@ function AgentsPanel() {
           Drop the Dokimos skills into your agent so it knows the current API without being told.
         </p>
         <div className={styles.cmdList}>
-          {["npx skills add dokimos-dev/dokimos", "/plugin marketplace add dokimos-dev/dokimos"].map(
-            (cmd) => (
-              <div key={cmd} className={styles.cmd}>
-                <span className={styles.cmdPrompt}>$</span>
-                <span className={styles.cmdText}>{cmd}</span>
-                <CopyButton text={cmd} className={styles.cmdCopy} />
-              </div>
-            ),
-          )}
+          {[
+            "npx skills add dokimos-dev/dokimos",
+            "/plugin marketplace add dokimos-dev/dokimos",
+          ].map((cmd) => (
+            <div key={cmd} className={styles.cmd}>
+              <span className={styles.cmdPrompt}>$</span>
+              <span className={styles.cmdText}>{cmd}</span>
+              <CopyButton text={cmd} className={styles.cmdCopy} />
+            </div>
+          ))}
         </div>
         <p className={styles.infoNote}>
           Works in Claude Code, Cursor, Codex, and any agent on the open skills standard.
         </p>
         <div className={styles.agentFetch}>
           <span className={styles.agentFetchLabel}>Fetch directly</span>
-          <p className={styles.infoNote}>Agents read the skill index and content over HTTP, no install:</p>
+          <p className={styles.infoNote}>
+            Agents read the skill index and content over HTTP, no install:
+          </p>
           <ul className={styles.endpointList}>
             {ENDPOINTS.map((ep) => (
               <li key={ep.href}>

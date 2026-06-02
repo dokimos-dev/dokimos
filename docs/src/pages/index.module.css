@@ -108,8 +108,8 @@
   border: 1px solid var(--dok-border);
   border-radius: 10px;
   overflow: hidden;
-  background: #0c0e12;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  background: var(--dok-code-bg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 .codeChrome {
@@ -117,29 +117,29 @@
   align-items: center;
   gap: 7px;
   padding: 10px 14px;
-  border-bottom: 1px solid #20242c;
-  background: #0f1216;
+  border-bottom: 1px solid var(--dok-code-chrome-border);
+  background: var(--dok-code-chrome);
 }
 
 .codeDot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #2a2f38;
+  background: var(--dok-code-dot);
 }
 
 .codeName {
   margin-left: 8px;
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.74rem;
-  color: #7a828e;
+  color: var(--dok-code-name);
 }
 
 .codeBody {
   margin: 0;
   padding: 18px 20px;
-  background: #0c0e12;
-  color: #d7dbe2;
+  background: var(--dok-code-bg);
+  color: var(--dok-code-text);
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.8rem;
   line-height: 1.65;
@@ -199,7 +199,7 @@
 
 .segActive {
   background: var(--ifm-color-primary);
-  color: #1a1205;
+  color: var(--dok-on-primary);
 }
 
 .panelGrid {
@@ -241,7 +241,7 @@
   border: 1px solid var(--dok-border);
   border-radius: 8px;
   overflow: hidden;
-  background: #0c0e12;
+  background: var(--dok-code-bg);
 }
 
 .snippetHead {
@@ -249,14 +249,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 7px 12px;
-  border-bottom: 1px solid #20242c;
-  background: #0f1216;
+  border-bottom: 1px solid var(--dok-code-chrome-border);
+  background: var(--dok-code-chrome);
 }
 
 .snippetLabel {
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.72rem;
-  color: #7a828e;
+  color: var(--dok-code-name);
 }
 
 .copyBtn {
@@ -335,7 +335,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #0c0e12;
+  background: var(--dok-code-bg);
   border: 1px solid var(--dok-border);
   border-radius: 8px;
   padding: 9px 12px;

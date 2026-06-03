@@ -15,7 +15,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
@@ -237,8 +239,8 @@ public final class SpringAiSupport {
      * <p>Note: because the call blocks on the common pool, the experiment's {@code parallelism} bounds
      * how many invocations are launched, but the effective concurrency of the blocking HTTP call is
      * also limited by the common pool (~one less than the CPU count), which is shared process-wide.
-     * For higher, isolated concurrency, wrap the call in your own {@link AsyncTask} backed by a
-     * dedicated {@link java.util.concurrent.Executor}.
+     * For higher, isolated concurrency use {@link #asyncTask(ChatClient, java.util.concurrent.Executor)}
+     * (or the four-arg overload) to run calls on a pool you control.
      *
      * <p>Example:
      * <pre>{@code
@@ -276,6 +278,47 @@ public final class SpringAiSupport {
      * @throws IllegalArgumentException if any argument is null
      */
     public static AsyncTask asyncTask(ChatClient client, String inputKey, String outputKey) {
+        return asyncTask(client, inputKey, outputKey, null);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} that calls a Spring AI {@link ChatClient} on the supplied
+     * {@link Executor}, with default input and output keys.
+     *
+     * <p>Use this when you want the blocking call to run on a pool you control (sized to your desired
+     * concurrency) rather than the shared common {@link java.util.concurrent.ForkJoinPool}. Pair the
+     * executor's size with the experiment's {@code parallelism} for predictable throughput.
+     *
+     * @param client   the ChatClient to call, never null
+     * @param executor the executor each blocking call runs on, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client} or {@code executor} is null
+     */
+    public static AsyncTask asyncTask(ChatClient client, Executor executor) {
+        if (executor == null) {
+            throw new IllegalArgumentException("executor cannot be null");
+        }
+        return asyncTask(client, INPUT_KEY, OUTPUT_KEY, executor);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} that calls a Spring AI {@link ChatClient} using caller-chosen input
+     * and output keys, dispatching each blocking call on the supplied {@link Executor} (or the common
+     * {@link java.util.concurrent.ForkJoinPool} when {@code executor} is {@code null}).
+     *
+     * <p>Supplying an executor lets you control and isolate concurrency: the experiment's
+     * {@code parallelism} bounds in-flight invocations, and a pool sized to match gives true parallel
+     * blocking calls instead of the common pool's ~CPU-count, process-wide ceiling.
+     *
+     * @param client    the ChatClient to call, never null
+     * @param inputKey  the key to read the user message from the example inputs, never null
+     * @param outputKey the key the response is written under in the result, never null
+     * @param executor  the executor each blocking call runs on, or {@code null} for the common pool
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client}, {@code inputKey}, or {@code outputKey} is null
+     */
+    public static AsyncTask asyncTask(
+            ChatClient client, String inputKey, String outputKey, Executor executor) {
         if (client == null) {
             throw new IllegalArgumentException("ChatClient cannot be null");
         }
@@ -285,12 +328,17 @@ public final class SpringAiSupport {
         if (outputKey == null) {
             throw new IllegalArgumentException("outputKey cannot be null");
         }
-        return example -> CompletableFuture.supplyAsync(() -> {
-            Object input = example.inputs().get(inputKey);
-            String content =
-                    client.prompt().user(String.valueOf(input)).call().content();
-            return TaskResult.of(Map.of(outputKey, content != null ? content : ""));
-        });
+        return example -> {
+            Supplier<TaskResult> call = () -> {
+                Object input = example.inputs().get(inputKey);
+                String content =
+                        client.prompt().user(String.valueOf(input)).call().content();
+                return TaskResult.of(Map.of(outputKey, content != null ? content : ""));
+            };
+            return executor == null
+                    ? CompletableFuture.supplyAsync(call)
+                    : CompletableFuture.supplyAsync(call, executor);
+        };
     }
 
     /**

@@ -85,6 +85,32 @@ class SpringAiAsyncTaskTest {
     }
 
     @Test
+    void asyncTask_shouldRunOnProvidedExecutor() throws Exception {
+        ChatModel mockModel = prompt -> new ChatResponse(List.of(new Generation(new AssistantMessage("ok"))));
+        ChatClient client = ChatClient.builder(mockModel).build();
+        java.util.concurrent.atomic.AtomicInteger used = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.Executor executor = command -> {
+            used.incrementAndGet();
+            command.run();
+        };
+
+        AsyncTask task = SpringAiSupport.asyncTask(client, executor);
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(used.get()).isEqualTo(1);
+        assertThat(result.outputs()).containsEntry("output", "ok");
+    }
+
+    @Test
+    void asyncTask_shouldRejectNullExecutor() {
+        ChatModel mockModel = prompt -> new ChatResponse(List.of(new Generation(new AssistantMessage("ok"))));
+        ChatClient client = ChatClient.builder(mockModel).build();
+
+        assertThatThrownBy(() -> SpringAiSupport.asyncTask(client, (java.util.concurrent.Executor) null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void reactiveTask_shouldAdaptMonoOfTaskResultToFuture() throws Exception {
         TaskResult expected = TaskResult.of(Map.of("output", "reactive value"));
 

@@ -138,4 +138,55 @@ class LangChain4jAsyncTaskTest {
         assertThatThrownBy(() -> LangChain4jSupport.asyncTask(null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void asyncTask_shouldRunOnProvidedExecutor() throws Exception {
+        ChatModel chatModel = new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                return ChatResponse.builder().aiMessage(AiMessage.from("ok")).build();
+            }
+        };
+        java.util.concurrent.atomic.AtomicInteger used = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.Executor executor = command -> {
+            used.incrementAndGet();
+            command.run();
+        };
+
+        AsyncTask task = LangChain4jSupport.asyncTask(chatModel, executor);
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(used.get()).isEqualTo(1);
+        assertThat(result.outputs()).containsEntry("output", "ok");
+    }
+
+    @Test
+    void asyncRagTask_shouldRunOnProvidedExecutor() throws Exception {
+        Result<String> mockResult =
+                Result.<String>builder().content("answer").sources(List.of()).build();
+        java.util.concurrent.atomic.AtomicInteger used = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.Executor executor = command -> {
+            used.incrementAndGet();
+            command.run();
+        };
+
+        AsyncTask task = LangChain4jSupport.asyncRagTask(input -> mockResult, executor);
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(used.get()).isEqualTo(1);
+        assertThat(result.outputs()).containsEntry("output", "answer");
+    }
+
+    @Test
+    void asyncTask_shouldRejectNullExecutor() {
+        ChatModel chatModel = new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                return ChatResponse.builder().aiMessage(AiMessage.from("ok")).build();
+            }
+        };
+
+        assertThatThrownBy(() -> LangChain4jSupport.asyncTask(chatModel, (java.util.concurrent.Executor) null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

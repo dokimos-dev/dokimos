@@ -299,8 +299,8 @@ public class Experiment {
          * sequential execution. Per-item failures are isolated exactly as in the synchronous paths:
          * a failed future becomes a failed {@link ItemResult} and the run continues.
          * <p>
-         * An async task satisfies the task requirement on its own; a synchronous {@link #task(Task)}
-         * or {@link #measuredTask(MeasuredTask)} is not also required.
+         * An async task is mutually exclusive with a synchronous {@link #task(Task)} or
+         * {@link #measuredTask(MeasuredTask)}: configuring both fails fast in {@link #build()}.
          *
          * @param asyncTask the asynchronous task to generate outputs and metrics from examples
          * @return builder
@@ -441,6 +441,9 @@ public class Experiment {
             }
             if (task == null && asyncTask == null) {
                 throw new IllegalStateException("Task is required");
+            }
+            if (task != null && asyncTask != null) {
+                throw new IllegalStateException("Set either a synchronous task/measuredTask or an asyncTask, not both");
             }
             if (dataset.examples().isEmpty()) {
                 throw new IllegalStateException("Dataset must contain at least one example");

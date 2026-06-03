@@ -259,24 +259,20 @@ class ExperimentAsyncTest {
     }
 
     @Test
-    void asyncTaskTakesPrecedenceOverSyncTask() {
+    void configuringBothSyncAndAsyncTaskFailsFast() {
         var dataset = Dataset.builder().addExample(Example.of("q", "a")).build();
 
-        // A sync task that would throw, plus an async task that succeeds: the async path must win.
-        var result = Experiment.builder()
-                .name("async-precedence")
+        // A sync task and an async task are mutually exclusive; configuring both is rejected at build().
+        var builder = Experiment.builder()
+                .name("both-tasks")
                 .dataset(dataset)
-                .task(example -> {
-                    throw new RuntimeException("sync task should not run");
-                })
+                .task(example -> Map.of("output", "sync"))
                 .asyncTask(example -> CompletableFuture.completedFuture(TaskResult.of(Map.of("output", "async"))))
-                .evaluator(passingEvaluator())
-                .build()
-                .run();
+                .evaluator(passingEvaluator());
 
-        assertThat(result.itemResults()).hasSize(1);
-        assertThat(result.itemResults().get(0).success()).isTrue();
-        assertThat(result.itemResults().get(0).actualOutputs()).containsEntry("output", "async");
+        assertThatThrownBy(builder::build)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not both");
     }
 
     @Test

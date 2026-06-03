@@ -45,12 +45,9 @@ class LangChain4jAsyncTaskTest {
     }
 
     @Test
-    void asyncRagTask_passesNullContentThroughUnderTheOutputKey() throws Exception {
-        // Contract pin: asyncRagTask (like the synchronous ragTask) writes result.content() into a
-        // HashMap with no null-coercion, so a null-content Result surfaces output == null. This is the
-        // RAG contract — deliberately distinct from asyncTask/simpleTask, which coerce null to "".
-        // Asserting it makes the asymmetry intentional: a regression that started coercing (or that
-        // switched to Map.of and NPE'd) would change this and fail here.
+    void asyncRagTask_coercesNullContentToEmptyString() throws Exception {
+        // A null-content Result is coerced to "" under the output key, consistent with
+        // asyncTask/simpleTask, so callers see one null-handling contract across the adapter.
         Result<String> mockResult =
                 Result.<String>builder().content(null).sources(List.of()).build();
 
@@ -58,8 +55,7 @@ class LangChain4jAsyncTaskTest {
 
         TaskResult result = task.run(Example.of("q", "a")).get();
 
-        assertThat(result.outputs()).containsKey("output");
-        assertThat(result.outputs().get("output")).isNull();
+        assertThat(result.outputs()).containsEntry("output", "");
     }
 
     @Test

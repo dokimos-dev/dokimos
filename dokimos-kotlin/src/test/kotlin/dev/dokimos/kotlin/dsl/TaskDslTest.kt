@@ -52,29 +52,28 @@ class TaskDslTest {
     }
 
     @Test
-    fun `experiment DSL lets asyncTask win when both task and asyncTask are configured`() {
-        // The DSL forwards both to the builder; Experiment runs the async path first, so asyncTask takes
-        // precedence and the sync task is silently ignored. Pin that precedence: the run must produce the
-        // async output, not the sync one.
-        val result = experiment {
-            name = "both-tasks-experiment"
-            dataset {
-                name = "ds"
-                example {
-                    input = "hello"
-                    expected = "ASYNC"
+    fun `experiment DSL rejects configuring both task and asyncTask`() {
+        // task and asyncTask are mutually exclusive; the builder fails fast rather than silently
+        // ignoring one.
+        assertThatThrownBy {
+            experiment {
+                name = "both-tasks-experiment"
+                dataset {
+                    name = "ds"
+                    example {
+                        input = "hello"
+                        expected = "ASYNC"
+                    }
+                }
+                task { mapOf("output" to "SYNC") }
+                suspendTask { TaskResult(mapOf("output" to "ASYNC"), null) }
+                evaluators {
+                    exactMatch { threshold = 1.0 }
                 }
             }
-            task { mapOf("output" to "SYNC") }
-            suspendTask { TaskResult(mapOf("output" to "ASYNC"), null) }
-            evaluators {
-                exactMatch { threshold = 1.0 }
-            }
-        }.run()
-
-        assertThat(result.itemResults()).hasSize(1)
-        assertThat(result.itemResults().first().actualOutputs()).containsEntry("output", "ASYNC")
-        assertThat(result.passRate()).isEqualTo(1.0)
+        }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("not both")
     }
 
     @Test

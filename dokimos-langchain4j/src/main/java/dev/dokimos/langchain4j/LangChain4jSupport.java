@@ -216,7 +216,7 @@ public final class LangChain4jSupport {
             Result<String> result = assistantCall.apply(input);
 
             Map<String, Object> outputs = new HashMap<>();
-            outputs.put(outputKey, result.content());
+            outputs.put(outputKey, result.content() != null ? result.content() : "");
             outputs.put(contextKey, extractTexts(result.sources()));
             return outputs;
         };
@@ -376,7 +376,7 @@ public final class LangChain4jSupport {
                 Result<String> result = assistantCall.apply(input);
 
                 Map<String, Object> outputs = new HashMap<>();
-                outputs.put(outputKey, result.content());
+                outputs.put(outputKey, result.content() != null ? result.content() : "");
                 outputs.put(contextKey, extractTexts(result.sources()));
                 return TaskResult.of(outputs);
             };

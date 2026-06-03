@@ -321,6 +321,116 @@ The `ragTask()` method extracts the input, calls your AI Service, and automatica
 
 This lets the `FaithfulnessEvaluator` check if the answer is grounded in what was actually retrieved.
 
+## Async Tasks
+
+When each example is an independent, blocking model or assistant call, the async tasks let the experiment keep many calls in flight instead of blocking one thread per example. Wire them with `Experiment.builder().asyncTask(...)` and bound concurrency with `parallelism(...)`.
+
+`asyncTask(model)` is the async counterpart of `simpleTask(model)`, and `asyncRagTask(assistantCall)` is the async counterpart of `ragTask(...)` — it still extracts the retrieved context from `Result.sources()` into the `"context"` key. Both dispatch the blocking call on the common `ForkJoinPool` via `CompletableFuture.supplyAsync(...)`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.langchain4j.LangChain4jSupport;
+
+// Simple Q&A
+AsyncTask task = LangChain4jSupport.asyncTask(model);
+
+// RAG (extracts context from Result.sources())
+AsyncTask ragTask = LangChain4jSupport.asyncRagTask(assistant::chat);
+
+ExperimentResult result = Experiment.builder()
+    .name("LangChain4j Async RAG")
+    .dataset(dataset)
+    .asyncTask(ragTask)
+    .parallelism(8)
+    .evaluators(List.of(faithfulness, contextRelevancy))
+    .build()
+    .run();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.AsyncTask
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.langchain4j.LangChain4jSupport
+
+// Simple Q&A
+val task: AsyncTask = LangChain4jSupport.asyncTask(model)
+
+// RAG (extracts context from Result.sources())
+val ragTask: AsyncTask = LangChain4jSupport.asyncRagTask(assistant::chat)
+
+val result = experiment {
+    name = "LangChain4j Async RAG"
+    dataset(dataset)
+    asyncTask(ragTask)
+    parallelism = 8
+    evaluators {
+        faithfulness(judge) { threshold = 0.7 }
+    }
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
+To write under a different output key, use `asyncTask(model, outputKey)`. `asyncRagTask` has a four-arg overload `asyncRagTask(assistantCall, inputKey, outputKey, contextKey)` for custom dataset keys.
+
+:::note
+
+The common pool is shared process-wide and its effective parallelism is roughly one less than the CPU count, so it caps how many blocking calls actually run at once even when `parallelism` is higher. For controlled, isolated concurrency, pass an `Executor` sized to your target throughput — `asyncTask(model, executor)` or `asyncRagTask(assistantCall, executor)`.
+
+:::
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+// A pool sized to match your desired concurrency
+Executor executor = Executors.newFixedThreadPool(16);
+
+AsyncTask ragTask = LangChain4jSupport.asyncRagTask(assistant::chat, executor);
+
+Experiment.builder()
+    .dataset(dataset)
+    .asyncTask(ragTask)
+    .parallelism(16)
+    .evaluators(List.of(faithfulness))
+    .build()
+    .run();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import java.util.concurrent.Executors
+
+// A pool sized to match your desired concurrency
+val executor = Executors.newFixedThreadPool(16)
+
+val ragTask = LangChain4jSupport.asyncRagTask(assistant::chat, executor)
+
+experiment {
+    dataset(dataset)
+    asyncTask(ragTask)
+    parallelism = 16
+    evaluators {
+        faithfulness(judge) { threshold = 0.7 }
+    }
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
 ## Advanced Usage
 
 ### Custom Dataset Keys

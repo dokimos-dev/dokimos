@@ -537,6 +537,105 @@ result.runs()                           // Individual run results
 
 High standard deviation suggests instability in your task or evaluator outputs.
 
+## Asynchronous Tasks
+
+The `task`/`measuredTask` paths block one thread per in-flight example. That's fine for blocking SDK calls, but it's a poor fit when your task is already non-blocking — a Kotlin `suspend` function, a Reactor or `CompletableFuture` pipeline, or an agent runtime that hands you a future. For those callers, set an `AsyncTask` instead. It returns a `CompletableFuture<TaskResult>`, so the experiment can drive many examples without parking a thread on each one.
+
+```java
+@FunctionalInterface
+public interface AsyncTask {
+    CompletableFuture<TaskResult> run(Example example);
+}
+```
+
+The completed future carries the same `TaskResult` (outputs plus optional `CallMetrics`) used by `measuredTask`, so call metrics flow through to each `ItemResult.metrics()` exactly as they do on the synchronous paths.
+
+Set it with `asyncTask(...)`. An async task satisfies the task requirement on its own — you don't also need to call `task(...)` or `measuredTask(...)`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+AsyncTask task = example ->
+    myAsyncLlmService
+        .generateAsync(example.input())                 // returns CompletableFuture<String>
+        .thenApply(answer -> TaskResult.of(Map.of("output", answer)));
+
+ExperimentResult result = Experiment.builder()
+    .name("QA Evaluation")
+    .dataset(dataset)
+    .asyncTask(task)
+    .evaluators(evaluators)
+    .parallelism(8)  // caps in-flight invocations at 8
+    .build()
+    .run();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.TaskResult
+import dev.dokimos.kotlin.dsl.experiment
+
+val result = experiment {
+    name = "QA Evaluation"
+    dataset(dataset)
+    parallelism = 8  // caps in-flight invocations at 8
+    suspendTask { example ->
+        val answer = myAsyncLlmService.generate(example.input())  // a suspend call
+        TaskResult.of(mapOf("output" to answer))
+    }
+    evaluators(evaluators)
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
+### Bounded execution
+
+When an async task is configured the experiment runs through a dedicated non-blocking execution path. This path takes precedence over the sequential and parallel paths — `parallelism` no longer sizes a thread pool; instead it caps the number of **in-flight** invocations using a semaphore. The experiment acquires a permit before calling `asyncTask.run(...)` and releases it when that example's future settles, so at most `parallelism` invocations are ever outstanding. This keeps a non-blocking task from launching the entire dataset at once and overwhelming a downstream service or rate limit. Dataset order is preserved in the returned results.
+
+:::note
+For tasks that bridge a **blocking** call onto a future (for example via `CompletableFuture.supplyAsync(..., executor)`), the effective concurrency is bounded by whichever is smaller: the experiment's `parallelism` cap or the executor backing those calls. The semaphore caps how many futures are outstanding; the executor caps how many run at once. The Kotlin `suspendTask {}` DSL dispatches on `Dispatchers.IO` by default. The framework integrations build async tasks on top of `asyncTask(...)` — see the [Koog](../integrations/koog.md), [LangChain4j](../integrations/langchain4j.md), and [Spring AI](../integrations/spring-ai.md) pages.
+:::
+
+### Per-item failure isolation
+
+Async tasks use the same isolation as the synchronous paths. A future that completes exceptionally becomes a failed `ItemResult` (its `success()` is `false`, with no eval results) and the run continues with the remaining examples. A task that throws synchronously from `run(...)`, or returns a `null` future, is isolated the same way rather than aborting the run. Filter for `!item.success()` to inspect what failed, exactly as on the [sequential and parallel paths](#per-item-failure-isolation).
+
+### The Kotlin `suspendTask {}` DSL
+
+In Kotlin you rarely build an `AsyncTask` by hand. The `suspendTask {}` block in the `experiment {}` DSL takes a `suspend` body returning a `TaskResult` and bridges it to a `CompletableFuture` for you. There is also a top-level `suspendTask(...)` function (and a `suspendMapTask(...)` convenience overload that returns an output `Map` and wraps it in a `TaskResult` with no metrics) when you want to construct the task outside the DSL.
+
+```kotlin
+import dev.dokimos.core.TaskResult
+import dev.dokimos.kotlin.dsl.suspendTask
+
+val task = suspendTask { example ->
+    val answer = myAsyncLlmService.generate(example.input())
+    TaskResult.of(mapOf("output" to answer))
+}
+
+val result = experiment {
+    name = "QA Evaluation"
+    dataset(dataset)
+    asyncTask(task)
+    parallelism = 8
+    evaluators(evaluators)
+}.run()
+```
+
+Each invocation launches the suspend body on the given `CoroutineScope` (the IO dispatcher by default); pass your own `scope` to either form to control where the work runs. A suspend exception surfaces as an exceptionally completed future, which the experiment isolates as a failed item.
+
+:::tip
+Reach for an async task only when your caller is genuinely non-blocking. If your task is a plain blocking SDK call, the synchronous `task(...)`/`measuredTask(...)` path with `parallelism(n)` is simpler and gives you the same concurrency through its thread pool.
+:::
+
 ## Configuring Experiments
 
 You can customize experiments with names, descriptions, evaluators, and metadata.

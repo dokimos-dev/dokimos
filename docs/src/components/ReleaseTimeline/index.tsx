@@ -6,6 +6,103 @@ type Release = { version: string; date: string; latest?: boolean; lead?: string;
 
 const RELEASES: Release[] = [
   {
+    version: "0.20.0",
+    date: "June 2026",
+    lead: "Typed, structured outputs end to end and non-blocking async task execution: return a POJO from a task, match it structurally, and drive an experiment from suspend or reactive code without a thread per example.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Typed structured output",
+            body: (
+              <>
+                <code>Task.typed(fn)</code> lets a task return a record, list, or other POJO under the{" "}
+                <code>"output"</code> key, and <code>EvalTestCase.actualOutputAs(...)</code> /{" "}
+                <code>expectedOutputAs(...)</code> read it back type-safely via a{" "}
+                <code>Class&lt;T&gt;</code> or an <code>OutputType&lt;T&gt;</code> super-type token for
+                generics like <code>List&lt;Whisky&gt;</code>. A failed conversion throws{" "}
+                <code>DokimosTypeConversionException</code>.
+              </>
+            ),
+          },
+          {
+            title: "StructuralMatchEvaluator",
+            body: (
+              <>
+                Compares an expected structure against the actual one. <code>STRICT</code> requires the
+                exact field set and array order; <code>LENIENT</code> allows extra fields and ignores
+                array order. Both compare numbers by value. Scores the fraction of matching leaf paths
+                by default, or call <code>binary()</code> for a 1.0/0.0 all-or-nothing score.
+              </>
+            ),
+          },
+          {
+            title: "Async task execution",
+            body: (
+              <>
+                <code>AsyncTask</code> returns a <code>CompletableFuture&lt;TaskResult&gt;</code>, and{" "}
+                <code>Experiment.builder().asyncTask(...)</code> runs it through a bounded async path
+                that caps in-flight invocations with <code>parallelism(int)</code> — no thread parked
+                per example.
+              </>
+            ),
+          },
+          {
+            title: "Async and reactive adapters",
+            body: (
+              <>
+                Spring AI adds <code>asyncTask(...)</code> and <code>reactiveTask(...)</code>,
+                LangChain4j adds <code>asyncTask(...)</code> and <code>asyncRagTask(...)</code>, and
+                Koog adds <code>asTask(...)</code> / <code>asTextTask(...)</code>. Each has an overload
+                that takes an <code>Executor</code> so calls run on a pool you control.
+              </>
+            ),
+          },
+          {
+            title: "Kotlin task DSL and ToolCall.resultJson",
+            body: (
+              <>
+                Kotlin adds <code>typedTask&lt;T&gt; {"{ ... }"}</code> for returning a POJO directly
+                and <code>suspendTask {"{ ... }"}</code> for a suspend body, and{" "}
+                <code>ToolCall.Builder.resultJson(Object)</code> serializes a structured tool result to
+                compact JSON.
+              </>
+            ),
+          },
+          {
+            title: "Spring AI tool-eval example",
+            body: "A runnable Spring AI whisky-agent example that exercises the agent tool evaluators end to end.",
+          },
+        ],
+      },
+      {
+        label: "Changed",
+        items: [
+          {
+            title: "Judge renders structured output as JSON",
+            body: (
+              <>
+                <code>LLMJudgeEvaluator</code> renders a non-String output as pretty-printed JSON so the
+                judge sees a parseable structured value; String and primitive output is rendered
+                verbatim as before.
+              </>
+            ),
+          },
+        ],
+      },
+      {
+        label: "Fixed",
+        items: [
+          {
+            title: "Parallel executor shutdown",
+            body: "The parallel experiment executor shuts down forcibly when a run fails, so worker threads no longer leak.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.19.0",
     date: "June 2, 2026",
     latest: true,

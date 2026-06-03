@@ -379,6 +379,239 @@ Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluatio
 
 :::
 
+## Async Tasks
+
+For datasets where each example is an independent, blocking `ChatClient` call, `asyncTask` lets the experiment keep many calls in flight instead of blocking one thread per example. Wire it with `Experiment.builder().asyncTask(...)` and bound concurrency with `parallelism(...)`.
+
+`SpringAiSupport.asyncTask(client)` reads the example input as the user message and writes the response under the default `"output"` key. The blocking `ChatClient` call is dispatched on the common `ForkJoinPool` via `CompletableFuture.supplyAsync(...)`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.springai.SpringAiSupport;
+import org.springframework.ai.chat.client.ChatClient;
+
+ChatClient client = ChatClient.builder(chatModel).build();
+AsyncTask task = SpringAiSupport.asyncTask(client);
+
+ExperimentResult result = Experiment.builder()
+    .name("Spring AI Async")
+    .dataset(dataset)
+    .asyncTask(task)
+    .parallelism(8)
+    .evaluators(evaluators)
+    .build()
+    .run();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.AsyncTask
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.client.ChatClient
+
+val client = ChatClient.builder(chatModel).build()
+val task: AsyncTask = SpringAiSupport.asyncTask(client)
+
+val result = experiment {
+    name = "Spring AI Async"
+    dataset(dataset)
+    asyncTask(task)
+    parallelism = 8
+    evaluators { evaluators.forEach { evaluator(it) } }
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
+To read and write different keys, use `asyncTask(client, inputKey, outputKey)`.
+
+:::note
+
+The common pool is shared process-wide and its effective parallelism is roughly one less than the CPU count, so it caps how many blocking calls actually run at once even when `parallelism` is higher. For controlled, isolated concurrency, pass an `Executor` sized to your target throughput — `asyncTask(client, executor)` or the four-arg `asyncTask(client, inputKey, outputKey, executor)`.
+
+:::
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+// A pool sized to match your desired concurrency
+Executor executor = Executors.newFixedThreadPool(16);
+
+AsyncTask task = SpringAiSupport.asyncTask(client, executor);
+
+Experiment.builder()
+    .dataset(dataset)
+    .asyncTask(task)
+    .parallelism(16)
+    .evaluators(evaluators)
+    .build()
+    .run();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import java.util.concurrent.Executors
+
+// A pool sized to match your desired concurrency
+val executor = Executors.newFixedThreadPool(16)
+
+val task = SpringAiSupport.asyncTask(client, executor)
+
+experiment {
+    dataset(dataset)
+    asyncTask(task)
+    parallelism = 16
+    evaluators { evaluators.forEach { evaluator(it) } }
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
+### Reactive Tasks
+
+If your pipeline is already reactive (`Mono`), bridge it directly instead of blocking on a pool. `reactiveStringTask` wraps a `Mono<String>` response under the default `"output"` key; `reactiveTask` adapts a `Mono<TaskResult>` when you want full control over the output map. Each `Mono` is converted to a `CompletableFuture` via `Mono.toFuture()`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.springai.SpringAiSupport;
+
+// Mono<String> -> output
+AsyncTask stringTask = SpringAiSupport.reactiveStringTask(example ->
+    reactiveChatClient.prompt()
+        .user(example.input())
+        .stream()
+        .content()
+        .collectList()
+        .map(parts -> String.join("", parts)));
+
+// Mono<TaskResult> -> full control over the output map
+AsyncTask resultTask = SpringAiSupport.reactiveTask(example ->
+    reactiveChatClient.prompt()
+        .user(example.input())
+        .stream()
+        .content()
+        .collectList()
+        .map(parts -> TaskResult.of(Map.of("output", String.join("", parts)))));
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.AsyncTask
+import dev.dokimos.core.TaskResult
+import dev.dokimos.springai.SpringAiSupport
+
+// Mono<String> -> output
+val stringTask: AsyncTask = SpringAiSupport.reactiveStringTask { example ->
+    reactiveChatClient.prompt()
+        .user(example.input())
+        .stream()
+        .content()
+        .collectList()
+        .map { parts -> parts.joinToString("") }
+}
+
+// Mono<TaskResult> -> full control over the output map
+val resultTask: AsyncTask = SpringAiSupport.reactiveTask { example ->
+    reactiveChatClient.prompt()
+        .user(example.input())
+        .stream()
+        .content()
+        .collectList()
+        .map { parts -> TaskResult.of(mapOf("output" to parts.joinToString(""))) }
+}
+```
+
+  </TabItem>
+</Tabs>
+
+## Evaluating Tool-Calling Agents
+
+When your Spring AI agent calls tools, `toAgentTrace` turns an `AssistantMessage` (and its `ToolResponseMessage`s) into an `AgentTrace` you can feed straight into the [agent evaluators](../evaluation/agent-evaluation). Tool calls are matched to their results by tool-call id, and `toToolDefinitions` converts the Spring AI tool definitions the agent was given so calls can be checked against them.
+
+`AgentTrace.toTestCase(userMessage, tools)` produces the `EvalTestCase` the agent evaluators expect.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.agents.ToolDefinition;
+import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator;
+import dev.dokimos.springai.SpringAiSupport;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+
+// From your agent run: the assistant message and the tool responses produced for it
+AssistantMessage assistantMessage = /* ... */;
+List<ToolResponseMessage> toolResponses = /* ... */;
+
+// Convert the tools the agent was given
+List<ToolDefinition> tools = SpringAiSupport.toToolDefinitions(springAiToolDefinitions);
+
+// Build a trace (tool calls matched to results by id) and a test case
+AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponses);
+EvalTestCase testCase = trace.toTestCase("What's the weather in Paris?", tools);
+
+// Evaluate with an agent evaluator
+EvalResult result = new ToolCorrectnessEvaluator().evaluate(testCase);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.EvalResult
+import dev.dokimos.core.EvalTestCase
+import dev.dokimos.core.agents.AgentTrace
+import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
+import dev.dokimos.springai.SpringAiSupport
+import org.springframework.ai.chat.messages.AssistantMessage
+import org.springframework.ai.chat.messages.ToolResponseMessage
+
+// From your agent run
+val assistantMessage: AssistantMessage = /* ... */
+val toolResponses: List<ToolResponseMessage> = /* ... */
+
+// Convert the tools the agent was given
+val tools = SpringAiSupport.toToolDefinitions(springAiToolDefinitions)
+
+// Build a trace (tool calls matched to results by id) and a test case
+val trace: AgentTrace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponses)
+val testCase: EvalTestCase = trace.toTestCase("What's the weather in Paris?", tools)
+
+// Evaluate with an agent evaluator
+val result: EvalResult = ToolCorrectnessEvaluator().evaluate(testCase)
+```
+
+  </TabItem>
+</Tabs>
+
+:::note
+
+`toAgentTrace(message)` (without tool responses) builds a trace from the tool calls alone — use it when you only need to evaluate which tools the agent chose, not their results.
+
+:::
+
 ## Bridging Spring AI Evaluators
 
 If you're using Spring AI's built-in evaluators and want to integrate with Dokimos:

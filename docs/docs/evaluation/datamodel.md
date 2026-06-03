@@ -422,6 +422,185 @@ This is what gets passed to evaluators. Usually you don't create these directly;
 
 ---
 
+## Typed outputs
+
+The output and expected-output maps hold `Object` values, so the common pattern is to stringify everything. But a task can just as well produce a structured object — a record, a list, a POJO — and read it back type-safely later. This keeps your task body honest (return the thing you actually built, not a hand-assembled map) and lets custom evaluators work with real domain objects instead of parsing strings.
+
+### Returning a typed value from a task
+
+`Task.typed(fn)` wraps a function that returns a single value and stores it under the conventional `"output"` key. In Kotlin, the reified `typedTask<T> { ... }` DSL does the same thing.
+
+:::note
+`Task.typed` rejects a `null` return with `NullPointerException` — the output map cannot hold a null value. If you genuinely need an absent output, use a raw `Task`. As a convenience guard, if your function already returns a `Map`, that map is used directly as the output map rather than being nested under `"output"`, so a multi-key task can adopt `typed` without double-nesting.
+:::
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+record Whisky(String name, String region, int age) {}
+
+Task task = Task.typed(example -> {
+    String json = llm.chat(example.input());
+    return Json.parseWhisky(json); // returns a Whisky record
+});
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class Whisky(val name: String, val region: String, val age: Int)
+
+val task = typedTask<Whisky> { example ->
+    val json = llm.chat(example.input())
+    parseWhisky(json) // returns a Whisky
+}
+```
+
+Inside `experiment { ... }` you can also set it directly with the `typedTask` builder method:
+
+```kotlin
+val experiment = experiment {
+    name = "Whisky extraction"
+    dataset(whiskyDataset)
+    typedTask<Whisky> { example -> parseWhisky(llm.chat(example.input())) }
+    evaluator(StructuralMatchEvaluator())
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### Reading typed values back
+
+Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`. The accessors default to the `"output"` key; keyed overloads read any other key.
+
+| Method | Reads | Returns |
+|--------|-------|---------|
+| `actualOutputAs(Class<T>)` | actual `"output"` | converted value or `null` |
+| `actualOutputAs(OutputType<T>)` | actual `"output"` | converted value or `null` |
+| `actualOutputAs(String, Class<T>)` | actual under `key` | converted value or `null` |
+| `actualOutputAs(String, OutputType<T>)` | actual under `key` | converted value or `null` |
+| `expectedOutputAs(Class<T>)` | expected `"output"` | converted value or `null` |
+| `expectedOutputAs(OutputType<T>)` | expected `"output"` | converted value or `null` |
+| `expectedOutputAs(String, Class<T>)` | expected under `key` | converted value or `null` |
+| `expectedOutputAs(String, OutputType<T>)` | expected under `key` | converted value or `null` |
+
+`Example` carries the `expectedOutputAs(...)` twins only (it has no actual output yet). `EvalTestCase` carries both the actual and expected variants.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+public class WhiskyEvaluator implements Evaluator {
+    @Override
+    public EvalResult evaluate(EvalTestCase testCase) {
+        Whisky actual = testCase.actualOutputAs(Whisky.class);
+        Whisky expected = testCase.expectedOutputAs(Whisky.class);
+
+        boolean match = actual != null
+            && actual.region().equals(expected.region());
+
+        return EvalResult.builder()
+            .name("Whisky Region")
+            .score(match ? 1.0 : 0.0)
+            .success(match)
+            .reason(match ? "Region matches" : "Wrong region")
+            .build();
+    }
+
+    @Override
+    public String name() { return "Whisky Region"; }
+
+    @Override
+    public double threshold() { return 1.0; }
+}
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+class WhiskyEvaluator : Evaluator {
+    override fun evaluate(testCase: EvalTestCase): EvalResult {
+        val actual = testCase.actualOutputAs(Whisky::class.java)
+        val expected = testCase.expectedOutputAs(Whisky::class.java)
+
+        val match = actual != null && actual.region == expected?.region
+
+        return EvalResult(
+            name = "Whisky Region",
+            score = if (match) 1.0 else 0.0,
+            success = match,
+            reason = if (match) "Region matches" else "Wrong region",
+        )
+    }
+
+    override fun name(): String = "Whisky Region"
+
+    override fun threshold(): Double = 1.0
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### Generic types with `OutputType<T>`
+
+A plain `Class<T>` cannot express a generic target such as `List<Whisky>` — type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+// Task produces a List<Whisky>
+Task task = Task.typed(example -> parseWhiskies(llm.chat(example.input())));
+
+// Read it back, preserving the element type
+List<Whisky> whiskies =
+    testCase.actualOutputAs(new OutputType<List<Whisky>>() {});
+
+// A keyed, non-"output" variant works the same way
+List<Whisky> shortlist =
+    testCase.actualOutputAs("shortlist", new OutputType<List<Whisky>>() {});
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Task produces a List<Whisky>
+val task = typedTask<List<Whisky>> { example -> parseWhiskies(llm.chat(example.input())) }
+
+// Read it back, preserving the element type
+val whiskies: List<Whisky> =
+    testCase.actualOutputAs(object : OutputType<List<Whisky>>() {})
+
+// A keyed, non-"output" variant works the same way
+val shortlist: List<Whisky> =
+    testCase.actualOutputAs("shortlist", object : OutputType<List<Whisky>>() {})
+```
+
+  </TabItem>
+</Tabs>
+
+:::tip
+Constructing an `OutputType` raw (`new OutputType() {}`) throws `IllegalArgumentException` — there is no type argument to capture. Use the `Class<T>` accessors for non-generic targets; reach for `OutputType<T>` only when the target is generic.
+:::
+
+### Conversion contract
+
+The typed accessors share one conversion contract across `EvalTestCase` and `Example`:
+
+- **Absent key → `null`.** If the requested key is missing from the map, the accessor returns `null` (it does not throw).
+- **Already the right type → returned as-is.** For the `Class<T>` accessors, a stored value that is already an instance of the target type is cast directly without going through serialization.
+- **Otherwise → converted, or it throws.** Any other value is converted (via Jackson under the hood). If the value cannot be converted to the requested type, the accessor throws `DokimosTypeConversionException` (in `dev.dokimos.core.exceptions`).
+
+This is why a typed task pairs naturally with structural matching: `StructuralMatchEvaluator` compares the stored structured value against the expected structure, and your custom evaluators can read the same value back as a real object.
+
+---
+
 ### EvalResult
 
 The score and feedback from one evaluator.

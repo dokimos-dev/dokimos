@@ -103,6 +103,69 @@ fun main() {
 }
 ```
 
+## Async Tasks
+
+The Basic Usage example calls the agent with `runBlocking`, which holds a thread per example. To let the experiment keep many agent calls in flight instead, adapt your `suspend` call into a Dokimos `AsyncTask` with `asTask` or `asTextTask`, wire it with `asyncTask(...)`, and bound concurrency with `parallelism`.
+
+Each invocation launches the suspend body on `Dispatchers.IO` and bridges the coroutine to a `CompletableFuture` via the kotlinx-coroutines `future` builder. A suspend exception surfaces as an exceptionally completed future, which the experiment isolates as a failed item while the run continues.
+
+`asTextTask` is the convenience overload: the suspend body receives the example `input()` and returns the model response, which is stored under the `"output"` key. A blank response throws `IllegalArgumentException`.
+
+```kotlin
+import ai.koog.agents.core.agent.AIAgent
+import ai.koog.prompt.executor.clients.openai.OpenAIModels
+import ai.koog.prompt.executor.llms.all.simpleOpenAIExecutor
+import dev.dokimos.koog.asTextTask
+import dev.dokimos.kotlin.dsl.experiment
+
+fun agent() = AIAgent(
+    promptExecutor = simpleOpenAIExecutor(apiKey),
+    llmModel = OpenAIModels.Chat.GPT5Nano,
+    maxIterations = 10
+)
+
+val task = asTextTask { input -> agent().run("Answer briefly: $input") }
+
+val result = experiment {
+    name = "Koog Async"
+    dataset(dataset)
+    asyncTask(task)
+    parallelism = 8
+    evaluators {
+        llmJudge(judge) {
+            name = "Answer Quality"
+            criteria = "Is the answer helpful and accurate?"
+            threshold = 0.7
+        }
+    }
+}.run()
+```
+
+When you need the full output map (for example to emit RAG context alongside the answer), use `asTask`, whose suspend body receives the full `Example` and returns a `TaskResult`:
+
+```kotlin
+import dev.dokimos.core.TaskResult
+import dev.dokimos.koog.asTask
+
+val ragTask = asTask { example ->
+    val query = example.input()
+    val contextDocs = storage.mostRelevantDocuments(query, count = 2).toList()
+    val answer = agent().run(buildPrompt(query, contextDocs))
+    TaskResult.of(
+        mapOf(
+            "output" to answer,
+            "context" to contextDocs
+        )
+    )
+}
+```
+
+:::note
+
+Both `asTask` and `asTextTask` default the coroutine scope to `GlobalScope` — the launched coroutine has no parent lifecycle to inherit. To opt into structured concurrency, pass your own scope as the first argument: `asTextTask(scope = myScope) { input -> ... }`.
+
+:::
+
 ## RAG Evaluation with Koog
 
 For RAG pipelines, emit both the generated answer and retrieved context. You can build it manually (as below) or wrap your call with `ragTask` if you already have a function returning `RagResult`.

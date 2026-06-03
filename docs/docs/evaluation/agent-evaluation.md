@@ -321,6 +321,28 @@ ToolCall call = ToolCall.builder()
     .build();
 ```
 
+The `result` is a single string. `result(String)` stores whatever you pass verbatim — use it for a result your tool already rendered as a string. When the tool produced a structured value (a record, POJO, map, or list), use `resultJson(Object)` instead: it serializes the value to a compact, single-line JSON string and stores it in the same `result` component, so you stop hand-escaping JSON. A `null` value serializes to the JSON literal `null`.
+
+```java
+record Confirmation(String confirmation, double total) {}
+
+// Before — hand-escaped JSON, easy to get wrong
+ToolCall.builder()
+    .name("book_hotel")
+    .result("{\"confirmation\": \"ABC123\", \"total\": 540.0}")
+    .build();
+
+// After — serialize the value, no escaping
+ToolCall.builder()
+    .name("book_hotel")
+    .resultJson(new Confirmation("ABC123", 540.0))
+    .build();
+```
+
+:::note
+Both methods set the same `result` field, so the downstream evaluators (`ToolErrorEvaluator`, the hallucination judge, and anything reading `ToolCall.result()`) see an identical string either way.
+:::
+
 ### ToolDefinition
 
 A tool's contract: name, description, and JSON schema for arguments.

@@ -339,8 +339,21 @@ ToolCall.builder()
     .build();
 ```
 
+Read a structured result back type-safely with `resultAs(Class<T>)` or `resultAs(OutputType<T>)` — the symmetric counterpart of `resultJson`. This is what makes a sequential agent's `output -> input -> output` chain assertable: capture each step's structured result, then read it back as a real object.
+
+```java
+ToolCall call = ToolCall.builder()
+    .name("book_hotel")
+    .resultJson(new Confirmation("ABC123", 540.0))
+    .build();
+
+Confirmation booked = call.resultAs(Confirmation.class);   // back to a typed object
+List<Confirmation> many =
+    call.resultAs(new OutputType<List<Confirmation>>() {}); // generics via OutputType
+```
+
 :::note
-Both methods set the same `result` field, so the downstream evaluators (`ToolErrorEvaluator`, the hallucination judge, and anything reading `ToolCall.result()`) see an identical string either way.
+Both writers set the same `result` field, so downstream evaluators (`ToolErrorEvaluator`, the hallucination judge, and anything reading `ToolCall.result()`) see an identical string either way. `resultAs` parses that string as JSON (the form `resultJson` produces): a `null` or blank result returns `null`, and a raw non-JSON string from `result(String)` is not parseable — use `result()` for that.
 :::
 
 ### ToolDefinition

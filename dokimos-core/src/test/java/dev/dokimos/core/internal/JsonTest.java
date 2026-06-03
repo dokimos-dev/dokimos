@@ -110,4 +110,30 @@ class JsonTest {
         assertThatThrownBy(() -> Json.reader().readValue("{} trailing", Object.class))
                 .isInstanceOf(Exception.class);
     }
+
+    @Test
+    void readRoundTripsARecord() {
+        Whisky whisky = Json.read("{\"name\":\"Lagavulin\",\"age\":16}", Whisky.class);
+
+        assertThat(whisky).isEqualTo(new Whisky("Lagavulin", 16));
+    }
+
+    @Test
+    void readRoundTripsAGenericList() throws Exception {
+        java.lang.reflect.Type listOfWhisky =
+                JsonTest.class.getDeclaredField("listOfWhiskyField").getGenericType();
+        JavaType listType = Json.resolveType(listOfWhisky);
+
+        List<Whisky> whiskies =
+                Json.read("[{\"name\":\"Ardbeg\",\"age\":10},{\"name\":\"Oban\",\"age\":14}]", listType);
+
+        assertThat(whiskies).containsExactly(new Whisky("Ardbeg", 10), new Whisky("Oban", 14));
+    }
+
+    @Test
+    void readRejectsInvalidJson() {
+        assertThatThrownBy(() -> Json.read("not json", Whisky.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Failed to parse JSON");
+    }
 }

@@ -2,7 +2,10 @@ package dev.dokimos.core.agents;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.OutputType;
+import dev.dokimos.core.exceptions.DokimosTypeConversionException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -155,5 +158,89 @@ class ToolCallTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> filter = (Map<String, Object>) call.arguments().get("filter");
         assertThat(filter).containsKey("price");
+    }
+
+    record Booking(String confirmation, int nights) {}
+
+    @Test
+    void resultAsReadsBackWhatResultJsonWrote() {
+        var booking = new Booking("ABC123", 3);
+        var call = ToolCall.builder().name("book_hotel").resultJson(booking).build();
+
+        assertThat(call.resultAs(Booking.class)).isEqualTo(booking);
+    }
+
+    @Test
+    void resultAsReadsAGenericListViaOutputType() {
+        var call = ToolCall.builder()
+                .name("list_bookings")
+                .resultJson(List.of(new Booking("A", 1), new Booking("B", 2)))
+                .build();
+
+        List<Booking> bookings = call.resultAs(new OutputType<List<Booking>>() {});
+
+        assertThat(bookings).containsExactly(new Booking("A", 1), new Booking("B", 2));
+    }
+
+    @Test
+    void resultAsReturnsNullForNullResult() {
+        var call = ToolCall.of("get_weather", Map.of());
+
+        assertThat(call.result()).isNull();
+        assertThat(call.resultAs(Booking.class)).isNull();
+    }
+
+    @Test
+    void resultAsReturnsNullForBlankResult() {
+        var call = ToolCall.builder().name("get_weather").result("   ").build();
+
+        assertThat(call.resultAs(Booking.class)).isNull();
+    }
+
+    @Test
+    void resultAsThrowsForNonJsonResult() {
+        var call = ToolCall.builder().name("get_weather").result("not json").build();
+
+        assertThatThrownBy(() -> call.resultAs(Booking.class)).isInstanceOf(DokimosTypeConversionException.class);
+    }
+
+    @Test
+    void resultAsParsesAValidJsonStringResult() {
+        var call = ToolCall.builder()
+                .name("book_hotel")
+                .result("{\"confirmation\":\"ABC123\",\"nights\":3}")
+                .build();
+
+        assertThat(call.resultAs(Booking.class)).isEqualTo(new Booking("ABC123", 3));
+    }
+
+    record NestedResult(Booking booking, List<String> tags) {}
+
+    @Test
+    void resultAsRoundTripsNestedObjects() {
+        var nested = new NestedResult(new Booking("XYZ789", 5), List.of("vip", "refundable"));
+        var call = ToolCall.builder().name("book_hotel").resultJson(nested).build();
+
+        assertThat(call.resultAs(NestedResult.class)).isEqualTo(nested);
+    }
+
+    @Test
+    void resultAsWorksAfterFromMapWhenResultIsJsonString() {
+        var map = Map.<String, Object>of("name", "book_hotel", "result", "{\"confirmation\":\"ABC123\",\"nights\":3}");
+
+        var call = ToolCall.fromMap(map);
+
+        assertThat(call.resultAs(Booking.class)).isEqualTo(new Booking("ABC123", 3));
+    }
+
+    @Test
+    void resultAsFailsAfterFromMapWhenResultWasStructuredObject() {
+        // fromMap stores rawResult.toString(): a Map becomes Java-map syntax ({a=1}), not JSON.
+        var map = Map.<String, Object>of("name", "book_hotel", "result", Map.of("confirmation", "ABC123", "nights", 3));
+
+        var call = ToolCall.fromMap(map);
+
+        assertThat(call.result()).doesNotStartWith("{\"");
+        assertThatThrownBy(() -> call.resultAs(Booking.class)).isInstanceOf(DokimosTypeConversionException.class);
     }
 }

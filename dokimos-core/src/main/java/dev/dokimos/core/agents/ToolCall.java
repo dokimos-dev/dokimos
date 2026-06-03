@@ -1,5 +1,7 @@
 package dev.dokimos.core.agents;
 
+import dev.dokimos.core.OutputType;
+import dev.dokimos.core.exceptions.DokimosTypeConversionException;
 import dev.dokimos.core.internal.Json;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +56,60 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
         Map<String, Object> metadata =
                 map.containsKey("metadata") ? (Map<String, Object>) map.get("metadata") : Map.of();
         return new ToolCall(name, arguments, result, metadata);
+    }
+
+    /**
+     * Deserializes this tool call's {@code result} string into an instance of {@code type}.
+     * <p>
+     * This is the read-side counterpart to {@link Builder#resultJson(Object)}: a structured tool
+     * result stored as compact JSON is round-tripped back into a typed object. A {@code null} or
+     * blank result yields {@code null}, and the JSON literal {@code "null"} also parses to
+     * {@code null}.
+     * <p>
+     * <b>Note:</b> the result must be a JSON string for this to work. {@link Builder#resultJson(Object)}
+     * guarantees that. {@link #fromMap(Map)}, however, stores {@code rawResult.toString()}: a
+     * structured {@code Map} from a deserialized dataset becomes Java-map syntax
+     * (e.g. {@code {a=1}}), which is <b>not</b> valid JSON. So {@code resultAs} after {@code fromMap}
+     * only works when the stored result was already a JSON string.
+     *
+     * @param type the target class
+     * @param <T> the target type
+     * @return the deserialized result, or {@code null} if the result is {@code null}/blank/JSON null
+     * @throws DokimosTypeConversionException if the result cannot be parsed into {@code type}
+     */
+    public <T> T resultAs(Class<T> type) {
+        if (result == null || result.isBlank()) {
+            return null;
+        }
+        try {
+            return Json.read(result, type);
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert tool result to " + type.getName(), e);
+        }
+    }
+
+    /**
+     * Deserializes this tool call's {@code result} string into a generic target captured by an
+     * {@link OutputType} token, for example {@code new OutputType<List<Order>>() {}}.
+     * <p>
+     * Use this overload when the target type has type arguments that a plain {@code Class<T>} cannot
+     * express. The same null/blank/JSON-null and {@code fromMap} caveats described on
+     * {@link #resultAs(Class)} apply.
+     *
+     * @param type the captured generic output type
+     * @param <T> the target type
+     * @return the deserialized result, or {@code null} if the result is {@code null}/blank/JSON null
+     * @throws DokimosTypeConversionException if the result cannot be parsed into {@code type}
+     */
+    public <T> T resultAs(OutputType<T> type) {
+        if (result == null || result.isBlank()) {
+            return null;
+        }
+        try {
+            return Json.read(result, Json.resolveType(type.getType()));
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert tool result to " + type, e);
+        }
     }
 
     /**

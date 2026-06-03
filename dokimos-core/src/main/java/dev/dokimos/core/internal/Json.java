@@ -174,6 +174,49 @@ public final class Json {
     }
 
     /**
+     * Parses a JSON string into an instance of {@code type}.
+     *
+     * <p>Backed by {@code reader().forType(type)}, which returns a fresh, type-bound view of the
+     * shared immutable mapper without mutating it — so this is safe under the parallel experiment
+     * runs dokimos-core performs.
+     *
+     * @param json the JSON text to parse
+     * @param type the target class
+     * @param <T> the target type
+     * @return the parsed value (the JSON literal {@code null} parses to {@code null})
+     * @throws IllegalArgumentException if the text is not valid JSON or does not match {@code type}
+     */
+    public static <T> T read(String json, Class<T> type) {
+        return readInternal(json, READER.forType(type));
+    }
+
+    /**
+     * Parses a JSON string into an instance described by a Jackson {@link JavaType}, supporting
+     * generic targets such as {@code List<Foo>}.
+     *
+     * <p>Backed by {@code reader().forType(type)}, which returns a fresh, type-bound view of the
+     * shared immutable mapper without mutating it — so this is safe under the parallel experiment
+     * runs dokimos-core performs.
+     *
+     * @param json the JSON text to parse
+     * @param type the target Jackson type
+     * @param <T> the target type
+     * @return the parsed value (the JSON literal {@code null} parses to {@code null})
+     * @throws IllegalArgumentException if the text is not valid JSON or does not match {@code type}
+     */
+    public static <T> T read(String json, JavaType type) {
+        return readInternal(json, READER.forType(type));
+    }
+
+    private static <T> T readInternal(String json, ObjectReader reader) {
+        try {
+            return reader.readValue(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to parse JSON", e);
+        }
+    }
+
+    /**
      * Resolves a Jackson {@link JavaType} from a generic {@link java.lang.reflect.Type}. Used to
      * bridge an {@code OutputType<T>}'s captured type into the conversion machinery.
      *

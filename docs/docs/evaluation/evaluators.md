@@ -106,7 +106,11 @@ val evaluator = exactMatch {
 
 Returns score `1.0` if they match, `0.0` otherwise.
 
-**When to use:** Math calculations, code generation, structured data extraction, or any scenario where the output should be exactly as expected.
+**When to use:** Math calculations, code generation, or any scenario where the output is a string that should be exactly as expected.
+
+:::note
+`ExactMatchEvaluator` compares the **string forms** of the outputs (`toString()`). For a structured output — a record, `Map`, or list — use [`StructuralMatchEvaluator`](#structuralmatchevaluator) instead, which compares the values structurally and ignores formatting and numeric representation (`5` vs `5.0`).
+:::
 
 ### RegexEvaluator
 
@@ -193,6 +197,8 @@ val helpfulness: Evaluator = llmJudge(judge) {
 </Tabs>
 
 The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1. The reply is parsed leniently: a one-sentence preamble or trailing prose around the JSON is dropped, so a recoverable judgment is not lost to a formatting quirk.
+
+A structured output (a record, `Map`, or list) is rendered to the judge as pretty-printed JSON, so you can judge a structured value directly; String and primitive output is passed through verbatim.
 
 By default the judge scores on a 0..1 scale. To let the judge work on a different range, set `scoreRange(min, max)`. The reported score is then normalized back to 0..1, so your `threshold` always stays on the 0..1 scale:
 

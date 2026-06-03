@@ -89,6 +89,26 @@ const RELEASES: Release[] = [
               </>
             ),
           },
+          {
+            title: "task and asyncTask are mutually exclusive",
+            body: (
+              <>
+                <code>Experiment.builder().build()</code> now rejects configuring both a synchronous{" "}
+                <code>task</code>/<code>measuredTask</code> and an <code>asyncTask</code>, instead of
+                silently running the async path and ignoring the sync one.
+              </>
+            ),
+          },
+          {
+            title: "Consistent null handling in LangChain4j RAG tasks",
+            body: (
+              <>
+                <code>ragTask</code> and <code>asyncRagTask</code> coerce a null model response to an
+                empty string under the output key, matching <code>simpleTask</code> and{" "}
+                <code>asyncTask</code>.
+              </>
+            ),
+          },
         ],
       },
       {

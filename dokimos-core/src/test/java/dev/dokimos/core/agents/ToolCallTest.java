@@ -108,6 +108,42 @@ class ToolCallTest {
     }
 
     @Test
+    void shouldSerializeResultJsonToCompactJson() {
+        var call = ToolCall.builder()
+                .name("book_hotel")
+                .resultJson(Map.of("confirmation", "ABC123"))
+                .build();
+
+        assertThat(call.result()).isEqualTo("{\"confirmation\":\"ABC123\"}");
+    }
+
+    @Test
+    void shouldSerializeResultJsonForRecordValue() {
+        record Booking(String confirmation, int nights) {}
+
+        var call =
+                ToolCall.builder().name("book_hotel").resultJson(new Booking("ABC123", 3)).build();
+
+        assertThat(call.result()).isEqualTo("{\"confirmation\":\"ABC123\",\"nights\":3}");
+    }
+
+    @Test
+    void shouldKeepResultStringVerbatim() {
+        var raw = "{\"confirmation\": \"ABC123\"}";
+
+        var call = ToolCall.builder().name("book_hotel").result(raw).build();
+
+        assertThat(call.result()).isEqualTo(raw);
+    }
+
+    @Test
+    void shouldSerializeNullResultJsonToJsonNullLiteral() {
+        var call = ToolCall.builder().name("book_hotel").resultJson(null).build();
+
+        assertThat(call.result()).isEqualTo("null");
+    }
+
+    @Test
     void shouldHandleNestedArguments() {
         var call = ToolCall.of(
                 "search",

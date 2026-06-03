@@ -1,5 +1,7 @@
 package dev.dokimos.core;
 
+import dev.dokimos.core.exceptions.DokimosTypeConversionException;
+import dev.dokimos.core.internal.Json;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -88,6 +90,133 @@ public record EvalTestCase(
     public String expectedOutput() {
         Object value = expectedOutputs.get("output");
         return value != null ? value.toString() : null;
+    }
+
+    /**
+     * Reads the primary actual output ({@code "output"}) converted to the given type.
+     *
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "output"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T actualOutputAs(Class<T> type) {
+        return actualOutputAs("output", type);
+    }
+
+    /**
+     * Reads the primary actual output ({@code "output"}) converted to the given generic type.
+     *
+     * @param type the target generic type token (for example {@code new OutputType<List<Foo>>() {}})
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "output"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T actualOutputAs(OutputType<T> type) {
+        return actualOutputAs("output", type);
+    }
+
+    /**
+     * Reads the actual output under {@code key} converted to the given type.
+     *
+     * @param key the actual-output key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T actualOutputAs(String key, Class<T> type) {
+        return convertOutput(actualOutputs.get(key), type);
+    }
+
+    /**
+     * Reads the actual output under {@code key} converted to the given generic type.
+     *
+     * @param key the actual-output key
+     * @param type the target generic type token
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T actualOutputAs(String key, OutputType<T> type) {
+        return convertOutput(actualOutputs.get(key), type);
+    }
+
+    /**
+     * Reads the primary expected output ({@code "output"}) converted to the given type.
+     *
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "output"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T expectedOutputAs(Class<T> type) {
+        return expectedOutputAs("output", type);
+    }
+
+    /**
+     * Reads the primary expected output ({@code "output"}) converted to the given generic type.
+     *
+     * @param type the target generic type token (for example {@code new OutputType<List<Foo>>() {}})
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "output"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T expectedOutputAs(OutputType<T> type) {
+        return expectedOutputAs("output", type);
+    }
+
+    /**
+     * Reads the expected output under {@code key} converted to the given type.
+     *
+     * @param key the expected-output key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T expectedOutputAs(String key, Class<T> type) {
+        return convertOutput(expectedOutputs.get(key), type);
+    }
+
+    /**
+     * Reads the expected output under {@code key} converted to the given generic type.
+     *
+     * @param key the expected-output key
+     * @param type the target generic type token
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T expectedOutputAs(String key, OutputType<T> type) {
+        return convertOutput(expectedOutputs.get(key), type);
+    }
+
+    private static <T> T convertOutput(Object value, Class<T> type) {
+        if (value == null) {
+            return null;
+        }
+        if (type.isInstance(value)) {
+            return type.cast(value);
+        }
+        try {
+            return Json.convert(value, type);
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException(
+                    "Cannot convert output value to " + type.getName(), e);
+        }
+    }
+
+    private static <T> T convertOutput(Object value, OutputType<T> type) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Json.convert(value, type.toJavaType());
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException(
+                    "Cannot convert output value to " + type, e);
+        }
     }
 
     /**

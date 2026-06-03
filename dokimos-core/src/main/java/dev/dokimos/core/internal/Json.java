@@ -1,0 +1,186 @@
+package dev.dokimos.core.internal;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+
+/**
+ * Shared, framework-internal JSON utilities backed by a single, immutable Jackson {@link
+ * ObjectMapper}.
+ *
+ * <p>The mapper is constructed once in a static initializer and is never mutated afterwards. Only
+ * the thread-safe {@link ObjectReader} and {@link ObjectWriter} views are exposed (directly or via
+ * convenience helpers), which keeps all usage safe under the parallel experiment runs that
+ * dokimos-core performs.
+ *
+ * <p>Configuration of note:
+ *
+ * <ul>
+ *   <li>{@link StreamReadFeature#STRICT_DUPLICATE_DETECTION} is enabled on the comparison reader so
+ *       duplicate object keys (a real signal in an evaluation) fail loudly rather than being
+ *       silently collapsed.
+ *   <li>{@link DeserializationFeature#FAIL_ON_TRAILING_TOKENS} is enabled so trailing garbage after
+ *       a value is rejected.
+ *   <li>Non-finite floating point values (NaN, Infinity) are rejected on both read and write —
+ *       Jackson's default treats {@code NaN == NaN} as true, the opposite of Java semantics, which
+ *       would corrupt structural comparison.
+ * </ul>
+ *
+ * <p>This class is internal API. It is not part of the public, supported surface of dokimos-core
+ * and may change without notice.
+ */
+public final class Json {
+
+    private static final ObjectMapper MAPPER;
+    private static final ObjectReader READER;
+    private static final ObjectReader COMPARISON_READER;
+    private static final ObjectWriter COMPACT_WRITER;
+    private static final ObjectWriter PRETTY_WRITER;
+
+    static {
+        MAPPER =
+                JsonMapper.builder()
+                        // Reject NaN / Infinity tokens when parsing: Jackson's NaN == NaN is the
+                        // opposite of Java, which would silently corrupt structural comparison.
+                        .disable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
+                        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                        .build();
+
+        READER = MAPPER.reader();
+        COMPARISON_READER = MAPPER.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION);
+        COMPACT_WRITER = MAPPER.writer();
+        PRETTY_WRITER = MAPPER.writerWithDefaultPrettyPrinter();
+    }
+
+    private Json() {}
+
+    /**
+     * A thread-safe reader over the shared, immutable mapper. Use for general value conversion.
+     *
+     * @return the shared {@link ObjectReader}
+     */
+    public static ObjectReader reader() {
+        return READER;
+    }
+
+    /**
+     * A thread-safe reader configured for structural comparison: strict duplicate-key detection is
+     * enabled so {@code {"x":1,"x":2}} fails rather than silently collapsing.
+     *
+     * @return the shared comparison {@link ObjectReader}
+     */
+    public static ObjectReader comparisonReader() {
+        return COMPARISON_READER;
+    }
+
+    /**
+     * A thread-safe writer producing compact (single-line) JSON.
+     *
+     * @return the shared compact {@link ObjectWriter}
+     */
+    public static ObjectWriter compactWriter() {
+        return COMPACT_WRITER;
+    }
+
+    /**
+     * A thread-safe writer producing pretty-printed JSON.
+     *
+     * @return the shared pretty-printing {@link ObjectWriter}
+     */
+    public static ObjectWriter prettyWriter() {
+        return PRETTY_WRITER;
+    }
+
+    /**
+     * Converts a value into an instance of {@code type} without an intermediate textual round-trip.
+     *
+     * @param value the source value (may be {@code null})
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code value} is {@code null}
+     * @throws IllegalArgumentException if the value cannot be converted to {@code type}
+     */
+    public static <T> T convert(Object value, Class<T> type) {
+        if (value == null) {
+            return null;
+        }
+        return MAPPER.convertValue(value, type);
+    }
+
+    /**
+     * Converts a value into an instance described by a Jackson {@link JavaType}, supporting generic
+     * targets such as {@code List<Foo>}.
+     *
+     * @param value the source value (may be {@code null})
+     * @param type the target Jackson type
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code value} is {@code null}
+     * @throws IllegalArgumentException if the value cannot be converted to {@code type}
+     */
+    public static <T> T convert(Object value, JavaType type) {
+        if (value == null) {
+            return null;
+        }
+        return MAPPER.convertValue(value, type);
+    }
+
+    /**
+     * Converts an arbitrary value to a {@link JsonNode} tree (the in-memory model the structural
+     * comparator works against).
+     *
+     * @param value the source value (may be {@code null})
+     * @return the value as a {@link JsonNode}; a {@code null} value yields a Jackson null node
+     */
+    public static JsonNode toNode(Object value) {
+        return MAPPER.valueToTree(value);
+    }
+
+    /**
+     * Serializes a value to compact (single-line) JSON.
+     *
+     * @param value the value to serialize
+     * @return the compact JSON string
+     * @throws IllegalArgumentException if the value cannot be serialized
+     */
+    public static String writeCompact(Object value) {
+        try {
+            return COMPACT_WRITER.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to serialize value to JSON", e);
+        }
+    }
+
+    /**
+     * Serializes a value to pretty-printed JSON.
+     *
+     * @param value the value to serialize
+     * @return the pretty-printed JSON string
+     * @throws IllegalArgumentException if the value cannot be serialized
+     */
+    public static String writePretty(Object value) {
+        try {
+            return PRETTY_WRITER.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to serialize value to JSON", e);
+        }
+    }
+
+    /**
+     * Resolves a Jackson {@link JavaType} from a generic {@link java.lang.reflect.Type}. Used to
+     * bridge an {@code OutputType<T>}'s captured type into the conversion machinery without exposing
+     * Jackson on the public API.
+     *
+     * @param type the generic type to resolve
+     * @return the corresponding Jackson {@link JavaType}
+     */
+    public static JavaType resolveType(java.lang.reflect.Type type) {
+        return MAPPER.getTypeFactory().constructType(type);
+    }
+}

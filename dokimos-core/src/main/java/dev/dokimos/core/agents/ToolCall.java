@@ -1,5 +1,6 @@
 package dev.dokimos.core.agents;
 
+import dev.dokimos.core.internal.Json;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -115,6 +116,28 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
          */
         public Builder result(String result) {
             this.result = result;
+            return this;
+        }
+
+        /**
+         * Sets the tool execution result from an arbitrary value by serializing it to compact
+         * (single-line) JSON and storing it in the same {@code result} string component used by
+         * {@link #result(String)}.
+         * <p>
+         * This is a convenience for callers whose tool produced a structured value (a record, map,
+         * list, or other POJO) rather than a pre-rendered string. A {@code null} value serializes to
+         * the JSON literal {@code "null"}.
+         * <p>
+         * Deliberately given a distinct name rather than overloading {@link #result(String)} so the
+         * serialization behavior is never selected silently by the static type of the argument (see
+         * <em>Effective Java</em>, Item 52).
+         *
+         * @param value the value to serialize as the result (may be {@code null})
+         * @return this builder
+         * @throws IllegalArgumentException if the value cannot be serialized to JSON
+         */
+        public Builder resultJson(Object value) {
+            this.result = Json.writeCompact(value);
             return this;
         }
 

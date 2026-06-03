@@ -61,6 +61,7 @@ JudgeLM judge = SpringAiSupport.asJudge(clientBuilder);
 Evaluator correctness = LLMJudgeEvaluator.builder()
     .name("Answer Correctness")
     .criteria("Is the answer factually correct?")
+    .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
     .judge(judge)
     .threshold(0.8)
     .build();
@@ -278,6 +279,7 @@ public class SpringAiEvaluation {
             LLMJudgeEvaluator.builder()
                 .name("Answer Quality")
                 .criteria("Is the answer helpful and accurate?")
+                .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
                 .judge(judge)
                 .threshold(0.8)
                 .build(),
@@ -1021,6 +1023,7 @@ void experimentMeetsQualityThresholds() {
         LLMJudgeEvaluator.builder()
             .name("Answer Quality")
             .criteria("Is the answer helpful, clear, and accurate?")
+            .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
             .judge(judge)
             .build()
     );

@@ -180,6 +180,7 @@ class CustomerSupportTest {
             LLMJudgeEvaluator.builder()
                 .name("Answer Quality")
                 .criteria("Is the answer helpful and addresses the user's question?")
+                .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
                 .threshold(0.80)
                 .judge(judge)
                 .build(),
@@ -285,6 +286,7 @@ void shouldAnswerFromDocumentation(Example example) {
         LLMJudgeEvaluator.builder()
             .name("Answer Quality")
             .criteria("Is the answer helpful?")
+            .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
             .threshold(0.8)
             .judge(judge)
             .build(),

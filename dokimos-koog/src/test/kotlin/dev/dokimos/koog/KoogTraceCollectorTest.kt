@@ -3,6 +3,7 @@ package dev.dokimos.koog
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
+import dev.dokimos.core.evaluators.agents.ArgMatchMode
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator
@@ -167,6 +168,7 @@ class KoogTraceCollectorTest {
         assertThat(
             ToolTrajectoryEvaluator.builder()
                 .matchMode(ToolTrajectoryEvaluator.MatchMode.ANY_ORDER)
+                .argumentMatcher(ArgumentMatcher.of(ArgMatchMode.IGNORE))
                 .build()
                 .evaluate(testCase)
                 .score(),

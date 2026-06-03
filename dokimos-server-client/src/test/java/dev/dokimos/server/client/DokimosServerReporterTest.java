@@ -17,12 +17,16 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DokimosServerReporterTest {
 
@@ -33,8 +37,11 @@ class DokimosServerReporterTest {
 
     // Item POST response control for the recording handler.
     private volatile boolean alwaysFailItems = false;
+    private volatile boolean alwaysRateLimitItems = false;
     private volatile boolean failFirstItemPost = false;
     private volatile long itemSendDelayMillis = 0;
+    // -1 means no Retry-After header on the 429 responses.
+    private volatile long retryAfterSeconds = -1;
     private final java.util.concurrent.atomic.AtomicInteger itemPostAttempts =
             new java.util.concurrent.atomic.AtomicInteger(0);
 
@@ -486,6 +493,107 @@ class DokimosServerReporterTest {
         }
     }
 
+    @Test
+    void shouldRetryItemPostOn429ThenCountAsFailedAfterRetriesExhausted() {
+        alwaysRateLimitItems = true;
+
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+            itemPostAttempts.set(0);
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+
+            // 429 is retryable like a 5xx: the same logical POST is attempted MAX_RETRIES times.
+            assertThat(itemPostAttempts.get()).isEqualTo(3);
+            // After all retries are exhausted, the batch is permanently dropped and counted.
+            assertThat(reporter.getFailedItemCount()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void shouldPreferRetryAfterHeaderForBackoffOn429() {
+        alwaysRateLimitItems = true;
+        retryAfterSeconds = 1;
+
+        try (var reporter = createReporter()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+            itemPostAttempts.set(0);
+
+            long start = System.currentTimeMillis();
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+            long elapsed = System.currentTimeMillis() - start;
+
+            assertThat(itemPostAttempts.get()).isEqualTo(3);
+            // Two inter-attempt waits at a 1s Retry-After each dominate the default exponential
+            // backoff (100ms, 200ms), so the total must clearly exceed the exponential lower bound.
+            assertThat(elapsed).isGreaterThanOrEqualTo(1500);
+        }
+    }
+
+    @Test
+    void shouldFireFailureCallbackAndCountWhenBatchPermanentlyDropped() {
+        alwaysRateLimitItems = true;
+        AtomicReference<DokimosServerReporter.ItemDeliveryFailure> captured = new AtomicReference<>();
+
+        try (var reporter = DokimosServerReporter.builder()
+                .serverUrl(serverUrl)
+                .projectName("my-project")
+                .onItemDeliveryFailure(captured::set)
+                .build()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+            itemPostAttempts.set(0);
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.reportItem(handle, createItemResult("q2", "a2"));
+            reporter.flush();
+
+            assertThat(reporter.getFailedItemCount()).isEqualTo(2);
+
+            DokimosServerReporter.ItemDeliveryFailure failure = captured.get();
+            assertThat(failure).isNotNull();
+            assertThat(failure.runId()).isEqualTo("test-run-123");
+            assertThat(failure.itemCount()).isEqualTo(2);
+            assertThat(failure.items()).hasSize(2);
+        }
+    }
+
+    @Test
+    void shouldWriteFailedBatchToSpoolFileWhenSpoolDirectorySet(@TempDir Path spoolDir) throws Exception {
+        alwaysRateLimitItems = true;
+
+        try (var reporter = DokimosServerReporter.builder()
+                .serverUrl(serverUrl)
+                .projectName("my-project")
+                .spoolDirectory(spoolDir)
+                .build()) {
+            RunHandle handle = reporter.startRun("test", Map.of());
+            recordedRequests.clear();
+            itemPostAttempts.set(0);
+
+            reporter.reportItem(handle, createItemResult("q1", "a1"));
+            reporter.flush();
+
+            assertThat(reporter.getFailedItemCount()).isEqualTo(1);
+
+            Path spoolFile = spoolDir.resolve("failed-items.ndjson");
+            assertThat(spoolFile).exists();
+
+            List<String> lines = Files.readAllLines(spoolFile, StandardCharsets.UTF_8);
+            assertThat(lines).hasSize(1);
+
+            JsonNode line = objectMapper.readTree(lines.get(0));
+            assertThat(line.get("runId").asText()).isEqualTo("test-run-123");
+            assertThat(line.get("items")).hasSize(1);
+            assertThat(line.get("items").get(0).path("inputs").path("input").asText())
+                    .isEqualTo("q1");
+        }
+    }
+
     private DokimosServerReporter createReporter() {
         return DokimosServerReporter.builder()
                 .serverUrl(serverUrl)
@@ -518,6 +626,9 @@ class DokimosServerReporterTest {
                 statusCode = 201;
             } else if (path.contains("/items")) {
                 statusCode = itemStatusFor();
+                if (statusCode == 429 && retryAfterSeconds >= 0) {
+                    exchange.getResponseHeaders().add("Retry-After", String.valueOf(retryAfterSeconds));
+                }
                 response = statusCode >= 200 && statusCode < 300 ? "{\"status\": \"ok\"}" : "{\"error\": \"boom\"}";
             } else if (method.equals("PATCH")) {
                 response = "{\"status\": \"completed\"}";
@@ -539,10 +650,14 @@ class DokimosServerReporterTest {
                     Thread.currentThread().interrupt();
                 }
             }
+            int attempt = itemPostAttempts.getAndIncrement();
+            if (alwaysRateLimitItems) {
+                return 429;
+            }
             if (alwaysFailItems) {
                 return 500;
             }
-            if (failFirstItemPost && itemPostAttempts.getAndIncrement() == 0) {
+            if (failFirstItemPost && attempt == 0) {
                 return 500;
             }
             return 201;

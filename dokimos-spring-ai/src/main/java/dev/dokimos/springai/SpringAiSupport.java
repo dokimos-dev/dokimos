@@ -217,7 +217,7 @@ public final class SpringAiSupport {
         Map<String, Object> metadata = new HashMap<>(result.metadata());
         metadata.put("score", (float) result.score());
 
-        return new EvaluationResponse(result.success(), result.reason(), metadata);
+        return new EvaluationResponse(result.success(), (float) result.score(), result.reason(), metadata);
     }
 
     private static final ObjectMapper TOOL_ARG_MAPPER = new ObjectMapper();

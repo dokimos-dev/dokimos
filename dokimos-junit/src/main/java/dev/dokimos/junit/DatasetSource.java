@@ -69,4 +69,12 @@ public @interface DatasetSource {
      * {@link DatasetReporter} field is present. Defaults to no metadata.
      */
     String[] metadata() default {};
+
+    /**
+     * Run metadata as typed key-value entries (for example
+     * {@code {@MetadataEntry(key = "model", value = "gpt-4")}}). Forwarded to the reporter when a
+     * {@link DatasetReporter} field is present. When non-empty this takes precedence over
+     * {@link #metadata()}. Defaults to no metadata.
+     */
+    MetadataEntry[] entries() default {};
 }

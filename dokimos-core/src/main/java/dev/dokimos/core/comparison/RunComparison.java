@@ -12,6 +12,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Regression-comparison engine that compares a baseline set of runs against a candidate set.
@@ -30,6 +32,8 @@ import java.util.function.Function;
  * p-values of the others.
  */
 public final class RunComparison {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RunComparison.class);
 
     private static final double PRECISION_SCALE = 1_000_000.0;
 
@@ -75,6 +79,8 @@ public final class RunComparison {
 
         Map<String, ItemAggregate> baselineItems = aggregate(baseline);
         Map<String, ItemAggregate> candidateItems = aggregate(candidate);
+
+        warnOnPositionPairingMismatch(baseline, candidate);
 
         Set<String> allKeys = new LinkedHashSet<>();
         allKeys.addAll(baselineItems.keySet());
@@ -491,8 +497,55 @@ public final class RunComparison {
         return "item-" + index;
     }
 
+    // With no itemKey, items are paired by position: baseline item i pairs with candidate item i.
+    // When the sides have different item counts only the overlapping prefix is paired and the trailing
+    // items surface as ADDED/REMOVED. Surface that so an accidental length mismatch is not silent. The
+    // position assumption only holds when an item count is stable across a side's runs, so this checks
+    // the maximum per-side item count.
+    private void warnOnPositionPairingMismatch(List<RunResult> baseline, List<RunResult> candidate) {
+        if (itemKey != null) {
+            return;
+        }
+        int baselineMax = maxItemCount(baseline);
+        int candidateMax = maxItemCount(candidate);
+        if (baselineMax != candidateMax) {
+            int matched = Math.min(baselineMax, candidateMax);
+            int unmatched = Math.abs(baselineMax - candidateMax);
+            LOGGER.warn(
+                    "Position-based item pairing: baseline has {} items, candidate has {}; pairing the {}"
+                            + " overlapping positions and reporting {} unmatched item(s) as ADDED/REMOVED."
+                            + " Configure itemKey(...) to pair by item identity instead of position.",
+                    baselineMax,
+                    candidateMax,
+                    matched,
+                    unmatched);
+        }
+    }
+
+    private static int maxItemCount(List<RunResult> runs) {
+        int max = 0;
+        for (RunResult run : runs) {
+            max = Math.max(max, run.itemResults().size());
+        }
+        return max;
+    }
+
+    // A single run only qualifies for the McNemar pass-rate path when its per-item scores are
+    // genuinely binary. Otherwise the McNemar binarization (passProbability >= 0.5) would discard
+    // the magnitude of continuous scores, so we fall back to the continuous permutation path.
     private boolean isBinarySingleRun(List<RunResult> runs) {
-        return runs.size() == 1;
+        if (runs.size() != 1) {
+            return false;
+        }
+        for (ItemResult item : runs.get(0).itemResults()) {
+            for (EvalResult er : item.evalResults()) {
+                double score = er.score();
+                if (score != 0.0 && score != 1.0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static double[] pairedDeltas(List<Double> baseline, List<Double> candidate) {

@@ -41,6 +41,28 @@ class ToolCallValidityEvaluatorTest {
                     "additionalProperties",
                     false));
 
+    private static final ToolDefinition INTEGER_TOOL = ToolDefinition.of(
+            "set_count",
+            "Set a count",
+            Map.of(
+                    "type",
+                    "object",
+                    "properties",
+                    Map.of("count", Map.of("type", "integer")),
+                    "required",
+                    List.of("count")));
+
+    private static final ToolDefinition NUMERIC_ENUM_TOOL = ToolDefinition.of(
+            "set_rating",
+            "Set a rating",
+            Map.of(
+                    "type",
+                    "object",
+                    "properties",
+                    Map.of("rating", Map.of("type", "integer", "enum", List.of(1, 2, 3))),
+                    "required",
+                    List.of("rating")));
+
     @Test
     void shouldReturnFullScoreWhenAllCallsValid() {
         var evaluator = ToolCallValidityEvaluator.builder().build();
@@ -301,6 +323,77 @@ class ToolCallValidityEvaluatorTest {
         var result = evaluator.evaluate(testCase);
 
         assertThat(result.score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void integerParamAcceptsWholeNumberDouble() {
+        var evaluator = ToolCallValidityEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("set_count", Map.of("count", 42.0))))
+                .metadata("tools", List.of(INTEGER_TOOL))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void integerParamRejectsFractionalNumber() {
+        var evaluator = ToolCallValidityEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("set_count", Map.of("count", 1.5))))
+                .metadata("tools", List.of(INTEGER_TOOL))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void numericEnumAcceptsEquivalentDouble() {
+        var evaluator = ToolCallValidityEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("set_rating", Map.of("rating", 1.0))))
+                .metadata("tools", List.of(NUMERIC_ENUM_TOOL))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+        assertThat(result.success()).isTrue();
+    }
+
+    @Test
+    void numericEnumRejectsOutOfSetWholeValue() {
+        var evaluator = ToolCallValidityEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("toolCalls", List.of(ToolCall.of("set_rating", Map.of("rating", 5.0))))
+                .metadata("tools", List.of(NUMERIC_ENUM_TOOL))
+                .build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void nonFiniteNumericArgScoresInvalidWithoutThrowing() {
+        var evaluator = ToolCallValidityEvaluator.builder().build();
+
+        for (Object value : List.of(Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)) {
+            var testCase = EvalTestCase.builder()
+                    .actualOutput("toolCalls", List.of(ToolCall.of("set_rating", Map.of("rating", value))))
+                    .metadata("tools", List.of(NUMERIC_ENUM_TOOL))
+                    .build();
+
+            // Must not throw (a non-finite value previously made the enum check throw NumberFormatException).
+            assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+        }
     }
 
     @Test

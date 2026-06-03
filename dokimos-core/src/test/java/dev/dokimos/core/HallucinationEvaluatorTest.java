@@ -344,6 +344,36 @@ class HallucinationEvaluatorTest {
         assertThat(result.name()).isEqualTo("custom-hallucination");
     }
 
+    @Test
+    void shouldHandleVerdictMissingVerdictFieldWithoutNpe() {
+        JudgeLM judge = prompt -> {
+            if (prompt.contains("determine whether each statement")) {
+                return """
+                        [
+                            {"reason": "No verdict field at all"},
+                            {"verdict": "no", "reason": "Not supported"}
+                        ]
+                        """;
+            }
+            return "Summary of evaluation.";
+        };
+
+        var evaluator =
+                HallucinationEvaluator.builder().judge(judge).threshold(0.6).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("q")
+                .actualOutput("context", "Some context")
+                .actualOutput("Some output")
+                .build();
+
+        // A verdict missing its verdict field must not throw and must not count as a hallucination.
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(0.5);
+        assertThat(result.success()).isTrue();
+    }
+
     private static class MockJudge implements JudgeLM {
         private String verdictsResponse;
         private String reasonResponse;

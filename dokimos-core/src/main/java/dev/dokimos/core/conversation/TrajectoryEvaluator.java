@@ -1,7 +1,6 @@
 package dev.dokimos.core.conversation;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -48,7 +47,6 @@ import org.slf4j.LoggerFactory;
 public class TrajectoryEvaluator extends BaseEvaluator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TrajectoryEvaluator.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final JudgeLM judge;
     private final List<EvaluationCriterion> criteria;
@@ -89,11 +87,13 @@ public class TrajectoryEvaluator extends BaseEvaluator {
 
         // Evaluate each criterion
         List<Map.Entry<EvaluationCriterion, Double>> criterionScores = new ArrayList<>();
+        List<CriterionResult> criterionResults = new ArrayList<>();
         Map<String, Object> criterionDetails = new HashMap<>();
 
         for (EvaluationCriterion criterion : criteria) {
             CriterionResult result = evaluateCriterion(trajectory, criterion);
             criterionScores.add(new AbstractMap.SimpleEntry<>(criterion, result.score()));
+            criterionResults.add(result);
 
             if (includePerCriterionScores) {
                 criterionDetails.put(
@@ -108,7 +108,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         double aggregatedScore = aggregationStrategy.aggregate(criterionScores);
 
         // Generate overall reason
-        String reason = generateOverallReason(criterionScores);
+        String reason = generateOverallReason(criterionScores, criterionResults);
 
         // Build metadata
         Map<String, Object> metadata = new HashMap<>();
@@ -148,10 +148,15 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         String response = judge.generate(prompt);
 
         try {
-            String json = LlmResponseUtils.stripMarkdown(response);
-            JsonNode node = OBJECT_MAPPER.readTree(json);
+            JsonNode node = LlmResponseUtils.parseTree(response);
 
-            double score = node.get("score").asDouble();
+            JsonNode scoreNode = node.get("score");
+            if (scoreNode == null || !scoreNode.isNumber()) {
+                // A missing or non-numeric score is a parse failure, not a genuine 0.0
+                throw new IllegalArgumentException("score field is missing or not a number");
+            }
+
+            double score = scoreNode.asDouble();
             // Normalize score to 0-1 range if needed
             if (score > 1.0) {
                 score = score / 10.0; // Handle 0-10 scale
@@ -160,10 +165,10 @@ public class TrajectoryEvaluator extends BaseEvaluator {
 
             String reason = node.has("reason") ? node.get("reason").asText() : "No reason provided";
 
-            return new CriterionResult(score, reason);
+            return new CriterionResult(score, reason, true);
         } catch (Exception e) {
             LOGGER.error("Failed to parse criterion evaluation response: {}", response, e);
-            return new CriterionResult(0.0, "Failed to parse evaluation: " + e.getMessage());
+            return new CriterionResult(0.0, "Failed to parse evaluation: " + e.getMessage(), false);
         }
     }
 
@@ -198,10 +203,16 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         return sb.toString().trim();
     }
 
-    private String generateOverallReason(List<Map.Entry<EvaluationCriterion, Double>> criterionScores) {
+    private String generateOverallReason(
+            List<Map.Entry<EvaluationCriterion, Double>> criterionScores, List<CriterionResult> criterionResults) {
         if (criteria.size() == 1) {
             // If only one criterion, use its score directly in the reason
             Map.Entry<EvaluationCriterion, Double> entry = criterionScores.get(0);
+            CriterionResult result = criterionResults.get(0);
+            if (!result.parsed()) {
+                return "Evaluated '%s' criterion: %.2f (%s)"
+                        .formatted(entry.getKey().name(), entry.getValue(), result.reason());
+            }
             return "Evaluated '%s' criterion: %.2f".formatted(entry.getKey().name(), entry.getValue());
         }
 
@@ -224,7 +235,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         return sb.toString();
     }
 
-    private record CriterionResult(double score, String reason) {}
+    private record CriterionResult(double score, String reason, boolean parsed) {}
 
     /**
      * Builder for constructing trajectory evaluators.

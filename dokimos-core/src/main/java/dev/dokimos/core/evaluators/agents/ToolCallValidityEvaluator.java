@@ -161,7 +161,7 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
                 switch (type) {
                     case "string" -> value instanceof String;
                     case "number" -> value instanceof Number;
-                    case "integer" -> value instanceof Integer || value instanceof Long;
+                    case "integer" -> value instanceof Number n && isWholeNumber(n);
                     case "boolean" -> value instanceof Boolean;
                     case "array" -> value instanceof List;
                     case "object" -> value instanceof Map;
@@ -174,15 +174,59 @@ public class ToolCallValidityEvaluator extends BaseEvaluator {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void validateEnum(String paramName, Object value, Map<String, Object> schema, List<String> errors) {
         Object enumValues = schema.get("enum");
         if (enumValues instanceof List<?> allowed) {
-            if (!allowed.contains(value)) {
+            if (!enumContains(allowed, value)) {
                 errors.add(
                         "Parameter '%s' value '%s' is not in allowed values: %s".formatted(paramName, value, allowed));
             }
         }
+    }
+
+    /**
+     * Returns whether a {@link Number} represents a whole value. JSON tool arguments
+     * commonly deserialize integral values as {@link Double}, so a fractional-free
+     * Double/Float/BigDecimal is accepted as an integer while genuine non-integers
+     * (e.g. {@code 1.5}) are rejected.
+     */
+    private boolean isWholeNumber(Number n) {
+        if (n instanceof Integer || n instanceof Long || n instanceof Short || n instanceof Byte) {
+            return true;
+        }
+        double d = n.doubleValue();
+        return !Double.isNaN(d) && !Double.isInfinite(d) && d == Math.rint(d);
+    }
+
+    /**
+     * Returns whether {@code value} is in {@code allowed}, comparing numbers by numeric
+     * value so a {@code Double} {@code 1.0} matches an {@code Integer} enum entry {@code 1}.
+     * Non-numeric entries keep {@link Object#equals(Object)} semantics.
+     */
+    private boolean enumContains(List<?> allowed, Object value) {
+        if (allowed.contains(value)) {
+            return true;
+        }
+        if (value instanceof Number vn) {
+            for (Object entry : allowed) {
+                if (entry instanceof Number en && numbersEqual(vn, en)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean numbersEqual(Number a, Number b) {
+        if (isNonFinite(a) || isNonFinite(b)) {
+            // BigDecimal cannot parse "NaN" / "Infinity"; compare these directly.
+            return Double.compare(a.doubleValue(), b.doubleValue()) == 0;
+        }
+        return new java.math.BigDecimal(a.toString()).compareTo(new java.math.BigDecimal(b.toString())) == 0;
+    }
+
+    private boolean isNonFinite(Number n) {
+        return (n instanceof Double d && !Double.isFinite(d)) || (n instanceof Float f && !Float.isFinite(f));
     }
 
     /**

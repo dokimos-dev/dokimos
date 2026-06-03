@@ -1,7 +1,6 @@
 package dev.dokimos.core.evaluators.agents;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -20,8 +19,6 @@ import java.util.Map;
  * The score is the fraction of completed tasks (0.0–1.0).
  */
 public class TaskCompletionEvaluator extends BaseEvaluator {
-
-    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
 
     private final JudgeLM judge;
     private final String tasksKey;
@@ -75,7 +72,7 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
                 : "";
 
         String prompt = buildPrompt(dialog, tasks, constraints);
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
+        String response = judge.generate(prompt);
 
         return parseResponse(response, tasks.size());
     }
@@ -113,8 +110,7 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
 
     private EvalResult parseResponse(String response, int totalTasks) {
         try {
-            String json = extractJsonObject(response);
-            Map<String, Object> parsed = OBJECT_MAPPER.readValue(json, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> parsed = LlmResponseUtils.parse(response, new TypeReference<Map<String, Object>>() {});
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> taskResults = (List<Map<String, Object>>) parsed.get("tasks");
@@ -150,15 +146,6 @@ public class TaskCompletionEvaluator extends BaseEvaluator {
                     .reason("Failed to parse judge response: " + e.getMessage())
                     .build();
         }
-    }
-
-    private static String extractJsonObject(String response) {
-        int start = response.indexOf('{');
-        int end = response.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return response.substring(start, end + 1);
-        }
-        return response;
     }
 
     /**

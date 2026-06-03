@@ -141,9 +141,11 @@ class AgentEvaluatorIT {
                         List.of(ToolCall.of("search_flights", Map.of()), ToolCall.of("book_hotel", Map.of())))
                 .build();
 
-        // ANY_ORDER tolerates whichever sequence the model picks for these two independent tools.
+        // ANY_ORDER tolerates whichever sequence the model picks for these two independent tools;
+        // IGNORE keeps this a name/order check since the expected calls carry no argument values.
         var trajectory = ToolTrajectoryEvaluator.builder()
                 .matchMode(ToolTrajectoryEvaluator.MatchMode.ANY_ORDER)
+                .argumentMatcher(ArgumentMatcher.of(ArgMatchMode.IGNORE))
                 .build()
                 .evaluate(testCase);
         assertThat(trajectory.score()).isGreaterThanOrEqualTo(0.5);

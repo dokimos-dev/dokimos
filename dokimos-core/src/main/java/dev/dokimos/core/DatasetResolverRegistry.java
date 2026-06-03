@@ -1,8 +1,8 @@
 package dev.dokimos.core;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Singleton registry for dataset resolvers.
@@ -15,9 +15,17 @@ public class DatasetResolverRegistry {
 
     private static final DatasetResolverRegistry INSTANCE = new DatasetResolverRegistry();
 
-    private final List<DatasetResolver> resolvers = new ArrayList<>();
+    private final List<DatasetResolver> resolvers = new CopyOnWriteArrayList<>();
 
-    private DatasetResolverRegistry() {
+    /**
+     * Creates a fresh, independent registry.
+     * <p>
+     * The new instance is seeded the same way as the global singleton: SPI resolvers
+     * are auto-discovered via {@link ServiceLoader} and the built-in resolvers are added.
+     * It maintains its own resolver chain, so {@link #register(DatasetResolver)} on this
+     * instance does not affect the global singleton returned by {@link #getInstance()}.
+     */
+    public DatasetResolverRegistry() {
         // Load the SPI resolvers
         ServiceLoader.load(DatasetResolver.class).forEach(resolvers::add);
 

@@ -63,6 +63,20 @@ fun EvalTestCase(actualOutputs: Map<String, Any>): EvalTestCase =
     EvalTestCase.builder().actualOutputs(actualOutputs).build()
 
 /**
+ * Builds an [EvalTestCase] via the Java builder.
+ *
+ * An unambiguous 2-arg factory for the common case, avoiding the overload
+ * ambiguity of calling [EvalTestCase] with two positional [String] arguments.
+ */
+fun evalCase(input: String, actualOutput: String, expectedOutput: String? = null): EvalTestCase {
+    val builder = EvalTestCase.builder()
+        .input(input)
+        .actualOutput(actualOutput)
+    expectedOutput?.let { builder.expectedOutput(it) }
+    return builder.build()
+}
+
+/**
  * Builds an [EvalResult]
  */
 fun EvalResult(name: String, score: Double, threshold: Double, reason: String) =

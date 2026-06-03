@@ -2,6 +2,10 @@ package dev.dokimos.mcp.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -16,11 +20,13 @@ class JsonResultStoreTest {
     @TempDir
     Path tempDir;
 
+    private Path file;
     private JsonResultStore store;
 
     @BeforeEach
     void setUp() {
-        store = new JsonResultStore(tempDir.resolve("test-results.json"));
+        file = tempDir.resolve("test-results.json");
+        store = new JsonResultStore(file);
     }
 
     @Test
@@ -119,6 +125,44 @@ class JsonResultStoreTest {
         assertThat(loaded.items()).hasSize(1);
         assertThat(loaded.items().get(0).input()).isEqualTo("What is 2+2?");
         assertThat(loaded.items().get(0).evaluations().get(0).evaluator()).isEqualTo("Exact Match");
+    }
+
+    @Test
+    void saveThenLoadRoundTrips() {
+        store.save(sampleRecord("run-1", "exp-1", "ds-a"));
+
+        RunRecord loaded = store.get("run-1").orElseThrow();
+        assertThat(loaded.experimentName()).isEqualTo("exp-1");
+        assertThat(loaded.datasetName()).isEqualTo("ds-a");
+        assertThat(loaded.passRate()).isEqualTo(0.75);
+    }
+
+    @Test
+    void overwriteSaveKeepsValidJsonWithPriorRecordsSurviving() throws Exception {
+        store.save(sampleRecord("run-1", "exp-1", "ds-a"));
+        store.save(sampleRecord("run-2", "exp-2", "ds-b"));
+
+        // The live file must be readable as a well-formed JSON array after the second write.
+        byte[] bytes = Files.readAllBytes(file);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        List<RunRecord> parsed = mapper.readValue(bytes, new TypeReference<List<RunRecord>>() {});
+        assertThat(parsed).extracting(RunRecord::id).containsExactlyInAnyOrder("run-1", "run-2");
+
+        // And the prior record survives the overwrite when read back through the store.
+        assertThat(store.get("run-1")).isPresent();
+        assertThat(store.get("run-2")).isPresent();
+        assertThat(store.list(null, 0)).hasSize(2);
+    }
+
+    @Test
+    void overwriteLeavesNoStrayTempFilesBehind() throws Exception {
+        store.save(sampleRecord("run-1", "exp-1", "ds-a"));
+        store.save(sampleRecord("run-2", "exp-2", "ds-b"));
+
+        try (var entries = Files.list(tempDir)) {
+            assertThat(entries).containsExactly(file);
+        }
     }
 
     private static RunRecord sampleRecord(String id, String experiment, String dataset) {

@@ -6,9 +6,151 @@ type Release = { version: string; date: string; latest?: boolean; lead?: string;
 
 const RELEASES: Release[] = [
   {
+    version: "0.19.0",
+    date: "June 2, 2026",
+    latest: true,
+    lead: "Hardens the core: per-item failure isolation, RFC 4180 CSV, prose-tolerant judges, retry and observability for the server reporter, and a run of correctness fixes.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Dataset.load",
+            body: (
+              <>
+                <code>Dataset.load(uriOrPath)</code> resolves a dataset from a local path or a URI
+                through the same resolver registry the SDK uses, so a plain path and a{" "}
+                <code>dataset://name@version</code> URI load the same way.
+              </>
+            ),
+          },
+          {
+            title: "Measured tasks",
+            body: (
+              <>
+                <code>Experiment.builder().measuredTask(...)</code> takes a <code>MeasuredTask</code>{" "}
+                that returns outputs plus optional <code>CallMetrics</code>, carried through to each{" "}
+                <code>ItemResult</code> so cost, tokens, and latency land next to the score.
+              </>
+            ),
+          },
+          {
+            title: "Server reporter failure visibility",
+            body: (
+              <>
+                <code>DokimosServerReporter</code> exposes <code>getFailedItemCount()</code> and an{" "}
+                <code>onItemDeliveryFailure(...)</code> callback, plus an opt-in{" "}
+                <code>spoolDirectory(...)</code> that appends permanently undelivered batches to a
+                durable file.
+              </>
+            ),
+          },
+          {
+            title: "JUnit recorder and typed metadata",
+            body: (
+              <>
+                A test method can take a <code>DatasetItemRecorder</code> parameter to record actual
+                outputs and eval results per invocation, and <code>@MetadataEntry(key, value)</code>{" "}
+                replaces the alternating-string metadata form with a typed pair.
+              </>
+            ),
+          },
+          {
+            title: "Kotlin and LangChain4j helpers",
+            body: (
+              <>
+                Kotlin adds an <code>evalCase(input, actualOutput, expectedOutput)</code> factory and
+                a <code>metadata(Map)</code> DSL form; LangChain4j adds{" "}
+                <code>simpleTask(model, outputKey)</code> to name the output key, and{" "}
+                <code>AgentEvalCase.builder()</code> gives agent test cases a typed builder.
+              </>
+            ),
+          },
+        ],
+      },
+      {
+        label: "Changed",
+        items: [
+          {
+            title: "Per-item failure isolation",
+            body: "An experiment isolates a failing example so one bad item records its error and the run continues instead of aborting.",
+          },
+          {
+            title: "RFC 4180 CSV",
+            body: "Dataset CSV loading parses quoted fields per RFC 4180, so a value may contain the delimiter, a newline, or a doubled quote.",
+          },
+          {
+            title: "Prose-tolerant judges",
+            body: (
+              <>
+                LLM judge replies are parsed by extracting the JSON, so a judge may wrap its verdict
+                in preamble or trailing prose, and <code>LLMJudgeEvaluator</code> normalizes a custom{" "}
+                <code>scoreRange</code> onto 0..1.
+              </>
+            ),
+          },
+          {
+            title: "Trajectory compares arguments",
+            body: (
+              <>
+                <code>ToolTrajectoryEvaluator</code> now defaults to a tolerant argument matcher;
+                pass <code>ArgumentMatcher.of(ArgMatchMode.IGNORE)</code> to compare tool names and
+                order only.
+              </>
+            ),
+          },
+          {
+            title: "Reporter retries and stricter builder",
+            body: (
+              <>
+                The server reporter retries an HTTP 429 with its <code>Retry-After</code> hint, and{" "}
+                <code>Experiment.builder()</code> rejects an empty dataset or zero evaluators.
+              </>
+            ),
+          },
+        ],
+      },
+      {
+        label: "Fixed",
+        items: [
+          {
+            title: "Spring AI score",
+            body: (
+              <>
+                <code>EvaluationResponse.getScore()</code> returns the real evaluation score instead
+                of leaving the field unset.
+              </>
+            ),
+          },
+          {
+            title: "Null responses",
+            body: (
+              <>
+                LangChain4j <code>simpleTask</code> no longer throws on a null model response, and{" "}
+                <code>HallucinationEvaluator</code> reports a missing verdict instead of a raw
+                NullPointerException.
+              </>
+            ),
+          },
+          {
+            title: "Tool-call validity numerics",
+            body: "Tool-call validity accepts whole-number doubles for integer parameters and matches numeric enums by value.",
+          },
+          {
+            title: "MCP store and client",
+            body: "The MCP result store writes atomically, and the per-call OpenAI client is closed after each run.",
+          },
+          {
+            title: "JUnit reported example",
+            body: "The example reported by the JUnit extension is tied to the actual invocation.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.17.0",
     date: "May 31, 2026",
-    latest: true,
     lead: "Closes the production evaluation loop end to end, with full multi-tenant data isolation and standards-based OTLP trace ingestion.",
     groups: [
       {

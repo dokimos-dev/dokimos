@@ -1,7 +1,6 @@
 package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -42,7 +41,6 @@ import java.util.Map;
  */
 public class ContextualRelevanceEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private static final String DEFAULT_RETRIEVAL_CONTEXT_KEY = "retrievalContext";
 
     private final String retrievalContextKey;
@@ -154,10 +152,9 @@ public class ContextualRelevanceEvaluator extends BaseEvaluator {
                 {"score": <number between 0.0 and 1.0>, "reason": "<brief explanation>"}
                 """.formatted(input, context);
 
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
-
         try {
-            Map<String, Object> parsed = OBJECT_MAPPER.readValue(response, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> parsed =
+                    LlmResponseUtils.parse(judge.generate(prompt), new TypeReference<Map<String, Object>>() {});
 
             double score = parseScore(parsed.get("score"));
             String reason = parsed.getOrDefault("reason", "No reason provided").toString();

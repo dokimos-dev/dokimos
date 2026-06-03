@@ -267,6 +267,46 @@ val ragTask = task { example ->
   </TabItem>
 </Tabs>
 
+### Capturing Call Metrics
+
+A plain `Task` returns only outputs, and the resulting `ItemResult` carries `null` metrics. To record tokens, cost, and latency for the underlying LLM call, use a `MeasuredTask`. It returns a `TaskResult` holding both the outputs and a `CallMetrics` record, which flows through to each `ItemResult.metrics()`.
+
+```java
+@FunctionalInterface
+public interface MeasuredTask {
+    TaskResult run(Example example);
+}
+```
+
+`CallMetrics` is a record with four nullable fields: `tokensIn`, `tokensOut`, `costUsd`, and `latencyMs`. Populate the ones you can measure and leave the rest null.
+
+```java
+MeasuredTask task = example -> {
+    long start = System.currentTimeMillis();
+    LlmResponse response = myLlmService.generate(example.input());
+    long latencyMs = System.currentTimeMillis() - start;
+
+    CallMetrics metrics = new CallMetrics(
+        response.promptTokens(),
+        response.completionTokens(),
+        response.costUsd(),
+        latencyMs
+    );
+
+    return new TaskResult(Map.of("output", response.text()), metrics);
+};
+
+ExperimentResult result = Experiment.builder()
+    .name("QA Evaluation")
+    .dataset(dataset)
+    .measuredTask(task)
+    .evaluators(evaluators)
+    .build()
+    .run();
+```
+
+The plain `task(Task)` path still works unchanged; reach for `measuredTask(MeasuredTask)` only when you want metrics attached to the results. Naming the builder method distinctly keeps a lambda passed to `task(...)` unambiguous between the two interfaces.
+
 ## Running Experiments on a Dataset
 
 ### Loading Datasets from Files
@@ -401,6 +441,10 @@ failures.forEach { failure ->
 
   </TabItem>
 </Tabs>
+
+### Per-Item Failure Isolation
+
+A task or evaluator that throws for one example does not abort the whole run. That example is recorded as a failed item (its `success()` is `false`, with no eval results) and execution continues with the next example. Sequential and parallel runs behave the same way, so a single flaky call or malformed output won't cost you the rest of the dataset. Filter for `!item.success()` as shown above to inspect the items that failed.
 
 ## Parallelism and Multiple Runs
 
@@ -592,6 +636,24 @@ experiment {
 
   </TabItem>
 </Tabs>
+
+`build()` validates the experiment before constructing it. It throws `IllegalStateException` if no dataset or task is set, if the dataset has no examples, or if no evaluators were added. This surfaces configuration mistakes up front rather than at run time.
+
+### Closing the Reporter
+
+When you attach a `Reporter` with `.reporter(...)`, you own its lifecycle by default. Set `.autoCloseReporter(true)` to have `run()` close the reporter once all runs finish, in addition to flushing it. The default is `false`, which leaves the reporter open for reuse across experiments.
+
+```java
+Experiment.builder()
+    .name("QA Evaluation")
+    .dataset(dataset)
+    .task(task)
+    .evaluators(evaluators)
+    .reporter(reporter)
+    .autoCloseReporter(true)  // run() closes the reporter when done
+    .build()
+    .run();
+```
 
 ### Tracking Experiment Configuration
 

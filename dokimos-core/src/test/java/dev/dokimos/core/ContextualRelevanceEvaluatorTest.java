@@ -443,6 +443,26 @@ class ContextualRelevanceEvaluatorTest {
         assertThat(result.score()).isEqualTo(0.75);
     }
 
+    @Test
+    void shouldParseProseWrappedJson() {
+        JudgeLM judge = prompt -> "Relevance assessment: {\"score\": 0.9, \"reason\": \"Directly relevant\"} done";
+
+        var evaluator = ContextualRelevanceEvaluator.builder()
+                .judge(judge)
+                .includeReason(false)
+                .build();
+
+        var testCase = EvalTestCase.builder()
+                .input("What are symptoms of dehydration?")
+                .actualOutput("retrievalContext", List.of("Dehydration symptoms include thirst."))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isCloseTo(0.9, within(1e-9));
+        assertThat(result.success()).isTrue();
+    }
+
     private static class MockJudge implements JudgeLM {
         private final Map<Integer, String> scoreResponses = new java.util.HashMap<>();
         private String summaryResponse = "Default summary.";

@@ -55,6 +55,8 @@ ExperimentResult result = Experiment.builder()
 |--------|-------------|---------|
 | `apiKey(String)` | API key for authentication | _(none)_ |
 | `apiVersion(String)` | API version to use | `v1` |
+| `onItemDeliveryFailure(Consumer<ItemDeliveryFailure>)` | Callback for batches permanently dropped after retries | _(none)_ |
+| `spoolDirectory(Path)` | Append permanently-failed batches to disk for later replay | _(off)_ |
 
 ### Example with All Options
 
@@ -109,6 +111,16 @@ Items are sent in batches to reduce HTTP overhead:
 
 Whichever threshold is reached first triggers a batch send.
 
+### Retries
+
+Failed sends are retried up to 3 times with exponential backoff (starting at 100ms). Each batch POST carries an `Idempotency-Key` reused across retries, so a successful retry of an already-recorded request deduplicates server-side.
+
+Retried status codes:
+
+- **`429 Too Many Requests`**: treated as transient and retried. When the response includes a `Retry-After` header (delay in seconds), that delay overrides the backoff for the next attempt.
+- **`5x`**: retried with backoff.
+- **Other `4xx`**: terminal. The batch is not retried.
+
 ## Error Handling
 
 ### Server Unavailable at Start
@@ -128,6 +140,50 @@ If API key authentication fails:
 
 - Server returns `401 Unauthorized`
 - Client logs warning: `Client error 401 for POST ...`
+
+### Permanently Dropped Items
+
+If a batch still fails after exhausting all retries, those items are dropped and never recorded. By default this only produces an error log, which can leave CI green while data is silently lost. Two opt-in mechanisms make dropped batches detectable.
+
+#### getFailedItemCount()
+
+`getFailedItemCount()` returns the total number of items dropped after retries. Check it after the run and fail the build if any items were lost:
+
+```java
+reporter.close();  // flushes and drains all pending batches
+
+if (reporter.getFailedItemCount() > 0) {
+    throw new IllegalStateException(
+        reporter.getFailedItemCount() + " items were not recorded by the server");
+}
+```
+
+#### onItemDeliveryFailure callback
+
+Register a callback to react to each dropped batch as it happens. It receives an `ItemDeliveryFailure` record carrying `runId()`, `itemCount()`, and the dropped `items()`:
+
+```java
+DokimosServerReporter reporter = DokimosServerReporter.builder()
+    .serverUrl("https://dokimos.example.com")
+    .projectName("my-project")
+    .onItemDeliveryFailure(failure ->
+        log.error("Dropped {} items for run {}", failure.itemCount(), failure.runId()))
+    .build();
+```
+
+The callback runs on the reporter's background worker thread, so keep it lightweight.
+
+#### Durable spooling
+
+Set `spoolDirectory(Path)` to persist permanently-failed batches to disk instead of losing them. Each dropped batch is appended as one JSON line to `failed-items.ndjson` in the directory, so a transient outage past all retries leaves a replayable record. Spooling is off by default.
+
+```java
+DokimosServerReporter reporter = DokimosServerReporter.builder()
+    .serverUrl("https://dokimos.example.com")
+    .projectName("my-project")
+    .spoolDirectory(Path.of("target/dokimos-spool"))
+    .build();
+```
 
 ## Lifecycle Methods
 

@@ -144,7 +144,7 @@ class LLMJudgeEvaluatorTest {
         var result = evaluator.evaluate(testCase);
 
         assertThat(capturedPrompt[0]).contains("between 1.0 and 5.0");
-        assertThat(result.score()).isEqualTo(4.2);
+        assertThat(result.score()).isCloseTo(0.8, within(1e-9));
         assertThat(result.success()).isTrue();
     }
 
@@ -170,7 +170,7 @@ class LLMJudgeEvaluatorTest {
 
         var result = evaluator.evaluate(testCase);
 
-        assertThat(result.score()).isEqualTo(1.5);
+        assertThat(result.score()).isCloseTo(0.125, within(1e-9));
         assertThat(result.success()).isFalse();
     }
 
@@ -208,5 +208,34 @@ class LLMJudgeEvaluatorTest {
                         .build())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least one evaluation param");
+    }
+
+    @Test
+    void shouldRecoverScoreFromProsePreamble() {
+        JudgeLM judge = prompt -> "Here is my assessment:\n{\"score\": 0.9, \"reason\": \"Matches well\"}\nThanks!";
+
+        var evaluator = LLMJudgeEvaluator.builder()
+                .name("correctness")
+                .criteria("Check correctness")
+                .evaluationParams(List.of(EvalTestCaseParam.ACTUAL_OUTPUT))
+                .threshold(0.7)
+                .judge(judge)
+                .build();
+
+        var testCase = EvalTestCase.builder().input("q").actualOutput("a").build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(0.9);
+        assertThat(result.success()).isTrue();
+        assertThat(result.reason()).isEqualTo("Matches well");
+    }
+
+    @Test
+    void shouldRejectInvertedOrEmptyScoreRange() {
+        assertThatThrownBy(() -> LLMJudgeEvaluator.builder().scoreRange(5, 5))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> LLMJudgeEvaluator.builder().scoreRange(5, 1))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

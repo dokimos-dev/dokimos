@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -106,8 +108,20 @@ public class JsonResultStore implements ResultStore {
     }
 
     private void writeAll(List<RunRecord> records) {
+        // Write to a temp file in the same directory and move it into place so a crash mid-write
+        // cannot truncate the live file (a partial file would make loadAll silently start fresh).
         try {
-            mapper.writeValue(filePath.toFile(), records);
+            Path tmp = Files.createTempFile(filePath.getParent(), ".mcp-results-", ".tmp");
+            try {
+                mapper.writeValue(tmp.toFile(), records);
+                try {
+                    Files.move(tmp, filePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                } catch (AtomicMoveNotSupportedException e) {
+                    Files.move(tmp, filePath, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(tmp);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write results: " + filePath, e);
         }

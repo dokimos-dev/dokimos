@@ -1,5 +1,7 @@
 package dev.dokimos.core;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +17,8 @@ import java.util.Map;
 public record ItemResult(
         Example example, Map<String, Object> actualOutputs, List<EvalResult> evalResults, CallMetrics metrics) {
     public ItemResult {
-        actualOutputs = actualOutputs != null ? Map.copyOf(actualOutputs) : Map.of();
+        // Tolerate null values in the task outputs (Map.copyOf rejects them).
+        actualOutputs = actualOutputs != null ? Collections.unmodifiableMap(new HashMap<>(actualOutputs)) : Map.of();
         evalResults = evalResults != null ? List.copyOf(evalResults) : List.of();
     }
 
@@ -31,7 +34,7 @@ public record ItemResult(
     }
 
     public boolean success() {
-        return evalResults.stream().allMatch(EvalResult::success);
+        return !evalResults.isEmpty() && evalResults.stream().allMatch(EvalResult::success);
     }
 
     public EvalTestCase toTestCase() {

@@ -1,7 +1,6 @@
 package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -20,7 +19,6 @@ import java.util.List;
  */
 public class HallucinationEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private final String contextKey;
     private final JudgeLM judge;
     private final boolean includeReason;
@@ -79,10 +77,8 @@ public class HallucinationEvaluator extends BaseEvaluator {
                 [{"verdict": "yes", "reason": "..."}, {"verdict": "no", "reason": "..."}]
                 """.formatted(context, actualOutput);
 
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
-
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<HallucinationVerdict>>() {});
+            return LlmResponseUtils.parse(judge.generate(prompt), new TypeReference<List<HallucinationVerdict>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Failed to parse verdict response from LLM judge", e);
         }
@@ -93,11 +89,16 @@ public class HallucinationEvaluator extends BaseEvaluator {
             return 0.0;
         }
 
-        long hallucinationCount = verdicts.stream()
-                .filter(v -> "no".equalsIgnoreCase(v.verdict().strip()))
-                .count();
+        long hallucinationCount =
+                verdicts.stream().filter(v -> isHallucination(v.verdict())).count();
 
         return (double) hallucinationCount / verdicts.size();
+    }
+
+    // A judge that omits the verdict field leaves it null; treat that as not a hallucination
+    // rather than letting it count as "no".
+    private boolean isHallucination(String verdict) {
+        return verdict != null && "no".equalsIgnoreCase(verdict.strip());
     }
 
     private String generateReason(List<HallucinationVerdict> verdicts, double score) {
@@ -109,7 +110,11 @@ public class HallucinationEvaluator extends BaseEvaluator {
         var contradictions = new StringBuilder();
 
         for (var verdict : verdicts) {
-            if ("yes".equalsIgnoreCase(verdict.verdict().strip())) {
+            String value = verdict.verdict();
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            if ("yes".equalsIgnoreCase(value.strip())) {
                 if (factualAlignments.length() > 0) factualAlignments.append("; ");
                 factualAlignments.append(verdict.reason());
             } else {

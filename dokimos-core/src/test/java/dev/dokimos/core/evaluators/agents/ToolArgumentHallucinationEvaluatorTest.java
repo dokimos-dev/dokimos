@@ -320,4 +320,22 @@ class ToolArgumentHallucinationEvaluatorTest {
 
         assertThat(result.score()).isEqualTo(1.0);
     }
+
+    @Test
+    void argumentHallucinationParsesProsePrefixedJudgeReply() {
+        JudgeLM mockJudge = prompt -> "Here are the verdicts:\n"
+                + "[{\"toolName\": \"search\", \"grounded\": true, \"reason\": \"From user input\"}]";
+
+        var evaluator =
+                ToolArgumentHallucinationEvaluator.builder().judge(mockJudge).build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Search for shoes")
+                .actualOutput("toolCalls", List.of(ToolCall.of("search", Map.of("q", "shoes"))))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.score()).isEqualTo(1.0);
+    }
 }

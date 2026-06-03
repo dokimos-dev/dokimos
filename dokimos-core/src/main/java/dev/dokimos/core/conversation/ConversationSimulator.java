@@ -75,20 +75,34 @@ public class ConversationSimulator {
         for (int turn = 0; turn < maxTurns; turn++) {
             // Generate user message
             Message userMessage;
-            if (turn == 0 && initialMessage != null && !initialMessage.isEmpty()) {
-                userMessage = Message.user(initialMessage);
-            } else {
-                userMessage = simulatedUser.generateMessage(trajectory);
+            try {
+                if (turn == 0 && initialMessage != null && !initialMessage.isEmpty()) {
+                    userMessage = Message.user(initialMessage);
+                } else {
+                    userMessage = simulatedUser.generateMessage(trajectory);
+                }
+            } catch (RuntimeException e) {
+                // Preserve the turns gathered so far rather than losing the whole trajectory
+                return withError(trajectory, "simulatedUser", e);
             }
             trajectory = trajectory.withMessage(userMessage);
 
-            // Check stopping condition after user message
+            // Check stopping condition after user message. A trailing user message with no
+            // assistant reply is intentional here, so turnCount() omits it.
             if (stoppingCondition != null && stoppingCondition.test(trajectory)) {
                 break;
             }
 
             // Get application response
-            Message assistantMessage = application.respond(trajectory);
+            Message assistantMessage;
+            try {
+                assistantMessage = application.respond(trajectory);
+                if (assistantMessage == null) {
+                    throw new IllegalStateException("ConversationalApplication returned a null response message");
+                }
+            } catch (RuntimeException e) {
+                return withError(trajectory, "application", e);
+            }
             trajectory = trajectory.withMessage(assistantMessage);
 
             // Check stopping condition after assistant response
@@ -98,6 +112,16 @@ public class ConversationSimulator {
         }
 
         return trajectory;
+    }
+
+    private ConversationTrajectory withError(ConversationTrajectory trajectory, String source, RuntimeException e) {
+        return ConversationTrajectory.builder()
+                .scenario(trajectory.scenario())
+                .messages(trajectory.messages())
+                .metadata(trajectory.metadata())
+                .metadata("error", e.getMessage() != null ? e.getMessage() : e.toString())
+                .metadata("errorSource", source)
+                .build();
     }
 
     /**

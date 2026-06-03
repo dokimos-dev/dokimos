@@ -3,6 +3,7 @@ package dev.dokimos.junit;
 import dev.dokimos.core.Dataset;
 import dev.dokimos.core.DatasetResolutionException;
 import dev.dokimos.core.DatasetResolverRegistry;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
@@ -45,18 +46,34 @@ public class DatasetArgumentsProvider implements ArgumentsProvider, AnnotationCo
 
     private Dataset loadDataset() {
         if (!inlineJson.isBlank()) {
-            return Dataset.fromJson(inlineJson);
+            return load("json()", "inline JSON", () -> Dataset.fromJson(inlineJson));
         }
 
         if (!inlineJsonl.isBlank()) {
-            return Dataset.fromJsonl(inlineJsonl);
+            return load("jsonl()", "inline JSONL", () -> Dataset.fromJsonl(inlineJsonl));
         }
 
         if (!uri.isBlank()) {
-            return DatasetResolverRegistry.getInstance().resolve(uri);
+            return load(
+                    "value()", uri, () -> DatasetResolverRegistry.getInstance().resolve(uri));
         }
 
         throw new DatasetResolutionException(
                 "Either `value()`, `json()`, or `jsonl()` must be specified in @DatasetSource");
+    }
+
+    /**
+     * Loads a dataset, wrapping any failure in a message that names {@code @DatasetSource}, the
+     * offending source, and the underlying cause so the JUnit user sees the real reason instead of an
+     * opaque arguments-provider error.
+     */
+    private Dataset load(String attribute, String source, Supplier<Dataset> loader) {
+        try {
+            return loader.get();
+        } catch (RuntimeException e) {
+            throw new DatasetResolutionException(
+                    "Failed to load dataset for @DatasetSource " + attribute + " '" + source + "': " + e.getMessage(),
+                    e);
+        }
     }
 }

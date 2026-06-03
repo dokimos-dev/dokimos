@@ -166,4 +166,11 @@ class RegexEvaluatorTest {
         assertThat(result.score()).isEqualTo(1.0);
         assertThat(result.success()).isTrue();
     }
+
+    @Test
+    void shouldRequirePatternOnBuild() {
+        assertThatThrownBy(() -> RegexEvaluator.builder().name("no-pattern").build())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(".pattern(");
+    }
 }

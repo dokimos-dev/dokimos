@@ -177,4 +177,49 @@ class ConversationSimulatorTest {
         assertThat(trajectory.messages().get(0).content()).isEqualTo("First message");
         assertThat(trajectory.messages().get(2).content()).isEqualTo("Responding to: Reply #0");
     }
+
+    @Test
+    void shouldReturnPartialTrajectoryWhenSimulatedUserThrowsOnSecondTurn() {
+        SimulatedUser user = trajectory -> {
+            if (trajectory.userMessages().size() >= 1) {
+                throw new RuntimeException("simulated user blew up on turn 2");
+            }
+            return Message.user("First user message");
+        };
+
+        ConversationalApplication app = trajectory -> Message.assistant("Assistant reply");
+
+        ConversationSimulator simulator = ConversationSimulator.builder()
+                .simulatedUser(user)
+                .application(app)
+                .maxTurns(5)
+                .build();
+
+        ConversationTrajectory trajectory = simulator.simulate();
+
+        // First turn is preserved instead of losing the entire trajectory
+        assertThat(trajectory.turnCount()).isEqualTo(1);
+        assertThat(trajectory.userMessages()).hasSize(1);
+        assertThat(trajectory.userMessages().get(0).content()).isEqualTo("First user message");
+        assertThat(trajectory.metadata()).containsEntry("errorSource", "simulatedUser");
+        assertThat(trajectory.metadata().get("error").toString()).contains("turn 2");
+    }
+
+    @Test
+    void shouldSurfaceClearErrorWhenApplicationReturnsNull() {
+        SimulatedUser user = trajectory -> Message.user("User message");
+        ConversationalApplication app = trajectory -> null;
+
+        ConversationSimulator simulator = ConversationSimulator.builder()
+                .simulatedUser(user)
+                .application(app)
+                .maxTurns(3)
+                .build();
+
+        ConversationTrajectory trajectory = simulator.simulate();
+
+        assertThat(trajectory.userMessages()).hasSize(1);
+        assertThat(trajectory.metadata()).containsEntry("errorSource", "application");
+        assertThat(trajectory.metadata().get("error").toString()).contains("null");
+    }
 }

@@ -1,7 +1,6 @@
 package dev.dokimos.core.evaluators;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.BaseEvaluator;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
@@ -15,7 +14,6 @@ import java.util.*;
  */
 public class FaithfulnessEvaluator extends BaseEvaluator {
 
-    private static final ObjectMapper OBJECT_MAPPER = LlmResponseUtils.lenientMapper();
     private final String contextKey;
     private final JudgeLM judge;
     private final boolean includeReason;
@@ -77,10 +75,8 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 [{"verdict": "...", "reasoning": "...", ...}]
                 """.formatted(truths, extractedClaims);
 
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
-
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<ClaimVerdict>>() {});
+            return LlmResponseUtils.parse(judge.generate(prompt), new TypeReference<List<ClaimVerdict>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Failed to parse verdict response from LLM judge", e);
         }
@@ -116,10 +112,8 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 Context: %s
                 """.formatted(context);
 
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
-
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {});
+            return LlmResponseUtils.parse(judge.generate(prompt), new TypeReference<List<String>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Could not parse JSON response to extract truths", e);
         }
@@ -138,10 +132,8 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
                 AI Output: %s
                 """.formatted(actualOutput);
 
-        String response = LlmResponseUtils.stripMarkdown(judge.generate(prompt));
-
         try {
-            return OBJECT_MAPPER.readValue(response, new TypeReference<List<String>>() {});
+            return LlmResponseUtils.parse(judge.generate(prompt), new TypeReference<List<String>>() {});
         } catch (Exception e) {
             throw new EvaluationException("Could not parse JSON response to extract statements", e);
         }
@@ -225,6 +217,9 @@ public class FaithfulnessEvaluator extends BaseEvaluator {
         }
 
         public FaithfulnessEvaluator build() {
+            if (judge == null) {
+                throw new IllegalStateException("JudgeLM is required");
+            }
             return new FaithfulnessEvaluator(this);
         }
     }

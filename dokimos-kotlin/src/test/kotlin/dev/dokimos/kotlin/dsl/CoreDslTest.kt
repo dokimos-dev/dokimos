@@ -136,4 +136,15 @@ class CoreDslTest {
         assertThat(ex.expectedOutputs()["output"]).isEqualTo(nestedPayload)
         assertThat(ex.metadata()["trace"]).isEqualTo(mapOf("path" to listOf("root", "child")))
     }
+
+    @Test
+    fun `example DSL metadata(Map) populates metadata`() {
+        val example = example {
+            input("input", "q")
+            metadata(mapOf("traceId" to "abc123", "score" to 1))
+        }
+
+        assertThat(example.metadata()).containsEntry("traceId", "abc123")
+        assertThat(example.metadata()).containsEntry("score", 1)
+    }
 }

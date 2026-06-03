@@ -274,12 +274,15 @@ val datasetFromString = Dataset.fromJsonl(jsonl, "greetings")
 
 CSV files work well for simpler datasets. You need at least an `input` column, and optionally an `expectedOutput` column (you can also use `expected_output` or `output` as the column name). Any additional columns are automatically treated as metadata.
 
+Parsing follows RFC 4180. A quoted field may contain the delimiter (`,`), embedded newlines, and doubled quotes (`""` becomes a single literal `"`). Whitespace inside quoted fields is preserved, while unquoted fields are trimmed. A leading UTF-8 byte order mark is stripped.
+
 #### Example CSV
 
 ```csv
 input,expectedOutput,category,priority
 How do I reset my password?,Click 'Forgot Password' on the login page,account,high
-Where can I find my order history?,Go to Account > Orders,account,medium
+What payment methods do you accept?,"We accept credit cards, PayPal, and bank transfers",payment,medium
+How do I quote a price?,"Wrap it in double quotes like ""this""",support,low
 How do I contact support?,Email us at support@example.com or use live chat,support,high
 ```
 
@@ -319,6 +322,35 @@ val datasetFromString = Dataset.fromCsv(csv, "payment-support")
 
   </TabItem>
 </Tabs>
+
+### One-call loading
+
+When you don't want to pick a format-specific method, `Dataset.load()` is a single entry point. It dispatches on `classpath:` and `file:` schemes and on the file extension for plain paths, then delegates to the resolver registry.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+// Resolves by extension and scheme
+Dataset fromJson = Dataset.load("path/to/dataset.json");
+Dataset fromCsv = Dataset.load("file:path/to/dataset.csv");
+Dataset fromClasspath = Dataset.load("classpath:datasets/qa-dataset.jsonl");
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Resolves by extension and scheme
+val fromJson = Dataset.load("path/to/dataset.json")
+val fromCsv = Dataset.load("file:path/to/dataset.csv")
+val fromClasspath = Dataset.load("classpath:datasets/qa-dataset.jsonl")
+```
+
+  </TabItem>
+</Tabs>
+
+Unlike `fromJson`, `fromCsv`, and `fromJsonl`, `Dataset.load()` does not throw a checked `IOException`. It throws `DatasetResolutionException` if no resolver supports the argument.
 
 ## Dataset Resolution
 

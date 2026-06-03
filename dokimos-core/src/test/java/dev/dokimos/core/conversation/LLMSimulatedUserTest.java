@@ -168,4 +168,21 @@ class LLMSimulatedUserTest {
 
         assertThat(message.content()).isEqualTo("Response with whitespace");
     }
+
+    @Test
+    void shouldSurfaceClearExceptionWhenJudgeReturnsNull() {
+        JudgeLM nullJudge = prompt -> null;
+
+        LLMSimulatedUser user = LLMSimulatedUser.builder().judge(nullJudge).build();
+
+        ConversationTrajectory trajectory = ConversationTrajectory.builder()
+                .userMessage("Previous user message")
+                .assistantMessage("Assistant reply")
+                .build();
+
+        assertThatThrownBy(() -> user.generateMessage(trajectory))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JudgeLM")
+                .hasMessageContaining("null");
+    }
 }

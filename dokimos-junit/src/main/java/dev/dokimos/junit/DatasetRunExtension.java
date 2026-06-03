@@ -1,6 +1,7 @@
 package dev.dokimos.junit;
 
 import dev.dokimos.core.Dataset;
+import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Example;
 import dev.dokimos.core.ItemResult;
 import dev.dokimos.core.NoOpReporter;
@@ -9,16 +10,22 @@ import dev.dokimos.core.RunHandle;
 import dev.dokimos.core.RunStatus;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 import org.junit.jupiter.api.extension.ExtensionContext.Store;
 import org.junit.jupiter.api.extension.ExtensionContext.Store.CloseableResource;
+import org.junit.jupiter.api.extension.ParameterContext;
+import org.junit.jupiter.api.extension.ParameterResolutionException;
+import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
 /**
@@ -37,12 +44,20 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
  * {@link Reporter#flush() flushed} after completion. The extension never closes a reporter supplied
  * via {@link DatasetReporter}; that lifecycle belongs to the test class.
  */
-public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallback, TestExecutionExceptionHandler {
+public class DatasetRunExtension
+        implements BeforeEachCallback, AfterEachCallback, TestExecutionExceptionHandler, ParameterResolver {
 
     private static final Namespace NAMESPACE = Namespace.create(DatasetRunExtension.class);
 
     private static final String RUN_KEY = "run";
     private static final String EXAMPLE_KEY = "example";
+    private static final String RECORDER_KEY = "recorder";
+
+    /**
+     * Matches the JUnit platform unique-id segment for a parameterized invocation,
+     * {@code [test-template-invocation:#N]}, capturing the one-based invocation number.
+     */
+    private static final Pattern INVOCATION_SEGMENT = Pattern.compile("test-template-invocation:#(\\d+)");
 
     @Override
     public void beforeEach(ExtensionContext context) {
@@ -53,7 +68,7 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
 
         Dataset dataset = context.getStore(DatasetArgumentsProvider.NAMESPACE)
                 .get(DatasetArgumentsProvider.DATASET_KEY, Dataset.class);
-        Example example = exampleAt(dataset, run.nextIndex());
+        Example example = exampleAt(dataset, invocationIndex(context));
         context.getStore(NAMESPACE).put(EXAMPLE_KEY, example);
     }
 
@@ -78,8 +93,31 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
             return;
         }
 
-        ItemResult result = new ItemResult(example, Map.of(), List.of());
+        DatasetItemRecorder recorder = context.getStore(NAMESPACE).get(RECORDER_KEY, DatasetItemRecorder.class);
+        ItemResult result = recorder != null
+                ? new ItemResult(example, recorder.actualOutputs(), recorder.evalResults())
+                : new ItemResult(example, Map.of(), List.of());
         run.reporter().reportItem(run.handle(), result);
+    }
+
+    /**
+     * Supports an optional {@link DatasetItemRecorder} test-method parameter. When the test body
+     * declares it, {@link #afterEach} reports the outputs and eval results it captured; otherwise the
+     * reported item stays empty.
+     */
+    @Override
+    public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
+            throws ParameterResolutionException {
+        return parameterContext.getParameter().getType() == DatasetItemRecorder.class;
+    }
+
+    @Override
+    public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
+            throws ParameterResolutionException {
+        DatasetItemRecorder recorder = new DatasetItemRecorder();
+        // The invocation-scoped store keeps one recorder per parameterized invocation.
+        extensionContext.getStore(NAMESPACE).put(RECORDER_KEY, recorder);
+        return recorder;
     }
 
     /**
@@ -129,6 +167,14 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
         if (source == null) {
             return Map.of();
         }
+        MetadataEntry[] entries = source.entries();
+        if (entries.length > 0) {
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            for (MetadataEntry entry : entries) {
+                metadata.put(entry.key(), entry.value());
+            }
+            return metadata;
+        }
         String[] pairs = source.metadata();
         if (pairs.length == 0) {
             return Map.of();
@@ -142,6 +188,27 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
             metadata.put(pairs[i], pairs[i + 1]);
         }
         return metadata;
+    }
+
+    /**
+     * Returns the zero-based index of the example under test for the current invocation, derived from
+     * the parameterized invocation's unique id rather than a separate counter. This keeps the reported
+     * example tied to the actual argument even when invocations run out of order or in parallel.
+     * Returns {@code -1} when no invocation segment is present (the dataset is then not reported).
+     */
+    private int invocationIndex(ExtensionContext context) {
+        Matcher matcher = INVOCATION_SEGMENT.matcher(context.getUniqueId());
+        int oneBased = -1;
+        while (matcher.find()) {
+            try {
+                oneBased = Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException e) {
+                // A pathologically large invocation number is not a usable index.
+                oneBased = -1;
+            }
+        }
+        // JUnit numbers invocations as #1, #2, ...; the dataset index is one less.
+        return oneBased < 1 ? -1 : oneBased - 1;
     }
 
     private Example exampleAt(Dataset dataset, int index) {
@@ -182,6 +249,79 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
     }
 
     /**
+     * Collects the actual outputs and evaluation results a {@link DatasetSource} test body produced
+     * for one parameterized invocation. Declare it as a test-method parameter and populate it; the
+     * extension then reports an {@link ItemResult} carrying these values instead of an empty one.
+     *
+     * <p>
+     * A fresh recorder is supplied per invocation, so it need not be reset between examples.
+     */
+    public static final class DatasetItemRecorder {
+
+        private final Map<String, Object> actualOutputs = new LinkedHashMap<>();
+        private final List<EvalResult> evalResults = new ArrayList<>();
+
+        /**
+         * Records a single actual output under the given key.
+         *
+         * @param key the output key
+         * @param value the output value
+         * @return this recorder
+         */
+        public DatasetItemRecorder actualOutput(String key, Object value) {
+            actualOutputs.put(key, value);
+            return this;
+        }
+
+        /**
+         * Records multiple actual outputs, merging them with any already recorded.
+         *
+         * @param outputs the outputs to record
+         * @return this recorder
+         */
+        public DatasetItemRecorder actualOutputs(Map<String, Object> outputs) {
+            if (outputs != null) {
+                actualOutputs.putAll(outputs);
+            }
+            return this;
+        }
+
+        /**
+         * Records a single evaluation result.
+         *
+         * @param result the result to record
+         * @return this recorder
+         */
+        public DatasetItemRecorder evalResult(EvalResult result) {
+            if (result != null) {
+                evalResults.add(result);
+            }
+            return this;
+        }
+
+        /**
+         * Records multiple evaluation results.
+         *
+         * @param results the results to record
+         * @return this recorder
+         */
+        public DatasetItemRecorder evalResults(List<EvalResult> results) {
+            if (results != null) {
+                evalResults.addAll(results);
+            }
+            return this;
+        }
+
+        Map<String, Object> actualOutputs() {
+            return actualOutputs;
+        }
+
+        List<EvalResult> evalResults() {
+            return evalResults;
+        }
+    }
+
+    /**
      * Per-method run state held in the method-scoped store. When stored there it is closed once the
      * test method finishes all parameterized invocations, completing and flushing the run.
      *
@@ -195,7 +335,6 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
         private final Reporter reporter;
         private final RunHandle handle;
         private final boolean active;
-        private final AtomicInteger index = new AtomicInteger(0);
         private final AtomicInteger failures = new AtomicInteger(0);
 
         private RunState(Reporter reporter, RunHandle handle) {
@@ -224,10 +363,6 @@ public class DatasetRunExtension implements BeforeEachCallback, AfterEachCallbac
 
         RunHandle handle() {
             return handle;
-        }
-
-        int nextIndex() {
-            return index.getAndIncrement();
         }
 
         void recordFailure() {

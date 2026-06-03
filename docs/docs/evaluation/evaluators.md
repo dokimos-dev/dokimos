@@ -192,7 +192,39 @@ val helpfulness: Evaluator = llmJudge(judge) {
   </TabItem>
 </Tabs>
 
-The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1.
+The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1. The reply is parsed leniently: a one-sentence preamble or trailing prose around the JSON is dropped, so a recoverable judgment is not lost to a formatting quirk.
+
+By default the judge scores on a 0..1 scale. To let the judge work on a different range, set `scoreRange(min, max)`. The reported score is then normalized back to 0..1, so your `threshold` always stays on the 0..1 scale:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+Evaluator helpfulness = LLMJudgeEvaluator.builder()
+    .name("Helpfulness")
+    .criteria("Rate the answer's helpfulness.")
+    .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
+    .scoreRange(1, 5)  // judge replies 1..5; score is normalized to 0..1
+    .threshold(0.8)
+    .judge(judge)
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val helpfulness: Evaluator = llmJudge(judge) {
+    name = "Helpfulness"
+    criteria = "Rate the answer's helpfulness."
+    params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
+    scoreRange(1.0, 5.0)  // judge replies 1..5; score is normalized to 0..1
+    threshold = 0.8
+}
+```
+
+  </TabItem>
+</Tabs>
 
 **When to use:** Checking semantic correctness, helpfulness, tone, clarity, or any quality dimension that's easier to describe in words than code.
 

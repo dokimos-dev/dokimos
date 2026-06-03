@@ -2,6 +2,7 @@ package dev.dokimos.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -64,5 +65,31 @@ class ItemResultTest {
         assertThat(item.metrics().costUsd()).isEqualTo(0.0023);
         assertThat(item.metrics().latencyMs()).isEqualTo(512L);
         assertThat(item.success()).isTrue();
+    }
+
+    @Test
+    void shouldTolerateNullValueInActualOutputs() {
+        Map<String, Object> outputs = new HashMap<>();
+        outputs.put("output", null);
+
+        var item = new ItemResult(Example.of("q", "a"), outputs, List.of(EvalResult.success("eval1", 1.0, "ok")));
+
+        assertThat(item.actualOutputs()).containsKey("output");
+        assertThat(item.actualOutputs().get("output")).isNull();
+        assertThat(item.success()).isTrue();
+    }
+
+    @Test
+    void shouldNotBeSuccessWhenEvalResultsEmpty() {
+        var item = new ItemResult(Example.of("q", "a"), Map.of("output", "a"), List.of());
+
+        assertThat(item.success()).isFalse();
+    }
+
+    @Test
+    void shouldNotBeSuccessWhenEvalResultsNull() {
+        var item = new ItemResult(Example.of("q", "a"), Map.of("output", "a"), null);
+
+        assertThat(item.success()).isFalse();
     }
 }

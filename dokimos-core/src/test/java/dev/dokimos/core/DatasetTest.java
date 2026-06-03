@@ -11,6 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class DatasetTest {
 
+    private static final String BOM = "﻿";
+
     @Test
     void shouldBuildSimpleDataset() {
         var dataset = Dataset.builder()
@@ -300,5 +302,121 @@ class DatasetTest {
         assertThatThrownBy(() -> Dataset.fromJsonl(jsonl, "test"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("line 2");
+    }
+
+    @Test
+    void shouldCollapseDoubledQuotesToSingleLiteralQuote() {
+        String csv = "input,output\n\"He said \"\"hi\"\"\",greeting\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "quotes");
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("He said \"hi\"");
+        assertThat(dataset.get(0).expectedOutput()).isEqualTo("greeting");
+    }
+
+    @Test
+    void shouldKeepNewlineInsideQuotedFieldAsOneExample() {
+        String csv = "input,output\n\"line one\nline two\",multi\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "newlines");
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("line one\nline two");
+        assertThat(dataset.get(0).expectedOutput()).isEqualTo("multi");
+    }
+
+    @Test
+    void shouldKeepDelimiterInsideQuotedField() {
+        String csv = "input,output\n\"a,b,c\",joined\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "delimiter");
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("a,b,c");
+    }
+
+    @Test
+    void shouldPreserveLeadingAndTrailingSpacesInQuotedField() {
+        String csv = "input,output\n\"  padded  \",result\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "padded");
+
+        assertThat(dataset.get(0).input()).isEqualTo("  padded  ");
+    }
+
+    @Test
+    void shouldTrimUnquotedFields() {
+        String csv = "input,output\n  spaced  ,  trimmed  \n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "unquoted");
+
+        assertThat(dataset.get(0).input()).isEqualTo("spaced");
+        assertThat(dataset.get(0).expectedOutput()).isEqualTo("trimmed");
+    }
+
+    @Test
+    void shouldResolveInputColumnWithBomPrefixedHeader() {
+        String csv = BOM + "input,output\n2+2,4\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "bom");
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("2+2");
+    }
+
+    @Test
+    void shouldStripBomFromJsonContent() {
+        String json = BOM + "{\"name\":\"d\",\"examples\":[{\"input\":\"q\",\"expectedOutput\":\"a\"}]}";
+
+        Dataset dataset = Dataset.fromJson(json);
+
+        assertThat(dataset.name()).isEqualTo("d");
+        assertThat(dataset.get(0).input()).isEqualTo("q");
+    }
+
+    @Test
+    void shouldIncludeFoundHeadersWhenInputColumnMissing() {
+        String csv = "question,answer\nq,a\n";
+
+        assertThatThrownBy(() -> Dataset.fromCsv(csv, "missing"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("question")
+                .hasMessageContaining("answer");
+    }
+
+    @Test
+    void shouldRoundTripEscapedCsvOutput() {
+        // Mirrors ExperimentResultExporter.escapeCsv: quote-wrap and double inner quotes.
+        String raw = "value with \"quotes\", a comma\nand a newline";
+        String escaped = "\"" + raw.replace("\"", "\"\"") + "\"";
+        String csv = "input,output\n" + escaped + ",ok\n";
+
+        Dataset dataset = Dataset.fromCsv(csv, "roundtrip");
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo(raw);
+    }
+
+    @Test
+    void shouldLoadCsvPath(@TempDir Path tempDir) throws IOException {
+        Path csvFile = tempDir.resolve("sample.csv");
+        Files.writeString(csvFile, "input,output\n2+2,4\n");
+
+        Dataset dataset = Dataset.load(csvFile.toString());
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("2+2");
+    }
+
+    @Test
+    void shouldLoadJsonPath(@TempDir Path tempDir) throws IOException {
+        Path jsonFile = tempDir.resolve("sample.json");
+        Files.writeString(jsonFile, "{\"name\":\"d\",\"examples\":[{\"input\":\"q\",\"expectedOutput\":\"a\"}]}");
+
+        Dataset dataset = Dataset.load(jsonFile.toString());
+
+        assertThat(dataset.size()).isEqualTo(1);
+        assertThat(dataset.get(0).input()).isEqualTo("q");
     }
 }

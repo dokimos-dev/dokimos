@@ -1,6 +1,7 @@
 package dev.dokimos.core;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 @FunctionalInterface
@@ -32,6 +33,8 @@ public interface Task {
      * @param <T> the produced value type
      * @return a {@link Task} that wraps the produced value under {@code "output"} (or uses a returned
      *     map directly)
+     * @throws NullPointerException if {@code fn} returns {@code null} (the output map cannot hold a
+     *     null value; use a raw {@link Task} if an absent output is intended)
      */
     @SuppressWarnings("unchecked")
     static <T> Task typed(Function<Example, T> fn) {
@@ -40,6 +43,9 @@ public interface Task {
             if (value instanceof Map<?, ?> map) {
                 return (Map<String, Object>) map;
             }
+            Objects.requireNonNull(
+                    value,
+                    "typed task function returned null; return a value (or a Map) — use a raw Task if you need an absent output");
             return Map.of("output", value);
         };
     }

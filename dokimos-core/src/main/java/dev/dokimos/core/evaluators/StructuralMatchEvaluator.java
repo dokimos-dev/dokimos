@@ -10,10 +10,10 @@ import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.internal.Json;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -25,9 +25,9 @@ import java.util.Set;
  * it treats {@code 5} and {@code 5.0} as different and would corrupt eval results). The comparator:
  *
  * <ul>
- *   <li>Compares numeric leaves by {@link BigDecimal#compareTo(BigDecimal)} (scale-insensitive, so
- *       {@code 1.0} equals {@code 1.00}), with an epsilon tolerance for floating point. {@code 5} and
- *       {@code 5.0} therefore match by value in <em>both</em> modes.
+ *   <li>Compares numeric leaves by {@link BigDecimal#compareTo(BigDecimal)} (scale-insensitive but
+ *       otherwise exact, so {@code 1.0} equals {@code 1.00} and {@code 5} equals {@code 5.0}, while
+ *       genuinely distinct values never collapse). Matches by value in <em>both</em> modes.
  *   <li>Honors {@link StructuralMatchMode}: {@link StructuralMatchMode#STRICT STRICT} requires the
  *       exact field set and exact array order; {@link StructuralMatchMode#LENIENT LENIENT} allows
  *       extra actual fields (subset match) and ignores array order as a multiset.
@@ -45,9 +45,6 @@ import java.util.Set;
  * or {@code 0.0} (anything differs) for exact-contract gates.
  */
 public class StructuralMatchEvaluator extends BaseEvaluator {
-
-    /** Tolerance applied when comparing numeric leaves that are not exactly equal in scale. */
-    private static final BigDecimal EPSILON = new BigDecimal("1e-9");
 
     private final String outputKey;
     private final StructuralMatchMode mode;
@@ -239,31 +236,55 @@ public class StructuralMatchEvaluator extends BaseEvaluator {
             return;
         }
 
-        // LENIENT: multiset semantics — order ignored, multiplicity preserved, extras ignored.
-        List<JsonNode> remaining = new ArrayList<>();
-        actual.forEach(remaining::add);
-
-        for (int i = 0; i < expected.size(); i++) {
-            JsonNode expectedChild = expected.get(i);
-            int matchIndex = -1;
-            for (int j = 0; j < remaining.size(); j++) {
-                if (deepMatches(expectedChild, remaining.get(j))) {
-                    matchIndex = j;
-                    break;
+        // LENIENT: multiset semantics — order ignored, multiplicity preserved, extras ignored. Use
+        // maximum bipartite matching (not greedy first-fit) so a subset element cannot steal the
+        // match a more specific element needs: e.g. expected [{a:1},{a:1,b:2}] against actual
+        // [{a:1,b:2},{a:1}] pairs fully instead of scoring a false partial.
+        int n = expected.size();
+        int m = actual.size();
+        List<List<Integer>> candidates = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            List<Integer> matches = new ArrayList<>();
+            for (int j = 0; j < m; j++) {
+                if (deepMatches(expected.get(i), actual.get(j))) {
+                    matches.add(j);
                 }
             }
-            if (matchIndex >= 0) {
-                // A matched element contributes all of its expected leaves as matched.
-                int leaves = leafCount(expectedChild);
-                diff.denominator += leaves;
+            candidates.add(matches);
+        }
+
+        int[] actualMatchedBy = new int[m];
+        Arrays.fill(actualMatchedBy, -1);
+        boolean[] expectedMatched = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            expectedMatched[i] = augment(i, candidates, actualMatchedBy, new boolean[m]);
+        }
+
+        for (int i = 0; i < n; i++) {
+            int leaves = leafCount(expected.get(i));
+            diff.denominator += leaves;
+            if (expectedMatched[i]) {
                 diff.matched += leaves;
-                remaining.remove(matchIndex);
             } else {
-                diff.denominator += leafCount(expectedChild);
                 diff.differences.add(
-                        "%s: no actual element matched expected %s".formatted(path + "[" + i + "]", render(expectedChild)));
+                        "%s: no actual element matched expected %s".formatted(path + "[" + i + "]", render(expected.get(i))));
             }
         }
+    }
+
+    /** Kuhn's augmenting-path step for maximum bipartite matching of expected to actual elements. */
+    private boolean augment(int i, List<List<Integer>> candidates, int[] actualMatchedBy, boolean[] seen) {
+        for (int j : candidates.get(i)) {
+            if (seen[j]) {
+                continue;
+            }
+            seen[j] = true;
+            if (actualMatchedBy[j] == -1 || augment(actualMatchedBy[j], candidates, actualMatchedBy, seen)) {
+                actualMatchedBy[j] = i;
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether two nodes match completely under the current mode (used for LENIENT array matching). */
@@ -276,12 +297,9 @@ public class StructuralMatchEvaluator extends BaseEvaluator {
     /** Compares two present, non-null scalar nodes by value (null/missing handled by the caller). */
     private boolean leafEquals(JsonNode expected, JsonNode actual) {
         if (expected.isNumber() && actual.isNumber()) {
-            BigDecimal e = expected.decimalValue();
-            BigDecimal a = actual.decimalValue();
-            if (e.compareTo(a) == 0) {
-                return true;
-            }
-            return e.subtract(a).abs().compareTo(EPSILON) <= 0;
+            // Scale-insensitive but exact: 5 == 5.0 and 1.0 == 1.00, while genuinely distinct values
+            // (including tiny near-zero ones) never collapse.
+            return expected.decimalValue().compareTo(actual.decimalValue()) == 0;
         }
         if (expected.getNodeType() != actual.getNodeType()) {
             return false;

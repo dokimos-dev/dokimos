@@ -170,6 +170,14 @@ public class Experiment {
                         gate.release();
                         return CompletableFuture.completedFuture(failedItemResult(example, null, e));
                     }
+                    if (taskFuture == null) {
+                        // A null future would NPE the driving thread and abort the whole run; isolate it.
+                        gate.release();
+                        return CompletableFuture.completedFuture(failedItemResult(
+                                example,
+                                null,
+                                new NullPointerException("AsyncTask.run(...) returned a null future")));
+                    }
                     return taskFuture
                             .handle((taskResult, error) -> toItemResult(example, taskResult, error))
                             .whenComplete((itemResult, error) -> gate.release());

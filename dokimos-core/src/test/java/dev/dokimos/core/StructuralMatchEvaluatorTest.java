@@ -325,4 +325,39 @@ class StructuralMatchEvaluatorTest {
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase)).isInstanceOf(EvaluationException.class);
     }
+
+    // ---------- regression: comparator correctness ----------
+
+    @Test
+    void lenientArrayMatchingPairsSubsetAndSpecificElementsOptimally() {
+        // Regression: greedy first-fit let the subset element {a:1} steal the {a:1,b:2} actual,
+        // starving the specific expected element. Maximum bipartite matching pairs both -> 1.0.
+        var evaluator =
+                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+
+        var testCase = testCase(
+                List.of(map("a", 1), map("a", 1, "b", 2)), List.of(map("a", 1, "b", 2), map("a", 1)));
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void smallDistinctNumbersDoNotCollapse() {
+        // No absolute epsilon: genuinely distinct near-zero values must not compare equal.
+        var evaluator = StructuralMatchEvaluator.builder().build();
+
+        assertThat(evaluator.evaluate(testCase(0, 5e-10)).score()).isEqualTo(0.0);
+        assertThat(evaluator.evaluate(testCase(1e-10, 2e-10)).score()).isEqualTo(0.0);
+        // Scale differences still match by value.
+        assertThat(evaluator.evaluate(testCase(5, 5.0)).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void strictTypeMismatchArrayVsObjectScoresZero() {
+        var evaluator = StructuralMatchEvaluator.builder().mode(StructuralMatchMode.STRICT).build();
+
+        var testCase = testCase(map("a", List.of(1)), map("a", map("x", 1)));
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
 }

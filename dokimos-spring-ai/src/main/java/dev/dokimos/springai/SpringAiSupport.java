@@ -234,6 +234,12 @@ public final class SpringAiSupport {
      * via {@link CompletableFuture#supplyAsync(java.util.function.Supplier)} so the experiment's
      * async execution path can keep many calls in flight without a blocked thread per example.
      *
+     * <p>Note: because the call blocks on the common pool, the experiment's {@code parallelism} bounds
+     * how many invocations are launched, but the effective concurrency of the blocking HTTP call is
+     * also limited by the common pool (~one less than the CPU count), which is shared process-wide.
+     * For higher, isolated concurrency, wrap the call in your own {@link AsyncTask} backed by a
+     * dedicated {@link java.util.concurrent.Executor}.
+     *
      * <p>Example:
      * <pre>{@code
      * ChatClient client = ChatClient.builder(chatModel).build();

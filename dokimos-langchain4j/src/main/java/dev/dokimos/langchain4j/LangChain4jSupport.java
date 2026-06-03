@@ -262,6 +262,12 @@ public final class LangChain4jSupport {
      * and retrieved context are written under the {@link #OUTPUT_KEY default} and
      * {@link #CONTEXT_KEY context} keys, mirroring {@link #ragTask(Function)}.
      *
+     * <p>Note: because the call blocks on the common pool, the experiment's {@code parallelism} bounds
+     * how many invocations are launched, but the effective concurrency of the blocking call is also
+     * limited by the common pool (~one less than the CPU count), which is shared process-wide. For
+     * higher, isolated concurrency, wrap the call in your own {@link AsyncTask} backed by a dedicated
+     * {@link java.util.concurrent.Executor}.
+     *
      * <p>Example:
      * <pre>{@code
      * interface Assistant {

@@ -107,4 +107,10 @@ class JsonTest {
         assertThat(results).hasSize(2000);
         assertThat(results).contains(new Whisky("W7", 7), new Whisky("W1999", 1999));
     }
+
+    @Test
+    void readerRejectsTrailingTokens() {
+        assertThatThrownBy(() -> Json.reader().readValue("{} trailing", Object.class))
+                .isInstanceOf(Exception.class);
+    }
 }

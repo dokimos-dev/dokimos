@@ -2,6 +2,7 @@ package dev.dokimos.examples.springai.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.OutputType;
@@ -34,6 +35,15 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 class WhiskyAgentEvaluationTest {
 
     private static final WhiskyCatalog CATALOG = new WhiskyCatalog();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static String json(Object value) {
+        try {
+            return MAPPER.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("failed to serialize test fixture", e);
+        }
+    }
 
     private static final ToolDefinition SEARCH_TOOL = ToolDefinition.builder()
             .name("searchWhiskies")
@@ -59,7 +69,7 @@ class WhiskyAgentEvaluationTest {
                 .build();
         ToolResponseMessage toolResponse = ToolResponseMessage.builder()
                 .responses(List.of(new ToolResponseMessage.ToolResponse(
-                        "call-1", "searchWhiskies", dev.dokimos.core.internal.Json.writeCompact(islay12))))
+                        "call-1", "searchWhiskies", json(islay12))))
                 .build();
 
         AgentTrace trace = dev.dokimos.springai.SpringAiSupport.toAgentTrace(

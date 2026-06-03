@@ -28,9 +28,11 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
  *       silently collapsed.
  *   <li>{@link DeserializationFeature#FAIL_ON_TRAILING_TOKENS} is enabled so trailing garbage after
  *       a value is rejected.
- *   <li>Non-finite floating point values (NaN, Infinity) are rejected on both read and write —
- *       Jackson's default treats {@code NaN == NaN} as true, the opposite of Java semantics, which
- *       would corrupt structural comparison.
+ *   <li>Non-finite floating point values (NaN, Infinity) are rejected when parsing (the
+ *       {@link JsonReadFeature#ALLOW_NON_NUMERIC_NUMBERS} read feature is disabled). Jackson has no
+ *       equivalent throw-on-write for non-finite doubles, so the structural comparator additionally
+ *       rejects in-memory non-finite values before comparison; this keeps Jackson's surprising
+ *       {@code NaN == NaN} out of eval results.
  * </ul>
  *
  * <p>This class is internal API. It is not part of the public, supported surface of dokimos-core

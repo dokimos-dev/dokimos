@@ -50,4 +50,13 @@ class TaskTest {
 
         assertThat(task.run(exampleWithInput("k", "v"))).containsEntry("output", "value");
     }
+
+    @Test
+    void typedShouldRejectNullReturnWithClearMessage() {
+        Task task = Task.typed(ex -> null);
+
+        assertThatThrownBy(() -> task.run(exampleWithInput("k", "v")))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("returned null");
+    }
 }

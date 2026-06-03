@@ -64,10 +64,13 @@ fun asJudge(agent: () -> AIAgent<String, String>): JudgeLM = asJudge { input -> 
  * through [dev.dokimos.core.Experiment.Builder.asyncTask] without [runBlocking] holding a thread per
  * example.
  *
- * Each invocation launches the suspend body on the given [scope] (the [Dispatchers.IO] dispatcher by
- * default) and bridges the coroutine to a [java.util.concurrent.CompletableFuture] via the
- * kotlinx-coroutines `future` builder. A suspend exception surfaces as an exceptionally completed
- * future, which the experiment isolates as a failed item while the run continues.
+ * Each invocation launches the suspend body on the given [scope] (default [GlobalScope]) using the
+ * [Dispatchers.IO] dispatcher, and bridges the coroutine to a [java.util.concurrent.CompletableFuture]
+ * via the kotlinx-coroutines `future` builder. A suspend exception surfaces as an exceptionally
+ * completed future, which the experiment isolates as a failed item while the run continues.
+ *
+ * [GlobalScope] is the default because this is a fire-and-bridge-to-future adapter with no parent
+ * lifecycle to inherit; pass your own [scope] to opt into structured concurrency.
  *
  * The suspend body receives the full [Example] and returns a [TaskResult] (use [TaskResult.of] when
  * there are no call metrics).

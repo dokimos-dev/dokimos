@@ -4,6 +4,11 @@ import dev.dokimos.core.*
 import dev.dokimos.core.evaluators.*
 import dev.dokimos.core.evaluators.agents.*
 import dev.dokimos.kotlin.dsl.evaluators.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.future.future
+import java.util.concurrent.CompletableFuture
 
 @DslMarker
 annotation class DokimosDsl
@@ -75,6 +80,60 @@ fun example(block: ExampleDsl.() -> Unit): Example = ExampleDsl().apply(block).b
 
 fun task(block: (Example) -> Map<String, Any>): Task = Task(block)
 
+/**
+ * Builds a [Task] that produces a single typed value and stores it under the conventional
+ * `"output"` key, delegating to [Task.typed].
+ *
+ * This is deliberately a distinct name from [task]: a reified overload named `task` would make
+ * every existing `task { mapOf(...) }` call site ambiguous and source-break callers. Use
+ * `typedTask<Whisky> { ... }` to return a record, list, or other POJO directly. If the body itself
+ * returns a [Map], that map is used as the output map directly (no double-nesting), matching the
+ * Java [Task.typed] guard.
+ *
+ * @param fn produces the typed output value for an [Example]
+ * @param T the produced value type
+ * @return a [Task] wrapping the produced value under `"output"`
+ */
+inline fun <reified T> typedTask(crossinline fn: (Example) -> T): Task =
+    Task.typed { example -> fn(example) }
+
+/**
+ * Builds an [AsyncTask] from a `suspend` function returning a [TaskResult], bridging the coroutine
+ * to a [CompletableFuture] via the kotlinx-coroutines `future` builder.
+ *
+ * This is a distinct name from [task]/[typedTask]: it produces an [AsyncTask] for the non-blocking
+ * experiment execution path. Each invocation launches the suspend body on the given [scope] (the
+ * IO dispatcher by default). A suspend exception surfaces as an exceptionally completed future,
+ * which the experiment isolates as a failed item.
+ *
+ * @param scope the coroutine scope used to launch each invocation
+ * @param fn the suspend body producing a [TaskResult] for an [Example]
+ * @return an [AsyncTask] suitable for [Experiment.Builder.asyncTask]
+ */
+@OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+fun suspendTask(
+    scope: CoroutineScope = GlobalScope,
+    fn: suspend (Example) -> TaskResult,
+): AsyncTask = AsyncTask { example ->
+    scope.future(Dispatchers.IO) { fn(example) }
+}
+
+/**
+ * Builds an [AsyncTask] from a `suspend` function returning an output [Map], wrapping it in a
+ * [TaskResult] with no metrics. Convenience overload of [suspendTask].
+ *
+ * @param scope the coroutine scope used to launch each invocation
+ * @param fn the suspend body producing an output map for an [Example]
+ * @return an [AsyncTask] suitable for [Experiment.Builder.asyncTask]
+ */
+@OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+fun suspendMapTask(
+    scope: CoroutineScope = GlobalScope,
+    fn: suspend (Example) -> Map<String, Any>,
+): AsyncTask = AsyncTask { example ->
+    scope.future(Dispatchers.IO) { TaskResult.of(fn(example)) }
+}
+
 @DokimosDsl
 class ExperimentDsl {
     var name: String = "unnamed"
@@ -85,6 +144,7 @@ class ExperimentDsl {
 
     private var dataset: Dataset? = null
     private var task: Task? = null
+    private var asyncTask: AsyncTask? = null
     private val evaluators: MutableList<Evaluator> = mutableListOf()
     private val metadata: MutableMap<String, Any> = mutableMapOf()
 
@@ -102,6 +162,31 @@ class ExperimentDsl {
 
     fun task(value: Task) {
         task = value
+    }
+
+    /**
+     * Sets a typed task that returns a single value stored under the `"output"` key.
+     *
+     * Distinct from [task] so the existing `task { mapOf(...) }` entry stays unambiguous. See the
+     * top-level [typedTask] for the rationale.
+     */
+    inline fun <reified T> typedTask(crossinline block: (Example) -> T) {
+        task(Task.typed { example -> block(example) })
+    }
+
+    /**
+     * Sets an [AsyncTask] directly, selecting the non-blocking experiment execution path.
+     */
+    fun asyncTask(value: AsyncTask) {
+        asyncTask = value
+    }
+
+    /**
+     * Sets an async task from a `suspend` function returning a [TaskResult]. See the top-level
+     * [suspendTask] for bridging details.
+     */
+    fun suspendTask(scope: CoroutineScope = GlobalScope, block: suspend (Example) -> TaskResult) {
+        asyncTask = dev.dokimos.kotlin.dsl.suspendTask(scope, block)
     }
 
     fun evaluators(block: EvaluatorsDsl.() -> Unit) {
@@ -130,18 +215,23 @@ class ExperimentDsl {
 
     fun build(): Experiment {
         val selectedDataset = dataset ?: error("dataset must be set")
-        val selectedTask = task ?: error("task must be set")
 
         val builder = Experiment.builder()
             .name(name)
             .description(description)
             .dataset(selectedDataset)
-            .task(selectedTask)
             .evaluators(evaluators)
             .metadata(metadata)
             .reporter(reporter)
             .parallelism(parallelism)
             .runs(runs)
+
+        asyncTask?.let { builder.asyncTask(it) }
+        task?.let { builder.task(it) }
+
+        if (task == null && asyncTask == null) {
+            error("task or asyncTask must be set")
+        }
 
         return builder.build()
     }

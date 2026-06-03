@@ -2,8 +2,10 @@ package dev.dokimos.langchain4j;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.AsyncTask;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.Task;
+import dev.dokimos.core.TaskResult;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
@@ -24,6 +26,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
@@ -247,6 +250,132 @@ public final class LangChain4jSupport {
      */
     public static Task customTask(Task taskFunction) {
         return taskFunction;
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation from a function that returns {@link Result}.
+     *
+     * <p>This is the asynchronous counterpart to {@link #ragTask(Function)}: the blocking assistant
+     * call is dispatched on the common {@link java.util.concurrent.ForkJoinPool} via
+     * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}, so the experiment's async
+     * execution path can keep many calls in flight without a thread blocked per example. The output
+     * and retrieved context are written under the {@link #OUTPUT_KEY default} and
+     * {@link #CONTEXT_KEY context} keys, mirroring {@link #ragTask(Function)}.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * interface Assistant {
+     *     Result<String> chat(String userMessage);
+     * }
+     *
+     * Assistant assistant = AiServices.builder(Assistant.class)
+     *     .chatModel(chatModel)
+     *     .retrievalAugmentor(retrievalAugmentor)
+     *     .build();
+     *
+     * AsyncTask task = LangChain4jSupport.asyncRagTask(assistant::chat);
+     *
+     * Experiment.builder()
+     *     .asyncTask(task)
+     *     .parallelism(8)
+     *     .evaluators(List.of(faithfulness, contextRelevancy))
+     *     .build()
+     *     .run();
+     * }</pre>
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code assistantCall} is null
+     */
+    public static AsyncTask asyncRagTask(Function<String, Result<String>> assistantCall) {
+        return asyncRagTask(assistantCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation with custom key names.
+     *
+     * <p>Behaves like {@link #asyncRagTask(Function)} but reads the input from {@code inputKey} and
+     * writes the output and context under {@code outputKey} and {@code contextKey}, for datasets or
+     * evaluators that use different key names.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param inputKey      the key to read from example inputs, never null
+     * @param outputKey     the key for the output in the result map, never null
+     * @param contextKey    the key for the retrieval context in the result map, never null
+     * @return an AsyncTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static AsyncTask asyncRagTask(
+            Function<String, Result<String>> assistantCall, String inputKey, String outputKey, String contextKey) {
+        if (assistantCall == null) {
+            throw new IllegalArgumentException("assistantCall cannot be null");
+        }
+        if (inputKey == null) {
+            throw new IllegalArgumentException("inputKey cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        if (contextKey == null) {
+            throw new IllegalArgumentException("contextKey cannot be null");
+        }
+        return example -> CompletableFuture.supplyAsync(() -> {
+            String input = (String) example.inputs().get(inputKey);
+            Result<String> result = assistantCall.apply(input);
+
+            Map<String, Object> outputs = new HashMap<>();
+            outputs.put(outputKey, result.content());
+            outputs.put(contextKey, extractTexts(result.sources()));
+            return TaskResult.of(outputs);
+        });
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation from a LangChain4j {@link ChatModel}.
+     *
+     * <p>This is the asynchronous counterpart to {@link #simpleTask(ChatModel)}: the blocking
+     * {@code model.chat(...)} call is dispatched on the common
+     * {@link java.util.concurrent.ForkJoinPool} via
+     * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}. The response is written
+     * under the {@link #OUTPUT_KEY default output key}.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * ChatModel model = OpenAiChatModel.builder()...build();
+     * AsyncTask task = LangChain4jSupport.asyncTask(model);
+     * }</pre>
+     *
+     * @param model the ChatModel to evaluate, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code model} is null
+     */
+    public static AsyncTask asyncTask(ChatModel model) {
+        return asyncTask(model, OUTPUT_KEY);
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation that writes the response under a
+     * caller-chosen key.
+     *
+     * <p>Behaves like {@link #asyncTask(ChatModel)} but lets you override the
+     * {@link #OUTPUT_KEY default output key}.
+     *
+     * @param model     the ChatModel to evaluate, never null
+     * @param outputKey the key for the output in the result map, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static AsyncTask asyncTask(ChatModel model, String outputKey) {
+        if (model == null) {
+            throw new IllegalArgumentException("ChatModel cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        return example -> CompletableFuture.supplyAsync(() -> {
+            String output = model.chat(example.input());
+            return TaskResult.of(Map.of(outputKey, output != null ? output : ""));
+        });
     }
 
     /**

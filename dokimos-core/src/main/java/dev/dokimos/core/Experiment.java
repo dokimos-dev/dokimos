@@ -5,8 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +27,7 @@ public class Experiment {
     private final String description;
     private final Dataset dataset;
     private final MeasuredTask task;
+    private final AsyncTask asyncTask;
     private final List<Evaluator> evaluators;
     private final Map<String, Object> metadata;
     private final Reporter reporter;
@@ -37,6 +40,7 @@ public class Experiment {
         this.description = builder.description;
         this.dataset = builder.dataset;
         this.task = builder.task;
+        this.asyncTask = builder.asyncTask;
         this.evaluators = List.copyOf(builder.evaluators);
         this.metadata = Map.copyOf(builder.metadata);
         this.reporter = builder.reporter;
@@ -82,7 +86,9 @@ public class Experiment {
         RunStatus status = RunStatus.FAILED;
 
         try {
-            if (parallelism > 1) {
+            if (asyncTask != null) {
+                itemResults = executeAsync(runHandle);
+            } else if (parallelism > 1) {
                 itemResults = executeParallel(runHandle);
             } else {
                 itemResults = executeSequential(runHandle);
@@ -119,9 +125,12 @@ public class Experiment {
             // Report items after completion to maintain ordering in reports
             results.forEach(itemResult -> reporter.reportItem(runHandle, itemResult));
 
-            return results;
-        } finally {
             executor.shutdown();
+            return results;
+        } catch (RuntimeException | Error e) {
+            // Forcibly terminate the pool on failure so worker threads do not leak.
+            executor.shutdownNow();
+            throw e;
         }
     }
 
@@ -130,18 +139,82 @@ public class Experiment {
         try {
             TaskResult taskResult = task.run(example);
             actualOutputs = taskResult.outputs();
-            EvalTestCase testCase = example.toTestCase(actualOutputs);
-
-            List<EvalResult> evalResults = evaluators.stream()
-                    .map(evaluator -> evaluator.evaluate(testCase))
-                    .toList();
-
-            return new ItemResult(example, actualOutputs, evalResults, taskResult.metrics());
+            return evaluate(example, actualOutputs, taskResult.metrics());
         } catch (RuntimeException e) {
             // Isolate per-example failures so one bad item does not abort the whole run.
-            LOGGER.warn("Evaluation failed for example, recording it as failed: {}", example.input(), e);
-            return new ItemResult(example, actualOutputs, List.of());
+            return failedItemResult(example, actualOutputs, e);
         }
+    }
+
+    /**
+     * Executes examples via the configured {@link AsyncTask}, bounding the number of in-flight
+     * invocations to {@code parallelism} with a {@link Semaphore}.
+     * <p>
+     * The semaphore is acquired before {@code asyncTask.run(...)} is called (the returned futures
+     * are already running, so the cap must gate invocation) and released when each future settles.
+     * Per-item failures use the same isolation as the synchronous paths: a failed future becomes a
+     * failed {@link ItemResult} with empty eval results and the run continues. Dataset order is
+     * preserved in the returned results.
+     */
+    private List<ItemResult> executeAsync(RunHandle runHandle) {
+        Semaphore gate = new Semaphore(parallelism);
+
+        List<CompletableFuture<ItemResult>> futures = dataset.examples().stream()
+                .map(example -> {
+                    gate.acquireUninterruptibly();
+                    CompletableFuture<TaskResult> taskFuture;
+                    try {
+                        taskFuture = asyncTask.run(example);
+                    } catch (RuntimeException e) {
+                        // A synchronous throw from run(...) still isolates as a failed item.
+                        gate.release();
+                        return CompletableFuture.completedFuture(failedItemResult(example, null, e));
+                    }
+                    return taskFuture
+                            .handle((taskResult, error) -> toItemResult(example, taskResult, error))
+                            .whenComplete((itemResult, error) -> gate.release());
+                })
+                .toList();
+
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+
+        List<ItemResult> results =
+                futures.stream().map(CompletableFuture::join).toList();
+
+        // Report items after completion to maintain ordering in reports.
+        results.forEach(itemResult -> reporter.reportItem(runHandle, itemResult));
+
+        return results;
+    }
+
+    private ItemResult toItemResult(Example example, TaskResult taskResult, Throwable error) {
+        if (error != null) {
+            Throwable cause = error instanceof CompletionException && error.getCause() != null
+                    ? error.getCause()
+                    : error;
+            return failedItemResult(example, null, cause);
+        }
+        Map<String, Object> actualOutputs = taskResult.outputs();
+        try {
+            return evaluate(example, actualOutputs, taskResult.metrics());
+        } catch (RuntimeException e) {
+            return failedItemResult(example, actualOutputs, e);
+        }
+    }
+
+    private ItemResult evaluate(Example example, Map<String, Object> actualOutputs, CallMetrics metrics) {
+        EvalTestCase testCase = example.toTestCase(actualOutputs);
+
+        List<EvalResult> evalResults = evaluators.stream()
+                .map(evaluator -> evaluator.evaluate(testCase))
+                .toList();
+
+        return new ItemResult(example, actualOutputs, evalResults, metrics);
+    }
+
+    private ItemResult failedItemResult(Example example, Map<String, Object> actualOutputs, Throwable error) {
+        LOGGER.warn("Evaluation failed for example, recording it as failed: {}", example.input(), error);
+        return new ItemResult(example, actualOutputs, List.of());
     }
 
     public static class Builder {
@@ -151,6 +224,7 @@ public class Experiment {
         private String description = "";
         private Dataset dataset;
         private MeasuredTask task;
+        private AsyncTask asyncTask;
         private Reporter reporter = NoOpReporter.INSTANCE;
         private int parallelism = 1;
         private int runs = 1;
@@ -211,6 +285,27 @@ public class Experiment {
          */
         public Builder measuredTask(MeasuredTask measuredTask) {
             this.task = measuredTask;
+            return this;
+        }
+
+        /**
+         * Sets an asynchronous task that produces a {@link TaskResult} as a
+         * {@link java.util.concurrent.CompletableFuture}.
+         * <p>
+         * When an async task is set, the experiment runs through a dedicated non-blocking execution
+         * path that bounds the number of in-flight invocations to {@link #parallelism(int)} using a
+         * semaphore. This path takes precedence over {@link #parallelism(int)}-based parallel and
+         * sequential execution. Per-item failures are isolated exactly as in the synchronous paths:
+         * a failed future becomes a failed {@link ItemResult} and the run continues.
+         * <p>
+         * An async task satisfies the task requirement on its own; a synchronous {@link #task(Task)}
+         * or {@link #measuredTask(MeasuredTask)} is not also required.
+         *
+         * @param asyncTask the asynchronous task to generate outputs and metrics from examples
+         * @return builder
+         */
+        public Builder asyncTask(AsyncTask asyncTask) {
+            this.asyncTask = asyncTask;
             return this;
         }
 
@@ -343,7 +438,7 @@ public class Experiment {
             if (dataset == null) {
                 throw new IllegalStateException("Dataset is required");
             }
-            if (task == null) {
+            if (task == null && asyncTask == null) {
                 throw new IllegalStateException("Task is required");
             }
             if (dataset.examples().isEmpty()) {

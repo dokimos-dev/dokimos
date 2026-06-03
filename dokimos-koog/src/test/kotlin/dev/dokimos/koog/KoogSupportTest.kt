@@ -6,10 +6,15 @@ import ai.koog.agents.testing.feature.withTesting
 import ai.koog.agents.testing.tools.getMockExecutor
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.llm.LLModel
+import dev.dokimos.core.Example
+import dev.dokimos.core.TaskResult
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import java.util.concurrent.ExecutionException
 
 class KoogSupportTest {
 
@@ -46,7 +51,74 @@ class KoogSupportTest {
             .hasMessageContaining("blank")
     }
 
+    @Test
+    fun `asTask produces a future that completes with the TaskResult`() {
+        val agentCall = mockk<suspend (Example) -> TaskResult>()
+        coEvery { agentCall(any()) } returns TaskResult.of(mapOf("output" to "HELLO"))
+
+        val asyncTask = asTask(agentCall = agentCall)
+        val result = asyncTask.run(exampleWith("hello")).get()
+
+        assertThat(result.outputs()).containsEntry("output", "HELLO")
+        assertThat(result.metrics()).isNull()
+        coVerify(exactly = 1) { agentCall(any()) }
+    }
+
+    @Test
+    fun `asTask carries metrics through the TaskResult`() {
+        val metrics = dev.dokimos.core.CallMetrics(3, 5, 0.01, 42L)
+        val agentCall = mockk<suspend (Example) -> TaskResult>()
+        coEvery { agentCall(any()) } returns TaskResult(mapOf("output" to "x"), metrics)
+
+        val result = asTask(agentCall = agentCall).run(exampleWith("q")).get()
+
+        assertThat(result.metrics()).isEqualTo(metrics)
+    }
+
+    @Test
+    fun `asTask surfaces a failing suspend call as an exceptional future`() {
+        val agentCall = mockk<suspend (Example) -> TaskResult>()
+        coEvery { agentCall(any()) } throws IllegalStateException("boom")
+
+        val future = asTask(agentCall = agentCall).run(exampleWith("q"))
+
+        assertThatThrownBy { future.get() }
+            .isInstanceOf(ExecutionException::class.java)
+            .hasRootCauseInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("boom")
+        assertThat(future.isCompletedExceptionally).isTrue()
+    }
+
+    @Test
+    fun `asTextTask stores the agent response under the output key`() {
+        val agentCall = mockk<suspend (String) -> String>()
+        coEvery { agentCall(any()) } returns "Model response"
+
+        val result = asTextTask(agentCall = agentCall).run(exampleWith("evaluate me")).get()
+
+        assertThat(result.outputs()).containsEntry("output", "Model response")
+        assertThat(result.metrics()).isNull()
+        coVerify(exactly = 1) { agentCall("evaluate me") }
+    }
+
+    @Test
+    fun `asTextTask rejects a blank response as a failed future`() {
+        val agentCall = mockk<suspend (String) -> String>()
+        coEvery { agentCall(any()) } returns ""
+
+        val future = asTextTask(agentCall = agentCall).run(exampleWith("q"))
+
+        assertThatThrownBy { future.get() }
+            .isInstanceOf(ExecutionException::class.java)
+            .hasRootCauseInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("blank")
+        assertThat(future.isCompletedExceptionally).isTrue()
+    }
+
     companion object {
+        fun exampleWith(input: String): Example =
+            Example.builder().input("input", input).build()
+
         fun mockAgent(modelResponse: String) = AIAgent(
             promptExecutor = getMockExecutor {
                 mockLLMAnswer(modelResponse).asDefaultResponse

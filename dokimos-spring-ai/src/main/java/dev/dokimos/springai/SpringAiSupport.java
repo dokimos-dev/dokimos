@@ -2,9 +2,11 @@ package dev.dokimos.springai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.AsyncTask;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.TaskResult;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
@@ -12,6 +14,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
@@ -19,6 +23,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.evaluation.EvaluationRequest;
 import org.springframework.ai.evaluation.EvaluationResponse;
+import reactor.core.publisher.Mono;
 
 /**
  * Utilities for integrating with Spring AI.
@@ -218,6 +223,127 @@ public final class SpringAiSupport {
         metadata.put("score", (float) result.score());
 
         return new EvaluationResponse(result.success(), (float) result.score(), result.reason(), metadata);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} that calls a Spring AI {@link ChatClient} off the calling
+     * thread and writes the response under the {@link #OUTPUT_KEY default output key}.
+     *
+     * <p>The example's {@link dev.dokimos.core.Example#input() input} is sent as the user message.
+     * The {@link ChatClient#prompt()} call is dispatched on the common {@link java.util.concurrent.ForkJoinPool}
+     * via {@link CompletableFuture#supplyAsync(java.util.function.Supplier)} so the experiment's
+     * async execution path can keep many calls in flight without a blocked thread per example.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * ChatClient client = ChatClient.builder(chatModel).build();
+     * AsyncTask task = SpringAiSupport.asyncTask(client);
+     *
+     * Experiment.builder()
+     *     .asyncTask(task)
+     *     .parallelism(8)
+     *     .evaluators(List.of(evaluator))
+     *     .build()
+     *     .run();
+     * }</pre>
+     *
+     * @param client the ChatClient to call, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client} is null
+     */
+    public static AsyncTask asyncTask(ChatClient client) {
+        return asyncTask(client, INPUT_KEY, OUTPUT_KEY);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} that calls a Spring AI {@link ChatClient} off the calling thread
+     * using caller-chosen input and output keys.
+     *
+     * <p>Behaves like {@link #asyncTask(ChatClient)} but reads the user message from {@code inputKey}
+     * and writes the response under {@code outputKey}, for datasets or evaluators that use different
+     * key names.
+     *
+     * @param client    the ChatClient to call, never null
+     * @param inputKey  the key to read the user message from the example inputs, never null
+     * @param outputKey the key the response is written under in the result, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static AsyncTask asyncTask(ChatClient client, String inputKey, String outputKey) {
+        if (client == null) {
+            throw new IllegalArgumentException("ChatClient cannot be null");
+        }
+        if (inputKey == null) {
+            throw new IllegalArgumentException("inputKey cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        return example -> CompletableFuture.supplyAsync(() -> {
+            Object input = example.inputs().get(inputKey);
+            String content =
+                    client.prompt().user(String.valueOf(input)).call().content();
+            return TaskResult.of(Map.of(outputKey, content != null ? content : ""));
+        });
+    }
+
+    /**
+     * Adapts a Reactor {@link Mono} of {@link TaskResult} to an {@link AsyncTask}.
+     *
+     * <p>This is the bridge for reactive Spring AI pipelines: supply a function that produces a
+     * {@code Mono<TaskResult>} for an example, and the resulting task converts each Mono to a
+     * {@link CompletableFuture} via {@link Mono#toFuture()}. Reactor lives on the Spring AI classpath
+     * (provided scope), so dokimos-core stays free of any Reactor dependency.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * AsyncTask task = SpringAiSupport.reactiveTask(example ->
+     *     reactiveChatClient.prompt()
+     *         .user(example.input())
+     *         .stream()
+     *         .content()
+     *         .collectList()
+     *         .map(parts -> TaskResult.of(Map.of("output", String.join("", parts)))));
+     * }</pre>
+     *
+     * @param taskFunction a function producing a {@code Mono<TaskResult>} for an example, never null
+     * @return an AsyncTask backed by the supplied Mono
+     * @throws IllegalArgumentException if {@code taskFunction} is null
+     */
+    public static AsyncTask reactiveTask(Function<dev.dokimos.core.Example, Mono<TaskResult>> taskFunction) {
+        if (taskFunction == null) {
+            throw new IllegalArgumentException("taskFunction cannot be null");
+        }
+        return example -> taskFunction.apply(example).toFuture();
+    }
+
+    /**
+     * Adapts a Reactor {@link Mono} of {@code String} output to an {@link AsyncTask}, wrapping the
+     * emitted string under the {@link #OUTPUT_KEY default output key}.
+     *
+     * <p>Convenience over {@link #reactiveTask(Function)} for the common case where the reactive
+     * pipeline yields the model's textual response directly. A {@code null} emission is stored as an
+     * empty string.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * AsyncTask task = SpringAiSupport.reactiveStringTask(example ->
+     *     reactiveChatClient.prompt().user(example.input()).stream().content().last());
+     * }</pre>
+     *
+     * @param taskFunction a function producing a {@code Mono<String>} response for an example, never null
+     * @return an AsyncTask that writes the emitted string under the default output key
+     * @throws IllegalArgumentException if {@code taskFunction} is null
+     */
+    public static AsyncTask reactiveStringTask(Function<dev.dokimos.core.Example, Mono<String>> taskFunction) {
+        if (taskFunction == null) {
+            throw new IllegalArgumentException("taskFunction cannot be null");
+        }
+        return example -> taskFunction
+                .apply(example)
+                .map(output -> TaskResult.of(Map.of(OUTPUT_KEY, output != null ? output : "")))
+                .defaultIfEmpty(TaskResult.of(Map.of(OUTPUT_KEY, "")))
+                .toFuture();
     }
 
     private static final ObjectMapper TOOL_ARG_MAPPER = new ObjectMapper();

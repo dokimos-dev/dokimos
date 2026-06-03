@@ -41,6 +41,43 @@ class TaskDslTest {
     }
 
     @Test
+    fun `typedTask rejects a null produced value`() {
+        // Task.typed cannot put null into the output map; a null-returning body must throw NPE with the
+        // documented message rather than silently dropping the output.
+        val task: Task = typedTask<String?> { null }
+
+        assertThatThrownBy { task.run(exampleWith("q")) }
+            .isInstanceOf(NullPointerException::class.java)
+            .hasMessageContaining("returned null")
+    }
+
+    @Test
+    fun `experiment DSL lets asyncTask win when both task and asyncTask are configured`() {
+        // The DSL forwards both to the builder; Experiment runs the async path first, so asyncTask takes
+        // precedence and the sync task is silently ignored. Pin that precedence: the run must produce the
+        // async output, not the sync one.
+        val result = experiment {
+            name = "both-tasks-experiment"
+            dataset {
+                name = "ds"
+                example {
+                    input = "hello"
+                    expected = "ASYNC"
+                }
+            }
+            task { mapOf("output" to "SYNC") }
+            suspendTask { TaskResult(mapOf("output" to "ASYNC"), null) }
+            evaluators {
+                exactMatch { threshold = 1.0 }
+            }
+        }.run()
+
+        assertThat(result.itemResults()).hasSize(1)
+        assertThat(result.itemResults().first().actualOutputs()).containsEntry("output", "ASYNC")
+        assertThat(result.passRate()).isEqualTo(1.0)
+    }
+
+    @Test
     fun `existing task DSL still compiles and runs without ambiguity`() {
         // Guards the source-compat invariant: a reified overload named `task` would break this.
         val task: Task = task { example -> mapOf("output" to example.input()) }

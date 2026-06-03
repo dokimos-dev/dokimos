@@ -20,6 +20,9 @@ class StructuralMatchEvaluatorTest {
     }
 
     private static Map<String, Object> map(Object... kv) {
+        if ((kv.length & 1) != 0) {
+            throw new IllegalArgumentException("map() requires key/value pairs");
+        }
         Map<String, Object> m = new LinkedHashMap<>();
         for (int i = 0; i < kv.length; i += 2) {
             m.put((String) kv[i], kv[i + 1]);
@@ -377,5 +380,165 @@ class StructuralMatchEvaluatorTest {
         var testCase = testCase(map("a", List.of(1)), map("a", map("x", 1)));
 
         assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void lenientUnmatchedArrayElementGivesZeroPartialCreditForAllItsLeaves() {
+        // LENIENT scores array elements all-or-nothing: a near-miss element earns zero, not partial.
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
+
+        Object expected = List.of(map("a", 1, "b", 2, "c", 3));
+        Object actual = List.of(map("a", 1, "b", 2, "c", 999));
+        var result = evaluator.evaluate(testCase(expected, actual));
+
+        // The element's 3 leaves go to the denominator but, since it is not a full deepMatch, 0 matched.
+        assertThat(result.score()).isEqualTo(0.0);
+        assertThat(result.reason()).contains("no actual element matched expected");
+    }
+
+    @Test
+    void emptyObjectVsEmptyObjectScoresOne() {
+        var evaluator = StructuralMatchEvaluator.builder().build();
+
+        // Both empty objects -> no leaves compared -> denominator 0 short-circuits to 1.0.
+        assertThat(evaluator.evaluate(testCase(map(), map())).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void strictEmptyObjectVsNonEmptyScoresZero() {
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .build();
+
+        var result = evaluator.evaluate(testCase(map(), map("a", 1)));
+
+        // STRICT folds the actual's extra field into the comparison -> one unmatched leaf.
+        assertThat(result.score()).isEqualTo(0.0);
+        assertThat(result.reason()).contains("$.a");
+    }
+
+    @Test
+    void lenientEmptyObjectVsNonEmptyScoresOne() {
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
+
+        // LENIENT denominator is expected leaves only; expected {} has none -> denominator 0 -> 1.0.
+        assertThat(evaluator.evaluate(testCase(map(), map("a", 1))).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void emptyObjectVsEmptyArrayIsTypeMismatchLeaf() {
+        var evaluator = StructuralMatchEvaluator.builder().build();
+
+        var result = evaluator.evaluate(testCase(map("x", map()), map("x", List.of())));
+
+        // {} vs [] are not the same container type, so they fall to the leaf branch and mismatch.
+        assertThat(result.score()).isEqualTo(0.0);
+        assertThat(result.reason()).contains("$.x");
+    }
+
+    @Test
+    void scalarCrossTypeLeafMismatches() {
+        var evaluator = StructuralMatchEvaluator.builder().build();
+
+        var boolVsNumber = evaluator.evaluate(testCase(map("n", 1), map("n", true)));
+        assertThat(boolVsNumber.score()).isEqualTo(0.0);
+        assertThat(boolVsNumber.reason()).contains("$.n");
+
+        var stringVsNumber = evaluator.evaluate(testCase(map("n", 5), map("n", "5")));
+        assertThat(stringVsNumber.score()).isEqualTo(0.0);
+        assertThat(stringVsNumber.reason()).contains("$.n");
+
+        var numberVsBool = evaluator.evaluate(testCase(map("b", false), map("b", 0)));
+        assertThat(numberVsBool.score()).isEqualTo(0.0);
+        assertThat(numberVsBool.reason()).contains("$.b");
+    }
+
+    @Test
+    void strictNestedTypeMismatchCollapsesToOneLeafWithPartialScore() {
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .build();
+
+        Object expected = map("ok", 1, "data", map("items", List.of(1, 2, 3)));
+        Object actual = map("ok", 1, "data", map("items", map("0", 1)));
+        var result = evaluator.evaluate(testCase(expected, actual));
+
+        // The array-vs-object mismatch at $.data.items counts as a single leaf, not its 3 children.
+        // ok matches, data.items is one mismatched leaf -> 1/2.
+        assertThat(result.score()).isEqualTo(0.5);
+        assertThat(result.reason()).contains("$.data.items");
+    }
+
+    @Test
+    void thresholdBoundaryWithPartialScore() {
+        Object expected = map("a", 1);
+        Object actual = map("a", 1, "b", 2); // STRICT union denominator 2, matched 1 -> 0.5.
+
+        var atThreshold = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .threshold(0.5)
+                .build();
+        assertThat(atThreshold.evaluate(testCase(expected, actual)).success()).isTrue();
+
+        var aboveThreshold = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .threshold(0.6)
+                .build();
+        assertThat(aboveThreshold.evaluate(testCase(expected, actual)).success())
+                .isFalse();
+    }
+
+    @Test
+    void customOutputKeyMissingActualScoresZero() {
+        var evaluator = StructuralMatchEvaluator.builder().outputKey("answer").build();
+
+        // Expected carries the custom key but actual does not -> actual normalizes to a null node.
+        var testCase =
+                EvalTestCase.builder().expectedOutput("answer", map("a", 1)).build();
+
+        assertThat(evaluator.evaluate(testCase).score()).isEqualTo(0.0);
+    }
+
+    @Test
+    void customOutputKeyMissingExpectedThrows() {
+        var evaluator = StructuralMatchEvaluator.builder().outputKey("answer").build();
+
+        var testCase =
+                EvalTestCase.builder().actualOutput("answer", map("a", 1)).build();
+
+        assertThatThrownBy(() -> evaluator.evaluate(testCase))
+                .isInstanceOf(EvaluationException.class)
+                .hasMessageContaining("answer");
+    }
+
+    @Test
+    void lenientNestedArrayWithinElementIsOrderInsensitive() {
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
+
+        // Both the outer element order and the inner tag order are ignored.
+        Object expected = List.of(map("tags", List.of("a", "b")), map("tags", List.of("c")));
+        Object actual = List.of(map("tags", List.of("c")), map("tags", List.of("b", "a")));
+
+        assertThat(evaluator.evaluate(testCase(expected, actual)).score()).isEqualTo(1.0);
+    }
+
+    @Test
+    void reasonContainsFullNestedPath() {
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .build();
+
+        Object expected = map("user", map("items", List.of(map("qty", 2))));
+        Object actual = map("user", map("items", List.of(map("qty", 3))));
+
+        var result = evaluator.evaluate(testCase(expected, actual));
+
+        assertThat(result.reason()).contains("$.user.items[0].qty");
     }
 }

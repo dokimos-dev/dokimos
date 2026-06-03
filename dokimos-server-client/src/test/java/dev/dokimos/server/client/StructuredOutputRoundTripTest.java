@@ -130,6 +130,31 @@ class StructuredOutputRoundTripTest {
     }
 
     @Test
+    void mismatchStillFailsAfterTheServerHop() throws Exception {
+        // The negative counterpart to the round-trip tests: re-typing (5 vs 5.0) must be absorbed, but a
+        // genuine difference (count 5 vs 6) must still register as a mismatch. This guards against the
+        // opposite failure mode — a comparator bug that makes everything "match" would pass every
+        // positive assertion above while silently erasing real regressions.
+        StructuralMatchEvaluator evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .binary()
+                .build();
+
+        Map<String, Object> expected = Map.of("output", Map.of("count", 5));
+        Map<String, Object> actualOverWire = roundTrip(Map.of("output", Map.of("count", 6)));
+
+        EvalTestCase testCase = EvalTestCase.builder()
+                .input("query", "count")
+                .actualOutputs(actualOverWire)
+                .expectedOutputs(expected)
+                .build();
+
+        EvalResult result = evaluator.evaluate(testCase);
+        assertThat(result.score()).isLessThan(1.0);
+        assertThat(result.success()).isFalse();
+    }
+
+    @Test
     void integerExpectedMatchesFloatingActualAcrossTheHop() throws Exception {
         // The classic 5 vs 5.0 hazard: the dataset stored an integer, the server returned a double
         // (or the JSON literal carried a trailing .0). The BigDecimal comparator must treat them as

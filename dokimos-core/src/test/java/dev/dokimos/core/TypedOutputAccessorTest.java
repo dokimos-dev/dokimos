@@ -35,6 +35,66 @@ class TypedOutputAccessorTest {
     }
 
     @Test
+    void nestedGenericsConvertInnerElements() {
+        var mapTestCase = EvalTestCase.builder()
+                .actualOutput("output", Map.of("islay", List.of(Map.of("name", "Ardbeg", "age", 10))))
+                .build();
+
+        Map<String, List<Whisky>> byRegion = mapTestCase.actualOutputAs(new OutputType<Map<String, List<Whisky>>>() {});
+
+        assertThat(byRegion.get("islay")).containsExactly(new Whisky("Ardbeg", 10));
+        assertThat(byRegion.get("islay").get(0)).isInstanceOf(Whisky.class);
+
+        var listTestCase = EvalTestCase.builder()
+                .actualOutput("output", List.of(List.of(Map.of("name", "Oban", "age", 14))))
+                .build();
+
+        List<List<Whisky>> nested = listTestCase.actualOutputAs(new OutputType<List<List<Whisky>>>() {});
+
+        assertThat(nested.get(0)).containsExactly(new Whisky("Oban", 14));
+        assertThat(nested.get(0).get(0)).isInstanceOf(Whisky.class);
+    }
+
+    @Test
+    void stringReadViaOutputTypePassesThrough() {
+        var testCase = EvalTestCase.builder().actualOutput("output", "Bern").build();
+
+        assertThat(testCase.actualOutputAs(new OutputType<String>() {})).isEqualTo("Bern");
+        assertThat(testCase.actualOutputAs("output", new OutputType<String>() {}))
+                .isEqualTo("Bern");
+    }
+
+    @Test
+    void outputTypeConversionFailureCarriesMessageAndCause() {
+        var testCase =
+                EvalTestCase.builder().actualOutput("output", "not a list").build();
+
+        assertThatThrownBy(() -> testCase.actualOutputAs(new OutputType<List<Whisky>>() {}))
+                .isInstanceOf(DokimosTypeConversionException.class)
+                .hasMessageContaining("OutputType")
+                .hasMessageContaining("Whisky")
+                .hasCauseInstanceOf(Throwable.class);
+    }
+
+    @Test
+    void primaryExpectedOutputTypeOverloadReadsOutputKey() {
+        var example = Example.builder()
+                .input("question", "best oban")
+                .expectedOutput("output", List.of(Map.of("name", "Oban", "age", 14)))
+                .build();
+        var testCase = EvalTestCase.builder()
+                .expectedOutput("output", List.of(Map.of("name", "Oban", "age", 14)))
+                .build();
+
+        List<Whisky> fromExample = example.expectedOutputAs(new OutputType<List<Whisky>>() {});
+        List<Whisky> fromTestCase = testCase.expectedOutputAs(new OutputType<List<Whisky>>() {});
+
+        assertThat(fromExample).containsExactly(new Whisky("Oban", 14));
+        assertThat(fromTestCase).containsExactly(new Whisky("Oban", 14));
+        assertThat(fromExample).isEqualTo(fromTestCase);
+    }
+
+    @Test
     void readsKeyedOutput() {
         var testCase = EvalTestCase.builder()
                 .actualOutput("dram", Map.of("name", "Talisker", "age", 18))

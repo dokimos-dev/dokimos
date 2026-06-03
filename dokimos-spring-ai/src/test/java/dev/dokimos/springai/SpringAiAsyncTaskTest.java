@@ -35,6 +35,21 @@ class SpringAiAsyncTaskTest {
     }
 
     @Test
+    void asyncTask_shouldStoreEmptyStringWhenContentIsNull() throws Exception {
+        // A ChatResponse with no generations makes ChatClient.content() return null (the model
+        // produced an empty/tool-only completion). The null-guard in asyncTask must coerce that to ""
+        // rather than passing null to Map.of(...), which would NPE on the worker thread.
+        ChatModel mockModel = prompt -> new ChatResponse(List.of());
+        ChatClient client = ChatClient.builder(mockModel).build();
+
+        AsyncTask task = SpringAiSupport.asyncTask(client);
+
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(result.outputs()).containsEntry("output", "");
+    }
+
+    @Test
     void asyncTask_shouldSendInputAsUserMessage() throws Exception {
         final String[] captured = {null};
         ChatModel mockModel = prompt -> {

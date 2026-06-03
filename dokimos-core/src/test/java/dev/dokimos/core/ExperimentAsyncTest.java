@@ -2,7 +2,9 @@ package dev.dokimos.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -297,6 +299,183 @@ class ExperimentAsyncTest {
                 .run();
 
         assertThat(tracker.reportedInputs).containsExactly("q1", "q2");
+    }
+
+    @Test
+    void asyncTaskReturningNullFutureIsIsolatedAsFailedItem() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("ok1", "a1"))
+                .addExample(Example.of("nullfuture", "a2"))
+                .addExample(Example.of("ok3", "a3"))
+                .build();
+
+        AsyncTask task = example -> {
+            if ("nullfuture".equals(example.input())) {
+                return null;
+            }
+            return CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
+        };
+
+        // parallelism(1) means a leaked permit on the null-future branch would deadlock the run;
+        // an inner timeout turns that hang into a test failure rather than a stuck build.
+        var result = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> Experiment.builder()
+                .name("async-null-future")
+                .dataset(dataset)
+                .asyncTask(task)
+                .evaluator(passingEvaluator())
+                .parallelism(1)
+                .build()
+                .run());
+
+        assertThat(result.itemResults()).hasSize(3);
+        assertThat(result.itemResults().get(0).success()).isTrue();
+        assertThat(result.itemResults().get(1).success()).isFalse();
+        assertThat(result.itemResults().get(1).evalResults()).isEmpty();
+        assertThat(result.itemResults().get(2).success()).isTrue();
+    }
+
+    @Test
+    void asyncFailuresAtTightCapDoNotDeadlock() {
+        int exampleCount = 50;
+        var datasetBuilder = Dataset.builder();
+        for (int i = 0; i < exampleCount; i++) {
+            datasetBuilder.addExample(Example.of("q" + i, "a" + i));
+        }
+        var dataset = datasetBuilder.build();
+
+        // Every future completes exceptionally. With parallelism(1), a permit leak on the failure
+        // branch of whenComplete would block forever in allOf(...).join() — the timeout catches it.
+        AsyncTask task = example -> CompletableFuture.failedFuture(new RuntimeException("always fails"));
+
+        var result = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> Experiment.builder()
+                .name("async-all-fail-tight-cap")
+                .dataset(dataset)
+                .asyncTask(task)
+                .evaluator(passingEvaluator())
+                .parallelism(1)
+                .build()
+                .run());
+
+        assertThat(result.itemResults()).hasSize(exampleCount);
+        assertThat(result.itemResults()).allMatch(item -> !item.success());
+    }
+
+    @Test
+    void asyncEvaluatorThrowIsIsolatedAsFailedItem() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("ok1", "a1"))
+                .addExample(Example.of("evalboom", "a2"))
+                .addExample(Example.of("ok3", "a3"))
+                .build();
+
+        // The task future succeeds for every example; the evaluator throws for one of them.
+        // The failure originates inside evaluation on the completion stage, exercising the
+        // separate try/catch in toItemResult rather than the failed-future branch.
+        Evaluator throwingEvaluator = new Evaluator() {
+            @Override
+            public EvalResult evaluate(EvalTestCase testCase) {
+                if ("evalboom".equals(testCase.input())) {
+                    throw new RuntimeException("evaluator blew up");
+                }
+                return EvalResult.success("noop", 1.0, "ok");
+            }
+
+            @Override
+            public String name() {
+                return "noop";
+            }
+
+            @Override
+            public double threshold() {
+                return 0.5;
+            }
+        };
+
+        AsyncTask task =
+                example -> CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
+
+        var result = assertTimeoutPreemptively(Duration.ofSeconds(10), () -> Experiment.builder()
+                .name("async-eval-throw")
+                .dataset(dataset)
+                .asyncTask(task)
+                .evaluator(throwingEvaluator)
+                .build()
+                .run());
+
+        assertThat(result.itemResults()).hasSize(3);
+        assertThat(result.itemResults().get(0).success()).isTrue();
+        assertThat(result.itemResults().get(1).success()).isFalse();
+        assertThat(result.itemResults().get(1).evalResults()).isEmpty();
+        assertThat(result.itemResults().get(2).success()).isTrue();
+    }
+
+    @Test
+    void asyncWithMultipleRunsProducesOneRunResultPerRunAndAggregates() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("q1", "a1"))
+                .addExample(Example.of("q2", "a2"))
+                .build();
+
+        AsyncTask task =
+                example -> CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
+
+        var result = Experiment.builder()
+                .name("async-multi-run")
+                .dataset(dataset)
+                .asyncTask(task)
+                .evaluator(passingEvaluator())
+                .parallelism(2)
+                .runs(3)
+                .build()
+                .run();
+
+        assertThat(result.runs()).hasSize(3);
+        assertThat(result.runs()).allSatisfy(run -> {
+            assertThat(run.itemResults()).hasSize(2);
+            assertThat(run.itemResults()).allMatch(ItemResult::success);
+        });
+        assertThat(result.totalCount()).isEqualTo(2);
+        // All items pass in every run, so averaged pass count is the full dataset size.
+        assertThat(result.passCount()).isEqualTo(2.0);
+        assertThat(result.passRate()).isEqualTo(1.0);
+    }
+
+    @Test
+    void asyncMixedRunReportsCorrectPassAndFailCounts() {
+        var dataset = Dataset.builder()
+                .addExample(Example.of("ok1", "a1"))
+                .addExample(Example.of("boom1", "a2"))
+                .addExample(Example.of("ok2", "a3"))
+                .addExample(Example.of("boom2", "a4"))
+                .addExample(Example.of("ok3", "a5"))
+                .build();
+
+        AsyncTask task = example -> {
+            if (example.input().startsWith("boom")) {
+                return CompletableFuture.failedFuture(new RuntimeException("async kaboom"));
+            }
+            return CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
+        };
+
+        var result = Experiment.builder()
+                .name("async-mixed-counts")
+                .dataset(dataset)
+                .asyncTask(task)
+                .evaluator(passingEvaluator())
+                .build()
+                .run();
+
+        assertThat(result.runs()).hasSize(1);
+        RunResult run = result.runs().get(0);
+        assertThat(run.totalCount()).isEqualTo(5);
+        assertThat(run.passCount()).isEqualTo(3);
+        assertThat(run.failCount()).isEqualTo(2);
+        assertThat(run.passRate()).isEqualTo(0.6);
+
+        // Failed items are built via the 3-arg ItemResult ctor, so their metrics are null.
+        assertThat(run.itemResults().stream().filter(item -> !item.success()))
+                .hasSize(2)
+                .allSatisfy(item -> assertThat(item.metrics()).isNull());
     }
 
     @Test

@@ -43,6 +43,26 @@ class KoogSupportTest {
     }
 
     @Test
+    fun `asJudge with agent factory invokes the factory on each generate`() {
+        // The factory overload's contract is a FRESH agent per invocation: capturing a single instance
+        // instead would break statefulness in real multi-example runs. Assert the factory runs once per
+        // generate() and both calls return the agent's response.
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val factory: () -> AIAgent<String, String> = {
+            calls.incrementAndGet()
+            mockAgent("agent response")
+        }
+        val judge = asJudge(factory)
+
+        val first = judge.generate("a")
+        val second = judge.generate("b")
+
+        assertThat(calls.get()).isEqualTo(2)
+        assertThat(first).isEqualTo("agent response")
+        assertThat(second).isEqualTo("agent response")
+    }
+
+    @Test
     fun `asJudge rejects blank responses`() {
         val judge = asJudge { _ -> "" }
 
@@ -118,7 +138,7 @@ class KoogSupportTest {
     companion object {
         fun exampleWith(input: String): Example = Example.builder().input("input", input).build()
 
-        fun mockAgent(modelResponse: String) = AIAgent(
+        fun mockAgent(modelResponse: String): AIAgent<String, String> = AIAgent(
             promptExecutor = getMockExecutor {
                 mockLLMAnswer(modelResponse).asDefaultResponse
             },

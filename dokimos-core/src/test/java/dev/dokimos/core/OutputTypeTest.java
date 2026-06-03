@@ -30,11 +30,9 @@ class OutputTypeTest {
     }
 
     @Test
+    @SuppressWarnings("rawtypes")
     void rawConstructionThrowsIllegalArgumentException() {
-        assertThatThrownBy(() -> {
-                    @SuppressWarnings({"rawtypes", "unused"})
-                    OutputType raw = new OutputType() {};
-                })
+        assertThatThrownBy(() -> new OutputType() {})
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("actual type argument");
     }
@@ -47,5 +45,12 @@ class OutputTypeTest {
 
         assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
         assertThat(a).isNotEqualTo(c);
+    }
+
+    @Test
+    void equalsRejectsNullAndOtherTypes() {
+        OutputType<Whisky> type = new OutputType<>() {};
+
+        assertThat(type).isNotEqualTo(null).isNotEqualTo("OutputType<Whisky>");
     }
 }

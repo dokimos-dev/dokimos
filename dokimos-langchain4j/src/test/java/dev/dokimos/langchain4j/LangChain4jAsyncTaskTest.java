@@ -45,6 +45,24 @@ class LangChain4jAsyncTaskTest {
     }
 
     @Test
+    void asyncRagTask_passesNullContentThroughUnderTheOutputKey() throws Exception {
+        // Contract pin: asyncRagTask (like the synchronous ragTask) writes result.content() into a
+        // HashMap with no null-coercion, so a null-content Result surfaces output == null. This is the
+        // RAG contract — deliberately distinct from asyncTask/simpleTask, which coerce null to "".
+        // Asserting it makes the asymmetry intentional: a regression that started coercing (or that
+        // switched to Map.of and NPE'd) would change this and fail here.
+        Result<String> mockResult =
+                Result.<String>builder().content(null).sources(List.of()).build();
+
+        AsyncTask task = LangChain4jSupport.asyncRagTask(input -> mockResult);
+
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(result.outputs()).containsKey("output");
+        assertThat(result.outputs().get("output")).isNull();
+    }
+
+    @Test
     void asyncRagTask_shouldSupportCustomKeys() throws Exception {
         List<Content> sources = List.of(Content.from(TextSegment.from("Source document")));
 
@@ -111,6 +129,29 @@ class LangChain4jAsyncTaskTest {
         TaskResult result = task.run(Example.of("What is 45+2?", "47")).get();
 
         assertThat(result.outputs()).containsEntry("output", "The answer is 47");
+    }
+
+    @Test
+    void asyncTask_shouldStoreEmptyStringWhenChatReturnsNull() throws Exception {
+        // A model that yields null (e.g. an empty/tool-only completion) must be coerced to "" by the
+        // null-guard rather than passed to Map.of(...), which would NPE on the worker thread.
+        ChatModel chatModel = new ChatModel() {
+            @Override
+            public ChatResponse chat(ChatRequest chatRequest) {
+                throw new UnsupportedOperationException("not used");
+            }
+
+            @Override
+            public String chat(String userMessage) {
+                return null;
+            }
+        };
+
+        AsyncTask task = LangChain4jSupport.asyncTask(chatModel);
+
+        TaskResult result = task.run(Example.of("q", "a")).get();
+
+        assertThat(result.outputs()).containsEntry("output", "");
     }
 
     @Test

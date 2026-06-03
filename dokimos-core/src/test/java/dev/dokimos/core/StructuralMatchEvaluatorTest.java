@@ -108,8 +108,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void lenientIgnoresExtraField() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         var result = evaluator.evaluate(testCase(map("a", 1), map("a", 1, "b", 2)));
 
@@ -120,17 +121,21 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void lenientIgnoresArrayOrderAsMultiset() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
-        assertThat(evaluator.evaluate(testCase(List.of(1, 2, 3), List.of(3, 1, 2))).score())
+        assertThat(evaluator
+                        .evaluate(testCase(List.of(1, 2, 3), List.of(3, 1, 2)))
+                        .score())
                 .isEqualTo(1.0);
     }
 
     @Test
     void lenientMultisetRejectsMissingDuplicate() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         // [1,1,2] vs [1,2] -> one of the two expected 1's is unmatched.
         var result = evaluator.evaluate(testCase(List.of(1, 1, 2), List.of(1, 2)));
@@ -140,8 +145,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void lenientSubsetMatchScoresOne() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         Object expected = map("name", "Ada");
         Object actual = map("name", "Ada", "age", 36, "email", "ada@example.com");
@@ -150,8 +156,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void lenientNullEqualsMissing() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         Map<String, Object> expected = map("a", 1);
         expected.put("b", null);
@@ -166,8 +173,8 @@ class StructuralMatchEvaluatorTest {
     void bigDecimalScaleInsensitive() {
         var evaluator = StructuralMatchEvaluator.builder().build();
 
-        var result = evaluator.evaluate(testCase(map("p", new java.math.BigDecimal("1.0")),
-                map("p", new java.math.BigDecimal("1.00"))));
+        var result = evaluator.evaluate(
+                testCase(map("p", new java.math.BigDecimal("1.0")), map("p", new java.math.BigDecimal("1.00"))));
 
         assertThat(result.score()).isEqualTo(1.0);
     }
@@ -191,8 +198,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void partialScoreNineOfTenLenient() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         Map<String, Object> expected = new LinkedHashMap<>();
         Map<String, Object> actual = new LinkedHashMap<>();
@@ -211,10 +219,14 @@ class StructuralMatchEvaluatorTest {
     void binaryCollapsesToOneOrZero() {
         var evaluator = StructuralMatchEvaluator.builder().binary().build();
 
-        assertThat(evaluator.evaluate(testCase(map("a", 1), map("a", 1))).score()).isEqualTo(1.0);
-        assertThat(evaluator.evaluate(testCase(map("a", 1), map("a", 2))).score()).isEqualTo(0.0);
+        assertThat(evaluator.evaluate(testCase(map("a", 1), map("a", 1))).score())
+                .isEqualTo(1.0);
+        assertThat(evaluator.evaluate(testCase(map("a", 1), map("a", 2))).score())
+                .isEqualTo(0.0);
         // any difference collapses, even a single mismatched leaf among many.
-        assertThat(evaluator.evaluate(testCase(map("a", 1, "b", 2), map("a", 1, "b", 3))).score())
+        assertThat(evaluator
+                        .evaluate(testCase(map("a", 1, "b", 2), map("a", 1, "b", 3)))
+                        .score())
                 .isEqualTo(0.0);
     }
 
@@ -258,7 +270,8 @@ class StructuralMatchEvaluatorTest {
     void nullExpectedThrows() {
         var evaluator = StructuralMatchEvaluator.builder().build();
 
-        var testCase = EvalTestCase.builder().actualOutput("output", map("a", 1)).build();
+        var testCase =
+                EvalTestCase.builder().actualOutput("output", map("a", 1)).build();
 
         assertThatThrownBy(() -> evaluator.evaluate(testCase))
                 .isInstanceOf(EvaluationException.class)
@@ -269,7 +282,9 @@ class StructuralMatchEvaluatorTest {
     void absentActualScoresZero() {
         var evaluator = StructuralMatchEvaluator.builder().build();
 
-        var testCase = EvalTestCase.builder().expectedOutput("output", map("a", 1, "b", 2)).build();
+        var testCase = EvalTestCase.builder()
+                .expectedOutput("output", map("a", 1, "b", 2))
+                .build();
 
         // actual normalizes to a null node; both expected leaves mismatch.
         var result = evaluator.evaluate(testCase);
@@ -303,8 +318,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void bothStringOperandsParsedAsJson() {
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
         var testCase = EvalTestCase.builder()
                 .expectedOutput("output", "{\"a\":1}")
@@ -332,11 +348,11 @@ class StructuralMatchEvaluatorTest {
     void lenientArrayMatchingPairsSubsetAndSpecificElementsOptimally() {
         // Regression: greedy first-fit let the subset element {a:1} steal the {a:1,b:2} actual,
         // starving the specific expected element. Maximum bipartite matching pairs both -> 1.0.
-        var evaluator =
-                StructuralMatchEvaluator.builder().mode(StructuralMatchMode.LENIENT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.LENIENT)
+                .build();
 
-        var testCase = testCase(
-                List.of(map("a", 1), map("a", 1, "b", 2)), List.of(map("a", 1, "b", 2), map("a", 1)));
+        var testCase = testCase(List.of(map("a", 1), map("a", 1, "b", 2)), List.of(map("a", 1, "b", 2), map("a", 1)));
 
         assertThat(evaluator.evaluate(testCase).score()).isEqualTo(1.0);
     }
@@ -354,7 +370,9 @@ class StructuralMatchEvaluatorTest {
 
     @Test
     void strictTypeMismatchArrayVsObjectScoresZero() {
-        var evaluator = StructuralMatchEvaluator.builder().mode(StructuralMatchMode.STRICT).build();
+        var evaluator = StructuralMatchEvaluator.builder()
+                .mode(StructuralMatchMode.STRICT)
+                .build();
 
         var testCase = testCase(map("a", List.of(1)), map("a", map("x", 1)));
 

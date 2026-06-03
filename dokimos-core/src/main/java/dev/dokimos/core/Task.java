@@ -24,9 +24,8 @@ public interface Task {
      * {@code EvalTestCase} and is matched structurally by {@code StructuralMatchEvaluator}.
      * <p>
      * <strong>Map guard:</strong> if {@code fn} itself returns a {@link Map}, that map is used
-     * directly as the output map rather than being nested under {@code "output"}. This lets a task
-     * that already speaks the multi-key output convention coexist with the typed convenience without
-     * accidental double-nesting. The map is assumed to use {@code String} keys.
+     * directly as the output map rather than being nested under {@code "output"}. The map is assumed
+     * to use {@code String} keys.
      *
      * @param fn the function producing the output value for an {@link Example} (may return a
      *     {@link Map}, which is used as the output map directly)

@@ -76,13 +76,9 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
      * Renders a raw output value for inclusion in the judge prompt.
      *
      * <p>Strings and primitive/boxed-primitive values (numbers, booleans, characters) are rendered
-     * verbatim via {@link String#valueOf(Object)}, which is byte-for-byte identical to the historical
-     * behavior of stringifying the output. Any other value (a POJO, {@link java.util.Map}, {@link
-     * java.util.List}, etc.) is rendered as pretty-printed JSON via {@link Json#writePretty(Object)}.
-     *
-     * <p>This is an intentional, documented behavior change for structured outputs: a {@code Map} or
-     * {@code List} that previously rendered via Java's {@code toString()} now renders as JSON, giving
-     * the judge a faithful, parseable view of the structured value. Scalar outputs are unaffected.
+     * verbatim via {@link String#valueOf(Object)}. Any other value (a POJO, {@link java.util.Map},
+     * {@link java.util.List}, etc.) is rendered as pretty-printed JSON via
+     * {@link Json#writePretty(Object)}, giving the judge a parseable view of the structured value.
      *
      * @param value the raw output value (may be {@code null})
      * @return the rendered representation; {@code "null"} when {@code value} is {@code null}

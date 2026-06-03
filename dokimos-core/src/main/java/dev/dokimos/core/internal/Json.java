@@ -47,13 +47,12 @@ public final class Json {
     private static final ObjectWriter PRETTY_WRITER;
 
     static {
-        MAPPER =
-                JsonMapper.builder()
-                        // Reject NaN / Infinity tokens when parsing: Jackson's NaN == NaN is the
-                        // opposite of Java, which would silently corrupt structural comparison.
-                        .disable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
-                        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                        .build();
+        MAPPER = JsonMapper.builder()
+                // Reject NaN / Infinity tokens when parsing: Jackson's NaN == NaN is the
+                // opposite of Java, which would silently corrupt structural comparison.
+                .disable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
 
         READER = MAPPER.reader();
         COMPARISON_READER = MAPPER.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION);
@@ -176,8 +175,7 @@ public final class Json {
 
     /**
      * Resolves a Jackson {@link JavaType} from a generic {@link java.lang.reflect.Type}. Used to
-     * bridge an {@code OutputType<T>}'s captured type into the conversion machinery without exposing
-     * Jackson on the public API.
+     * bridge an {@code OutputType<T>}'s captured type into the conversion machinery.
      *
      * @param type the generic type to resolve
      * @return the corresponding Jackson {@link JavaType}

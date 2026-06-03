@@ -121,8 +121,10 @@ class ToolCallTest {
     void shouldSerializeResultJsonForRecordValue() {
         record Booking(String confirmation, int nights) {}
 
-        var call =
-                ToolCall.builder().name("book_hotel").resultJson(new Booking("ABC123", 3)).build();
+        var call = ToolCall.builder()
+                .name("book_hotel")
+                .resultJson(new Booking("ABC123", 3))
+                .build();
 
         assertThat(call.result()).isEqualTo("{\"confirmation\":\"ABC123\",\"nights\":3}");
     }

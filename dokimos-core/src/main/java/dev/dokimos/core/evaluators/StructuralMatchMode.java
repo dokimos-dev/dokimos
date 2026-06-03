@@ -7,8 +7,6 @@ package dev.dokimos.core.evaluators;
  * <p>Both modes are numeric-value-aware: a number compares by value, not by representation, so {@code
  * 5} and {@code 5.0} (and {@code 1.0} versus {@code 1.00}) always match in either mode. The modes
  * differ only on how they treat object field sets and array ordering.
- *
- * <p>Modeled on Spring's {@code org.springframework.test.json.JsonCompareMode}.
  */
 public enum StructuralMatchMode {
 

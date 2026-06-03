@@ -40,8 +40,8 @@ class ExperimentAsyncTest {
                 .addExample(Example.of("What is 3*3?", "9"))
                 .build();
 
-        AsyncTask task = example ->
-                CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
+        AsyncTask task =
+                example -> CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput())));
 
         var result = Experiment.builder()
                 .name("async-happy")
@@ -289,8 +289,8 @@ class ExperimentAsyncTest {
         Experiment.builder()
                 .name("async-reporter")
                 .dataset(dataset)
-                .asyncTask(example -> CompletableFuture.completedFuture(
-                        TaskResult.of(Map.of("output", example.expectedOutput()))))
+                .asyncTask(example ->
+                        CompletableFuture.completedFuture(TaskResult.of(Map.of("output", example.expectedOutput()))))
                 .evaluator(passingEvaluator())
                 .reporter(tracker)
                 .build()

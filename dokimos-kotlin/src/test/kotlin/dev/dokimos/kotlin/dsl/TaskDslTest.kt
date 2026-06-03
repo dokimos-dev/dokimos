@@ -14,8 +14,7 @@ class TaskDslTest {
 
     data class Whisky(val name: String, val age: Int)
 
-    private fun exampleWith(input: String): Example =
-        Example.builder().input("input", input).build()
+    private fun exampleWith(input: String): Example = Example.builder().input("input", input).build()
 
     @Test
     fun `typedTask wraps the produced value under the output key`() {

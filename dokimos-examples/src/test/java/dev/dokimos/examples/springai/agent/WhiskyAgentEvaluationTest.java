@@ -22,11 +22,11 @@ import org.springframework.ai.chat.messages.ToolResponseMessage;
 /**
  * Deterministic, network-free evaluation of the whisky agent. Runs in CI with no API key.
  *
- * <p>Demonstrates the two simplifications jettro's blog asked for:
+ * <p>Demonstrates two things:
  *
  * <ul>
  *   <li>Spring AI messages become a Dokimos {@link AgentTrace} in one
- *       {@code SpringAiSupport.toAgentTrace(...)} call — no hand-written mapping.
+ *       {@code SpringAiSupport.toAgentTrace(...)} call.
  *   <li>Tool results and final outputs stay structured ({@code List<Whisky>}, {@code Whisky})
  *       through {@link ToolCall.Builder#resultJson(Object)} and the typed output accessors — no
  *       escaped JSON strings.
@@ -60,7 +60,7 @@ class WhiskyAgentEvaluationTest {
     @Test
     void mapsSpringAiMessagesToTraceInOneCall() {
         // Build the Spring AI messages by hand (no client, no network) and let the support class do
-        // the AssistantMessage -> AgentTrace mapping jettro previously wrote out longhand.
+        // the AssistantMessage -> AgentTrace mapping.
         List<Whisky> islay12 = CATALOG.search("Islay 12");
         AssistantMessage assistantMessage = AssistantMessage.builder()
                 .content("I'd suggest Ardbeg An Oa.")
@@ -68,12 +68,10 @@ class WhiskyAgentEvaluationTest {
                         "call-1", "function", "searchWhiskies", "{\"query\":\"peaty Islay 12\"}")))
                 .build();
         ToolResponseMessage toolResponse = ToolResponseMessage.builder()
-                .responses(List.of(new ToolResponseMessage.ToolResponse(
-                        "call-1", "searchWhiskies", json(islay12))))
+                .responses(List.of(new ToolResponseMessage.ToolResponse("call-1", "searchWhiskies", json(islay12))))
                 .build();
 
-        AgentTrace trace = dev.dokimos.springai.SpringAiSupport.toAgentTrace(
-                assistantMessage, List.of(toolResponse));
+        AgentTrace trace = dev.dokimos.springai.SpringAiSupport.toAgentTrace(assistantMessage, List.of(toolResponse));
 
         assertThat(trace.toolNames()).containsExactly("searchWhiskies");
         assertThat(trace.toolCalls().get(0).arguments()).containsEntry("query", "peaty Islay 12");
@@ -83,7 +81,8 @@ class WhiskyAgentEvaluationTest {
     @Test
     void validTraceWithStructuredToolResultPassesAgentEvaluators() {
         AgentTrace trace = peatyIslayTrace();
-        EvalTestCase testCase = trace.toTestCase("Find me a peaty Islay whisky around 12 years old", List.of(SEARCH_TOOL));
+        EvalTestCase testCase =
+                trace.toTestCase("Find me a peaty Islay whisky around 12 years old", List.of(SEARCH_TOOL));
 
         EvalResult validity = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
         assertThat(validity.score()).isEqualTo(1.0);
@@ -100,7 +99,10 @@ class WhiskyAgentEvaluationTest {
     void unknownToolFailsValidity() {
         AgentTrace trace = AgentTrace.builder()
                 .finalResponse("done")
-                .addToolCall(ToolCall.builder().name("lookupBottle").argument("query", "Islay").build())
+                .addToolCall(ToolCall.builder()
+                        .name("lookupBottle")
+                        .argument("query", "Islay")
+                        .build())
                 .build();
         EvalTestCase testCase = trace.toTestCase("Find a whisky", List.of(SEARCH_TOOL));
 
@@ -123,7 +125,10 @@ class WhiskyAgentEvaluationTest {
                 .build();
         EvalTestCase testCase = withExpectedToolCalls(
                 trace.toTestCase("Find a peaty Islay whisky", List.of(SEARCH_TOOL)),
-                ToolCall.builder().name("searchWhiskies").argument("query", "Islay").build());
+                ToolCall.builder()
+                        .name("searchWhiskies")
+                        .argument("query", "Islay")
+                        .build());
 
         EvalResult correctness = ToolCorrectnessEvaluator.builder()
                 .matchMode(ToolCorrectnessEvaluator.MatchMode.NAMES_AND_ARGS)

@@ -43,8 +43,7 @@ class JsonTest {
 
     @Test
     void convertRoundTripsAGenericList() throws Exception {
-        List<Map<String, Object>> raw =
-                List.of(Map.of("name", "Ardbeg", "age", 10), Map.of("name", "Oban", "age", 14));
+        List<Map<String, Object>> raw = List.of(Map.of("name", "Ardbeg", "age", 10), Map.of("name", "Oban", "age", 14));
         java.lang.reflect.Type listOfWhisky =
                 JsonTest.class.getDeclaredField("listOfWhiskyField").getGenericType();
         JavaType listType = Json.resolveType(listOfWhisky);
@@ -90,19 +89,17 @@ class JsonTest {
 
     @Test
     void mapperIsThreadSafeUnderParallelUse() {
-        List<Whisky> results =
-                IntStream.range(0, 2000)
-                        .parallel()
-                        .mapToObj(
-                                i -> {
-                                    String json = Json.writeCompact(new Whisky("W" + i, i));
-                                    try {
-                                        return Json.reader().readValue(json, Whisky.class);
-                                    } catch (Exception e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                })
-                        .toList();
+        List<Whisky> results = IntStream.range(0, 2000)
+                .parallel()
+                .mapToObj(i -> {
+                    String json = Json.writeCompact(new Whisky("W" + i, i));
+                    try {
+                        return Json.reader().readValue(json, Whisky.class);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .toList();
 
         assertThat(results).hasSize(2000);
         assertThat(results).contains(new Whisky("W7", 7), new Whisky("W1999", 1999));

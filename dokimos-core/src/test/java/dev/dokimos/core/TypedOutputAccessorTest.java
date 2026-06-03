@@ -26,9 +26,7 @@ class TypedOutputAccessorTest {
     @Test
     void readsGenericListViaOutputType() {
         var testCase = EvalTestCase.builder()
-                .actualOutput(
-                        "output",
-                        List.of(Map.of("name", "Ardbeg", "age", 10), Map.of("name", "Oban", "age", 14)))
+                .actualOutput("output", List.of(Map.of("name", "Ardbeg", "age", 10), Map.of("name", "Oban", "age", 14)))
                 .build();
 
         List<Whisky> whiskies = testCase.actualOutputAs(new OutputType<List<Whisky>>() {});
@@ -74,9 +72,8 @@ class TypedOutputAccessorTest {
 
     @Test
     void unconvertibleValueThrowsForOutputType() {
-        var testCase = EvalTestCase.builder()
-                .actualOutput("output", "not a list")
-                .build();
+        var testCase =
+                EvalTestCase.builder().actualOutput("output", "not a list").build();
 
         assertThatThrownBy(() -> testCase.actualOutputAs(new OutputType<List<Whisky>>() {}))
                 .isInstanceOf(DokimosTypeConversionException.class);
@@ -113,9 +110,7 @@ class TypedOutputAccessorTest {
 
     @Test
     void exampleUnconvertibleValueThrows() {
-        var example = Example.builder()
-                .expectedOutput("output", "not a whisky")
-                .build();
+        var example = Example.builder().expectedOutput("output", "not a whisky").build();
 
         assertThatThrownBy(() -> example.expectedOutputAs(Whisky.class))
                 .isInstanceOf(DokimosTypeConversionException.class);

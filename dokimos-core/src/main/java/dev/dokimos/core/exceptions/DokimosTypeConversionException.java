@@ -11,8 +11,7 @@ package dev.dokimos.core.exceptions;
  * failed rather than aborting the whole run.
  *
  * <p>The underlying cause (a Jackson conversion error) is attached via {@link #getCause()} for
- * diagnostics, but no Jackson type appears on this class's public API by design — the cause is typed
- * only as {@link Throwable}.
+ * diagnostics, typed as {@link Throwable}.
  */
 public class DokimosTypeConversionException extends RuntimeException {
 
@@ -30,8 +29,7 @@ public class DokimosTypeConversionException extends RuntimeException {
      *
      * @param message a human-readable description of the conversion failure
      * @param cause the underlying error that triggered the failure (for example a Jackson conversion
-     *     error); exposed only as a {@link Throwable} so no JSON-library type leaks onto the public
-     *     API
+     *     error), typed as {@link Throwable}
      */
     public DokimosTypeConversionException(String message, Throwable cause) {
         super(message, cause);

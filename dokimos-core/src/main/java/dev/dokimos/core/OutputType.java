@@ -10,9 +10,8 @@ import java.util.Objects;
  * A super-type token that captures a full generic type {@code T} (including its type arguments) at
  * compile time so it survives erasure at runtime.
  *
- * <p>This is the "Gafter gadget" pattern (also used by Spring's {@code ParameterizedTypeReference}
- * and Jackson's {@code TypeReference}). It lets the typed output accessors convert a stored value
- * into a generic target such as {@code List<Whisky>}, which a plain {@code Class<T>} cannot express.
+ * <p>It lets the typed output accessors convert a stored value into a generic target such as
+ * {@code List<Whisky>}, which a plain {@code Class<T>} cannot express.
  *
  * <p>Always instantiate it as an anonymous subclass so the type argument is recorded in the class's
  * generic supertype:
@@ -22,10 +21,7 @@ import java.util.Objects;
  * List<Whisky> whiskies = testCase.actualOutputAs(type);
  * }</pre>
  *
- * <p>For a non-generic target a plain {@code Class<T>} accessor is simpler and preferred.
- *
- * <p>This type is Jackson-free on its public surface by design; the Jackson {@link JavaType} it
- * resolves to is an internal implementation detail.
+ * <p>For a non-generic target, use a plain {@code Class<T>} accessor instead.
  *
  * @param <T> the captured output type
  */
@@ -43,16 +39,14 @@ public abstract class OutputType<T> {
     protected OutputType() {
         Type superClass = getClass().getGenericSuperclass();
         if (!(superClass instanceof ParameterizedType parameterized)) {
-            throw new IllegalArgumentException(
-                    "OutputType must be created with an actual type argument, e.g."
-                            + " new OutputType<List<Whisky>>() {} — it was constructed raw.");
+            throw new IllegalArgumentException("OutputType must be created with an actual type argument, e.g."
+                    + " new OutputType<List<Whisky>>() {} — it was constructed raw.");
         }
         this.type = parameterized.getActualTypeArguments()[0];
     }
 
     /**
-     * The captured generic type. Exposed so callers can introspect the token; conversion goes
-     * through the internal resolver.
+     * The captured generic type.
      *
      * @return the captured {@link Type}
      */
@@ -61,9 +55,8 @@ public abstract class OutputType<T> {
     }
 
     /**
-     * Resolves this token to the Jackson {@link JavaType} used internally for value conversion. Not
-     * part of the public API contract — package-private on purpose to keep Jackson off the public
-     * surface.
+     * Resolves this token to the Jackson {@link JavaType} used internally for value conversion.
+     * Package-private; not part of the public API.
      *
      * @return the resolved Jackson type
      */

@@ -257,12 +257,12 @@ public final class LangChain4jSupport {
     /**
      * Creates an {@link AsyncTask} for RAG evaluation from a function that returns {@link Result}.
      *
-     * <p>This is the asynchronous counterpart to {@link #ragTask(Function)}: the blocking assistant
-     * call is dispatched on the common {@link java.util.concurrent.ForkJoinPool} via
+     * <p>Async version of {@link #ragTask(Function)}: the blocking assistant call is dispatched on the
+     * common {@link java.util.concurrent.ForkJoinPool} via
      * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}, so the experiment's async
      * execution path can keep many calls in flight without a thread blocked per example. The output
      * and retrieved context are written under the {@link #OUTPUT_KEY default} and
-     * {@link #CONTEXT_KEY context} keys, mirroring {@link #ragTask(Function)}.
+     * {@link #CONTEXT_KEY context} keys.
      *
      * <p>Note: because the call blocks on the common pool, the experiment's {@code parallelism} bounds
      * how many invocations are launched, but the effective concurrency of the blocking call is also
@@ -389,9 +389,8 @@ public final class LangChain4jSupport {
     /**
      * Creates a simple {@link AsyncTask} for Q&amp;A evaluation from a LangChain4j {@link ChatModel}.
      *
-     * <p>This is the asynchronous counterpart to {@link #simpleTask(ChatModel)}: the blocking
-     * {@code model.chat(...)} call is dispatched on the common
-     * {@link java.util.concurrent.ForkJoinPool} via
+     * <p>Async version of {@link #simpleTask(ChatModel)}: the blocking {@code model.chat(...)} call is
+     * dispatched on the common {@link java.util.concurrent.ForkJoinPool} via
      * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}. The response is written
      * under the {@link #OUTPUT_KEY default output key}.
      *

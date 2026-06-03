@@ -202,8 +202,7 @@ public record EvalTestCase(
         try {
             return Json.convert(value, type);
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException(
-                    "Cannot convert output value to " + type.getName(), e);
+            throw new DokimosTypeConversionException("Cannot convert output value to " + type.getName(), e);
         }
     }
 
@@ -214,8 +213,7 @@ public record EvalTestCase(
         try {
             return Json.convert(value, type.toJavaType());
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException(
-                    "Cannot convert output value to " + type, e);
+            throw new DokimosTypeConversionException("Cannot convert output value to " + type, e);
         }
     }
 

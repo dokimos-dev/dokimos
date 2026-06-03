@@ -31,11 +31,10 @@ class OutputTypeTest {
 
     @Test
     void rawConstructionThrowsIllegalArgumentException() {
-        assertThatThrownBy(
-                        () -> {
-                            @SuppressWarnings({"rawtypes", "unused"})
-                            OutputType raw = new OutputType() {};
-                        })
+        assertThatThrownBy(() -> {
+                    @SuppressWarnings({"rawtypes", "unused"})
+                    OutputType raw = new OutputType() {};
+                })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("actual type argument");
     }

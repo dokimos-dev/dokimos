@@ -124,13 +124,9 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
          * (single-line) JSON and storing it in the same {@code result} string component used by
          * {@link #result(String)}.
          * <p>
-         * This is a convenience for callers whose tool produced a structured value (a record, map,
-         * list, or other POJO) rather than a pre-rendered string. A {@code null} value serializes to
-         * the JSON literal {@code "null"}.
-         * <p>
-         * Deliberately given a distinct name rather than overloading {@link #result(String)} so the
-         * serialization behavior is never selected silently by the static type of the argument (see
-         * <em>Effective Java</em>, Item 52).
+         * Use for a tool that produced a structured value (a record, map, list, or other POJO)
+         * rather than a pre-rendered string. A {@code null} value serializes to the JSON literal
+         * {@code "null"}.
          *
          * @param value the value to serialize as the result (may be {@code null})
          * @return this builder

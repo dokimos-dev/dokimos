@@ -5,11 +5,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A non-blocking task that produces a {@link TaskResult} asynchronously.
  * <p>
- * {@code AsyncTask} is the asynchronous counterpart to {@link MeasuredTask}: it returns a
- * {@link CompletableFuture} so suspend-based or reactive callers (for example Koog agents or
- * Reactor pipelines) can drive an experiment without blocking a thread per example. The completed
- * future carries the same {@link TaskResult} carrier used by the synchronous paths, so call
- * metrics flow through to each {@link ItemResult} exactly as they do for {@link MeasuredTask}.
+ * It returns a {@link CompletableFuture} so suspend-based or reactive callers (for example Koog
+ * agents or Reactor pipelines) can drive an experiment without blocking a thread per example. The
+ * completed future carries a {@link TaskResult}, so call metrics flow through to each
+ * {@link ItemResult} as they do for {@link MeasuredTask}.
  * <p>
  * Set an async task on an experiment via {@link Experiment.Builder#asyncTask(AsyncTask)}. When an
  * async task is configured the experiment runs through a dedicated bounded async execution path

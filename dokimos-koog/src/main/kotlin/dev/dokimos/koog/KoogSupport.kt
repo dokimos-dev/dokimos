@@ -69,8 +69,8 @@ fun asJudge(agent: () -> AIAgent<String, String>): JudgeLM = asJudge { input -> 
  * via the kotlinx-coroutines `future` builder. A suspend exception surfaces as an exceptionally
  * completed future, which the experiment isolates as a failed item while the run continues.
  *
- * [GlobalScope] is the default because this is a fire-and-bridge-to-future adapter with no parent
- * lifecycle to inherit; pass your own [scope] to opt into structured concurrency.
+ * [GlobalScope] is the default (the launched coroutine has no parent lifecycle to inherit); pass your
+ * own [scope] to opt into structured concurrency.
  *
  * The suspend body receives the full [Example] and returns a [TaskResult] (use [TaskResult.of] when
  * there are no call metrics).
@@ -81,12 +81,10 @@ fun asJudge(agent: () -> AIAgent<String, String>): JudgeLM = asJudge { input -> 
  * @see asTask for adapting a suspend call that returns the model output text directly
  */
 @OptIn(DelicateCoroutinesApi::class)
-fun asTask(
-    scope: CoroutineScope = GlobalScope,
-    agentCall: suspend (Example) -> TaskResult,
-): AsyncTask = AsyncTask { example ->
-    scope.future(Dispatchers.IO) { agentCall(example) }
-}
+fun asTask(scope: CoroutineScope = GlobalScope, agentCall: suspend (Example) -> TaskResult): AsyncTask =
+    AsyncTask { example ->
+        scope.future(Dispatchers.IO) { agentCall(example) }
+    }
 
 /**
  * Adapts a `suspend` agent call that returns the model output text into a Dokimos [AsyncTask].
@@ -103,14 +101,12 @@ fun asTask(
  * @throws IllegalArgumentException if the agent response content is blank.
  */
 @OptIn(DelicateCoroutinesApi::class)
-fun asTextTask(
-    scope: CoroutineScope = GlobalScope,
-    agentCall: suspend (String) -> String,
-): AsyncTask = asTask(scope) { example ->
-    val content = agentCall(example.input())
-    require(content.isNotBlank()) { "Agent response content was blank" }
-    TaskResult.of(mapOf(OUTPUT_KEY to content))
-}
+fun asTextTask(scope: CoroutineScope = GlobalScope, agentCall: suspend (String) -> String): AsyncTask =
+    asTask(scope) { example ->
+        val content = agentCall(example.input())
+        require(content.isNotBlank()) { "Agent response content was blank" }
+        TaskResult.of(mapOf(OUTPUT_KEY to content))
+    }
 
 /**
  * Executes the `run` method of the `AIAgent` in a blocking coroutine context.

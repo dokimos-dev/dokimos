@@ -174,9 +174,7 @@ public class Experiment {
                         // A null future would NPE the driving thread and abort the whole run; isolate it.
                         gate.release();
                         return CompletableFuture.completedFuture(failedItemResult(
-                                example,
-                                null,
-                                new NullPointerException("AsyncTask.run(...) returned a null future")));
+                                example, null, new NullPointerException("AsyncTask.run(...) returned a null future")));
                     }
                     return taskFuture
                             .handle((taskResult, error) -> toItemResult(example, taskResult, error))
@@ -186,8 +184,7 @@ public class Experiment {
 
         CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 
-        List<ItemResult> results =
-                futures.stream().map(CompletableFuture::join).toList();
+        List<ItemResult> results = futures.stream().map(CompletableFuture::join).toList();
 
         // Report items after completion to maintain ordering in reports.
         results.forEach(itemResult -> reporter.reportItem(runHandle, itemResult));
@@ -197,9 +194,8 @@ public class Experiment {
 
     private ItemResult toItemResult(Example example, TaskResult taskResult, Throwable error) {
         if (error != null) {
-            Throwable cause = error instanceof CompletionException && error.getCause() != null
-                    ? error.getCause()
-                    : error;
+            Throwable cause =
+                    error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
             return failedItemResult(example, null, cause);
         }
         Map<String, Object> actualOutputs = taskResult.outputs();
@@ -284,9 +280,6 @@ public class Experiment {
 
         /**
          * Sets a measured task that carries {@link CallMetrics} through to each {@link ItemResult}.
-         * <p>
-         * Named distinctly from {@link #task(Task)} so a lambda passed to {@code task(...)} is never
-         * ambiguous between the two functional interfaces.
          *
          * @param measuredTask The task to generate outputs and metrics from examples.
          * @return builder

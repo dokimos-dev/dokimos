@@ -116,8 +116,7 @@ class KoogSupportTest {
     }
 
     companion object {
-        fun exampleWith(input: String): Example =
-            Example.builder().input("input", input).build()
+        fun exampleWith(input: String): Example = Example.builder().input("input", input).build()
 
         fun mockAgent(modelResponse: String) = AIAgent(
             promptExecutor = getMockExecutor {

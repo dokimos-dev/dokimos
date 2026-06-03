@@ -80,8 +80,7 @@ class SpringAiAsyncTaskTest {
 
     @Test
     void asyncTask_shouldRejectNullClient() {
-        assertThatThrownBy(() -> SpringAiSupport.asyncTask(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SpringAiSupport.asyncTask(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -123,8 +122,8 @@ class SpringAiAsyncTaskTest {
 
     @Test
     void reactiveTask_shouldReceiveTheExample() throws Exception {
-        AsyncTask task = SpringAiSupport.reactiveTask(
-                example -> Mono.just(TaskResult.of(Map.of("output", example.input()))));
+        AsyncTask task =
+                SpringAiSupport.reactiveTask(example -> Mono.just(TaskResult.of(Map.of("output", example.input()))));
 
         TaskResult result = task.run(Example.of("echo me", "a")).get();
 
@@ -133,8 +132,7 @@ class SpringAiAsyncTaskTest {
 
     @Test
     void reactiveTask_shouldPropagateMonoError() {
-        AsyncTask task = SpringAiSupport.reactiveTask(
-                example -> Mono.error(new IllegalStateException("boom")));
+        AsyncTask task = SpringAiSupport.reactiveTask(example -> Mono.error(new IllegalStateException("boom")));
 
         assertThatThrownBy(() -> task.run(Example.of("q", "a")).get())
                 .isInstanceOf(ExecutionException.class)
@@ -144,8 +142,7 @@ class SpringAiAsyncTaskTest {
 
     @Test
     void reactiveTask_shouldRejectNullFunction() {
-        assertThatThrownBy(() -> SpringAiSupport.reactiveTask(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SpringAiSupport.reactiveTask(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -168,7 +165,6 @@ class SpringAiAsyncTaskTest {
 
     @Test
     void reactiveStringTask_shouldRejectNullFunction() {
-        assertThatThrownBy(() -> SpringAiSupport.reactiveStringTask(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SpringAiSupport.reactiveStringTask(null)).isInstanceOf(IllegalArgumentException.class);
     }
 }

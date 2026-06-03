@@ -22,16 +22,15 @@ import org.springframework.ai.tool.method.MethodToolCallback;
 import org.springframework.ai.tool.support.ToolDefinitions;
 
 /**
- * Live, copy-me reference: run a Spring AI agent over a whisky-catalog tool, capture the trace, and
- * evaluate the agent's tool use with Dokimos.
+ * Runs a Spring AI agent over a whisky-catalog tool, captures the trace, and evaluates the agent's
+ * tool use with Dokimos.
  *
- * <p>This models the case from jettro's blog "Evals for Spring AI Agents with Dokimos" and shows the
- * two simplifications we shipped:
+ * <p>Demonstrates two things:
  *
  * <ol>
  *   <li>The {@link AssistantMessage} plus the {@link ToolResponseMessage}s become a Dokimos
  *       {@link AgentTrace} in a single {@link SpringAiSupport#toAgentTrace(AssistantMessage, List)}
- *       call — replacing the hand-written message-to-trace mapping.
+ *       call.
  *   <li>Tool results stay structured ({@code List<Whisky>}) rather than escaped JSON strings — see
  *       {@link WhiskyAgentEvaluationTest} for the structured-output comparison.
  * </ol>
@@ -62,8 +61,8 @@ public class WhiskyAgentExample {
                 .toolObject(tools)
                 .build();
 
-        // Run the model with internal tool execution OFF so we hold both the assistant message
-        // (with its tool calls) and the tool responses we run ourselves.
+        // Internal tool execution OFF so both the assistant message (with its tool calls) and the
+        // tool responses run here are available.
         ChatClient client = ChatClient.builder(chatModel)
                 .defaultOptions(OpenAiChatOptions.builder()
                         .internalToolExecutionEnabled(false)
@@ -72,26 +71,26 @@ public class WhiskyAgentExample {
                 .build();
 
         String userQuery = "Find me a peaty Islay whisky around 12 years old";
-        AssistantMessage assistantMessage =
-                client.prompt().user(userQuery).call().chatResponse().getResult().getOutput();
+        AssistantMessage assistantMessage = client.prompt()
+                .user(userQuery)
+                .call()
+                .chatResponse()
+                .getResult()
+                .getOutput();
 
         // Execute each tool call to collect its result.
         List<ToolResponseMessage> toolResponses = runToolCalls(assistantMessage, searchCallback);
 
-        // THE simplification: one call turns the Spring AI messages into a Dokimos trace.
-        // Previously this was a hand-written loop mapping each AssistantMessage.ToolCall and its
-        // matching ToolResponse into a ToolCall, parsing the arguments JSON by hand.
+        // One call turns the Spring AI messages into a Dokimos trace.
         AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponses);
 
-        // Tool definitions come straight from the Spring AI tool definition — no manual schema.
-        List<ToolDefinition> toolDefs =
-                SpringAiSupport.toToolDefinitions(List.of(searchCallback.getToolDefinition()));
+        // Tool definitions come from the Spring AI tool definition.
+        List<ToolDefinition> toolDefs = SpringAiSupport.toToolDefinitions(List.of(searchCallback.getToolDefinition()));
 
         // toTestCase wires output, toolCalls, and the tools/tasks metadata the evaluators need.
         EvalTestCase testCase = trace.toTestCase(userQuery, toolDefs, List.of(userQuery));
 
-        EvalResult validity =
-                ToolCallValidityEvaluator.builder().build().evaluate(testCase);
+        EvalResult validity = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
         EvalResult correctness = ToolCorrectnessEvaluator.builder()
                 .build()
                 .evaluate(EvalTestCase.builder()

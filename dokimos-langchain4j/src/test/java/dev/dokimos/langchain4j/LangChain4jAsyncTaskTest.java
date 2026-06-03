@@ -92,8 +92,7 @@ class LangChain4jAsyncTaskTest {
 
     @Test
     void asyncRagTask_shouldRejectNullAssistantCall() {
-        assertThatThrownBy(() -> LangChain4jSupport.asyncRagTask(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> LangChain4jSupport.asyncRagTask(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -135,8 +134,7 @@ class LangChain4jAsyncTaskTest {
 
     @Test
     void asyncTask_shouldRejectNullModel() {
-        assertThatThrownBy(() -> LangChain4jSupport.asyncTask(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> LangChain4jSupport.asyncTask(null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

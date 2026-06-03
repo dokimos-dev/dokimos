@@ -196,8 +196,7 @@ public class StructuralMatchEvaluator extends BaseEvaluator {
             if (match) {
                 diff.matched++;
             } else {
-                diff.differences.add(
-                        "%s: expected %s but was %s".formatted(path, render(expected), render(actual)));
+                diff.differences.add("%s: expected %s but was %s".formatted(path, render(expected), render(actual)));
             }
             return;
         }
@@ -205,8 +204,7 @@ public class StructuralMatchEvaluator extends BaseEvaluator {
         if (leafEquals(expected, actual)) {
             diff.matched++;
         } else {
-            diff.differences.add(
-                    "%s: expected %s but was %s".formatted(path, render(expected), render(actual)));
+            diff.differences.add("%s: expected %s but was %s".formatted(path, render(expected), render(actual)));
         }
     }
 
@@ -266,8 +264,8 @@ public class StructuralMatchEvaluator extends BaseEvaluator {
             if (expectedMatched[i]) {
                 diff.matched += leaves;
             } else {
-                diff.differences.add(
-                        "%s: no actual element matched expected %s".formatted(path + "[" + i + "]", render(expected.get(i))));
+                diff.differences.add("%s: no actual element matched expected %s"
+                        .formatted(path + "[" + i + "]", render(expected.get(i))));
             }
         }
     }

@@ -34,7 +34,7 @@ public record Example(
     }
 
     /**
-     * Creates an example with no dataset item id. Lets existing positional callers keep compiling.
+     * Creates an example with no dataset item id.
      *
      * @param inputs          the input values
      * @param expectedOutputs the expected output values
@@ -144,8 +144,7 @@ public record Example(
         try {
             return Json.convert(value, type);
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException(
-                    "Cannot convert output value to " + type.getName(), e);
+            throw new DokimosTypeConversionException("Cannot convert output value to " + type.getName(), e);
         }
     }
 
@@ -156,8 +155,7 @@ public record Example(
         try {
             return Json.convert(value, type.toJavaType());
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException(
-                    "Cannot convert output value to " + type, e);
+            throw new DokimosTypeConversionException("Cannot convert output value to " + type, e);
         }
     }
 

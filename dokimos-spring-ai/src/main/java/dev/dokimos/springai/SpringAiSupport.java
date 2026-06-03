@@ -317,8 +317,7 @@ public final class SpringAiSupport {
      * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
      * @throws IllegalArgumentException if {@code client}, {@code inputKey}, or {@code outputKey} is null
      */
-    public static AsyncTask asyncTask(
-            ChatClient client, String inputKey, String outputKey, Executor executor) {
+    public static AsyncTask asyncTask(ChatClient client, String inputKey, String outputKey, Executor executor) {
         if (client == null) {
             throw new IllegalArgumentException("ChatClient cannot be null");
         }
@@ -344,10 +343,9 @@ public final class SpringAiSupport {
     /**
      * Adapts a Reactor {@link Mono} of {@link TaskResult} to an {@link AsyncTask}.
      *
-     * <p>This is the bridge for reactive Spring AI pipelines: supply a function that produces a
-     * {@code Mono<TaskResult>} for an example, and the resulting task converts each Mono to a
-     * {@link CompletableFuture} via {@link Mono#toFuture()}. Reactor lives on the Spring AI classpath
-     * (provided scope), so dokimos-core stays free of any Reactor dependency.
+     * <p>For reactive Spring AI pipelines: supply a function that produces a {@code Mono<TaskResult>}
+     * for an example, and the resulting task converts each Mono to a {@link CompletableFuture} via
+     * {@link Mono#toFuture()}.
      *
      * <p>Example:
      * <pre>{@code

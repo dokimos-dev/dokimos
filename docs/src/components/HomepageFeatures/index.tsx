@@ -30,12 +30,12 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
-    title: "Framework integration",
+    title: "Framework agnostic",
     glyph: "⌘",
     description: (
       <>
-        Works with JUnit, Spring AI, LangChain4j, and Koog, so evaluations run in the test suite and
-        CI you already have.
+        The core depends on no AI framework, so it works with any LLM client. Optional one-line
+        integrations cover Spring AI, LangChain4j, Koog, and JUnit.
       </>
     ),
   },

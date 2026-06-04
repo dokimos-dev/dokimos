@@ -4,23 +4,30 @@ sidebar_position: 12
 
 # Review and curation
 
-Automated evaluators are not always right, and the cases they get wrong are exactly the ones worth adding to a dataset. The review queue gathers run items that still need a human verdict, lets you annotate them, and promotes the ones you have judged into a new dataset version. That closes the loop: a production miss becomes a regression test.
+Turn a production miss into a regression test. This page shows you how to find run items a human should check, record a verdict on each one, and promote the ones you judged into a new dataset version.
 
-## The review queue
+Automated evaluators get some cases wrong. Those cases are the ones worth adding to a dataset. The review queue collects items that need a human verdict, lets you annotate them, and lets you promote them into a new dataset version. Your next run is then gated on those items.
 
-Open **Review queue** in the web UI to see items waiting on a human, with enough context (input, expected output, produced output, and the automated eval results) to judge each one without opening its run first. An item appears when it has never been annotated, or when it was previously marked `UNSURE`.
+## See the queue
 
-Through the API:
+Open **Review queue** in the web UI. Each item shows enough context to judge it without opening its run: the input, the expected output, the produced output, and the automated eval results.
+
+An item shows up in two cases:
+
+- It has never been annotated.
+- It was annotated `UNSURE` last time.
+
+To read the queue from the API:
 
 ```bash
 curl 'http://localhost:8080/api/v1/review-queue?projectName=my-llm-app'
 ```
 
-The list is pageable and can be narrowed by `projectName`, `experimentId`, or `runId`.
+The list is paged. Narrow it with any of these query parameters: `projectName`, `experimentId`, or `runId`. Omit all three to get the global queue.
 
-## Annotating an item
+## Annotate an item
 
-A verdict is one of `CORRECT`, `INCORRECT`, or `UNSURE`. You can also record a corrected expected output and a free-text note. The annotation is keyed to the run item:
+Record a verdict for one run item. A verdict is one of `CORRECT`, `INCORRECT`, or `UNSURE`. You can also save a corrected expected output and a free-text note. The annotation is keyed to the run item:
 
 ```bash
 curl -X PUT \
@@ -33,11 +40,17 @@ curl -X PUT \
   }'
 ```
 
-`PUT` creates or replaces the annotation, `GET` reads it back, and `DELETE` removes it. When authentication is enabled the annotation records which principal made it. A `CORRECT` or `INCORRECT` verdict takes the item out of the queue; `UNSURE` keeps it there for another pass.
+What each verb does on that URL:
 
-## Promoting into a dataset
+- `PUT` creates the annotation, or replaces it if one already exists.
+- `GET` reads it back.
+- `DELETE` removes it.
 
-Once you have judged a batch of items, promote them into a new immutable version of an existing dataset. Each promoted item carries its input and expected output from the run, and you can override the expected output per item (for instance the correction you recorded while annotating):
+A `CORRECT` or `INCORRECT` verdict takes the item out of the queue. `UNSURE` keeps it in the queue for another pass. When authentication is on, the annotation records which principal made it.
+
+## Promote into a dataset
+
+Once you have judged a batch of items, add them to a new version of an existing dataset. Each promoted item carries its input and expected output from the run. You can override the expected output per item, for example the correction you saved while annotating:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/datasets/promote \
@@ -54,7 +67,7 @@ curl -X POST http://localhost:8080/api/v1/datasets/promote \
   }'
 ```
 
-The dataset named must already exist; promotion appends a version to it (it does not create a dataset). The response points at the new version, which you can then reference as `dataset://qa-regression@latest` from your tests. See [Server datasets](./datasets) for the dataset and version model.
+The dataset must already exist. Promotion appends a new immutable version to it. It does not create a dataset. The response points at the new version. Reference it from your tests as `dataset://qa-regression@latest`. See [Server datasets](./datasets) for the dataset and version model.
 
 ## The loop
 

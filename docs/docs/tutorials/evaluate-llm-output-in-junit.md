@@ -15,13 +15,13 @@ keywords:
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Most LLM evaluation tooling is Python-first. If you ship on the JVM, that means a second language, a second toolchain, and a separate pipeline just to check whether your model output is any good.
+This page shows you how to check whether your model's output is good from inside a plain JUnit test, so a quality drop turns your build red.
 
-Dokimos runs where your code already runs. This tutorial takes you from zero to a passing-or-failing LLM evaluation **inside your existing JUnit test suite** - the same `mvn test` your team already runs, the same CI that already gates your merges. No new service, no Python.
+Most LLM evaluation tooling is Python-first. If you ship on the JVM, that means a second language, a second toolchain, and a separate pipeline just to grade model output. Dokimos runs where your code already runs. You write the test in Java or Kotlin, run the same `mvn test` your team already runs, and let the CI that already gates your merges gate model quality too. No new service. No Python.
 
 By the end you will have:
 
-- A JUnit test that calls a model and asserts its output, failing the build when quality drops
+- A JUnit test that calls a model, asserts its output, and fails the build when quality drops
 - A deterministic check (exact match), a semantic check (an LLM judge), and a structured-output check
 - A dataset-driven test that runs many cases from one method
 
@@ -31,11 +31,11 @@ By the end you will have:
 - Maven or Gradle
 - An OpenAI API key exported as `OPENAI_API_KEY`
 
-This tutorial calls OpenAI directly through the [OpenAI Java SDK](https://github.com/openai/openai-java) so there is no framework prerequisite. If you already use Spring AI or LangChain4j, see the [Spring AI agent evaluation tutorial](/tutorials/spring-ai-agent-evaluation) instead.
+This tutorial calls OpenAI directly through the [OpenAI Java SDK](https://github.com/openai/openai-java), so there is no framework prerequisite. If you already use Spring AI or LangChain4j, see the [Spring AI agent evaluation tutorial](./spring-ai-agent-evaluation) instead.
 
 ## Step 1: Add the dependency
 
-Dokimos ships a JUnit integration. Add it in test scope alongside the core library.
+Add the Dokimos JUnit integration and core library in test scope.
 
 #### Maven
 
@@ -77,11 +77,11 @@ dependencies {
 }
 ```
 
-See [Installation](/getting-started/installation) for the current version and other build setups.
+See [Installation](../getting-started/installation) for the current version and other build setups.
 
 ## Step 2: Call the model and get text out
 
-Dokimos does not call the model for you - you bring your own call and hand the result to an evaluator. Here is a small helper that calls a `gpt-5.x` model through the OpenAI Responses API and returns the output text.
+Dokimos does not call the model for you. You bring your own call and hand the result to an evaluator. Here is a small helper that calls a `gpt-5.x` model through the OpenAI Responses API and returns the output text.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -141,13 +141,13 @@ fun ask(prompt: String): String {
   </TabItem>
 </Tabs>
 
-`OpenAIOkHttpClient.fromEnv()` reads `OPENAI_API_KEY` from the environment, so there are no secrets in your code.
+`OpenAIOkHttpClient.fromEnv()` reads `OPENAI_API_KEY` from the environment, so you keep no secrets in your code.
 
 ## Step 3: Write a deterministic eval
 
-For questions with one correct answer - math, extraction, a known fact - `ExactMatchEvaluator` is all you need. It compares the actual output to the expected output and the test fails when they differ.
+Some questions have one correct answer: math, extraction, a known fact. For these, use `ExactMatchEvaluator`. It compares the actual output to the expected output, and the test fails when they differ.
 
-Rather than hardcoding cases, drive them from a dataset resource so adding a case is a one-line edit. Create `src/test/resources/datasets/junit-tutorial-qa.json`:
+Drive the cases from a dataset file so adding a case is a one-line edit. Create `src/test/resources/datasets/junit-tutorial-qa.json`:
 
 ```json
 {
@@ -172,7 +172,7 @@ Rather than hardcoding cases, drive them from a dataset resource so adding a cas
 }
 ```
 
-Now `@DatasetSource` turns each example into one run of a parameterized test. `example.toTestCase(answer)` builds the `EvalTestCase`, and `Assertions.assertEval(...)` fails the test if any evaluator does not pass.
+`@DatasetSource` turns each example into one run of a parameterized test. `example.toTestCase(answer)` builds the `EvalTestCase`. `Assertions.assertEval(...)` fails the test if any evaluator does not pass.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -229,13 +229,13 @@ fun factualAnswerMatchesExactly(example: Example) {
   </TabItem>
 </Tabs>
 
-Run it with `mvn test`. Each dataset row is a separate test case in your IDE and your CI report.
+Run it with `mvn test`. Each dataset row shows up as a separate test case in your IDE and your CI report.
 
 ## Step 4: Add an LLM judge for open-ended answers
 
-Exact match breaks down the moment there is more than one correct phrasing. For open-ended output, use `LLMJudgeEvaluator`: it scores the answer against criteria you write in plain English, using an LLM as the grader. Use a cheaper model as the judge.
+Exact match breaks the moment an answer has more than one correct phrasing. For open-ended output, use `LLMJudgeEvaluator`. It scores the answer against criteria you write in plain English, using an LLM as the grader. Pick a cheaper model for the judge.
 
-The judge is just a [`JudgeLM`](/evaluation/evaluators#llmjudgeevaluator) - a one-method functional interface that takes a prompt and returns text - so you wrap the same OpenAI client.
+The judge is a [`JudgeLM`](../evaluation/evaluators#llmjudgeevaluator), a one-method functional interface that takes a prompt and returns text. So you wrap the same OpenAI client.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -338,13 +338,13 @@ fun openEndedAnswerIsHelpful() {
   </TabItem>
 </Tabs>
 
-The judge returns a score in `[0, 1]`; the test passes when it meets the `threshold`. See [LLMJudgeEvaluator](/evaluation/evaluators#llmjudgeevaluator) for scoring details.
+The judge returns a score in `[0, 1]`. The test passes when the score meets the `threshold`. See [LLMJudgeEvaluator](../evaluation/evaluators#llmjudgeevaluator) for scoring details.
 
 ## Step 5 (bonus): Assert on structured output
 
-Models increasingly return JSON. Comparing JSON as a string is brittle - `21` versus `21.0`, reordered keys, or extra whitespace all trip up `equals`. `StructuralMatchEvaluator` compares the two payloads as JSON structures, so numbers match by value and you choose how strict to be about field sets and array order.
+Models increasingly return JSON. Comparing JSON as a string is fragile. `21` versus `21.0`, reordered keys, and extra whitespace all break `equals`. `StructuralMatchEvaluator` compares the two payloads as JSON structures, so numbers match by value and you choose how strict to be about field sets and array order.
 
-Ask the model for JSON, parse it into a `Map`, store it under the `output` key, and compare it against the expected contract. Then read the same output back through the **typed accessor** `actualOutputAs(...)` - no manual map juggling.
+Ask the model for JSON, parse it into a `Map`, store it under the `output` key, and compare it against the expected contract. Then read the same output back through the typed accessor `actualOutputAs(...)`, with no manual map juggling.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -447,11 +447,11 @@ fun structuredOutputMatchesContract() {
   </TabItem>
 </Tabs>
 
-`LENIENT` mode lets the model add fields you do not care about (and ignores array order); switch to `StructuralMatchMode.STRICT` when the contract must be exact. See [StructuralMatchEvaluator](/evaluation/evaluators#structuralmatchevaluator) for the full scoring and mode rules.
+`LENIENT` mode lets the model add fields you do not care about, and it ignores array order. Switch to `StructuralMatchMode.STRICT` when the contract must be exact. See [StructuralMatchEvaluator](../evaluation/evaluators#structuralmatchevaluator) for the full scoring and mode rules.
 
 ## Step 6: Gate your build in CI
 
-The payoff: because these are ordinary JUnit tests, any CI that runs your tests already gates on them. When the model regresses below your thresholds, the build goes red.
+Here is the payoff. These are ordinary JUnit tests, so any CI that runs your tests already gates on them. When the model regresses below your thresholds, the build goes red.
 
 The only setup is making the API key available. In GitHub Actions:
 
@@ -488,14 +488,14 @@ Tests that hit a live model cost money and add latency. A common pattern is to t
 
 ## Next steps
 
-- Browse every built-in evaluator in the [Evaluators reference](/evaluation/evaluators)
-- Read the [JUnit integration guide](/integrations/junit) for more `@DatasetSource` options
-- Evaluating tool-using agents? See [Agent evaluation](/evaluation/agent-evaluation)
-- Track scores over time and compare runs with the [Dokimos Server](/server/overview)
+- Browse every built-in evaluator in the [Evaluators reference](../evaluation/evaluators)
+- Read the [JUnit integration guide](../integrations/junit) for more `@DatasetSource` options
+- Evaluating tool-using agents? See [Agent evaluation](../evaluation/agent-evaluation)
+- Track scores over time and compare runs with the [Dokimos Server](../server/overview)
 
 ## Resources
 
-- [Tutorial example code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/test/java/dev/dokimos/examples/junit5) - the complete, compiling test from this tutorial
+- [Tutorial example code](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/test/java/dev/dokimos/examples/junit5): the complete, compiling test from this tutorial
 - [OpenAI Java SDK](https://github.com/openai/openai-java)
 - [Dokimos GitHub repository](https://github.com/dokimos-dev/dokimos)
 

@@ -2,13 +2,16 @@
 sidebar_position: 4
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Deployment
 
-The same pre-built Docker image works everywhere—from your local machine to production. This guide shows you how to progressively add configuration as your needs grow.
+This page shows you how to run the Dokimos server, from your laptop to production. One pre-built Docker image works everywhere. You add configuration as your needs grow.
 
-## Local Development
+## Run it locally
 
-Perfect for trying things out or individual use.
+Start here to try things out or for individual use. Two commands:
 
 ```bash
 curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
@@ -17,18 +20,19 @@ docker compose up -d
 
 Open [http://localhost:8080](http://localhost:8080). Done.
 
-**What you get:**
-- PostgreSQL database with persistent storage
-- Dokimos server on port 8080
-- No authentication (open access)
+You now have:
 
-## Team Server
+- A PostgreSQL database with persistent storage.
+- The Dokimos server on port 8080.
+- No authentication (open access).
 
-Share results across your team by running on a shared machine or VM.
+## Run it for your team
 
-### Add API Key Authentication
+Run the server on a shared machine or VM so your team sees the same results. Two steps: turn on an API key, then pin a version.
 
-Protect write operations so only authorized clients can submit results:
+### Turn on API key authentication
+
+Add one line to `docker-compose.yml`. It protects write operations, so only clients with the key can submit results. Read operations stay open.
 
 ```yaml
 # docker-compose.yml
@@ -40,7 +44,10 @@ services:
       DOKIMOS_API_KEY: your-secret-key  # Add this line
 ```
 
-Clients now need to include the API key:
+Restart the server, then point your clients at it and pass the key:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
 ```java
 DokimosServerReporter reporter = DokimosServerReporter.builder()
@@ -50,31 +57,45 @@ DokimosServerReporter reporter = DokimosServerReporter.builder()
     .build();
 ```
 
-See [Authentication](./authentication) for details.
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
 
-### Pin a Specific Version
+```kotlin
+val reporter = DokimosServerReporter.builder()
+    .serverUrl("http://your-team-server:8080")
+    .projectName("my-project")
+    .apiKey("your-secret-key")
+    .build()
+```
 
-Avoid surprises by pinning to a release version:
+  </TabItem>
+</Tabs>
+
+See [Authentication](./authentication) for the full setup.
+
+### Pin a version
+
+The `latest` tag moves. Pin a release so upgrades never surprise you:
 
 ```yaml
 services:
   server:
-    image: ghcr.io/dokimos-dev/dokimos-server:0.1.0  # Pin version
+    image: ghcr.io/dokimos-dev/dokimos-server:0.13.0  # Pin version
 ```
 
-## Production
+## Run it in production
 
-For production deployments, add a managed database and reverse proxy.
+For production, swap in a managed database and put a load balancer in front for TLS.
 
-### Use a Managed Database
+### Use a managed database
 
-Replace the bundled PostgreSQL with a managed service:
+Replace the bundled PostgreSQL with a managed service (for example AWS RDS). Set the `DB_*` variables to point at it:
 
 ```yaml
 # docker-compose.yml (production)
 services:
   server:
-    image: ghcr.io/dokimos-dev/dokimos-server:0.1.0
+    image: ghcr.io/dokimos-dev/dokimos-server:0.13.0
     ports:
       - "8080:8080"
     environment:
@@ -82,15 +103,15 @@ services:
       DB_PORT: 5432
       DB_NAME: dokimos
       DB_USERNAME: dokimos
-      DB_PASSWORD: ${DB_PASSWORD}  # Use environment variable
+      DB_PASSWORD: ${DB_PASSWORD}  # Read from an environment variable
       DOKIMOS_API_KEY: ${DOKIMOS_API_KEY}
 ```
 
-Or use cloud load balancers (AWS ALB, GCP Load Balancer) which handle TLS termination.
+For TLS, put a cloud load balancer in front (AWS ALB, GCP Load Balancer). It terminates TLS for you.
 
-### Run with Docker
+### Run the container directly
 
-Without Docker Compose, run the container directly:
+No Docker Compose? Run the image yourself and pass the same variables as flags:
 
 ```bash
 docker run -d \
@@ -102,14 +123,12 @@ docker run -d \
   -e DB_USERNAME=your-user \
   -e DB_PASSWORD=your-password \
   -e DOKIMOS_API_KEY=your-api-key \
-  ghcr.io/dokimos-dev/dokimos-server:0.1.0
+  ghcr.io/dokimos-dev/dokimos-server:0.13.0
 ```
 
-## Cloud Platforms
+## Run it on Kubernetes
 
-### Kubernetes
-
-Basic deployment manifest:
+Apply this manifest. It creates a Deployment with two replicas plus a LoadBalancer Service. Database password and API key come from a Secret named `dokimos-secrets`.
 
 ```yaml
 apiVersion: apps/v1
@@ -128,7 +147,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: ghcr.io/dokimos-dev/dokimos-server:0.1.0
+        image: ghcr.io/dokimos-dev/dokimos-server:0.13.0
         ports:
         - containerPort: 8080
         env:
@@ -177,14 +196,15 @@ spec:
   type: LoadBalancer
 ```
 
-## Health Checks
+## Health checks
 
-The server exposes health endpoints for load balancers and orchestrators:
+The server exposes two endpoints for load balancers and orchestrators:
 
-- `/actuator/health` - Liveness check
-- `/actuator/health/readiness` - Readiness check
+- `/actuator/health` is the liveness check.
+- `/actuator/health/readiness` is the readiness check.
 
-Configure your load balancer:
+Point your load balancer at the health path:
+
 ```
 Health check path: /actuator/health
 Interval: 30s
@@ -192,5 +212,3 @@ Timeout: 5s
 Healthy threshold: 2
 Unhealthy threshold: 3
 ```
-
-

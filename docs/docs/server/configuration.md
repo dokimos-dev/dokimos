@@ -4,11 +4,33 @@ sidebar_position: 3
 
 # Configuration
 
-The Dokimos server is configured through environment variables. This page covers all available settings.
+This page lists every setting that controls the Dokimos server, so you can wire it up to your database, lock down writes, and tune the background workers.
 
-## Environment Variables
+You configure the server with environment variables. The defaults run out of the box with `docker compose up`, so you only set what you need to change.
 
-### Database Connection
+## Quick start
+
+For local development you set nothing. Start the server with the bundled PostgreSQL:
+
+```bash
+docker compose up
+```
+
+To connect to your own database and require an API key for writes, set five variables:
+
+```bash
+export DB_HOST=your-postgres-host
+export DB_NAME=dokimos
+export DB_USERNAME=dokimos
+export DB_PASSWORD=your-secure-password
+export DOKIMOS_API_KEY=your-secret-key
+```
+
+The rest of this page explains each variable and shows full example configurations.
+
+## Environment variables
+
+### Database connection
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -18,7 +40,7 @@ The Dokimos server is configured through environment variables. This page covers
 | `DB_USERNAME` | Database username | `dokimos` |
 | `DB_PASSWORD` | Database password | `dokimos` |
 
-### Server Settings
+### Server settings
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -28,7 +50,7 @@ The Dokimos server is configured through environment variables. This page covers
 
 ### Server side judge
 
-Tune the background worker that scores [LLM judge](./llm-judge) jobs. The defaults are fine for most deployments.
+These variables tune the background worker that scores [LLM judge](./llm-judge) jobs. The defaults work for most deployments, so change them only if you need to.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -38,7 +60,7 @@ Tune the background worker that scores [LLM judge](./llm-judge) jobs. The defaul
 
 ### Traces and online evals
 
-Control [production trace](./traces) retention and the online eval worker.
+These variables control [production trace](./traces) retention and the online eval worker.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -55,29 +77,29 @@ Control [production trace](./traces) retention and the online eval worker.
 | `LOG_LEVEL` | Application log level | `INFO` |
 | `SQL_LOG_LEVEL` | Hibernate SQL logging level | `WARN` |
 
-## Database Setup
+## Database setup
 
-### PostgreSQL Requirements
+### PostgreSQL requirements
 
-The server requires PostgreSQL 14 or higher. The database schema is managed automatically via Flyway migrations.
+The server needs PostgreSQL 14 or higher. Flyway manages the schema for you and runs the migrations on startup.
 
-### Connection String Format
+### Connection string format
 
-The server constructs the JDBC URL from individual components:
+The server builds the JDBC URL from the database variables:
 
 ```
 jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
 ```
 
-If you need to specify a full connection string with additional parameters, you can set the Spring datasource URL directly:
+To pass extra connection parameters, set the Spring datasource URL directly instead:
 
 ```bash
-SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/dokimos?ssl=true&sslmode=require
+export SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/dokimos?ssl=true&sslmode=require
 ```
 
-### Creating the Database
+### Create the database
 
-If you're using an existing PostgreSQL instance, create the database and user:
+To use an existing PostgreSQL instance, create the database and user first:
 
 ```sql
 CREATE DATABASE dokimos;
@@ -89,66 +111,65 @@ GRANT ALL PRIVILEGES ON DATABASE dokimos TO dokimos;
 GRANT ALL ON SCHEMA public TO dokimos;
 ```
 
-### Schema Migrations
+### Schema migrations
 
-Migrations run automatically on startup. The server uses Flyway with the following behavior:
+Migrations run automatically on startup. Flyway does three things:
 
-- Creates tables if they don't exist
-- Applies new migrations in order
-- Never drops or modifies existing data destructively
+- Creates tables if they do not exist.
+- Applies new migrations in order.
+- Never drops or modifies existing data destructively.
 
-## API Key Configuration
+## API key configuration
 
-When `DOKIMOS_API_KEY` is set, write operations require authentication:
+Set `DOKIMOS_API_KEY` to require authentication on write operations:
 
 ```bash
 export DOKIMOS_API_KEY=your-secret-key-here
 ```
 
-See [Authentication](./authentication) for details on how API key authentication works.
+Read operations stay open. See [Authentication](./authentication) for how the API key check works.
 
-## Port and Host Binding
+## Port and host binding
 
-### Changing the Port
+### Change the port
 
 ```bash
 export SERVER_PORT=3000
 ```
 
-### Binding to All Interfaces
+### Bind to all interfaces
 
-By default, the server binds to all interfaces (`0.0.0.0`). 
+The server binds to all interfaces (`0.0.0.0`) by default.
 
-For local development, if you want to restrict to localhost only, use Docker's port mapping:
+To restrict it to localhost during local development, map the port with Docker:
 
 ```yaml
 ports:
   - "127.0.0.1:8080:8080"
 ```
 
-## Example Configurations
+## Example configurations
 
-### Local Development
+### Local development
 
-Minimal configuration for local development:
+For local development, set nothing. The bundled `docker-compose` provides PostgreSQL:
 
 ```bash
-# No special configuration needed with docker-compose
 docker compose up
 ```
 
-### Development with API Key
+### Development with an API key
 
-Test authentication locally:
+To test authentication locally, set the API key before you start:
 
 ```bash
 export DOKIMOS_API_KEY=dev-secret-key
 docker compose up
 ```
 
-### Production with External Database
+### Production with an external database
 
-Connect to a managed PostgreSQL instance:
+To connect to a managed PostgreSQL instance, set the database variables and an API key:
 
 ```bash
 export DB_HOST=your-postgres-host.amazonaws.com
@@ -166,9 +187,9 @@ docker run -d \
   dokimos-server
 ```
 
-### CI/CD Environment
+### CI/CD environment
 
-If you'd like to configure the client to report to a shared internal server:
+To point the client at a shared internal server from CI, set these variables in your pipeline:
 
 ```bash
 # In your CI environment
@@ -177,22 +198,22 @@ export DOKIMOS_PROJECT_NAME=my-llm-app
 export DOKIMOS_API_KEY=${{ secrets.DOKIMOS_API_KEY }}
 ```
 
-## Health Checks
+## Health checks
 
-The server exposes health endpoints at:
+The server exposes two health endpoints:
 
-- `/actuator/health` - Overall health status
-- `/actuator/info` - Application info
+- `/actuator/health` reports overall health status.
+- `/actuator/info` reports application info.
 
-These are useful for load balancer health checks and container orchestration.
+Use these for load balancer health checks and container orchestration:
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-## Spring Boot Properties
+## Spring Boot properties
 
-The server is a Spring Boot application, so you can use any Spring Boot configuration property. Common ones:
+The server is a Spring Boot application, so you can set any Spring Boot configuration property. Common ones:
 
 ```bash
 # Connection timeout
@@ -205,4 +226,4 @@ export SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=10
 export SERVER_TOMCAT_CONNECTION_TIMEOUT=20000
 ```
 
-See [Spring Boot documentation](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) for all available properties.
+See the [Spring Boot documentation](https://docs.spring.io/spring-boot/appendix/application-properties/index.html) for the full list of properties.

@@ -7,53 +7,15 @@ sidebar_position: 3
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-An experiment runs your LLM application (called a **Task**) against a dataset, applies evaluators to check the outputs, and gives you aggregated results. It's the main way to systematically evaluate how well your application performs.
+An experiment runs your LLM application against a whole dataset, scores every output, and hands you the totals. It is the main way to measure how well your application performs.
 
-## Why Use Experiments?
+The pieces fit together like this. You wrap your application in a **Task**. You point the experiment at a **Dataset**. You attach one or more **Evaluators** to grade the outputs. You call `run()`, and you get an `ExperimentResult` with pass rates, scores, and per-item details.
 
-When building LLM applications, you need more than just manual testing with a few prompts. Experiments help you:
+Here is the shortest path from nothing to a number.
 
-**Get quantitative metrics** - Track pass rates, average scores, and success counts over time. This makes it easier to know if a prompt change or model update actually improved things.
+## Run your first experiment
 
-**Test systematically** - Run your application against a full dataset automatically, rather than manually trying different inputs.
-
-**Compare configurations** - See how different models, prompts, or retrieval strategies perform against the same test cases.
-
-**Catch regressions** - Integrate experiments into your CI/CD pipeline to make sure changes don't break existing functionality.
-
-**Find patterns in failures** - When things go wrong, you can analyze which types of inputs consistently fail and why.
-
-## How Experiments Differ from JUnit Testing
-
-While Dokimos integrates with JUnit, **Experiments** serve a different purpose:
-
-| Aspect | JUnit Tests with `@DatasetSource` | Experiments |
-|--------|-----------------------------------|-------------|
-| **Purpose** | Unit/integration testing | Comprehensive evaluation & benchmarking |
-| **Execution** | Individual test assertions | Batch processing with aggregation |
-| **Results** | Pass/Fail per test | Aggregated metrics, pass rates, scores |
-| **Use Case** | CI/CD quality gates | Performance analysis & reporting |
-| **Flexibility** | Test-driven, one example at a time | Run entire datasets, analyze trends |
-| **Output** | Test reports (JUnit format) | Detailed experiment results with statistics |
-
-**Use JUnit tests when you want to:**
-- Fail your build if critical test cases don't pass
-- Catch regressions quickly during development
-- Get immediate feedback on specific examples
-
-**Use experiments when you want to:**
-- Analyze performance across an entire dataset
-- Generate reports with detailed metrics and trends
-- Compare different model configurations or prompt versions
-- Understand overall application behavior
-
-Most projects benefit from using both approaches together.
-
-## Basic Usage
-
-### Creating a Simple Experiment
-
-Here's a minimal example of creating and running an experiment:
+This builds a three-example dataset, runs your bot against it, grades each answer with an LLM judge, and prints the pass rate. Copy it, swap in your own bot and judge, and run it.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -61,7 +23,7 @@ Here's a minimal example of creating and running an experiment:
 ```java
 import dev.dokimos.core.*;
 
-// Define your dataset
+// 1. Build a dataset (input + expected output per example)
 Dataset dataset = Dataset.builder()
     .name("Product Support Questions")
     .addExample(Example.of(
@@ -78,13 +40,13 @@ Dataset dataset = Dataset.builder()
     ))
     .build();
 
-// Define your task (your LLM application)
+// 2. Wrap your application in a Task. It returns a map of outputs.
 Task task = example -> {
     String answer = customerSupportBot.generateAnswer(example.input());
     return Map.of("output", answer);
 };
 
-// Define evaluators
+// 3. Add evaluators to grade the outputs
 List<Evaluator> evaluators = List.of(
     LLMJudgeEvaluator.builder()
         .name("Answer Quality")
@@ -94,7 +56,7 @@ List<Evaluator> evaluators = List.of(
         .build()
 );
 
-// Run the experiment
+// 4. Run it
 ExperimentResult result = Experiment.builder()
     .name("QA Evaluation")
     .dataset(dataset)
@@ -103,7 +65,7 @@ ExperimentResult result = Experiment.builder()
     .build()
     .run();
 
-// Analyze results
+// 5. Read the totals
 System.out.println("Pass rate: " + String.format("%.2f%%", result.passRate() * 100));
 System.out.println("Total examples: " + result.totalCount());
 System.out.println("Passed: " + result.passCount());
@@ -120,7 +82,7 @@ import dev.dokimos.kotlin.dsl.experiment
 import dev.dokimos.kotlin.dsl.llmJudge
 import dev.dokimos.kotlin.dsl.task
 
-// Define your dataset
+// 1. Build a dataset (input + expected output per example)
 val dataset = dataset {
     name = "Product Support Questions"
     example {
@@ -137,13 +99,13 @@ val dataset = dataset {
     }
 }
 
-// Define your task (your LLM application)
+// 2. Wrap your application in a Task. It returns a map of outputs.
 val task = task { example ->
     val answer = customerSupportBot.generateAnswer(example.input())
     mapOf("output" to answer)
 }
 
-// Run the experiment
+// 3. Add evaluators and run it
 val result = experiment {
     name = "QA Evaluation"
     dataset(dataset)
@@ -157,7 +119,7 @@ val result = experiment {
     }
 }.run()
 
-// Analyze results
+// 4. Read the totals
 println("Pass rate: %.2f%%".format(result.passRate() * 100))
 println("Total examples: ${result.totalCount()}")
 println("Passed: ${result.passCount()}")
@@ -167,9 +129,47 @@ println("Failed: ${result.failCount()}")
   </TabItem>
 </Tabs>
 
-### Understanding the Task Interface
+That is the full loop. The rest of this page goes deeper on each piece: tasks, datasets, parallelism, evaluators, results, CI, and exports.
 
-A Task is what runs your LLM application for each example in the dataset. It's a simple functional interface:
+## When to use experiments vs JUnit
+
+Dokimos also plugs into JUnit (see the `@DatasetSource` annotation). The two tools solve different problems.
+
+| Aspect | JUnit tests with `@DatasetSource` | Experiments |
+|--------|-----------------------------------|-------------|
+| **Purpose** | Unit and integration testing | Full-dataset evaluation and benchmarking |
+| **Execution** | Individual test assertions | Batch run with aggregation |
+| **Results** | Pass or fail per test | Pass rates, average scores, totals |
+| **Use case** | CI/CD quality gates | Performance analysis and reporting |
+| **Flexibility** | One example at a time | Whole datasets, trends over time |
+| **Output** | Test reports (JUnit format) | Detailed results with statistics |
+
+Reach for **JUnit tests** when you want to:
+- Fail the build if critical cases don't pass
+- Catch regressions fast during development
+- Get immediate feedback on specific examples
+
+Reach for **experiments** when you want to:
+- Measure performance across a whole dataset
+- Generate reports with metrics and trends
+- Compare models or prompt versions
+- Understand overall application behavior
+
+Most projects use both.
+
+## Why bother
+
+Manual testing with a few prompts does not scale. Experiments give you:
+
+- **Numbers you can track.** Pass rates, average scores, and counts over time. Now you know whether a prompt change or model swap actually helped.
+- **Coverage.** Run the whole dataset automatically instead of trying inputs by hand.
+- **Comparisons.** Run different models, prompts, or retrieval strategies against the same cases.
+- **Regression alarms.** Wire experiments into CI/CD so changes don't quietly break things.
+- **Failure patterns.** When outputs go wrong, see which kinds of inputs fail and why.
+
+## Writing the Task
+
+A `Task` runs your application for one example and returns its outputs. It is a single-method functional interface.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -193,7 +193,7 @@ fun interface Task {
   </TabItem>
 </Tabs>
 
-Your task takes an example, runs your application, and returns the outputs. Here's the simplest version:
+The simplest task calls your model and returns one output:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -218,7 +218,7 @@ val task = task { example ->
   </TabItem>
 </Tabs>
 
-For RAG systems or other complex scenarios, you can return multiple values:
+For RAG or other multi-step systems, return more than one value. Evaluators read these by key.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -227,13 +227,13 @@ For RAG systems or other complex scenarios, you can return multiple values:
 Task ragTask = example -> {
     // Retrieve relevant documents
     List<String> retrievedDocs = vectorStore.search(example.input(), topK = 3);
-    
-    // Generate response using retrieved context
+
+    // Generate a response using the retrieved context
     String response = ragSystem.generate(example.input(), retrievedDocs);
-    
-    // Calculate confidence score
+
+    // Capture a confidence score
     double confidence = ragSystem.getConfidenceScore();
-    
+
     return Map.of(
         "output", response,
         "retrievedContext", retrievedDocs,
@@ -250,10 +250,10 @@ val ragTask = task { example ->
     // Retrieve relevant documents
     val retrievedDocs = vectorStore.search(example.input(), topK = 3)
 
-    // Generate response using retrieved context
+    // Generate a response using the retrieved context
     val response = ragSystem.generate(example.input(), retrievedDocs)
 
-    // Calculate confidence score
+    // Capture a confidence score
     val confidence = ragSystem.getConfidenceScore()
 
     mapOf(
@@ -267,9 +267,9 @@ val ragTask = task { example ->
   </TabItem>
 </Tabs>
 
-### Capturing Call Metrics
+### Recording tokens, cost, and latency
 
-A plain `Task` returns only outputs, and the resulting `ItemResult` carries `null` metrics. To record tokens, cost, and latency for the underlying LLM call, use a `MeasuredTask`. It returns a `TaskResult` holding both the outputs and a `CallMetrics` record, which flows through to each `ItemResult.metrics()`.
+A plain `Task` returns only outputs, so each `ItemResult` carries `null` metrics. To record tokens, cost, and latency, return a `MeasuredTask` instead. It returns a `TaskResult` that holds the outputs plus a `CallMetrics` record, and those metrics flow through to every `ItemResult.metrics()`.
 
 ```java
 @FunctionalInterface
@@ -278,7 +278,7 @@ public interface MeasuredTask {
 }
 ```
 
-`CallMetrics` is a record with four nullable fields: `tokensIn`, `tokensOut`, `costUsd`, and `latencyMs`. Populate the ones you can measure and leave the rest null.
+`CallMetrics` is a record with four nullable fields: `tokensIn`, `tokensOut`, `costUsd`, and `latencyMs`. Fill in what you can measure. Leave the rest null.
 
 ```java
 MeasuredTask task = example -> {
@@ -305,23 +305,23 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
-The plain `task(Task)` path still works unchanged; reach for `measuredTask(MeasuredTask)` only when you want metrics attached to the results. Naming the builder method distinctly keeps a lambda passed to `task(...)` unambiguous between the two interfaces.
+The plain `task(Task)` path still works the same. Use `measuredTask(MeasuredTask)` only when you want metrics on the results. The builder method has a separate name so a lambda passed to `task(...)` is never ambiguous between the two interfaces.
 
-## Running Experiments on a Dataset
+## Running against a dataset
 
-### Loading Datasets from Files
+### Load a dataset from a file
 
-Experiments work seamlessly with datasets loaded from JSON or CSV files:
+Experiments take any `Dataset`, including ones loaded from JSON or CSV on the classpath.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
 ```java
-// Load dataset from classpath
+// Load a dataset from the classpath
 Dataset dataset = DatasetResolverRegistry.getInstance()
     .resolve("classpath:datasets/qa-dataset.json");
 
-// Run experiment
+// Run the experiment
 ExperimentResult result = Experiment.builder()
     .name("QA Evaluation")
     .dataset(dataset)
@@ -335,11 +335,11 @@ ExperimentResult result = Experiment.builder()
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-// Load dataset from classpath
+// Load a dataset from the classpath
 val dataset = DatasetResolverRegistry.getInstance()
     .resolve("classpath:datasets/qa-dataset.json")
 
-// Run experiment
+// Run the experiment
 val result = experiment {
     name = "QA Evaluation"
     dataset(dataset)
@@ -351,9 +351,9 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-### Analyzing Individual Results
+### Inspect each result
 
-After running an experiment, you can dig into specific cases to understand what went wrong:
+After a run, loop over the items to see what happened on each example.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -361,16 +361,16 @@ After running an experiment, you can dig into specific cases to understand what 
 ```java
 ExperimentResult result = experiment.run();
 
-// Iterate over all item results
+// Walk every item result
 for (ItemResult itemResult : result.itemResults()) {
     System.out.println("\nInput: " + itemResult.example().input());
     System.out.println("Expected: " + itemResult.example().expectedOutput());
     System.out.println("Actual: " + itemResult.actualOutputs().get("output"));
     System.out.println("Success: " + itemResult.success());
-    
-    // Check individual evaluator results
+
+    // Check each evaluator's result for this item
     for (EvalResult evalResult : itemResult.evalResults()) {
-        System.out.println("  " + evalResult.name() + 
+        System.out.println("  " + evalResult.name() +
             ": " + (evalResult.success() ? "PASS" : "FAIL") +
             " (score: " + evalResult.score() + ")");
     }
@@ -383,14 +383,14 @@ for (ItemResult itemResult : result.itemResults()) {
 ```kotlin
 val result = experiment.run()
 
-// Iterate over all item results
+// Walk every item result
 result.itemResults().forEach { itemResult ->
     println("\nInput: ${itemResult.example().input()}")
     println("Expected: ${itemResult.example().expectedOutput()}")
     println("Actual: ${itemResult.actualOutputs()["output"]}")
     println("Success: ${itemResult.success()}")
 
-    // Check individual evaluator results
+    // Check each evaluator's result for this item
     itemResult.evalResults().forEach { evalResult ->
         val status = if (evalResult.success()) "PASS" else "FAIL"
         println("  ${evalResult.name()}: $status (score: ${evalResult.score()})")
@@ -401,9 +401,9 @@ result.itemResults().forEach { itemResult ->
   </TabItem>
 </Tabs>
 
-### Finding Failures
+### Find the failures
 
-When things don't work as expected, filter for failed cases:
+To debug, filter for items that did not pass.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -442,17 +442,17 @@ failures.forEach { failure ->
   </TabItem>
 </Tabs>
 
-### Per-Item Failure Isolation
+### One bad item never kills the run
 
-A task or evaluator that throws for one example does not abort the whole run. That example is recorded as a failed item (its `success()` is `false`, with no eval results) and execution continues with the next example. Sequential and parallel runs behave the same way, so a single flaky call or malformed output won't cost you the rest of the dataset. Filter for `!item.success()` as shown above to inspect the items that failed.
+If a task or evaluator throws on one example, the run keeps going. That example is recorded as a failed item (its `success()` is `false`, with no eval results), and execution moves to the next example. Sequential and parallel runs behave the same way, so one flaky call or one malformed output never costs you the rest of the dataset. Filter for `!item.success()`, as shown above, to inspect what failed.
 
-## Parallelism and Multiple Runs
+## Parallelism and multiple runs
 
-Dokimos supports running experiments with parallelism and multiple runs for statistical confidence.
+Two builder settings control speed and statistical confidence: `parallelism` and `runs`.
 
-### Parallelism
+### Run examples concurrently
 
-Set `.parallelism(n)` to process n examples concurrently within each run:
+Set `.parallelism(n)` to process n examples at once within each run.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -463,7 +463,7 @@ ExperimentResult result = Experiment.builder()
     .dataset(dataset)
     .task(task)
     .evaluators(evaluators)
-    .parallelism(4)  // Run 4 examples concurrently
+    .parallelism(4)  // run 4 examples at once
     .build()
     .run();
 ```
@@ -476,7 +476,7 @@ val result = experiment {
     name = "Knowledge Assistant Evaluation"
     dataset(dataset)
     task(task)
-    parallelism = 4  // Run 4 examples concurrently
+    parallelism = 4  // run 4 examples at once
     evaluators(evaluators)
 }.run()
 ```
@@ -484,13 +484,11 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-Default is 1 for sequential execution. Increase for faster execution, but be mindful of API rate limits.
+The default is 1 (sequential). Raise it for speed, but watch your API rate limits. When you set parallelism above 1, make sure your task is thread-safe.
 
-When using parallelism, ensure your task implementation is thread-safe.
+### Repeat the run for stability
 
-### Multiple Runs
-
-Set `.runs(n)` to repeat the experiment n times:
+Set `.runs(n)` to run the whole experiment n times.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -501,8 +499,8 @@ ExperimentResult result = Experiment.builder()
     .dataset(dataset)
     .task(task)
     .evaluators(evaluators)
-    .runs(3)         // Run experiment 3 times
-    .parallelism(4)  // Parallelism within each run
+    .runs(3)         // run the experiment 3 times
+    .parallelism(4)  // parallelism within each run
     .build()
     .run();
 ```
@@ -515,8 +513,8 @@ val result = experiment {
     name = "Knowledge Assistant Evaluation"
     dataset(dataset)
     task(task)
-    runs = 3          // Run experiment 3 times
-    parallelism = 4   // Parallelism within each run
+    runs = 3          // run the experiment 3 times
+    parallelism = 4   // parallelism within each run
     evaluators(evaluators)
 }.run()
 ```
@@ -524,22 +522,22 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-Runs execute sequentially while parallelism applies within each run. This helps reduce variance from LLM non-determinism and provides statistical confidence in results.
+Runs go one after another. Parallelism applies inside each run. Repeating runs smooths out LLM non-determinism and gives you confidence in the numbers.
 
-Access run statistics:
+Read the run statistics:
 
 ```java
-result.averageScore("Faithfulness")     // Mean across all runs
-result.scoreStdDev("Faithfulness")      // Standard deviation across runs
-result.runCount()                       // Number of runs performed
-result.runs()                           // Individual run results
+result.averageScore("Faithfulness")     // mean across all runs
+result.scoreStdDev("Faithfulness")      // standard deviation across runs
+result.runCount()                       // number of runs performed
+result.runs()                           // individual run results
 ```
 
-High standard deviation suggests instability in your task or evaluator outputs.
+A high standard deviation means your task or evaluator output is unstable.
 
-## Asynchronous Tasks
+## Asynchronous tasks
 
-The `task`/`measuredTask` paths block one thread per in-flight example. That's fine for blocking SDK calls, but it's a poor fit when your task is already non-blocking — a Kotlin `suspend` function, a Reactor or `CompletableFuture` pipeline, or an agent runtime that hands you a future. For those callers, set an `AsyncTask` instead. It returns a `CompletableFuture<TaskResult>`, so the experiment can drive many examples without parking a thread on each one.
+The `task` and `measuredTask` paths block one thread per in-flight example. That is fine for blocking SDK calls. It is a poor fit when your task is already non-blocking, such as a Kotlin `suspend` function, a Reactor or `CompletableFuture` pipeline, or an agent runtime that hands you a future. For those, use an `AsyncTask`. It returns a `CompletableFuture<TaskResult>`, so the experiment drives many examples without parking a thread on each one.
 
 ```java
 @FunctionalInterface
@@ -548,9 +546,9 @@ public interface AsyncTask {
 }
 ```
 
-The completed future carries the same `TaskResult` (outputs plus optional `CallMetrics`) used by `measuredTask`, so call metrics flow through to each `ItemResult.metrics()` exactly as they do on the synchronous paths.
+The completed future carries the same `TaskResult` (outputs plus optional `CallMetrics`) that `measuredTask` uses, so call metrics flow through to each `ItemResult.metrics()` just like on the synchronous paths.
 
-Set it with `asyncTask(...)`. An async task satisfies the task requirement on its own — you don't also need to call `task(...)` or `measuredTask(...)`.
+Set it with `asyncTask(...)`. An async task satisfies the task requirement on its own. You do not also call `task(...)` or `measuredTask(...)`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -596,21 +594,21 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-### Bounded execution
+### How the in-flight cap works
 
-When an async task is configured the experiment runs through a dedicated non-blocking execution path. This path takes precedence over the sequential and parallel paths — `parallelism` no longer sizes a thread pool; instead it caps the number of **in-flight** invocations using a semaphore. The experiment acquires a permit before calling `asyncTask.run(...)` and releases it when that example's future settles, so at most `parallelism` invocations are ever outstanding. This keeps a non-blocking task from launching the entire dataset at once and overwhelming a downstream service or rate limit. Dataset order is preserved in the returned results.
+When you set an async task, the experiment runs on a dedicated non-blocking path. This path takes precedence over the sequential and parallel paths. Here `parallelism` no longer sizes a thread pool. Instead it caps the number of **in-flight** invocations with a semaphore. The experiment takes a permit before calling `asyncTask.run(...)` and releases it when that example's future settles, so at most `parallelism` invocations are ever outstanding. That stops a non-blocking task from launching the entire dataset at once and flooding a downstream service or rate limit. Dataset order is preserved in the returned results.
 
 :::note
-For tasks that bridge a **blocking** call onto a future (for example via `CompletableFuture.supplyAsync(..., executor)`), the effective concurrency is bounded by whichever is smaller: the experiment's `parallelism` cap or the executor backing those calls. The semaphore caps how many futures are outstanding; the executor caps how many run at once. The Kotlin `suspendTask {}` DSL dispatches on `Dispatchers.IO` by default. The framework integrations build async tasks on top of `asyncTask(...)` — see the [Koog](../integrations/koog.md), [LangChain4j](../integrations/langchain4j.md), and [Spring AI](../integrations/spring-ai.md) pages.
+For tasks that bridge a **blocking** call onto a future (for example via `CompletableFuture.supplyAsync(..., executor)`), the real concurrency is the smaller of two limits: the experiment's `parallelism` cap, or the executor backing those calls. The semaphore caps how many futures are outstanding. The executor caps how many actually run at once. The Kotlin `suspendTask {}` DSL dispatches on `Dispatchers.IO` by default. The framework integrations build async tasks on top of `asyncTask(...)`, see the [Koog](../integrations/koog.md), [LangChain4j](../integrations/langchain4j.md), and [Spring AI](../integrations/spring-ai.md) pages.
 :::
 
-### Per-item failure isolation
+### Failure isolation works the same
 
-Async tasks use the same isolation as the synchronous paths. A future that completes exceptionally becomes a failed `ItemResult` (its `success()` is `false`, with no eval results) and the run continues with the remaining examples. A task that throws synchronously from `run(...)`, or returns a `null` future, is isolated the same way rather than aborting the run. Filter for `!item.success()` to inspect what failed, exactly as on the [sequential and parallel paths](#per-item-failure-isolation).
+Async tasks isolate failures exactly like the synchronous paths. A future that completes exceptionally becomes a failed `ItemResult` (its `success()` is `false`, with no eval results), and the run continues with the rest. A task that throws synchronously from `run(...)`, or returns a `null` future, is isolated the same way instead of aborting the run. Filter for `!item.success()` to see what failed, just like on the [sequential and parallel paths](#one-bad-item-never-kills-the-run).
 
 ### The Kotlin `suspendTask {}` DSL
 
-In Kotlin you rarely build an `AsyncTask` by hand. The `suspendTask {}` block in the `experiment {}` DSL takes a `suspend` body returning a `TaskResult` and bridges it to a `CompletableFuture` for you. There is also a top-level `suspendTask(...)` function (and a `suspendMapTask(...)` convenience overload that returns an output `Map` and wraps it in a `TaskResult` with no metrics) when you want to construct the task outside the DSL.
+In Kotlin you rarely build an `AsyncTask` by hand. The `suspendTask {}` block inside `experiment {}` takes a `suspend` body that returns a `TaskResult` and bridges it to a `CompletableFuture` for you. There is also a top-level `suspendTask(...)` function, plus a `suspendMapTask(...)` overload that returns an output `Map` and wraps it in a `TaskResult` with no metrics, for building the task outside the DSL.
 
 ```kotlin
 import dev.dokimos.core.TaskResult
@@ -630,17 +628,17 @@ val result = experiment {
 }.run()
 ```
 
-Each invocation launches the suspend body on the given `CoroutineScope` (the IO dispatcher by default); pass your own `scope` to either form to control where the work runs. A suspend exception surfaces as an exceptionally completed future, which the experiment isolates as a failed item.
+Each invocation launches the suspend body on the given `CoroutineScope` (the IO dispatcher by default). Pass your own `scope` to either form to control where the work runs. A suspend exception surfaces as an exceptionally completed future, which the experiment isolates as a failed item.
 
 :::tip
-Reach for an async task only when your caller is genuinely non-blocking. If your task is a plain blocking SDK call, the synchronous `task(...)`/`measuredTask(...)` path with `parallelism(n)` is simpler and gives you the same concurrency through its thread pool.
+Use an async task only when your caller is truly non-blocking. If your task is a plain blocking SDK call, the synchronous `task(...)` or `measuredTask(...)` path with `parallelism(n)` is simpler and gives you the same concurrency through its thread pool.
 :::
 
-## Configuring Experiments
+## Configuring the experiment
 
-You can customize experiments with names, descriptions, evaluators, and metadata.
+Add a name, a description, evaluators, and metadata on the builder.
 
-### Name and Description
+### Name and description
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -669,9 +667,9 @@ experiment {
   </TabItem>
 </Tabs>
 
-### Adding Evaluators
+### Add evaluators
 
-You can add evaluators individually or as a list:
+Add evaluators one at a time or as a list.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -687,7 +685,7 @@ Experiment.builder()
     .evaluator(relevanceEvaluator)
     .build();
 
-// Or add multiple evaluators at once
+// Or add several at once
 List<Evaluator> evaluators = List.of(
     exactMatchEvaluator,
     faithfulnessEvaluator,
@@ -718,7 +716,7 @@ experiment {
     }
 }
 
-// Or add multiple evaluators at once
+// Or add several at once
 val evaluatorList = listOf(
     exactMatchEvaluator,
     faithfulnessEvaluator,
@@ -736,11 +734,11 @@ experiment {
   </TabItem>
 </Tabs>
 
-`build()` validates the experiment before constructing it. It throws `IllegalStateException` if no dataset or task is set, if the dataset has no examples, or if no evaluators were added. This surfaces configuration mistakes up front rather than at run time.
+`build()` validates the experiment before it constructs it. It throws `IllegalStateException` if there is no dataset or task, if the dataset has no examples, or if no evaluators were added. You see configuration mistakes up front instead of at run time.
 
-### Closing the Reporter
+### Close the reporter automatically
 
-When you attach a `Reporter` with `.reporter(...)`, you own its lifecycle by default. Set `.autoCloseReporter(true)` to have `run()` close the reporter once all runs finish, in addition to flushing it. The default is `false`, which leaves the reporter open for reuse across experiments.
+When you attach a `Reporter` with `.reporter(...)`, you own its lifecycle by default. Set `.autoCloseReporter(true)` to have `run()` close the reporter once all runs finish, on top of flushing it. The default is `false`, which leaves the reporter open so you can reuse it across experiments.
 
 ```java
 Experiment.builder()
@@ -754,9 +752,9 @@ Experiment.builder()
     .run();
 ```
 
-### Tracking Experiment Configuration
+### Record configuration with metadata
 
-Use metadata to record what settings you used for each experiment run. This is helpful when comparing results across different model versions or configurations:
+Use metadata to record the settings behind each run. This helps when you compare results across model versions or configurations later.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -773,7 +771,7 @@ Experiment.builder()
     .metadata("version", "1.0.0")
     .build();
 
-// Or add multiple metadata entries
+// Or add several entries at once
 Map<String, Object> metadata = Map.of(
     "model", "gpt-5.2",
     "temperature", 0.7,
@@ -804,7 +802,7 @@ experiment {
     metadata("version", "1.0.0")
 }
 
-// Or add multiple metadata entries
+// Or add several entries at once
 val metadata = mapOf(
     "model" to "gpt-5.2",
     "temperature" to 0.7,
@@ -823,13 +821,11 @@ experiment {
   </TabItem>
 </Tabs>
 
-Metadata is included in the `ExperimentResult` and can be used for tracking different experiment configurations.
+Metadata rides along in the `ExperimentResult`, so you can use it to tell configurations apart.
 
-## Working with Evaluators
+## Working with evaluators
 
-Evaluators check the quality of your outputs. Each evaluator gives a score (0.0 to 1.0) and decides if the output passes based on a threshold you set.
-
-Here are some common patterns:
+Each evaluator gives a score from 0.0 to 1.0 and decides pass or fail against a threshold you set. Here are the common ones.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -841,14 +837,14 @@ Evaluator exactMatch = ExactMatchEvaluator.builder()
     .threshold(1.0)
     .build();
 
-// For checking output format (e.g., dates, phone numbers)
+// For output format checks (dates, phone numbers, etc.)
 Evaluator formatCheck = RegexEvaluator.builder()
     .name("Date Format")
     .pattern("\\d{4}-\\d{2}-\\d{2}")  // YYYY-MM-DD
     .threshold(1.0)
     .build();
 
-// For semantic correctness using an LLM as judge
+// For semantic correctness, using an LLM as judge
 Evaluator semanticCorrectness = LLMJudgeEvaluator.builder()
     .name("Answer Correctness")
     .criteria("Is the answer factually correct and complete?")
@@ -861,7 +857,7 @@ Evaluator semanticCorrectness = LLMJudgeEvaluator.builder()
     .judge(prompt -> judgeModel.generate(prompt))
     .build();
 
-// For checking if RAG outputs are grounded in retrieved docs
+// For checking that RAG outputs are grounded in retrieved docs
 Evaluator faithfulness = FaithfulnessEvaluator.builder()
     .name("Faithfulness")
     .threshold(0.7)
@@ -880,14 +876,14 @@ val exactMatch: Evaluator = exactMatch {
     threshold = 1.0
 }
 
-// For checking output format (e.g., dates, phone numbers)
+// For output format checks (dates, phone numbers, etc.)
 val formatCheck: Evaluator = regex {
     name = "Date Format"
     pattern = "\\d{4}-\\d{2}-\\d{2}"  // YYYY-MM-DD
     threshold = 1.0
 }
 
-// For semantic correctness using an LLM as judge
+// For semantic correctness, using an LLM as judge
 val semanticCorrectness: Evaluator = llmJudge(judge) {
     name = "Answer Correctness"
     criteria = "Is the answer factually correct and complete?"
@@ -899,7 +895,7 @@ val semanticCorrectness: Evaluator = llmJudge(judge) {
     threshold = 0.8
 }
 
-// For checking if RAG outputs are grounded in retrieved docs
+// For checking that RAG outputs are grounded in retrieved docs
 val faithfulness: Evaluator = faithfulness(judge) {
     name = "Faithfulness"
     threshold = 0.7
@@ -910,32 +906,32 @@ val faithfulness: Evaluator = faithfulness(judge) {
   </TabItem>
 </Tabs>
 
-### Evaluating Multiple Dimensions
+### Score several dimensions at once
 
-Most real applications need to be evaluated on several criteria at once:
+Real applications usually need more than one check. Add several evaluators and read each one's average score.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
 ```java
 List<Evaluator> evaluators = List.of(
-    // Check factual correctness
+    // Factual correctness
     LLMJudgeEvaluator.builder()
         .name("Correctness")
         .criteria("Is the answer factually correct?")
         .threshold(0.8)
         .judge(judge)
         .build(),
-    
-    // Check relevance
+
+    // Relevance
     LLMJudgeEvaluator.builder()
         .name("Relevance")
         .criteria("Is the answer relevant to the question?")
         .threshold(0.7)
         .judge(judge)
         .build(),
-    
-    // Check faithfulness to source
+
+    // Faithfulness to source
     FaithfulnessEvaluator.builder()
         .threshold(0.8)
         .judge(judge)
@@ -951,7 +947,7 @@ ExperimentResult result = Experiment.builder()
     .build()
     .run();
 
-// Get average score per evaluator
+// Average score per evaluator
 System.out.println("Correctness: " + result.averageScore("Correctness"));
 System.out.println("Relevance: " + result.averageScore("Relevance"));
 System.out.println("Faithfulness: " + result.averageScore("Faithfulness"));
@@ -962,21 +958,21 @@ System.out.println("Faithfulness: " + result.averageScore("Faithfulness"));
 
 ```kotlin
 val evaluators = evaluators {
-    // Check factual correctness
+    // Factual correctness
     llmJudge(judge) {
         name = "Correctness"
         criteria = "Is the answer factually correct?"
         threshold = 0.8
     }
 
-    // Check relevance
+    // Relevance
     llmJudge(judge) {
         name = "Relevance"
         criteria = "Is the answer relevant to the question?"
         threshold = 0.7
     }
 
-    // Check faithfulness to source
+    // Faithfulness to source
     faithfulness(judge) {
         threshold = 0.8
         contextKey = "retrievedContext"
@@ -990,7 +986,7 @@ val result = experiment {
     evaluators(evaluators)
 }.run()
 
-// Get average score per evaluator
+// Average score per evaluator
 println("Correctness: ${result.averageScore("Correctness")}")
 println("Relevance: ${result.averageScore("Relevance")}")
 println("Faithfulness: ${result.averageScore("Faithfulness")}")
@@ -999,11 +995,11 @@ println("Faithfulness: ${result.averageScore("Faithfulness")}")
   </TabItem>
 </Tabs>
 
-## Analyzing Experiment Results
+## Reading the results
 
-The `ExperimentResult` provides comprehensive metrics and detailed results. When running multiple runs, all metrics are automatically averaged across runs.
+`ExperimentResult` carries the totals and the per-item detail. With multiple runs, all metrics are averaged across runs for you.
 
-### Aggregate Metrics
+### Totals
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1062,7 +1058,7 @@ if (result.runCount() > 1) {
   </TabItem>
 </Tabs>
 
-### Item-Level Results
+### Per-item detail
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1076,8 +1072,8 @@ for (ItemResult item : itemResults) {
     Map<String, Object> actualOutputs = item.actualOutputs();
     List<EvalResult> evalResults = item.evalResults();
     boolean success = item.success();
-    
-    // Your analysis logic here
+
+    // Your analysis here
 }
 ```
 
@@ -1094,20 +1090,20 @@ itemResults.forEach { item ->
     val evalResults = item.evalResults()
     val success = item.success()
 
-    // Your analysis logic here
+    // Your analysis here
 }
 ```
 
   </TabItem>
 </Tabs>
 
-### Metadata Access
+### Metadata
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
 ```java
-// Access experiment metadata
+// Read experiment metadata
 Map<String, Object> metadata = result.metadata();
 System.out.println("Model: " + metadata.get("model"));
 System.out.println("Temperature: " + metadata.get("temperature"));
@@ -1117,7 +1113,7 @@ System.out.println("Temperature: " + metadata.get("temperature"));
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-// Access experiment metadata
+// Read experiment metadata
 val metadata = result.metadata()
 println("Model: ${metadata["model"]}")
 println("Temperature: ${metadata["temperature"]}")
@@ -1126,13 +1122,13 @@ println("Temperature: ${metadata["temperature"]}")
   </TabItem>
 </Tabs>
 
-## Running Experiments in CI/CD
+## Running experiments in CI/CD
 
-You can run experiments automatically in your CI/CD pipeline to catch regressions before they reach production.
+Run experiments in CI to catch regressions before they ship. There are two ways to wire it up.
 
-### Simple Approach: Exit Code
+### Option 1: a main class with an exit code
 
-Create a main class that fails the build if results don't meet your threshold:
+Write a main class that exits non-zero when results fall below your threshold.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1142,7 +1138,7 @@ public class EvaluationPipeline {
     public static void main(String[] args) {
         Dataset dataset = DatasetResolverRegistry.getInstance()
             .resolve("classpath:datasets/qa-dataset.json");
-        
+
         ExperimentResult result = Experiment.builder()
             .name("CI Validation")
             .dataset(dataset)
@@ -1150,15 +1146,15 @@ public class EvaluationPipeline {
             .evaluators(evaluators)
             .build()
             .run();
-        
+
         System.out.println("Pass rate: " + result.passRate() * 100 + "%");
-        
-        // Fail the build if pass rate is below threshold
+
+        // Fail the build if the pass rate is below threshold
         if (result.passRate() < 0.95) {
             System.err.println("❌ Evaluation failed: pass rate below 95%");
             System.exit(1);
         }
-        
+
         System.out.println("✅ Evaluation passed!");
         System.exit(0);
     }
@@ -1184,7 +1180,7 @@ object EvaluationPipeline {
 
         println("Pass rate: ${result.passRate() * 100}%")
 
-        // Fail the build if pass rate is below threshold
+        // Fail the build if the pass rate is below threshold
         if (result.passRate() < 0.95) {
             System.err.println("❌ Evaluation failed: pass rate below 95%")
             kotlin.system.exitProcess(1)
@@ -1199,9 +1195,9 @@ object EvaluationPipeline {
   </TabItem>
 </Tabs>
 
-### JUnit Integration
+### Option 2: a JUnit test
 
-For better test reporting and IDE integration, wrap experiments in JUnit tests:
+Wrap the experiment in a JUnit test for better reporting and IDE integration.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1211,12 +1207,12 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LLMEvaluationTest {
-    
+
     @Test
     void experimentShouldPassQualityThreshold() {
         Dataset dataset = DatasetResolverRegistry.getInstance()
             .resolve("classpath:datasets/qa-dataset.json");
-        
+
         ExperimentResult result = Experiment.builder()
             .name("QA Evaluation")
             .dataset(dataset)
@@ -1224,12 +1220,12 @@ class LLMEvaluationTest {
             .evaluators(evaluators)
             .build()
             .run();
-        
-        // Assert pass rate threshold
+
+        // Assert the pass rate threshold
         assertTrue(result.passRate() >= 0.95,
             "Pass rate " + result.passRate() + " is below threshold 0.95");
-        
-        // Assert individual evaluator performance
+
+        // Assert per-evaluator performance
         assertTrue(result.averageScore("Correctness") >= 0.8,
             "Correctness score too low");
     }
@@ -1257,11 +1253,11 @@ class LLMEvaluationTest {
             evaluators(evaluators)
         }.run()
 
-        // Assert pass rate threshold
+        // Assert the pass rate threshold
         assertTrue(result.passRate() >= 0.95,
             "Pass rate ${result.passRate()} is below threshold 0.95")
 
-        // Assert individual evaluator performance
+        // Assert per-evaluator performance
         assertTrue(result.averageScore("Correctness") >= 0.8,
             "Correctness score too low")
     }
@@ -1271,7 +1267,7 @@ class LLMEvaluationTest {
   </TabItem>
 </Tabs>
 
-### GitHub Actions Example
+### GitHub Actions example
 
 ```yaml
 name: LLM Evaluation
@@ -1281,21 +1277,21 @@ on: [push, pull_request]
 jobs:
   evaluate:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           java-version: '21'
           distribution: 'temurin'
-      
+
       - name: Run LLM Evaluations
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: mvn test -Dtest=LLMEvaluationTest
-      
+
       - name: Upload Evaluation Report
         if: always()
         uses: actions/upload-artifact@v3
@@ -1304,21 +1300,17 @@ jobs:
           path: target/evaluation-results/
 ```
 
-### Tips for CI/CD
+### CI/CD tips
 
-**Keep CI datasets small** - Use a subset of your full dataset for CI (maybe 20-50 examples) to keep builds fast. Run comprehensive evaluations nightly or weekly.
+- **Keep CI datasets small.** Use a subset (20 to 50 examples) so builds stay fast. Run the full dataset nightly or weekly.
+- **Set realistic thresholds.** Don't expect 100% right away. Start at something you can hit (say 80%) and raise it over time.
+- **Cache responses where you can.** If you test the same examples often, cache LLM responses to save on API cost.
+- **Fail early.** Put your most important evaluators first so obvious problems surface fast.
+- **Save detailed results.** Upload results as build artifacts so you can review failures later.
 
-**Set realistic thresholds** - Don't expect 100% pass rates right away. Start with something achievable (like 80%) and gradually increase it.
+## LangChain4j integration
 
-**Cache responses when possible** - If you're testing the same examples repeatedly, consider caching LLM responses to save on API costs.
-
-**Fail early** - Put your most critical evaluators first so you catch obvious problems quickly.
-
-**Save detailed results** - Upload experiment results as build artifacts so you can review failures later.
-
-## LangChain4j Integration
-
-If you're using LangChain4j, the `dokimos-langchain4j` module makes it easy to evaluate AI Services:
+If you use LangChain4j, the `dokimos-langchain4j` module turns an AI Service into a Task in one call.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1326,7 +1318,7 @@ If you're using LangChain4j, the `dokimos-langchain4j` module makes it easy to e
 ```java
 import dev.dokimos.langchain4j.LangChain4jSupport;
 
-// Create your LangChain4j AI Service
+// Your LangChain4j AI Service
 interface Assistant {
     Result<String> chat(String userMessage);
 }
@@ -1339,7 +1331,7 @@ Assistant assistant = AiServices.builder(Assistant.class)
 // Wrap it as a Task
 Task task = LangChain4jSupport.ragTask(assistant::chat);
 
-// Run experiment
+// Run the experiment
 ExperimentResult result = Experiment.builder()
     .name("RAG Evaluation")
     .dataset(dataset)
@@ -1357,7 +1349,7 @@ import dev.dokimos.langchain4j.LangChain4jSupport
 import dev.langchain4j.service.AiServices
 import dev.langchain4j.service.Result
 
-// Create your LangChain4j AI Service
+// Your LangChain4j AI Service
 interface Assistant {
     fun chat(userMessage: String): Result<String>
 }
@@ -1370,7 +1362,7 @@ val assistant = AiServices.builder(Assistant::class.java)
 // Wrap it as a Task
 val task = LangChain4jSupport.ragTask(assistant::chat)
 
-// Run experiment
+// Run the experiment
 val result = experiment {
     name = "RAG Evaluation"
     dataset(dataset)
@@ -1382,17 +1374,17 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-The `ragTask()` method automatically extracts retrieved context from `Result.sources()` and includes it in the outputs for faithfulness evaluation.
+`ragTask()` pulls the retrieved context out of `Result.sources()` and adds it to the outputs, so faithfulness evaluation works out of the box.
 
-## Best Practices
+## Best practices
 
 ### Start small, then grow
 
-Don't try to build a huge dataset upfront. Start with 10-20 high-quality examples that cover your main use cases. Run experiments frequently and add more examples as you discover edge cases.
+Don't build a giant dataset up front. Start with 10 to 20 strong examples that cover your main cases. Run experiments often and add examples as you find edge cases.
 
 ### Name experiments clearly
 
-When you're comparing results later, you'll want to know exactly what each experiment tested:
+When you compare results later, you want to know exactly what each run tested.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1413,7 +1405,7 @@ name = "gpt-5-nano-customer-support-temp0.7-2025-12-27"
 
 ### Track everything with metadata
 
-Record model settings, versions, and timestamps so you can reproduce results:
+Record model settings, versions, and timestamps so you can reproduce a result.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1438,20 +1430,20 @@ metadata("timestamp", Instant.now().toString())
   </TabItem>
 </Tabs>
 
-### Match evaluators to your needs
+### Match evaluators to the job
 
-- Use **exact match** for factual answers that should be deterministic (like calculations)
-- Use **LLM judges** when you need semantic understanding (like checking if an explanation makes sense)
-- Use **faithfulness** for RAG systems to ensure answers are grounded in your documents
-- Build **custom evaluators** for domain-specific requirements
+- Use **exact match** for deterministic factual answers (like calculations).
+- Use **LLM judges** when you need meaning, not exact text (like whether an explanation holds up).
+- Use **faithfulness** for RAG, to confirm answers stay grounded in your documents.
+- Build **custom evaluators** for domain-specific rules.
 
-### Set achievable thresholds
+### Set thresholds you can hit
 
-Don't expect perfection right away. Start with realistic thresholds (maybe 70-80%) and increase them as you improve your application.
+Don't aim for perfect on day one. Start at 70 to 80% and raise the bar as the application improves.
 
 ### Version your datasets
 
-As you add test cases, keep old versions around so you can track how your application improves over time:
+As you add cases, keep old versions so you can track how the application improves over time.
 
 ```
 src/test/resources/datasets/
@@ -1462,24 +1454,24 @@ src/test/resources/datasets/
 
 ### Run experiments regularly
 
-Set up nightly builds or weekly evaluations to catch performance regressions early. You can also run quick experiments during development with a smaller dataset.
+Schedule nightly or weekly runs to catch regressions early. Run a quick experiment on a smaller dataset during development.
 
-## Exporting Results
+## Exporting results
 
-Dokimos can export experiment results to multiple formats for reporting, analysis, or integration with other tools.
+Dokimos exports results to four formats for reporting, analysis, or handoff to other tools.
 
-### Export Formats
+### Pick a format
 
-| Format | Best For |
+| Format | Best for |
 |--------|----------|
 | **JSON** | Programmatic access, storing results, further processing |
 | **HTML** | Human-readable reports, sharing with stakeholders |
 | **Markdown** | CI/CD logs, GitHub PR comments |
 | **CSV** | Spreadsheet analysis, exploration |
 
-### Basic Export
+### Export to files or strings
 
-Export to files or get as strings:
+Write to a file, or get the content back as a string.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1487,7 +1479,7 @@ Export to files or get as strings:
 ```java
 ExperimentResult result = experiment.run();
 
-// Export to files
+// Write to files
 result.exportJson(Path.of("results/experiment.json"));
 result.exportHtml(Path.of("results/report.html"));
 result.exportMarkdown(Path.of("results/summary.md"));
@@ -1506,7 +1498,7 @@ String csv = result.toCsv();
 ```kotlin
 val result = experiment.run()
 
-// Export to files
+// Write to files
 result.exportJson(Path.of("results/experiment.json"))
 result.exportHtml(Path.of("results/report.html"))
 result.exportMarkdown(Path.of("results/summary.md"))
@@ -1522,9 +1514,9 @@ val csv = result.toCsv()
   </TabItem>
 </Tabs>
 
-### JSON Format
+### JSON format
 
-The JSON export includes full experiment data:
+The JSON export holds the full experiment data.
 
 ```json
 {
@@ -1552,7 +1544,7 @@ The JSON export includes full experiment data:
 }
 ```
 
-For multi-run experiments, each item's evaluations include aggregated statistics:
+For multi-run experiments, each item's evaluations include aggregated statistics.
 
 ```json
 {
@@ -1565,9 +1557,9 @@ For multi-run experiments, each item's evaluations include aggregated statistics
 }
 ```
 
-### Markdown Format
+### Markdown format
 
-Markdown is ideal for CI/CD logs and readable summaries:
+Markdown suits CI/CD logs and readable summaries.
 
 ```markdown
 # Experiment: QA Evaluation
@@ -1589,9 +1581,9 @@ Markdown is ideal for CI/CD logs and readable summaries:
 **Faithfulness:** 0.45 (FAIL): Claim not supported by context
 ```
 
-### HTML Reports
+### HTML reports
 
-Generate standalone HTML reports with embedded styling:
+Generate a standalone HTML report with styling built in.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1611,19 +1603,19 @@ result.exportHtml(Path.of("reports/evaluation-report.html"))
 </Tabs>
 
 HTML reports include:
-- Summary cards with pass rate, counts
-- Evaluator statistics table (sortable)
-- Results table with expandable rows for details
-- Pass/fail color coding
+- Summary cards with pass rate and counts
+- A sortable evaluator statistics table
+- A results table with expandable rows for detail
+- Pass and fail color coding
 - Dark mode support
 
-The following is an example of the HTML report layout:
+Here is what the layout looks like:
 
 ![HTML Report Example](/img/html-export-preview.png)
 
-### CSV Export
+### CSV export
 
-CSV is useful for spreadsheet analysis:
+CSV is handy for spreadsheet analysis.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1642,7 +1634,7 @@ result.exportCsv(Path.of("results/data.csv"))
   </TabItem>
 </Tabs>
 
-The CSV has dynamic columns based on evaluators used:
+The columns are dynamic, based on the evaluators you used.
 
 ```csv
 input,expected_output,actual_output,success,faithfulness_score,faithfulness_pass
@@ -1651,7 +1643,7 @@ input,expected_output,actual_output,success,faithfulness_score,faithfulness_pass
 
 ### Exporting in CI/CD
 
-Export results for analysis and reporting:
+Export every format and print the markdown summary to the console.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1666,7 +1658,7 @@ result.exportHtml(outputDir.resolve("report.html"));
 result.exportMarkdown(outputDir.resolve("summary.md"));
 result.exportCsv(outputDir.resolve("data.csv"));
 
-// Print markdown summary to console
+// Print the markdown summary to the console
 System.out.println(result.toMarkdown());
 ```
 
@@ -1683,7 +1675,7 @@ result.exportHtml(outputDir.resolve("report.html"))
 result.exportMarkdown(outputDir.resolve("summary.md"))
 result.exportCsv(outputDir.resolve("data.csv"))
 
-// Print markdown summary to console
+// Print the markdown summary to the console
 println(result.toMarkdown())
 ```
 

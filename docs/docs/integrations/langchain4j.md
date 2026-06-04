@@ -7,19 +7,19 @@ sidebar_position: 2
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Dokimos works with [LangChain4j](https://github.com/langchain4j/langchain4j) so you can evaluate your AI Services and RAG pipelines.
+This page shows you how to evaluate your [LangChain4j](https://github.com/langchain4j/langchain4j) AI Services and RAG pipelines with Dokimos. You write less glue code because Dokimos reads the retrieved documents straight out of LangChain4j's results.
 
-## Why Use This Integration?
+## Why use this integration
 
-**Automatic context extraction**: LangChain4j's `Result<T>` objects already contain the retrieved documents. Dokimos extracts them automatically so you don't have to track context manually.
+**Automatic context extraction**: A LangChain4j `Result<T>` already holds the retrieved documents. Dokimos pulls them out for you, so you never track context by hand.
 
-**Simple conversion**: Turn a `ChatModel` or AI Service into a Dokimos Task with one line of code.
+**One-line conversion**: Turn a `ChatModel` or an AI Service into a Dokimos `Task` with a single call.
 
-**RAG evaluation ready**: Use the `FaithfulnessEvaluator` to check if answers are grounded in retrieved documents.
+**Ready for RAG**: Use `FaithfulnessEvaluator` to check that answers stay grounded in the retrieved documents.
 
 ## Setup
 
-Add the LangChain4j integration dependency:
+Add the integration dependency to your `pom.xml`:
 
 ```xml
 <dependency>
@@ -29,11 +29,11 @@ Add the LangChain4j integration dependency:
 </dependency>
 ```
 
-## Basic Usage
+## Basic usage
 
-### Evaluating a Simple ChatModel
+### Evaluate a simple ChatModel
 
-Convert a LangChain4j `ChatModel` to a Task:
+Wrap a LangChain4j `ChatModel` in a `Task` and run an experiment:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -109,9 +109,9 @@ val task = LangChain4jSupport.simpleTask(model, "answer")
   </TabItem>
 </Tabs>
 
-### Using ChatModel as LLM Judge
+### Use a ChatModel as an LLM judge
 
-Convert a `ChatModel` to a `JudgeLM` for evaluation:
+Turn a `ChatModel` into a `JudgeLM` so an evaluator can use it to score answers:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -163,9 +163,9 @@ val correctness = llmJudge(judge) {
   </TabItem>
 </Tabs>
 
-## Evaluating RAG Systems
+## Evaluate RAG systems
 
-The main reason to use this integration is for evaluating RAG systems. Here's a complete example:
+Evaluating RAG is the main reason to reach for this integration. Here is a full example you can copy and adapt:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -305,9 +305,9 @@ println("Faithfulness: ${result.averageScore("Faithfulness")}")
   </TabItem>
 </Tabs>
 
-### How It Works
+### How it works
 
-The `ragTask()` method extracts the input, calls your AI Service, and automatically pulls the retrieved context from `Result.sources()`. The output includes both the answer and context:
+`ragTask()` reads the input, calls your AI Service, and pulls the retrieved context from `Result.sources()`. The output map holds both the answer and the context:
 
 ```java
 {
@@ -319,13 +319,13 @@ The `ragTask()` method extracts the input, calls your AI Service, and automatica
 }
 ```
 
-This lets the `FaithfulnessEvaluator` check if the answer is grounded in what was actually retrieved.
+`FaithfulnessEvaluator` then checks the answer against what was actually retrieved.
 
-## Async Tasks
+## Async tasks
 
-When each example is an independent, blocking model or assistant call, the async tasks let the experiment keep many calls in flight instead of blocking one thread per example. Wire them with `Experiment.builder().asyncTask(...)` and bound concurrency with `parallelism(...)`.
+Each RAG example is an independent, blocking model or assistant call. Async tasks let the experiment keep many of those calls in flight at once instead of blocking one thread per example. Wire them with `Experiment.builder().asyncTask(...)` and cap how many run at once with `parallelism(...)`.
 
-`asyncTask(model)` is the async counterpart of `simpleTask(model)`, and `asyncRagTask(assistantCall)` is the async counterpart of `ragTask(...)` — it still extracts the retrieved context from `Result.sources()` into the `"context"` key. Both dispatch the blocking call on the common `ForkJoinPool` via `CompletableFuture.supplyAsync(...)`.
+`asyncTask(model)` is the async version of `simpleTask(model)`. `asyncRagTask(assistantCall)` is the async version of `ragTask(...)`, and it still extracts the retrieved context from `Result.sources()` into the `"context"` key. Both run the blocking call on the common `ForkJoinPool` via `CompletableFuture.supplyAsync(...)`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -378,11 +378,11 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-To write under a different output key, use `asyncTask(model, outputKey)`. `asyncRagTask` has a four-arg overload `asyncRagTask(assistantCall, inputKey, outputKey, contextKey)` for custom dataset keys.
+To write under a different output key, use `asyncTask(model, outputKey)`. For custom dataset keys, `asyncRagTask` has a four-argument overload: `asyncRagTask(assistantCall, inputKey, outputKey, contextKey)`.
 
 :::note
 
-The common pool is shared process-wide and its effective parallelism is roughly one less than the CPU count, so it caps how many blocking calls actually run at once even when `parallelism` is higher. For controlled, isolated concurrency, pass an `Executor` sized to your target throughput — `asyncTask(model, executor)` or `asyncRagTask(assistantCall, executor)`.
+The common pool is shared across the whole process, and its effective parallelism is about one less than your CPU count. So it caps how many blocking calls actually run at once, even when you set `parallelism` higher. For controlled, isolated concurrency, pass an `Executor` sized to the throughput you want: `asyncTask(model, executor)` or `asyncRagTask(assistantCall, executor)`.
 
 :::
 
@@ -431,11 +431,11 @@ experiment {
   </TabItem>
 </Tabs>
 
-## Advanced Usage
+## Advanced usage
 
-### Custom Dataset Keys
+### Custom dataset keys
 
-If your dataset uses different key names:
+When your dataset uses different key names, map them in the `ragTask` call:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -482,9 +482,9 @@ val task = LangChain4jSupport.ragTask(
   </TabItem>
 </Tabs>
 
-### Tracking Extra Metrics
+### Track extra metrics
 
-Use `customTask()` to track latency, source counts, or other metrics:
+Use `customTask()` when you want to record latency, source counts, or other metrics alongside the answer:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -526,9 +526,9 @@ val task = LangChain4jSupport.customTask { example ->
 </Tabs>
 
 
-### Context Extraction Utilities
+### Context extraction utilities
 
-Extract retrieved context in different formats:
+Pull retrieved context out of a `Result` in two formats:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -566,11 +566,11 @@ val contextsWithMeta = LangChain4jSupport.extractTextsWithMetadata(result.source
   </TabItem>
 </Tabs>
 
-## RAG-Specific Evaluators
+## RAG-specific evaluators
 
-### Faithfulness Evaluation
+### Faithfulness evaluation
 
-Verify outputs are grounded in retrieved context:
+Check that the output stays grounded in the retrieved context:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -598,14 +598,14 @@ val faithfulness = faithfulness(judge) {
   </TabItem>
 </Tabs>
 
-The evaluator:
-1. Extracts claims from the actual output
-2. Verifies each claim against the retrieved context
-3. Computes score = (supported claims) / (total claims)
+The evaluator runs three steps:
+1. Extracts claims from the actual output.
+2. Verifies each claim against the retrieved context.
+3. Computes score = (supported claims) / (total claims).
 
-### Multi-dimensional RAG Evaluation
+### Multi-dimensional RAG evaluation
 
-Evaluate different quality aspects:
+Score several quality aspects in one experiment:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -677,7 +677,9 @@ val evaluators = evaluators {
   </TabItem>
 </Tabs>
 
-## Complete Working Example
+## Complete working example
+
+This example sets up an in-memory RAG pipeline, builds a dataset, and runs two evaluators end to end:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -890,7 +892,7 @@ object RAGEvaluation {
 
 ## Structured / typed output
 
-When your AI Service returns structured data — for example a record from a typed AI Service method — return that object under `"output"` instead of a string. Compare it with `StructuralMatchEvaluator` (numbers compare by value, formatting and key order don't count), and read it back type-safely with `actualOutputAs(Record.class)`.
+When your AI Service returns structured data, such as a record from a typed AI Service method, return that object under `"output"` instead of a string. Compare it with `StructuralMatchEvaluator` (numbers compare by value, so formatting and key order do not count), and read it back type-safely with `actualOutputAs(Record.class)`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -941,9 +943,9 @@ val actual = testCase.actualOutputAs(Invoice::class.java)
 
 See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub for the full pipeline.
 
-## JUnit Integration
+## JUnit integration
 
-Combine with [JUnit](./junit) for testing:
+Combine this with [JUnit](./junit) to run evaluations as tests:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1000,20 +1002,20 @@ class RagJUnitTests {
   </TabItem>
 </Tabs>
 
-## Best Practices
+## Best practices
 
-**Always return `Result<String>`**: Your AI Service interface must return `Result<String>`, not just `String`. This is how LangChain4j provides the retrieved context.
+**Always return `Result<String>`**: Your AI Service interface must return `Result<String>`, not just `String`. That return type is how LangChain4j hands back the retrieved context.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
 ```java
-// ✅ Good
+// Good
 interface Assistant {
     Result<String> chat(String message);
 }
 
-// ❌ Won't work (can't extract context)
+// Will not work (cannot extract context)
 interface Assistant {
     String chat(String message);
 }
@@ -1023,12 +1025,12 @@ interface Assistant {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-// ✅ Good
+// Good
 interface Assistant {
     fun chat(message: String): Result<String>
 }
 
-// ❌ Won't work (can't extract context)
+// Will not work (cannot extract context)
 interface BadAssistant {
     fun chat(message: String): String
 }
@@ -1037,8 +1039,8 @@ interface BadAssistant {
   </TabItem>
 </Tabs>
 
-**Use a better model for judging**: Use GPT-5.2 or similar for evaluation, even if your application uses a smaller model for generation.
+**Use a stronger model for judging**: Judge with GPT-5.2 or similar, even when your application generates answers with a smaller model.
 
-**Track retrieval quality**: Monitor how many documents are retrieved and whether they're relevant. Use `customTask()` to add metrics.
+**Track retrieval quality**: Watch how many documents you retrieve and whether they are relevant. Add those metrics with `customTask()`.
 
-**Test different retrieval settings**: Use experiments to compare different `maxResults`, embedding models, or reranking strategies.
+**Test different retrieval settings**: Run experiments that compare different `maxResults` values, embedding models, or reranking strategies.

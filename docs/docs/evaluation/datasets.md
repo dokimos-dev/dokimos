@@ -7,17 +7,15 @@ sidebar_position: 2
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-A dataset is a collection of examples that represent the scenarios you want to test your LLM application against. Each example typically contains an input (like a user question or prompt) and an expected output (the correct or desired response).
+A dataset is your list of test cases. Each example holds an input (a user question or prompt) and the expected output (the answer you want back). You run your LLM application against every example at once instead of trying prompts by hand.
 
-Datasets let you evaluate your application systematically rather than testing with ad-hoc prompts. You can create them programmatically in your code, load them from JSON or CSV files, or fetch them from external sources.
+You can build a dataset in code, load it from a JSON, JSONL, or CSV file, or fetch it from a Dokimos server.
 
-## Creating Datasets
+## Build one in code
 
-### Programmatic Creation
+Use `Dataset.builder()` when you want to keep small datasets next to your test code or generate examples on the fly.
 
-You can build datasets directly in your code using the `Dataset.builder()` API. This is useful when you want to generate test cases dynamically or keep simple datasets close to your test code.
-
-Here's a basic example for a customer support chatbot:
+Here is a dataset for a customer support chatbot:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -72,7 +70,7 @@ val dataset = dataset {
   </TabItem>
 </Tabs>
 
-The `Example.of()` method is convenient for simple input-output pairs. For more complex scenarios where you need multiple inputs or outputs, use `Example.builder()`:
+`Example.of()` takes one input and one expected output. When you need several inputs, several expected outputs, or metadata, switch to `Example.builder()`:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -117,17 +115,17 @@ val dataset = dataset {
   </TabItem>
 </Tabs>
 
-## Loading Datasets from Files
+## Load one from a file
 
-For most real-world use cases, you'll want to store your datasets as JSON, JSONL, or CSV files. This makes it easier to version control your test data, collaborate with team members, and separate test data from code.
+Most of the time you store datasets as files. Files are easy to version control, share with your team, and keep apart from code. Dokimos reads JSON, JSONL, and CSV.
 
-### JSON Format
+### JSON
 
-Dokimos supports loading datasets from JSON using `Dataset.fromJson()`. There are two formats you can use:
+Load JSON with `Dataset.fromJson()`. You can write the file in two shapes.
 
-#### Simple Format
+#### Simple shape
 
-For straightforward input-output pairs, use this format:
+Use this for one input and one expected output per example:
 
 ```json
 {
@@ -146,9 +144,9 @@ For straightforward input-output pairs, use this format:
 }
 ```
 
-#### Complex Format
+#### Complex shape
 
-When you need multiple inputs, multiple expected outputs, or metadata, use this format:
+Use this when you need several inputs, several expected outputs, or metadata. Note the plural keys (`inputs`, `expectedOutputs`):
 
 ```json
 {
@@ -172,7 +170,7 @@ When you need multiple inputs, multiple expected outputs, or metadata, use this 
 }
 ```
 
-#### Loading JSON Files
+#### Load it
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -215,27 +213,27 @@ val datasetFromString = Dataset.fromJson(json)
   </TabItem>
 </Tabs>
 
-### JSONL Format
+### JSONL
 
-JSONL (JSON Lines) stores one JSON object per line. This format is well-suited for large datasets because Dokimos streams it line-by-line from disk without loading the entire file into memory.
+JSONL (JSON Lines) puts one JSON object per line. Reach for it with large datasets. Dokimos streams the file line by line from disk, so it never loads the whole file into memory.
 
-#### Simple Format
+#### Simple shape
 
 ```jsonl
 {"input": "Can I get a refund?", "expectedOutput": "Yes, we offer a 30-day money-back guarantee"}
 {"input": "How long does a refund take?", "expectedOutput": "Refunds are processed within 5-7 business days"}
 ```
 
-#### Complex Format
+#### Complex shape
 
-Each line supports the same `inputs`, `expectedOutputs`, and `metadata` structure as JSON:
+Each line takes the same `inputs`, `expectedOutputs`, and `metadata` keys as JSON:
 
 ```jsonl
 {"inputs": {"question": "What are the system requirements?", "documentIds": ["doc-123"]}, "expectedOutputs": {"answer": "Requires Java 21 or higher", "confidence": 0.95}, "metadata": {"category": "technical"}}
 {"inputs": {"question": "How do I install?", "documentIds": ["doc-456"]}, "expectedOutputs": {"answer": "Run the installer and follow the prompts", "confidence": 0.9}, "metadata": {"category": "setup"}}
 ```
 
-#### Loading JSONL Files
+#### Load it
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -270,11 +268,11 @@ val datasetFromString = Dataset.fromJsonl(jsonl, "greetings")
   </TabItem>
 </Tabs>
 
-### CSV Format
+### CSV
 
-CSV files work well for simpler datasets. You need at least an `input` column, and optionally an `expectedOutput` column (you can also use `expected_output` or `output` as the column name). Any additional columns are automatically treated as metadata.
+CSV fits simpler datasets. You need an `input` column. An `expectedOutput` column is optional (you can also name it `expected_output` or `output`). Every other column becomes metadata.
 
-Parsing follows RFC 4180. A quoted field may contain the delimiter (`,`), embedded newlines, and doubled quotes (`""` becomes a single literal `"`). Whitespace inside quoted fields is preserved, while unquoted fields are trimmed. A leading UTF-8 byte order mark is stripped.
+Parsing follows RFC 4180. A quoted field can hold the delimiter (`,`), line breaks, and doubled quotes (`""` becomes a single literal `"`). Whitespace inside quoted fields stays as is, and unquoted fields are trimmed. A leading UTF-8 byte order mark is stripped.
 
 #### Example CSV
 
@@ -286,7 +284,7 @@ How do I quote a price?,"Wrap it in double quotes like ""this""",support,low
 How do I contact support?,Email us at support@example.com or use live chat,support,high
 ```
 
-#### Loading CSV Files
+#### Load it
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -323,9 +321,9 @@ val datasetFromString = Dataset.fromCsv(csv, "payment-support")
   </TabItem>
 </Tabs>
 
-### One-call loading
+### Load any file with one call
 
-When you don't want to pick a format-specific method, `Dataset.load()` is a single entry point. It dispatches on `classpath:` and `file:` schemes and on the file extension for plain paths, then delegates to the resolver registry.
+If you do not want to pick a format-specific method, call `Dataset.load()`. It reads the `classpath:` and `file:` schemes, falls back to the file extension for plain paths, and then hands off to the resolver registry.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -350,15 +348,15 @@ val fromClasspath = Dataset.load("classpath:datasets/qa-dataset.jsonl")
   </TabItem>
 </Tabs>
 
-Unlike `fromJson`, `fromCsv`, and `fromJsonl`, `Dataset.load()` does not throw a checked `IOException`. It throws `DatasetResolutionException` if no resolver supports the argument.
+One difference: `fromJson`, `fromCsv`, and `fromJsonl` throw a checked `IOException`, but `Dataset.load()` does not. `Dataset.load()` throws `DatasetResolutionException` when no resolver handles the argument.
 
-## Dataset Resolution
+## Resolve datasets by URI scheme
 
-Dokimos provides a flexible way to load datasets from different sources using URI schemes. This is especially useful in testing environments where you want to load datasets from your test resources or from the file system.
+The resolver registry loads datasets from different sources using URI schemes. This helps in tests, where you load from test resources or from the file system.
 
-### Classpath Resources
+### From the classpath
 
-Load datasets from your classpath (like `src/main/resources` or `src/test/resources`):
+Load from your classpath, such as `src/main/resources` or `src/test/resources`:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -383,9 +381,9 @@ val dataset = DatasetResolverRegistry.getInstance()
   </TabItem>
 </Tabs>
 
-### File System
+### From the file system
 
-Load datasets from anywhere on your file system:
+Load from anywhere on disk:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -416,15 +414,15 @@ val datasetFromDefault = DatasetResolverRegistry.getInstance()
   </TabItem>
 </Tabs>
 
-JSON, JSONL, and CSV files are automatically detected based on the file extension.
+The registry picks JSON, JSONL, or CSV from the file extension.
 
-### Server datasets
+### From a Dokimos server
 
-With the `dokimos-server-client` dependency on your classpath, the registry also resolves `dataset://name@version` URIs against a running Dokimos server, so a dataset can be versioned and shared instead of living in a file. See [Server datasets](../server/datasets) for the version model, the resolver's environment variables, and its offline cache.
+Add the `dokimos-server-client` dependency to your classpath, and the registry also resolves `dataset://name@version` URIs against a running Dokimos server. Now a dataset can be versioned and shared instead of living in a file. See [Server datasets](../server/datasets) for the version model, the resolver's environment variables, and its offline cache.
 
-## Using Datasets with JUnit
+## Run a dataset in JUnit
 
-The `dokimos-junit` module makes it easy to use datasets with JUnit's parameterized tests through the `@DatasetSource` annotation.
+The `dokimos-junit` module feeds a dataset into a JUnit parameterized test through the `@DatasetSource` annotation. Each example arrives as one `Example` parameter, so JUnit runs your test once per example.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -465,7 +463,7 @@ class DatasetTests {
   </TabItem>
 </Tabs>
 
-You can also provide inline JSON or JSONL directly in the annotation:
+You can also pass JSON or JSONL inline in the annotation:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -526,7 +524,7 @@ fun testWithInlineJsonl(example: Example) {
   </TabItem>
 </Tabs>
 
-For more complex evaluation scenarios with RAG systems:
+For a RAG system, retrieve context first, then pass both the response and the context to your evaluators:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -579,9 +577,9 @@ fun shouldPassEvaluators(example: Example) {
   </TabItem>
 </Tabs>
 
-## Using Datasets with LangChain4j
+## Run a dataset against LangChain4j
 
-The `dokimos-langchain4j` module provides utilities for evaluating LangChain4j AI Services and RAG pipelines.
+The `dokimos-langchain4j` module evaluates LangChain4j AI Services and RAG pipelines. Wrap your AI Service as a `Task`, then run it across the dataset:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -673,7 +671,7 @@ val result: ExperimentResult = experiment {
   </TabItem>
 </Tabs>
 
-If your dataset uses custom key names (like `"question"` instead of `"input"`), specify them explicitly:
+If your dataset uses other key names (say `"question"` instead of `"input"`), pass them to `ragTask`:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -704,9 +702,9 @@ val task = LangChain4jSupport.ragTask(
   </TabItem>
 </Tabs>
 
-## Working with Examples
+## Read an example
 
-Each example in a dataset contains inputs, expected outputs, and optional metadata. You can access this data in different ways depending on your needs:
+Every example holds inputs, expected outputs, and optional metadata. Read them the simple way for one input and one output, or read the full maps when you have several:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -743,9 +741,9 @@ val metadata = example.metadata()
   </TabItem>
 </Tabs>
 
-### Converting Examples to Test Cases
+### Turn an example into a test case
 
-You can easily convert examples to test cases for evaluation:
+Call `toTestCase()` to get an `EvalTestCase` your evaluators can score. Pass a single output, or a map when you have several:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -784,16 +782,16 @@ val multiOutputTestCase = example.toTestCase(actualOutputs)
   </TabItem>
 </Tabs>
 
-## Dataset Properties
+## Dataset properties
 
-Datasets have the following properties:
+A dataset exposes:
 
-- **name**: A descriptive name for the dataset
-- **description**: An optional detailed description
-- **examples**: The list of examples in the dataset
-- **size()**: Returns the number of examples
-- **get(int index)**: Retrieves an example by index
-- **Iterable**: Datasets are iterable, so you can use them in for-each loops
+- **name**: a short name for the dataset
+- **description**: an optional longer description
+- **examples**: the list of examples
+- **size()**: the number of examples
+- **get(int index)**: the example at that index
+- **Iterable**: a dataset iterates, so you can use it in a for-each loop
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -830,11 +828,11 @@ dataset.forEach { example ->
   </TabItem>
 </Tabs>
 
-## Best Practices
+## Best practices
 
-### Version control your datasets
+### Keep datasets in version control
 
-Keep datasets as files in your repository so you can track changes over time and collaborate with your team:
+Store datasets as files in your repository. You track changes over time and your team works on them together:
 
 ```
 src/test/resources/
@@ -845,11 +843,11 @@ src/test/resources/
     code-review-examples.json
 ```
 
-This also makes it easier to review changes when someone updates test cases.
+Files also make pull requests easy to read when someone updates test cases.
 
-### Use meaningful names and descriptions
+### Name and describe each dataset
 
-Help your team understand what each dataset tests:
+Tell your team what a dataset tests:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -877,7 +875,7 @@ dataset {
 
 ### Add metadata for filtering and analysis
 
-Metadata helps you understand patterns in failures:
+Metadata helps you spot patterns in failures:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -908,13 +906,13 @@ example {
   </TabItem>
 </Tabs>
 
-### Start small, grow organically
+### Start small, grow over time
 
-Don't try to build a huge dataset upfront. Start with 10-15 examples covering the most important scenarios, then add edge cases as you discover them through testing.
+Skip the big upfront dataset. Start with 10 to 15 examples that cover the cases you care about most, then add edge cases as testing surfaces them.
 
-### Combine different sources
+### Combine sources
 
-Load a base dataset from a file and add programmatic examples for specific test scenarios:
+Load a base dataset from a file, then add programmatic examples for specific cases:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">

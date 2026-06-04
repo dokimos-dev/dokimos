@@ -7,42 +7,47 @@ sidebar_position: 1
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-This tutorial walks you through building a complete AI agent with Spring AI and systematically evaluating its performance using Dokimos in Java and Kotlin. You will create a knowledge assistant that retrieves documents from a vector store and generates contextual answers, then evaluate it across multiple quality dimensions.
+This page shows you how to build a RAG agent with Spring AI and score its answers with Dokimos, in Java and Kotlin. You build a knowledge assistant that retrieves documents and writes answers, then you measure how good those answers are.
 
-By the end of this tutorial, you will have:
-- A working Spring AI agent with RAG (Retrieval-Augmented Generation) capabilities
-- A multi evaluator pipeline that checks faithfulness, hallucination, and answer quality
-- Insights into how your agent performs and where it can improve
+By the end you will have:
+
+- A working Spring AI agent with RAG (Retrieval-Augmented Generation).
+- An evaluator pipeline that checks faithfulness, hallucination, and answer quality.
+- A clear read on how the agent performs and where it falls short.
+
+Want to run the finished code first? Clone the [tutorial example](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples/src/main/java/dev/dokimos/examples/springai/tutorial) and come back. Everything below builds it step by step.
 
 ## Why Evaluate Your AI Agent?
 
-Building an AI agent is just the start. The real challenge is ensuring it performs reliably in production and meets user expectations. Traditional testing approaches fall short when dealing with LLM applications because:
+Shipping an agent is the easy part. Knowing it stays correct in production is the hard part. Normal tests do not fit LLM apps for three reasons:
 
-**LLM Outputs are nondeterministic**: The same question can produce different (but equally valid) answers. You cannot simply assert that output will always equal some expected string.
+**LLM outputs change run to run.** The same question can return different answers that are both fine. You cannot assert that output equals one fixed string.
 
-**Quality is multidimensional**: A response might be factually correct but poorly worded, or helpful but not grounded in your documents.
+**Quality has many dimensions.** An answer can be correct but unclear, or helpful but not backed by your documents.
 
-**Failures are subtle**: An agent might generate confident and at a first glance convincing but factually incorrect information.
+**Failures hide.** An agent can sound confident and still state something false.
 
-Dokimos provides a systematic framework for evaluating LLM applications. It lets you define quality criteria, run evaluations, and track performance over time.
+Dokimos gives you a repeatable way to check LLM apps. You define quality criteria, run them, and watch the scores over time.
 
 ## What We Are Building
 
-We will build a knowledge assistant for a fictional company's documentation. The assistant will:
+We build a knowledge assistant for a fictional company's docs. The assistant will:
 
-1. Accept user questions about products, policies, and services
-2. Retrieve relevant documents from a vector store
-3. Generate contextual answers based on the retrieved documents
+1. Take user questions about products, policies, and services.
+2. Retrieve matching documents from a vector store.
+3. Write an answer based on those documents.
 
-Then we will evaluate this assistant on multiple dimensions:
-- **Faithfulness**: Are the responses grounded in the retrieved documents?
-- **Answer Quality**: Are the responses helpful and complete?
-- **Contextual Relevance**: Is the retriever finding relevant documents?
+Then we measure the assistant on four dimensions:
+
+- **Faithfulness**: Are the answers backed by the retrieved documents?
+- **Answer Quality**: Are the answers helpful and complete?
+- **Contextual Relevance**: Is the retriever finding the right documents?
 - **Hallucination Detection**: Is the agent making things up?
 
 ## Prerequisites
 
-Before you begin, make sure you have:
+Before you start, make sure you have:
+
 - Java 21 or later
 - Maven or Gradle
 - An OpenAI API key (or another supported LLM provider)
@@ -52,7 +57,7 @@ Before you begin, make sure you have:
 
 ### Dependencies
 
-Create a new Spring Boot project and add the following dependencies:
+Create a Spring Boot project. Then add these dependencies.
 
 #### Maven
 
@@ -133,17 +138,17 @@ spring.ai.openai.chat.options.temperature=1.0
 spring.ai.openai.embedding.options.model=text-embedding-3-small
 ```
 
-Note: The `gpt-5-nano` model only supports `temperature=1.0`. If using a different model like `gpt-4o-mini`, you can omit the temperature setting.
+Note: The `gpt-5-nano` model only supports `temperature=1.0`. If you use a different model like `gpt-4o-mini`, you can drop the temperature setting.
 
-The `SimpleVectorStore` requires an embedding model to convert text to vectors. We use OpenAI's `text-embedding-3-small` which is fast and cost-effective.
+The `SimpleVectorStore` needs an embedding model to turn text into vectors. We use OpenAI's `text-embedding-3-small`, which is fast and cheap.
 
 ## Part 1: Building the AI Agent
 
-We start by building our knowledge assistant. This is a simple RAG pipeline that retrieves documents and generates answers.
+We start with the assistant. It is a small RAG pipeline: retrieve documents, then write an answer.
 
 ### Setting Up the Vector Store
 
-First, we need a vector store to hold our company documents. For this tutorial, we will use Spring AI's `SimpleVectorStore`, which stores embeddings in-memory.
+First, we need a store for the company documents. We use Spring AI's `SimpleVectorStore`, which keeps embeddings in memory.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -258,7 +263,7 @@ class VectorStoreConfig {
 
 ### Creating the Knowledge Assistant
 
-Now we create our AI agent that combines retrieval with generation:
+Now create the agent. It retrieves documents, then generates an answer from them.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -383,9 +388,11 @@ class KnowledgeAssistant(
   </TabItem>
 </Tabs>
 
+The assistant returns both the answer and the retrieved documents. Keep both around. The evaluators need the documents to check whether the answer is grounded.
+
 ### Exposing the Assistant as a REST API
 
-To make the assistant usable as a real service, expose it via a REST endpoint:
+Wrap the assistant in a REST endpoint so you can call it as a service.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -457,7 +464,7 @@ class KnowledgeAssistantController(
   </TabItem>
 </Tabs>
 
-You can now interact with your assistant:
+Start the app, then call it:
 
 ```bash
 curl -X POST http://localhost:8080/api/chat \
@@ -467,11 +474,11 @@ curl -X POST http://localhost:8080/api/chat \
 
 ## Part 2: Setting Up Evaluation with Dokimos
 
-Now that we have a working assistant, we can evaluate it systematically. We create a dataset of test questions and run them through multiple evaluators.
+The assistant works. Now we score it. We build a dataset of test questions and run each one through the evaluators.
 
 ### Creating the Evaluation Dataset
 
-First, create a dataset with questions and expected behaviors:
+Build a dataset of questions and the answers you expect.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -580,7 +587,7 @@ val dataset = dataset {
   </TabItem>
 </Tabs>
 
-Alternatively, you can also load datasets from JSON files for easier maintenance:
+You can also load a dataset from a JSON file. This keeps the examples out of your code and easier to edit.
 
 ```json
 {
@@ -599,6 +606,8 @@ Alternatively, you can also load datasets from JSON files for easier maintenance
   ]
 }
 ```
+
+Load it with one call:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -621,7 +630,7 @@ val dataset = Dataset.fromJson(Paths.get("src/test/resources/datasets/qa-dataset
 
 ### Defining the Evaluation Task
 
-The Task interface bridges your application with Dokimos. It takes an example and returns the outputs that evaluators will check:
+The `Task` connects your app to Dokimos. It takes one example, runs your assistant, and returns the outputs the evaluators will check.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -671,11 +680,11 @@ val evaluationTask = task { example ->
   </TabItem>
 </Tabs>
 
-The key insight here is that we return both the answer and the retrieved context. This allows evaluators to check not just what the agent said, but whether it was grounded in the documents it retrieved.
+The task returns the answer under `"output"` and the retrieved documents under `"context"`. With both in hand, the evaluators can check not only what the agent said, but whether the documents back it up.
 
 ### Setting Up the LLM Judge
 
-Dokimos uses the LLM as Judge pattern for semantic evaluation. We will use Spring AI's `ChatModel` as our judge:
+Several evaluators use an LLM as a judge to score answers. We wrap Spring AI's `ChatModel` as a Dokimos `JudgeLM`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -712,7 +721,7 @@ val judge: JudgeLM = SpringAiSupport.asJudge(chatModel)
 
 :::tip Using a Different Model for Judging
 
-For better evaluation quality, consider using a more capable model as your judge. You can configure a separate ChatModel bean specifically for evaluation:
+A stronger model makes a better judge. Define a separate `ChatModel` bean just for evaluation:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -747,17 +756,17 @@ fun judgeModel(): ChatModel = OpenAiChatModel.builder()
 
 ## Part 3: Configuring Multiple Evaluators
 
-Next, set up evaluators to check different quality dimensions. Dokimos provides several built-in evaluators, and you can create custom ones for specific needs.
+Now set up the evaluators, one per quality dimension. Dokimos ships several built-in evaluators, and you can write your own.
 
 :::caution API Costs
 
-LLM based evaluators (FaithfulnessEvaluator, HallucinationEvaluator, LLMJudgeEvaluator, ContextualRelevanceEvaluator) make API calls to your judge model for each test case. Running evaluations on large datasets can incur significant costs. Start with a small dataset (10 to 20 examples) during development, and consider using a more cost effective model for judging later.
+The LLM based evaluators (`FaithfulnessEvaluator`, `HallucinationEvaluator`, `LLMJudgeEvaluator`, `ContextualRelevanceEvaluator`) call your judge model once per test case. Large datasets cost real money. Start with 10 to 20 examples while you build, and pick a cheaper judge model when you scale up.
 
 :::
 
 ### Faithfulness Evaluator
 
-The FaithfulnessEvaluator checks whether the response is grounded in the retrieved context. This is crucial for RAG systems where you want to ensure the agent is not making things up.
+The `FaithfulnessEvaluator` checks that the answer is backed by the retrieved context. This is the core check for RAG: it catches answers that drift away from the documents.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -787,16 +796,17 @@ val faithfulness = faithfulness(judge) {
   </TabItem>
 </Tabs>
 
-The evaluator works by:
-1. Breaking down the response into individual claims
-2. Checking each claim against the retrieved context
-3. Calculating score = (supported claims) / (total claims)
+Here is how it scores:
 
-A score of 0.8 means 80% of the claims in the response are supported by the context.
+1. It splits the answer into individual claims.
+2. It checks each claim against the retrieved context.
+3. It computes score = (supported claims) / (total claims).
+
+A score of 0.8 means 80% of the claims in the answer are backed by the context.
 
 ### Hallucination Evaluator
 
-While faithfulness measures how much is grounded, the HallucinationEvaluator specifically measures the proportion of fabricated content:
+Faithfulness measures how much is grounded. The `HallucinationEvaluator` measures the opposite: how much is made up.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -826,11 +836,11 @@ val hallucination = hallucination(judge) {
   </TabItem>
 </Tabs>
 
-**Important:** For this evaluator, lower scores are better. A score of 0.0 means no hallucinations were detected. The evaluator passes when `score <= threshold`.
+**Important:** For this evaluator, lower is better. A score of 0.0 means no hallucinations. It passes when `score <= threshold`.
 
 ### Answer Quality Evaluator
 
-The LLMJudgeEvaluator lets you define custom evaluation criteria in natural language:
+The `LLMJudgeEvaluator` lets you write your own criteria in plain English.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -880,7 +890,7 @@ val answerQuality = llmJudge(judge) {
 
 ### Contextual Relevance Evaluator
 
-This evaluator checks whether the retriever is finding relevant documents for each query:
+This evaluator checks whether the retriever pulled the right documents for each question.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -910,11 +920,11 @@ val contextRelevance = contextualRelevance(judge) {
   </TabItem>
 </Tabs>
 
-The evaluator scores each retrieved chunk independently and calculates the mean. This helps identify when your retriever is returning irrelevant documents that could confuse the LLM.
+It scores each retrieved chunk on its own, then takes the mean. Use it to spot a retriever that returns junk documents and confuses the LLM.
 
 ### Combining All Evaluators
 
-Put all evaluators together:
+Put the four evaluators into one list.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1000,7 +1010,7 @@ val evaluators = evaluators {
 
 ## Part 4: Running the Evaluation Experiment
 
-With our dataset, task, and evaluators ready, we can run a full evaluation experiment:
+Dataset, task, and evaluators are ready. Run the full experiment.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1045,7 +1055,7 @@ val result = experiment {
 
 ### Analyzing Results
 
-The experiment returns aggregate metrics and detailed per example results:
+The result holds both the totals and the per example detail. Print the totals first.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1092,7 +1102,7 @@ println("Contextual Relevance: ${"%.2f".format(result.averageScore("ContextualRe
 
 ### Investigating Failures
 
-When tests fail, you can dig into the details:
+When a case fails, open it up. Print the question, the expected and actual answers, and each evaluator's score with its reason.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1146,11 +1156,11 @@ result.itemResults().forEach { item ->
 
 ## Part 5: Integrating with JUnit
 
-For continuous integration, you can run evaluations as part of your test suite using the Dokimos JUnit integration.
+Run the same evaluations from your test suite so they fire in CI. Use the Dokimos JUnit integration.
 
 ### Organizing Evaluators
 
-In a real application, you will want to organize your evaluators in a reusable way. Create a factory class that encapsulates your evaluation configuration:
+Pull the evaluator setup into a factory class. This keeps the config in one place and lets every test reuse it.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1274,11 +1284,11 @@ object QAEvaluators {
   </TabItem>
 </Tabs>
 
-This approach keeps your evaluation logic separate from your application code and makes it easy to reuse across different tests.
+The factory keeps evaluation config out of your app code and lets every test reuse the same setup.
 
 ### Writing the Evaluation Test
 
-Now write a clean test that uses the evaluator factory:
+Now write a short test that calls the factory.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1348,10 +1358,12 @@ import dev.dokimos.core.Evaluator
 import dev.dokimos.core.Example
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.junit.DatasetSource
+import dev.dokimos.kotlin.core.EvalTestCase
 import dev.dokimos.springai.SpringAiSupport
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.springframework.ai.chat.model.ChatModel
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
@@ -1378,11 +1390,12 @@ class KnowledgeAssistantEvaluationTest {
 
         val contextTexts = response.retrievedDocuments.map { it.text }
 
-        val testCase =EvalTestCase(
+        val testCase = EvalTestCase(
             input = example.input(),
             actualOutput = response.answer,
-            actualOutputs = mapOf(QAEvaluators.CONTEXT_KEY, contextTexts),
-            expectedOutput = example.expectedOutput())
+            actualOutputs = mapOf(QAEvaluators.CONTEXT_KEY to contextTexts),
+            expectedOutputs = mapOf("output" to (example.expectedOutput() ?: ""))
+        )
 
         Assertions.assertEval(testCase, evaluators)
     }
@@ -1394,7 +1407,7 @@ class KnowledgeAssistantEvaluationTest {
 
 ### Running in CI/CD
 
-Add this to your GitHub Actions workflow:
+Add a job to your GitHub Actions workflow.
 
 ```yaml
 name: AI Agent Evaluation
@@ -1426,22 +1439,22 @@ jobs:
 
 ## Part 6: Tracking Results Over Time
 
-For production applications, you want to track evaluation results over time. The Dokimos Server provides a web UI for visualizing trends and comparing experiments.
+In production you want the scores plotted over time, not just printed once. The Dokimos Server gives you a web UI for trends and run comparisons.
 
 ### Starting the Server
 
-Download the Docker Compose file and start the server:
+Download the Docker Compose file and start the server.
 
 ```bash
 curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-compose.yml
 docker compose up -d
 ```
 
-The server will be available at `http://localhost:8080`.
+The server runs at `http://localhost:8080`.
 
 ### Sending Results to the Server
 
-Use `DokimosServerReporter` to send experiment results to the server:
+Add a `DokimosServerReporter` to the experiment. It ships your results to the server.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1488,17 +1501,18 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-The reporter batches results and sends them to the server during experiment execution. After the experiment completes, you can view the results in the web UI.
+The reporter batches results and sends them while the experiment runs. When it finishes, open the web UI.
 
-The server stores results and lets you:
-- View pass rates and scores over time
-- Compare different model configurations
-- Drill down into specific failures
-- Share results with your team
+On the server you can:
+
+- See pass rates and scores over time.
+- Compare different model setups.
+- Drill into specific failures.
+- Share results with your team.
 
 ## Part 7: Creating Custom Evaluators
 
-Sometimes the built-in evaluators do not cover your specific needs. You can create custom evaluators by extending `BaseEvaluator`. Place these in your evaluation package alongside `QAEvaluators`:
+When the built-in evaluators do not fit, write your own by extending `BaseEvaluator`. Put it in the evaluation package next to `QAEvaluators`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1589,7 +1603,7 @@ class ResponseLengthEvaluator(
   </TabItem>
 </Tabs>
 
-You can then add it to your evaluator factory:
+This one is deterministic, so it needs no LLM judge. Now wire it into the factory.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1616,7 +1630,7 @@ fun responseLength(minWords: Int, maxWords: Int): Evaluator = ResponseLengthEval
 
 ### Evaluating Precision and Recall
 
-For RAG systems where you have ground truth labels for relevant documents, you can measure traditional IR (Information Retrieval) metrics, such as precision and recall:
+When you have ground truth labels for the relevant documents, you can measure classic IR (Information Retrieval) metrics: precision and recall.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1707,7 +1721,7 @@ val recall: Evaluator = recall {
 
 ### Flexible Matching Strategies
 
-Dokimos provides various matching strategies for comparing retrieved items:
+A `MatchingStrategy` decides when a retrieved item counts as a match. Pick the one that fits your data.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1762,7 +1776,7 @@ MatchingStrategy.allOf(strategy1, strategy2)  // AND
 
 ### Typed Tool-Call Results
 
-When you extend the assistant into a tool-using agent, a tool often returns structured data, not a string. Capture that result with `resultJson(...)` — it serializes the value to JSON so you stop hand-escaping — and read it back type-safely with `resultAs(Class<T>)`. This keeps a sequential agent's `output -> input -> output` chain assertable.
+When you grow the assistant into a tool-using agent, a tool often returns structured data, not a string. Capture it with `resultJson(...)`, which serializes the value to JSON so you stop hand-escaping. Read it back type-safely with `resultAs(Class<T>)`. This keeps a sequential agent's `output -> input -> output` chain assertable.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1807,11 +1821,11 @@ val booked = call.resultAs(Booking::class.java)
   </TabItem>
 </Tabs>
 
-For the whole typed-data pipeline, see the [Structured & Typed Data](/evaluation/structured-typed-data) hub; for the full agent data model, see [Agent Evaluation](/evaluation/agent-evaluation).
+For the whole typed-data pipeline, see the [Structured & Typed Data](../evaluation/structured-typed-data) hub. For the full agent data model, see [Agent Evaluation](../evaluation/agent-evaluation).
 
 ### Async Evaluation
 
-For large datasets, you can run evaluations asynchronously:
+On large datasets, run evaluations off the main thread.
 
 <Tabs groupId="lang" defaultValue="java">
 <TabItem value="java" label="Java">
@@ -1844,44 +1858,45 @@ val evalResult2: EvalResult = evaluator.evaluateAsync(testCase, executor).await(
 
 ### Start with a Small, High-Quality Dataset
 
-Do not try to build a huge dataset upfront. Start with 10 to 20 carefully crafted examples that cover your main use cases. Add more examples as you discover edge cases and failures.
+Do not build a huge dataset on day one. Start with 10 to 20 examples that cover your main cases. Add more as you find edge cases and failures.
 
 ### Use Multiple Evaluators
 
-Different evaluators catch different problems:
-- **Faithfulness** catches responses that stray from the context
-- **Hallucination** quantifies fabricated content
-- **Answer Quality** catches unhelpful or unclear responses
-- **Contextual Relevance** identifies retrieval issues
+Each evaluator catches a different problem:
+
+- **Faithfulness** catches answers that stray from the context.
+- **Hallucination** quantifies made-up content.
+- **Answer Quality** catches unhelpful or unclear answers.
+- **Contextual Relevance** flags retrieval problems.
 
 ### Set Realistic Thresholds
 
-Do not expect perfection right away. Start with achievable thresholds (around 0.7) and increase them as you improve your system. A threshold of 1.0 means any imperfection fails.
+Do not demand perfection at the start. Begin around 0.7 and raise it as the system improves. A threshold of 1.0 fails on any flaw.
 
 ### Run Evaluations Regularly
 
-Integrate evaluations into your CI/CD pipeline. Run quick evaluations on every PR with a small dataset, and full evaluations nightly or weekly with larger datasets.
+Put evaluations in CI/CD. Run a small dataset on every PR, and a larger one nightly or weekly.
 
 ## Conclusion
 
-Evaluating AI agents is essential for building reliable applications. In this tutorial, you learned how to:
+Evaluating agents is how you keep them reliable. In this tutorial you learned how to:
 
-1. Build a RAG based knowledge assistant with Spring AI and expose it as a REST API
-2. Create evaluation datasets with examples and expected outputs
-3. Organize evaluators in a reusable factory class
-4. Configure multiple evaluators for different quality dimensions
-5. Integrate evaluations with JUnit for CI/CD
-6. Track results over time with the Dokimos Server
-7. Create custom evaluators for domain specific needs
+1. Build a RAG knowledge assistant with Spring AI and expose it as a REST API.
+2. Create evaluation datasets with examples and expected outputs.
+3. Organize evaluators in a reusable factory class.
+4. Configure several evaluators for different quality dimensions.
+5. Run evaluations from JUnit for CI/CD.
+6. Track results over time with the Dokimos Server.
+7. Write custom evaluators for your own needs.
 
-The combination of Spring AI for building and Dokimos for evaluating provides a complete toolkit for developing production ready AI applications in Java.
+Spring AI builds the agent. Dokimos measures it. Together they cover building and shipping reliable AI apps in Java.
 
 ## Next Steps
 
-- Explore the [Evaluators documentation](/evaluation/evaluators) for all available evaluators
-- Learn about [Datasets](/evaluation/datasets) for advanced dataset management
-- Set up the [Dokimos Server](/server/overview) for result tracking
-- Check out the [JUnit integration](/integrations/junit) for test driven evaluation
+- Explore the [Evaluators documentation](../evaluation/evaluators) for all available evaluators
+- Learn about [Datasets](../evaluation/datasets) for advanced dataset management
+- Set up the [Dokimos Server](../server/overview) for result tracking
+- Check out the [JUnit integration](../integrations/junit) for test driven evaluation
 
 ## Resources
 

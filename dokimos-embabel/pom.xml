@@ -14,6 +14,12 @@
     <name>Dokimos :: Integration :: Embabel</name>
     <description>Embabel agent integration for Dokimos</description>
 
+    <properties>
+        <!-- Embabel's published jars are compiled for Java 21, so this module raises the baseline
+             above the repo-wide Java 17. The parent only includes it on JDK 21+ (the embabel profile). -->
+        <maven.compiler.release>21</maven.compiler.release>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>dev.dokimos</groupId>

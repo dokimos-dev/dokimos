@@ -9,6 +9,10 @@ import TabItem from '@theme/TabItem';
 
 This page shows you how to capture an [Embabel](https://github.com/embabel/embabel-agent) agent run as a Dokimos `AgentTrace` and score it with the agent evaluators. You register a listener, run the agent as you normally would, then read the trace out.
 
+:::note Java 21+
+Embabel's published artifacts are built for Java 21, so `dokimos-embabel` requires Java 21 or later. The rest of Dokimos keeps the Java 17 baseline.
+:::
+
 ## What this integration gives you
 
 **Trace capture from an event listener.** `EmbabelTraceCollector` implements Embabel's `AgenticEventListener`. It listens to the process events your agent emits and assembles an `AgentTrace` from the tool calls it observes.

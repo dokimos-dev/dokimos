@@ -1,7 +1,5 @@
 package dev.dokimos.kotlin.core
 
-import com.fasterxml.jackson.annotation.JsonCreator
-import com.fasterxml.jackson.annotation.JsonProperty
 import dev.dokimos.core.EvalTestCase
 import dev.dokimos.core.Example
 import dev.dokimos.core.agents.ToolCall
@@ -11,14 +9,12 @@ import org.junit.jupiter.api.Test
 
 class TypedReadsTest {
 
-    // Annotated so the framework's Java-only Jackson mapper (no kotlin module) can construct this
-    // data class from a map; the constructor parameter names are otherwise invisible to Jackson.
-    data class Whisky
-    @JsonCreator
-    constructor(
-        @JsonProperty("name") val name: String,
-        @JsonProperty("age") val age: Int,
-    )
+    // A PLAIN Kotlin data class: no Jackson annotations. The Kotlin-aware mapper in dokimos-kotlin
+    // reads it back from a map purely from its constructor parameter names.
+    data class Whisky(val name: String, val age: Int)
+
+    // A plain data class with a nullable field and a default, to confirm the Kotlin module honors both.
+    data class Distillery(val name: String, val region: String? = null, val founded: Int = 0)
 
     @Test
     fun `reified actualOutputAs reads a record back`() {
@@ -33,8 +29,8 @@ class TypedReadsTest {
 
     @Test
     fun `reified actualOutputAs preserves generics for a List of records`() {
-        // The reified extension delegates to OutputType, not T class java, so the element type of the
-        // list survives erasure and each element materializes as a Whisky rather than a raw Map.
+        // The reified extension resolves the generic JavaType from OutputType, not T class java, so the
+        // element type of the list survives erasure and each element materializes as a Whisky.
         val testCase = EvalTestCase.builder()
             .actualOutput(
                 "output",
@@ -49,6 +45,17 @@ class TypedReadsTest {
 
         assertThat(whiskies).containsExactly(Whisky("Lagavulin", 16), Whisky("Ardbeg", 10))
         assertThat(whiskies!!.first()).isInstanceOf(Whisky::class.java)
+    }
+
+    @Test
+    fun `reified actualOutputAs honors a nullable field and a default`() {
+        val testCase = EvalTestCase.builder()
+            .actualOutput("output", mapOf("name" to "Talisker"))
+            .build()
+
+        val distillery = testCase.actualOutputAs<Distillery>()
+
+        assertThat(distillery).isEqualTo(Distillery("Talisker", null, 0))
     }
 
     @Test

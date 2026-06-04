@@ -177,7 +177,7 @@ class WhiskyEvaluator : Evaluator {
 }
 ```
 
-The Kotlin reified `*As<T>()` extensions (`actualOutputAs<T>()`, `expectedOutputAs<T>()`, `inputAs<T>()`, `metadataAs<T>(key)`, and their keyed overloads) infer the target type from the call site, so you skip both `Class<T>` and `OutputType<T>` — including for generic types like `List<Whisky>`.
+The Kotlin reified `*As<T>()` extensions (`actualOutputAs<T>()`, `expectedOutputAs<T>()`, `inputAs<T>()`, `metadataAs<T>(key)`, and their keyed overloads) infer the target type from the call site, so you skip both `Class<T>` and `OutputType<T>` — including for generic types like `List<Whisky>`. They convert through a Kotlin-aware Jackson mapper, so a plain Kotlin data class reads back with no Jackson annotations (`@JsonCreator` / `@JsonProperty`) — its constructor parameter names, nullable fields, and defaults are all honored.
 
   </TabItem>
 </Tabs>

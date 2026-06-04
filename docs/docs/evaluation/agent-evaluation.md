@@ -339,7 +339,7 @@ ToolCall.builder()
     .build();
 ```
 
-Read a structured result back type-safely with `resultAs(Class<T>)` or `resultAs(OutputType<T>)` — the symmetric counterpart of `resultJson`. This is what makes a sequential agent's `output -> input -> output` chain assertable: capture each step's structured result, then read it back as a real object.
+Read a structured result back type-safely with `resultAs(Class<T>)` or `resultAs(OutputType<T>)` — the symmetric counterpart of `resultJson`. This is what makes a sequential agent's `output -> input -> output` chain assertable: capture each step's structured result, then read it back as a real object. Tool-call arguments read back the same way with `argumentsAs(Class<T>)` / `argumentsAs(OutputType<T>)`. This is one stop on Dokimos's typed-data pipeline — see the [Structured & Typed Data](./structured-typed-data.md) hub for how it connects to typed task outputs, structural matching, and the typed accessors on `EvalTestCase`.
 
 ```java
 ToolCall call = ToolCall.builder()

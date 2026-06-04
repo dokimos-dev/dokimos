@@ -12,6 +12,10 @@ Dokimos works with [Koog](https://github.com/koog-ai/koog) so you can evaluate K
 
 **Kotlin-first experiments**: Build datasets, tasks, and evaluators with the Dokimos Kotlin DSL. No Java are builders needed.
 
+:::tip
+A `typedTask<T> { ... }` can return a Kotlin data class, which you compare with `StructuralMatchEvaluator` and read back with the reified `actualOutputAs<T>()`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
+:::
+
 ## Setup
 
 Add the Koog integration dependency:

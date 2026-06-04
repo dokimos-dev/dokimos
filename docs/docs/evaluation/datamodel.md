@@ -426,6 +426,10 @@ This is what gets passed to evaluators. Usually you don't create these directly;
 
 The output and expected-output maps hold `Object` values, so the common pattern is to stringify everything. But a task can just as well produce a structured object — a record, a list, a POJO — and read it back type-safely later. This keeps your task body honest (return the thing you actually built, not a hand-assembled map) and lets custom evaluators work with real domain objects instead of parsing strings.
 
+:::tip
+For the whole typed pipeline narrated in one place — authoring a typed output, comparing it, reading it back, judging it as JSON, and typing tool-call results — see the [Structured & Typed Data](./structured-typed-data.md) hub. The sections below are the per-method reference it links into.
+:::
+
 ### Returning a typed value from a task
 
 `Task.typed(fn)` wraps a function that returns a single value and stores it under the conventional `"output"` key. In Kotlin, the reified `typedTask<T> { ... }` DSL does the same thing.

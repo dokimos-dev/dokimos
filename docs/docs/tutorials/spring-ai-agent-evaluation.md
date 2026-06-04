@@ -1760,6 +1760,55 @@ MatchingStrategy.allOf(strategy1, strategy2)  // AND
   </TabItem>
 </Tabs>
 
+### Typed Tool-Call Results
+
+When you extend the assistant into a tool-using agent, a tool often returns structured data, not a string. Capture that result with `resultJson(...)` — it serializes the value to JSON so you stop hand-escaping — and read it back type-safely with `resultAs(Class<T>)`. This keeps a sequential agent's `output -> input -> output` chain assertable.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.agents.ToolCall;
+
+record Booking(String confirmation, double total) {}
+
+// Build a tool call whose result is a structured value
+ToolCall call = ToolCall.builder()
+    .name("book_hotel")
+    .argument("city", "Paris")
+    .argument("nights", 5)
+    .resultJson(new Booking("ABC123", 540.0))  // serialized to JSON, no escaping
+    .build();
+
+// Read the structured result back as a real object
+Booking booked = call.resultAs(Booking.class);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.agents.ToolCall
+
+data class Booking(val confirmation: String, val total: Double)
+
+// Build a tool call whose result is a structured value
+val call = ToolCall.builder()
+    .name("book_hotel")
+    .argument("city", "Paris")
+    .argument("nights", 5)
+    .resultJson(Booking("ABC123", 540.0))  // serialized to JSON, no escaping
+    .build()
+
+// Read the structured result back as a real object
+val booked = call.resultAs(Booking::class.java)
+```
+
+  </TabItem>
+</Tabs>
+
+For the whole typed-data pipeline, see the [Structured & Typed Data](/evaluation/structured-typed-data) hub; for the full agent data model, see [Agent Evaluation](/evaluation/agent-evaluation).
+
 ### Async Evaluation
 
 For large datasets, you can run evaluations asynchronously:

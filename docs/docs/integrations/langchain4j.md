@@ -888,6 +888,59 @@ object RAGEvaluation {
   </TabItem>
 </Tabs>
 
+## Structured / typed output
+
+When your AI Service returns structured data — for example a record from a typed AI Service method — return that object under `"output"` instead of a string. Compare it with `StructuralMatchEvaluator` (numbers compare by value, formatting and key order don't count), and read it back type-safely with `actualOutputAs(Record.class)`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+record Invoice(String id, double total, List<String> items) {}
+
+// A LangChain4j AI Service can return a typed value directly
+interface Extractor {
+    Invoice extract(String text);
+}
+
+Task task = Task.typed(example -> extractor.extract(example.input()));
+
+Evaluator structural = StructuralMatchEvaluator.builder()
+    .name("Invoice Match")
+    .threshold(1.0)
+    .build();
+
+// In a custom evaluator, read the structured value back
+Invoice actual = testCase.actualOutputAs(Invoice.class);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class Invoice(val id: String, val total: Double, val items: List<String>)
+
+// A LangChain4j AI Service can return a typed value directly
+interface Extractor {
+    fun extract(text: String): Invoice
+}
+
+val task = typedTask<Invoice> { example -> extractor.extract(example.input()) }
+
+val structural: Evaluator = StructuralMatchEvaluator.builder()
+    .name("Invoice Match")
+    .threshold(1.0)
+    .build()
+
+// In a custom evaluator, read the structured value back
+val actual = testCase.actualOutputAs(Invoice::class.java)
+```
+
+  </TabItem>
+</Tabs>
+
+See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub for the full pipeline.
+
 ## JUnit Integration
 
 Combine with [JUnit](./junit) for testing:

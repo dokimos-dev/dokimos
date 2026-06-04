@@ -34,12 +34,15 @@ knowledge disagree, the page is correct.
    faithfulness, contextual relevance, hallucination, correctness. A tool-using agent:
    capture the run as an AgentTrace and use the agent evaluators (tool-call validity, tool
    correctness, trajectory, tool error, tool efficiency, task completion, argument
-   hallucination, tool name and description reliability). Plain text: exact match, regex,
-   or an LLM judge.
+   hallucination, tool name and description reliability). Structured/JSON output: return a
+   record from Task.typed, compare with StructuralMatchEvaluator, read back with
+   actualOutputAs(...). Plain text: exact match, regex, or an LLM judge.
 4. Read the matching page below (full text in llms-full.txt) before writing code: getting
    started and installation; the evaluators reference; agent and tool-call evaluation,
    which also covers the Spring AI, LangChain4j, Koog, and OpenAI trace extractors;
-   datasets; experiments; the JUnit integration (@DatasetSource, Assertions.assertEval).
+   structured and typed data (Task.typed, StructuralMatchEvaluator, actualOutputAs,
+   resultJson/resultAs); datasets; experiments; the JUnit integration (@DatasetSource,
+   Assertions.assertEval).
 5. Write ONE eval first and make it run in the existing test suite. For CI, assert a
    threshold (for example assertThat(result.passRate()).isGreaterThan(0.9) or
    Assertions.assertEval(testCase, evaluator)) so the build fails when quality drops. Tell
@@ -54,6 +57,10 @@ knowledge disagree, the page is correct.
   AgentTrace.toTestCase(...) or a framework extractor rather than wiring keys by hand.
 - Do not invent evaluator names or builder methods. If unsure, fetch the evaluators or
   agent-evaluation page and use the exact signature shown.
+- For structured/JSON output, return a record from Task.typed (or typedTask in Kotlin) and
+  compare with StructuralMatchEvaluator; read it back with actualOutputAs/expectedOutputAs/
+  inputAs (use OutputType<T> for generics). For typed tool calls, store results with
+  resultJson(...) and read them back with resultAs(...); read arguments with argumentsAs(...).
 
 Skill registry for agents: /.well-known/skills/index.json`;
 

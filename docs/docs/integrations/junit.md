@@ -46,6 +46,10 @@ Add the JUnit integration dependency:
 
 > **Note:** Supports JUnit 5.x and 6.x.
 
+:::tip
+Your task can return a typed record (not just a string), and a JUnit test can read it back with `actualOutputAs(...)` or compare it with `StructuralMatchEvaluator`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
+:::
+
 ## Basic Usage
 
 ### Using @DatasetSource

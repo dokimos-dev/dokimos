@@ -349,7 +349,7 @@ val contract: Evaluator = StructuralMatchEvaluator.builder()
 By default the evaluator reads both operands from the `"output"` key of the expected and actual output maps. Use `.outputKey(...)` to read from a different key. The expected value is required — if it is absent the evaluator throws.
 
 :::tip
-This evaluator pairs naturally with the typed output accessors on `EvalTestCase` (`actualOutputAs(...)` / `expectedOutputAs(...)`): store your structured result under a map key as a record or `Map`, compare it structurally here, and read it back as a typed object elsewhere.
+This evaluator pairs naturally with the typed output accessors on `EvalTestCase` (`actualOutputAs(...)` / `expectedOutputAs(...)`): store your structured result under a map key as a record or `Map`, compare it structurally here, and read it back as a typed object elsewhere. See the [Structured & Typed Data](./structured-typed-data.md) hub for the whole pipeline end to end.
 :::
 
 **When to use:** Structured or JSON output — extraction results, tool-call arguments, typed response objects — where you care about the data, not its textual formatting, and where numeric representation differences (`5` vs `5.0`) should never count as a regression.
@@ -923,7 +923,7 @@ An output only passes if it meets **all** the thresholds. This lets you enforce 
 
 - Use **ExactMatch** when there's only one correct answer (like math or data extraction)
 - Use **Regex** for format validation (dates, emails, IDs)
-- Use **StructuralMatch** for structured/JSON output where formatting and numeric representation shouldn't count as differences
+- Use **StructuralMatch** for structured/JSON output where formatting and numeric representation shouldn't count as differences (see the [Structured & Typed Data](./structured-typed-data.md) hub)
 - Use **LLMJudge** for semantic quality (helpfulness, clarity, tone)
 - Use **Faithfulness** for RAG systems to measure how grounded the output is
 - Use **Hallucination** to specifically measure and limit fabricated content

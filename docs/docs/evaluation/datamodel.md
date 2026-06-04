@@ -442,11 +442,11 @@ For the whole typed pipeline narrated in one place — authoring a typed output,
   <TabItem value="java" label="Java">
 
 ```java
-record Whisky(String name, String region, int age) {}
+record Movie(String title, String director, int year) {}
 
 Task task = Task.typed(example -> {
     String json = llm.chat(example.input());
-    return Json.parseWhisky(json); // returns a Whisky record
+    return Json.parseMovie(json); // returns a Movie record
 });
 ```
 
@@ -454,11 +454,11 @@ Task task = Task.typed(example -> {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-data class Whisky(val name: String, val region: String, val age: Int)
+data class Movie(val title: String, val director: String, val year: Int)
 
-val task = typedTask<Whisky> { example ->
+val task = typedTask<Movie> { example ->
     val json = llm.chat(example.input())
-    parseWhisky(json) // returns a Whisky
+    parseMovie(json) // returns a Movie
 }
 ```
 
@@ -466,9 +466,9 @@ Inside `experiment { ... }` you can also set it directly with the `typedTask` bu
 
 ```kotlin
 val experiment = experiment {
-    name = "Whisky extraction"
-    dataset(whiskyDataset)
-    typedTask<Whisky> { example -> parseWhisky(llm.chat(example.input())) }
+    name = "Movie extraction"
+    dataset(movieDataset)
+    typedTask<Movie> { example -> parseMovie(llm.chat(example.input())) }
     evaluator(StructuralMatchEvaluator())
 }
 ```
@@ -497,25 +497,25 @@ Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic targ
   <TabItem value="java" label="Java">
 
 ```java
-public class WhiskyEvaluator implements Evaluator {
+public class MovieEvaluator implements Evaluator {
     @Override
     public EvalResult evaluate(EvalTestCase testCase) {
-        Whisky actual = testCase.actualOutputAs(Whisky.class);
-        Whisky expected = testCase.expectedOutputAs(Whisky.class);
+        Movie actual = testCase.actualOutputAs(Movie.class);
+        Movie expected = testCase.expectedOutputAs(Movie.class);
 
         boolean match = actual != null
-            && actual.region().equals(expected.region());
+            && actual.director().equals(expected.director());
 
         return EvalResult.builder()
-            .name("Whisky Region")
+            .name("Movie Director")
             .score(match ? 1.0 : 0.0)
             .success(match)
-            .reason(match ? "Region matches" : "Wrong region")
+            .reason(match ? "Director matches" : "Wrong director")
             .build();
     }
 
     @Override
-    public String name() { return "Whisky Region"; }
+    public String name() { return "Movie Director"; }
 
     @Override
     public double threshold() { return 1.0; }
@@ -526,22 +526,22 @@ public class WhiskyEvaluator implements Evaluator {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-class WhiskyEvaluator : Evaluator {
+class MovieEvaluator : Evaluator {
     override fun evaluate(testCase: EvalTestCase): EvalResult {
-        val actual = testCase.actualOutputAs(Whisky::class.java)
-        val expected = testCase.expectedOutputAs(Whisky::class.java)
+        val actual = testCase.actualOutputAs(Movie::class.java)
+        val expected = testCase.expectedOutputAs(Movie::class.java)
 
-        val match = actual != null && actual.region == expected?.region
+        val match = actual != null && actual.director == expected?.director
 
         return EvalResult(
-            name = "Whisky Region",
+            name = "Movie Director",
             score = if (match) 1.0 else 0.0,
             success = match,
-            reason = if (match) "Region matches" else "Wrong region",
+            reason = if (match) "Director matches" else "Wrong director",
         )
     }
 
-    override fun name(): String = "Whisky Region"
+    override fun name(): String = "Movie Director"
 
     override fun threshold(): Double = 1.0
 }
@@ -552,38 +552,38 @@ class WhiskyEvaluator : Evaluator {
 
 ### Generic types with `OutputType<T>`
 
-A plain `Class<T>` cannot express a generic target such as `List<Whisky>` — type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
+A plain `Class<T>` cannot express a generic target such as `List<Movie>` — type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
 ```java
-// Task produces a List<Whisky>
-Task task = Task.typed(example -> parseWhiskies(llm.chat(example.input())));
+// Task produces a List<Movie>
+Task task = Task.typed(example -> parseMovies(llm.chat(example.input())));
 
 // Read it back, preserving the element type
-List<Whisky> whiskies =
-    testCase.actualOutputAs(new OutputType<List<Whisky>>() {});
+List<Movie> movies =
+    testCase.actualOutputAs(new OutputType<List<Movie>>() {});
 
 // A keyed, non-"output" variant works the same way
-List<Whisky> shortlist =
-    testCase.actualOutputAs("shortlist", new OutputType<List<Whisky>>() {});
+List<Movie> shortlist =
+    testCase.actualOutputAs("shortlist", new OutputType<List<Movie>>() {});
 ```
 
   </TabItem>
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-// Task produces a List<Whisky>
-val task = typedTask<List<Whisky>> { example -> parseWhiskies(llm.chat(example.input())) }
+// Task produces a List<Movie>
+val task = typedTask<List<Movie>> { example -> parseMovies(llm.chat(example.input())) }
 
 // Read it back, preserving the element type
-val whiskies: List<Whisky> =
-    testCase.actualOutputAs(object : OutputType<List<Whisky>>() {})
+val movies: List<Movie> =
+    testCase.actualOutputAs(object : OutputType<List<Movie>>() {})
 
 // A keyed, non-"output" variant works the same way
-val shortlist: List<Whisky> =
-    testCase.actualOutputAs("shortlist", object : OutputType<List<Whisky>>() {})
+val shortlist: List<Movie> =
+    testCase.actualOutputAs("shortlist", object : OutputType<List<Movie>>() {})
 ```
 
   </TabItem>

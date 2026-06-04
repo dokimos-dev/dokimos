@@ -28,11 +28,11 @@ Each step is self-contained, but they're designed to fit together: a task return
   <TabItem value="java" label="Java">
 
 ```java
-record Whisky(String name, String region, int age) {}
+record Movie(String title, String director, int year) {}
 
 Task task = Task.typed(example -> {
     String json = llm.chat(example.input());
-    return Json.parseWhisky(json); // returns a Whisky record
+    return Json.parseMovie(json); // returns a Movie record
 });
 ```
 
@@ -40,11 +40,11 @@ Task task = Task.typed(example -> {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-data class Whisky(val name: String, val region: String, val age: Int)
+data class Movie(val title: String, val director: String, val year: Int)
 
-val task = typedTask<Whisky> { example ->
+val task = typedTask<Movie> { example ->
     val json = llm.chat(example.input())
-    parseWhisky(json) // returns a Whisky
+    parseMovie(json) // returns a Movie
 }
 ```
 
@@ -52,9 +52,9 @@ Inside `experiment { ... }` you can set it directly with the `typedTask` builder
 
 ```kotlin
 val experiment = experiment {
-    name = "Whisky extraction"
-    dataset(whiskyDataset)
-    typedTask<Whisky> { example -> parseWhisky(llm.chat(example.input())) }
+    name = "Movie extraction"
+    dataset(movieDataset)
+    typedTask<Movie> { example -> parseMovie(llm.chat(example.input())) }
     evaluator(StructuralMatchEvaluator())
 }
 ```
@@ -77,7 +77,7 @@ See the full reference for the typed-output accessors and the conversion contrac
 
 ```java
 Evaluator structural = StructuralMatchEvaluator.builder()
-    .name("Whisky Match")
+    .name("Movie Match")
     .threshold(1.0)
     .build();  // STRICT mode, outputKey "output", partial scoring
 ```
@@ -87,7 +87,7 @@ Evaluator structural = StructuralMatchEvaluator.builder()
 
 ```kotlin
 val structural: Evaluator = StructuralMatchEvaluator.builder()
-    .name("Whisky Match")
+    .name("Movie Match")
     .threshold(1.0)
     .build()  // STRICT mode, outputKey "output", partial scoring
 ```
@@ -99,7 +99,7 @@ For comparison modes (`STRICT` vs `LENIENT`), partial-vs-`binary()` scoring, and
 
 ## 3. Read typed values back
 
-A custom evaluator (or any code holding an `EvalTestCase`) can read the structured value back as a real object instead of parsing a string. Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`; for a generic target like `List<Whisky>`, pass an `OutputType<T>` super-type token instantiated as an **anonymous subclass** so the element type is recorded.
+A custom evaluator (or any code holding an `EvalTestCase`) can read the structured value back as a real object instead of parsing a string. Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`; for a generic target like `List<Movie>`, pass an `OutputType<T>` super-type token instantiated as an **anonymous subclass** so the element type is recorded.
 
 | Method | Reads | Default key |
 |--------|-------|-------------|
@@ -114,33 +114,33 @@ Each accessor has a keyed overload (`actualOutputAs(String, Class<T>)`, `inputAs
   <TabItem value="java" label="Java">
 
 ```java
-public class WhiskyEvaluator implements Evaluator {
+public class MovieEvaluator implements Evaluator {
     @Override
     public EvalResult evaluate(EvalTestCase testCase) {
         // Non-generic targets: pass a Class<T>
-        Whisky actual = testCase.actualOutputAs(Whisky.class);
-        Whisky expected = testCase.expectedOutputAs(Whisky.class);
+        Movie actual = testCase.actualOutputAs(Movie.class);
+        Movie expected = testCase.expectedOutputAs(Movie.class);
 
         // The input was itself a typed request object
-        WhiskyQuery query = testCase.inputAs(WhiskyQuery.class);
+        MovieQuery query = testCase.inputAs(MovieQuery.class);
 
         // Generic targets: pass an OutputType<T> anonymous subclass
-        List<Whisky> shortlist =
-            testCase.actualOutputAs("shortlist", new OutputType<List<Whisky>>() {});
+        List<Movie> shortlist =
+            testCase.actualOutputAs("shortlist", new OutputType<List<Movie>>() {});
 
         boolean match = actual != null
-            && actual.region().equals(expected.region());
+            && actual.director().equals(expected.director());
 
         return EvalResult.builder()
-            .name("Whisky Region")
+            .name("Movie Director")
             .score(match ? 1.0 : 0.0)
             .success(match)
-            .reason(match ? "Region matches" : "Wrong region")
+            .reason(match ? "Director matches" : "Wrong director")
             .build();
     }
 
     @Override
-    public String name() { return "Whisky Region"; }
+    public String name() { return "Movie Director"; }
 
     @Override
     public double threshold() { return 1.0; }
@@ -151,33 +151,33 @@ public class WhiskyEvaluator implements Evaluator {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-class WhiskyEvaluator : Evaluator {
+class MovieEvaluator : Evaluator {
     override fun evaluate(testCase: EvalTestCase): EvalResult {
         // Java-style: pass a Class<T> or an OutputType<T> anonymous subclass
-        val actual = testCase.actualOutputAs(Whisky::class.java)
-        val expected = testCase.expectedOutputAs(Whisky::class.java)
+        val actual = testCase.actualOutputAs(Movie::class.java)
+        val expected = testCase.expectedOutputAs(Movie::class.java)
 
         // Kotlin reified accessors infer the type — no Class or token needed
-        val query = testCase.inputAs<WhiskyQuery>()
-        val shortlist = testCase.actualOutputAs<List<Whisky>>("shortlist")
+        val query = testCase.inputAs<MovieQuery>()
+        val shortlist = testCase.actualOutputAs<List<Movie>>("shortlist")
 
-        val match = actual != null && actual.region == expected?.region
+        val match = actual != null && actual.director == expected?.director
 
         return EvalResult(
-            name = "Whisky Region",
+            name = "Movie Director",
             score = if (match) 1.0 else 0.0,
             success = match,
-            reason = if (match) "Region matches" else "Wrong region",
+            reason = if (match) "Director matches" else "Wrong director",
         )
     }
 
-    override fun name(): String = "Whisky Region"
+    override fun name(): String = "Movie Director"
 
     override fun threshold(): Double = 1.0
 }
 ```
 
-The Kotlin reified `*As<T>()` extensions (`actualOutputAs<T>()`, `expectedOutputAs<T>()`, `inputAs<T>()`, `metadataAs<T>(key)`, and their keyed overloads) infer the target type from the call site, so you skip both `Class<T>` and `OutputType<T>` — including for generic types like `List<Whisky>`. They convert through a Kotlin-aware Jackson mapper, so a plain Kotlin data class reads back with no Jackson annotations (`@JsonCreator` / `@JsonProperty`) — its constructor parameter names, nullable fields, and defaults are all honored.
+The Kotlin reified `*As<T>()` extensions (`actualOutputAs<T>()`, `expectedOutputAs<T>()`, `inputAs<T>()`, `metadataAs<T>(key)`, and their keyed overloads) infer the target type from the call site, so you skip both `Class<T>` and `OutputType<T>` — including for generic types like `List<Movie>`. They convert through a Kotlin-aware Jackson mapper, so a plain Kotlin data class reads back with no Jackson annotations (`@JsonCreator` / `@JsonProperty`) — its constructor parameter names, nullable fields, and defaults are all honored.
 
   </TabItem>
 </Tabs>
@@ -198,7 +198,7 @@ The conversion contract is shared across every accessor: an absent key returns `
 ```java
 Evaluator wellFormed = LLMJudgeEvaluator.builder()
     .name("Extraction Quality")
-    .criteria("Is the extracted whisky record complete and plausible for the source text?")
+    .criteria("Is the extracted movie record complete and plausible for the source text?")
     .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
     .judge(judge)
     .threshold(0.8)
@@ -211,7 +211,7 @@ Evaluator wellFormed = LLMJudgeEvaluator.builder()
 ```kotlin
 val wellFormed: Evaluator = llmJudge(judge) {
     name = "Extraction Quality"
-    criteria = "Is the extracted whisky record complete and plausible for the source text?"
+    criteria = "Is the extracted movie record complete and plausible for the source text?"
     params(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT)
     threshold = 0.8
 }

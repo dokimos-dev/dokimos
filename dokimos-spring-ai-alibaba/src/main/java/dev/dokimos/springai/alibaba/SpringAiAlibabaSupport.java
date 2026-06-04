@@ -1,0 +1,225 @@
+package dev.dokimos.springai.alibaba;
+
+import com.alibaba.cloud.ai.graph.CompiledGraph;
+import com.alibaba.cloud.ai.graph.OverAllState;
+import com.alibaba.cloud.ai.graph.RunnableConfig;
+import com.alibaba.cloud.ai.graph.agent.ReactAgent;
+import com.alibaba.cloud.ai.graph.exception.GraphStateException;
+import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.agents.ToolCall;
+import dev.dokimos.core.agents.ToolDefinition;
+import dev.dokimos.springai.SpringAiSupport;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.tool.ToolCallback;
+
+/**
+ * Utilities for evaluating Spring AI Alibaba (graph/agent) runs with the Dokimos
+ * agent evaluators.
+ *
+ * <p>Spring AI Alibaba's graph runtime carries its whole conversation as standard
+ * Spring AI message types ({@link AssistantMessage}, {@link ToolResponseMessage},
+ * and {@code UserMessage}) under the {@link OverAllState} key {@value #MESSAGES_KEY}.
+ * Because those are the exact types Dokimos already converts in
+ * {@link dev.dokimos.springai.SpringAiSupport}, this class is a thin adapter: it
+ * unwraps the {@code List<Message>} from the graph state and folds the full
+ * multi-turn conversation into a single {@link AgentTrace}, delegating tool-call
+ * and tool-definition conversion to {@code SpringAiSupport}.
+ *
+ * <h2>Per-turn windowing</h2>
+ *
+ * <p>Tool-call results are correlated <em>per turn</em>: each {@link AssistantMessage}
+ * that issues tool calls is matched only against the {@link ToolResponseMessage}s
+ * that follow it, up to the next {@link AssistantMessage}. This avoids silently
+ * binding a tool call to the wrong result if a sub-agent or loop reuses a
+ * tool-call id across turns.
+ *
+ * <h2>Judges and tasks</h2>
+ *
+ * <p>This class deliberately does <em>not</em> provide {@code asJudge} or
+ * {@code asyncTask}: Spring AI Alibaba agents run on a standard Spring AI
+ * {@code ChatModel}/{@code ChatClient}, so use
+ * {@link dev.dokimos.springai.SpringAiSupport#asJudge(org.springframework.ai.chat.model.ChatModel)}
+ * and {@link dev.dokimos.springai.SpringAiSupport#asyncTask(org.springframework.ai.chat.client.ChatClient)}
+ * directly.
+ *
+ * <h2>Example</h2>
+ *
+ * <pre>{@code
+ * ReactAgent agent = ReactAgent.builder()
+ *         .name("assistant")
+ *         .chatClient(chatClient)
+ *         .tools(toolCallbacks)
+ *         .build();
+ *
+ * AgentTrace trace = SpringAiAlibabaSupport.toAgentTrace(
+ *         agent, Map.of("messages", List.of(new UserMessage("...")), null));
+ *
+ * EvalTestCase testCase = trace.toTestCase(
+ *         "user question",
+ *         SpringAiAlibabaSupport.toToolDefinitions(toolCallbacks));
+ *
+ * EvalResult result = ToolCallValidityEvaluator.builder().build().evaluate(testCase);
+ * }</pre>
+ */
+public final class SpringAiAlibabaSupport {
+
+    /** The Spring AI Alibaba graph-state key under which the message list is stored. */
+    public static final String MESSAGES_KEY = "messages";
+
+    private SpringAiAlibabaSupport() {}
+
+    /**
+     * Extracts the raw Spring AI {@link Message} list from a graph state.
+     *
+     * <p>Null-tolerant: a {@code null} state, an absent {@value #MESSAGES_KEY} key,
+     * or a value that is not a {@code List} yields an empty list. Elements that are
+     * not {@link Message}s (including unknown subtypes that do not implement
+     * {@code Message}) are skipped. Never throws.
+     *
+     * @param state the graph state (may be null)
+     * @return the messages in order, or an empty list
+     */
+    public static List<Message> messages(OverAllState state) {
+        if (state == null) {
+            return List.of();
+        }
+        Optional<Object> raw = state.value(MESSAGES_KEY);
+        if (raw.isEmpty() || !(raw.get() instanceof List<?> list)) {
+            return List.of();
+        }
+        List<Message> messages = new ArrayList<>();
+        for (Object element : list) {
+            if (element instanceof Message message) {
+                messages.add(message);
+            }
+        }
+        return messages;
+    }
+
+    /**
+     * Extracts every tool call across all turns of a graph run, correlating each
+     * call to its result with per-turn windowing.
+     *
+     * <p>For each {@link AssistantMessage} that issues tool calls, the following
+     * {@link ToolResponseMessage}s (up to the next {@link AssistantMessage}) form
+     * the window used to resolve results, via
+     * {@link dev.dokimos.springai.SpringAiSupport#toToolCalls(AssistantMessage, List)}.
+     * Calls with no matching response in their window have a {@code null} result.
+     *
+     * @param state the graph state (may be null)
+     * @return the tool calls in execution order, or an empty list
+     */
+    public static List<ToolCall> toToolCalls(OverAllState state) {
+        List<Message> messages = messages(state);
+        List<ToolCall> calls = new ArrayList<>();
+        for (int i = 0; i < messages.size(); i++) {
+            if (messages.get(i) instanceof AssistantMessage assistant
+                    && assistant.getToolCalls() != null
+                    && !assistant.getToolCalls().isEmpty()) {
+                List<ToolResponseMessage> window = new ArrayList<>();
+                for (int j = i + 1; j < messages.size(); j++) {
+                    if (messages.get(j) instanceof AssistantMessage) {
+                        break;
+                    }
+                    if (messages.get(j) instanceof ToolResponseMessage toolResponse) {
+                        window.add(toolResponse);
+                    }
+                }
+                calls.addAll(SpringAiSupport.toToolCalls(assistant, window));
+            }
+        }
+        return calls;
+    }
+
+    /**
+     * Folds the full multi-turn conversation of a graph run into a single
+     * {@link AgentTrace}.
+     *
+     * <p>The trace's tool calls come from {@link #toToolCalls(OverAllState)} (per-turn
+     * windowing); its final response is the text of the last {@link AssistantMessage}
+     * in the conversation, when that text is non-blank.
+     *
+     * @param state the graph state (may be null)
+     * @return an agent trace, never null
+     */
+    public static AgentTrace toAgentTrace(OverAllState state) {
+        AgentTrace.Builder builder = AgentTrace.builder().toolCalls(toToolCalls(state));
+        String last = lastAssistantText(messages(state));
+        if (last != null && !last.isBlank()) {
+            builder.finalResponse(last);
+        }
+        return builder.build();
+    }
+
+    /**
+     * Folds the optional graph state returned by
+     * {@link CompiledGraph#invoke(Map)} into a single {@link AgentTrace}.
+     *
+     * <p>An empty optional yields an empty trace (no tool calls, no final response).
+     *
+     * @param state the optional graph state (may be null)
+     * @return an agent trace, never null
+     */
+    public static AgentTrace toAgentTrace(Optional<OverAllState> state) {
+        return toAgentTrace(state == null ? null : state.orElse(null));
+    }
+
+    /**
+     * Runs a {@link ReactAgent}'s compiled graph and folds the resulting state into
+     * a single {@link AgentTrace}.
+     *
+     * <p>This is the full-fidelity one-liner: it invokes the compiled graph (which
+     * preserves every intermediate tool call) rather than a lossy single-shot call.
+     * {@link CompiledGraph#invoke(Map, RunnableConfig)} returns
+     * {@code Optional<OverAllState>}, which is folded by
+     * {@link #toAgentTrace(Optional)}.
+     *
+     * @param agent  the agent whose compiled graph is run, never null
+     * @param inputs the graph inputs (for example the initial {@value #MESSAGES_KEY} list), never null
+     * @param config the run configuration, or {@code null} to invoke without one
+     * @return an agent trace, never null
+     * @throws GraphStateException if the agent's graph cannot be compiled
+     */
+    public static AgentTrace toAgentTrace(ReactAgent agent, Map<String, Object> inputs, RunnableConfig config)
+            throws GraphStateException {
+        CompiledGraph graph = agent.getCompiledGraph();
+        Optional<OverAllState> state = config == null ? graph.invoke(inputs) : graph.invoke(inputs, config);
+        return toAgentTrace(state);
+    }
+
+    /**
+     * Converts the {@link ToolCallback}s an agent was built with into Dokimos
+     * {@link ToolDefinition}s, so tool calls can be evaluated against the tools the
+     * agent had available.
+     *
+     * <p>Delegates to
+     * {@link dev.dokimos.springai.SpringAiSupport#toToolDefinitions(List)} after
+     * pulling each callback's {@code getToolDefinition()}. A {@code null} or empty
+     * list yields an empty list.
+     *
+     * @param callbacks the tool callbacks supplied to the agent (may be null)
+     * @return the Dokimos tool definitions, or an empty list
+     */
+    public static List<ToolDefinition> toToolDefinitions(List<ToolCallback> callbacks) {
+        if (callbacks == null || callbacks.isEmpty()) {
+            return List.of();
+        }
+        return SpringAiSupport.toToolDefinitions(
+                callbacks.stream().map(ToolCallback::getToolDefinition).toList());
+    }
+
+    private static String lastAssistantText(List<Message> messages) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            if (messages.get(i) instanceof AssistantMessage assistant) {
+                return assistant.getText();
+            }
+        }
+        return null;
+    }
+}

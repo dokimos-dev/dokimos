@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.dokimos</groupId>
+        <artifactId>dokimos-parent</artifactId>
+        <version>0.21.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>dokimos-spring-ai-alibaba</artifactId>
+    <name>Dokimos :: Integration :: Spring AI Alibaba</name>
+    <description>Spring AI Alibaba (graph/agent) integration for Dokimos</description>
+
+    <properties>
+        <!-- Module-local, mirroring how dokimos-spring-ai keeps spring-ai.version local
+             (house exception: provided SDK versions are not promoted to parent depMgmt). -->
+        <spring-ai.version>1.1.6</spring-ai.version>
+        <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
+        <!-- Test-only live ChatModel for the integration test. -->
+        <spring-ai-openai.version>1.1.5</spring-ai-openai.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Reuses SpringAiSupport.toToolCalls/toToolDefinitions; clean dependency direction
+             (dokimos-spring-ai never depends on this module). -->
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-spring-ai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring AI message types referenced directly in the multi-turn fold: pin explicitly,
+             provided (dokimos-spring-ai marks Spring AI provided, so it is non-transitive). -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-client-chat</artifactId>
+            <version>${spring-ai.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Alibaba graph runtime (OverAllState, CompiledGraph, ReactAgent): provided. -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-graph-core</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Live ChatModel for the integration test only. Alibaba agents accept any Spring AI
+             ChatModel, so the IT reuses OPENAI_API_KEY via OpenAiChatModel. Test scope. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai</artifactId>
+            <version>${spring-ai-openai.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

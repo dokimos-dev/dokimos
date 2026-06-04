@@ -88,17 +88,17 @@ val result = experiment {
 
 Pick from these nine. The first five need no LLM. The next two always need a judge. The last two take an optional judge.
 
-| Evaluator | What it checks | LLM required? | Default threshold |
-|-----------|---------------|:---:|:---:|
-| `ToolCallValidityEvaluator` | Tool calls match their JSON schema (names, required params, types, enums) | No | 1.0 |
-| `ToolCorrectnessEvaluator` | Agent used the expected set of tools | No | 1.0 |
-| `ToolTrajectoryEvaluator` | Tool-call sequence matches an expected trajectory | No | 1.0 |
-| `ToolErrorEvaluator` | Tool calls succeeded (no error results) | No | 1.0 |
-| `ToolEfficiencyEvaluator` | No redundant tool calls | No | 1.0 |
-| `TaskCompletionEvaluator` | Agent completed the user's requested tasks | Yes | 0.5 |
-| `ToolArgumentHallucinationEvaluator` | Tool call arguments are grounded in user input | Yes | 0.8 |
-| `ToolNameReliabilityEvaluator` | Tool names follow naming conventions (snake_case, conciseness, clarity, ordering, intent) | Optional | 0.8 |
-| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well written (structure, clarity, args documented, examples, usage notes) | Optional | 0.8 |
+| Evaluator                             | What it checks                                                                                  | LLM required? | Default threshold |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------- | :-----------: | :---------------: |
+| `ToolCallValidityEvaluator`           | Tool calls match their JSON schema (names, required params, types, enums)                       |      No       |        1.0        |
+| `ToolCorrectnessEvaluator`            | Agent used the expected set of tools                                                            |      No       |        1.0        |
+| `ToolTrajectoryEvaluator`             | Tool-call sequence matches an expected trajectory                                               |      No       |        1.0        |
+| `ToolErrorEvaluator`                  | Tool calls succeeded (no error results)                                                         |      No       |        1.0        |
+| `ToolEfficiencyEvaluator`             | No redundant tool calls                                                                         |      No       |        1.0        |
+| `TaskCompletionEvaluator`             | Agent completed the user's requested tasks                                                      |      Yes      |        0.5        |
+| `ToolArgumentHallucinationEvaluator`  | Tool call arguments are grounded in user input                                                  |      Yes      |        0.8        |
+| `ToolNameReliabilityEvaluator`        | Tool names follow naming conventions (snake_case, conciseness, clarity, ordering, intent)       |   Optional    |        0.8        |
+| `ToolDescriptionReliabilityEvaluator` | Tool descriptions are well written (structure, clarity, args documented, examples, usage notes) |   Optional    |        0.8        |
 
 ### ToolCallValidityEvaluator
 
@@ -110,27 +110,27 @@ Score = fraction of valid tool calls.
 
 Compares the tools the agent used against the tools you expected. Pick one of three match modes.
 
-| Mode | Comparison |
-|------|-----------|
-| `NAMES_ONLY` (default) | Set of tool names (F1 score) |
-| `NAMES_AND_ORDER` | Names plus invocation order (LCS similarity) |
-| `NAMES_AND_ARGS` | Full structural comparison including arguments |
+| Mode                   | Comparison                                     |
+| ---------------------- | ---------------------------------------------- |
+| `NAMES_ONLY` (default) | Set of tool names (F1 score)                   |
+| `NAMES_AND_ORDER`      | Names plus invocation order (LCS similarity)   |
+| `NAMES_AND_ARGS`       | Full structural comparison including arguments |
 
 In `NAMES_AND_ARGS` mode, arguments use a tolerant matcher by default, so numerically equal values like `1` and `1.0` count as equal. See [Argument Matching](#argument-matching) below.
 
 ### ToolTrajectoryEvaluator
 
-Scores the agent's tool-call *sequence* against an expected one. Deterministic, no LLM. Use it to assert how an agent should move through a task, and choose how strict the order and arguments need to be.
+Scores the agent's tool-call _sequence_ against an expected one. Deterministic, no LLM. Use it to assert how an agent should move through a task, and choose how strict the order and arguments need to be.
 
-| Mode | Meaning | Score |
-|------|---------|-------|
-| `STRICT` | Same calls, same order, arguments match | 0 or 1 |
-| `IN_ORDER` | Expected appears as an ordered subsequence | graded (LCS) |
-| `ANY_ORDER` | Same calls in any order | graded |
-| `SUPERSET` | Actual contains every expected call (extras allowed) | 0 or 1 |
-| `SUBSET` | Every actual call is in expected (omissions allowed) | 0 or 1 |
-| `PRECISION` | Matched / number of actual calls | graded |
-| `RECALL` | Matched / number of expected calls | graded |
+| Mode        | Meaning                                              | Score        |
+| ----------- | ---------------------------------------------------- | ------------ |
+| `STRICT`    | Same calls, same order, arguments match              | 0 or 1       |
+| `IN_ORDER`  | Expected appears as an ordered subsequence           | graded (LCS) |
+| `ANY_ORDER` | Same calls in any order                              | graded       |
+| `SUPERSET`  | Actual contains every expected call (extras allowed) | 0 or 1       |
+| `SUBSET`    | Every actual call is in expected (omissions allowed) | 0 or 1       |
+| `PRECISION` | Matched / number of actual calls                     | graded       |
+| `RECALL`    | Matched / number of expected calls                   | graded       |
 
 It reads `toolCalls` from `actualOutputs` and `expectedOutputs`. The unordered modes use maximum bipartite matching, so repeated tool names are counted in the best possible way.
 
@@ -270,12 +270,12 @@ Without a judge, only the 4 rule-based checks run. The score is based on the che
 
 `ArgMatchMode` sets how the key sets are compared.
 
-| Mode | Actual arguments must... |
-|------|--------------------------|
-| `EXACT` | have the same keys as expected, all values matching |
-| `SUBSET` | contain every expected entry (extra keys allowed) |
-| `SUPERSET` | be contained in expected (omissions allowed) |
-| `IGNORE` | not be compared at all |
+| Mode       | Actual arguments must...                            |
+| ---------- | --------------------------------------------------- |
+| `EXACT`    | have the same keys as expected, all values matching |
+| `SUBSET`   | contain every expected entry (extra keys allowed)   |
+| `SUPERSET` | be contained in expected (omissions allowed)        |
+| `IGNORE`   | not be compared at all                              |
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -474,6 +474,41 @@ val testCase = collector.toAgentTrace(response).toTestCase(userInput, tools)
 The collector tolerates framework versions: it reads the completion context reflectively, so one build works across Koog 0.6.4 through 1.0.0.
 
   </TabItem>
+  <TabItem value="embabel" label="Embabel">
+
+Embabel reports tool calls through its `AgenticEventListener`. Attach an `EmbabelTraceCollector` to your run with `EmbabelSupport.attach`, run the agent, then read the trace. The tool definitions are synthesized from the observed tool names with an empty schema, so build them by hand for full `ToolDescriptionReliabilityEvaluator` coverage.
+
+```java
+import dev.dokimos.embabel.EmbabelSupport;
+import dev.dokimos.embabel.EmbabelTraceCollector;
+
+EmbabelTraceCollector collector = EmbabelSupport.attach(invocationBuilder);
+
+String response = invocationBuilder.build(String.class).invoke(userInput);
+
+AgentTrace trace = collector.trace();
+List<ToolDefinition> tools = EmbabelSupport.toToolDefinitions(collector);
+
+EvalTestCase testCase = trace.toTestCase(userInput, tools);
+```
+
+See the [Embabel integration](../integrations/embabel) for the full flow and limitations.
+
+  </TabItem>
+  <TabItem value="spring-ai-alibaba" label="Spring AI Alibaba">
+
+For Spring AI Alibaba Graph agents, `SpringAiAlibabaSupport.toAgentTrace` reads the run's `OverAllState` and windows over its `messages` list to recover the tool calls per turn. Convert the tool callbacks the agent was given with `toToolDefinitions`.
+
+```java
+import dev.dokimos.springai.alibaba.SpringAiAlibabaSupport;
+
+AgentTrace trace = SpringAiAlibabaSupport.toAgentTrace(state);
+List<ToolDefinition> tools = SpringAiAlibabaSupport.toToolDefinitions(toolCallbacks);
+
+EvalTestCase testCase = trace.toTestCase(userInput, tools);
+```
+
+  </TabItem>
   <TabItem value="openai" label="OpenAI">
 
 The OpenAI Java SDK has no published Dokimos module, so a small reusable bridge lives in the examples module (copy it into your project). It turns the SDK's tool calls into Dokimos `ToolCall`s as your tool-calling loop runs.
@@ -496,14 +531,14 @@ EvalTestCase testCase = trace.build().toTestCase(userMessage, tools);
 
 Agent evaluators read these keys from `EvalTestCase`.
 
-| Map | Key | Type | Used by |
-|-----|-----|------|---------|
-| `actualOutputs` | `"toolCalls"` | `List<ToolCall>` | Validity, Correctness, Trajectory, Tool Error, Tool Efficiency, Hallucination |
-| `actualOutputs` | `"output"` | `String` | Task Completion |
-| `expectedOutputs` | `"toolCalls"` | `List<ToolCall>` | Correctness, Trajectory |
-| `metadata` | `"tools"` | `List<ToolDefinition>` | Validity, Name Reliability, Description Reliability |
-| `metadata` | `"tasks"` | `List<String>` | Task Completion |
-| `metadata` | `"constraints"` | `String` | Task Completion |
+| Map               | Key             | Type                   | Used by                                                                       |
+| ----------------- | --------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `actualOutputs`   | `"toolCalls"`   | `List<ToolCall>`       | Validity, Correctness, Trajectory, Tool Error, Tool Efficiency, Hallucination |
+| `actualOutputs`   | `"output"`      | `String`               | Task Completion                                                               |
+| `expectedOutputs` | `"toolCalls"`   | `List<ToolCall>`       | Correctness, Trajectory                                                       |
+| `metadata`        | `"tools"`       | `List<ToolDefinition>` | Validity, Name Reliability, Description Reliability                           |
+| `metadata`        | `"tasks"`       | `List<String>`         | Task Completion                                                               |
+| `metadata`        | `"constraints"` | `String`               | Task Completion                                                               |
 
 ## Evaluator Configuration
 

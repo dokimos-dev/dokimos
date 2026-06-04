@@ -29,6 +29,8 @@
         <kotlin.version>2.3.10</kotlin.version>
         <koog.version>0.6.1</koog.version>
         <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
+        <embabel.version>0.4.0</embabel.version>
+        <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
     </properties>
 
     <dependencies>
@@ -66,6 +68,16 @@
         <dependency>
             <groupId>dev.dokimos</groupId>
             <artifactId>dokimos-server-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-embabel</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-spring-ai-alibaba</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -114,6 +126,25 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-vector-store</artifactId>
             <version>${spring-ai.version}</version>
+        </dependency>
+
+        <!-- Spring AI Alibaba SDK: provided scope in real apps (the adapter marks it provided),
+             but the example must compile against ReactAgent/OverAllState so it is on the
+             compile classpath here. The user brings their own version. -->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-graph-core</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+        </dependency>
+
+        <!-- Embabel SDK: provided scope in real apps (the adapter marks it provided), but the
+             example must compile against ProcessOptions/AgentInvocation so it is on the compile
+             classpath here. The example is deliberately wiring-only (no live AgentPlatform), which
+             keeps it off the Spring Milestones repo that a live embabel-agent-starter would need. -->
+        <dependency>
+            <groupId>com.embabel.agent</groupId>
+            <artifactId>embabel-agent-api</artifactId>
+            <version>${embabel.version}</version>
         </dependency>
 
         <!-- Kotlin & Koog dependencies -->

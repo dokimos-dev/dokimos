@@ -7,13 +7,13 @@ sidebar_position: 4
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Evaluators check the quality of your LLM's outputs. Each one gives a score between 0.0 and 1.0, and decides whether the output passes based on a threshold you set.
+An evaluator scores one of your LLM's outputs and tells you if it passes. Each evaluator returns a score from 0.0 to 1.0 and compares it against a threshold you set. Use this page to pick a built-in evaluator, configure it, and read its result.
 
-You can use built-in evaluators for common checks (exact matches, regex patterns, LLM-based judging) or create custom ones for your specific needs.
+Start with a built-in evaluator for common checks (exact matches, regex patterns, LLM judging, RAG grounding, retrieval quality). Write a custom one when none of them fit.
 
-## The Evaluator Interface
+## The Evaluator interface
 
-All evaluators implement the `Evaluator` interface:
+Every evaluator implements `Evaluator`. It has three methods: score a test case, report its name, and report its threshold.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -40,7 +40,7 @@ interface Evaluator {
   </TabItem>
 </Tabs>
 
-Evaluators extending `BaseEvaluator` also support **async evaluation**:
+Evaluators that extend `BaseEvaluator` can also run asynchronously. Call `evaluateAsync` to get a `CompletableFuture`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -69,17 +69,18 @@ val evalResult2 = evaluator.evaluateAsync(testCase, executor).await()
   </TabItem>
 </Tabs>
 
-An `EvalResult` contains:
-- **score**: Numeric score (0.0 to 1.0)
-- **success**: Whether score meets threshold
-- **reason**: Explanation of the score
-- **metadata**: Additional evaluation data
+Every call returns an `EvalResult`. It holds:
 
-## Built-in Evaluators
+- **score**: numeric score (0.0 to 1.0)
+- **success**: whether the score meets the threshold
+- **reason**: explanation of the score
+- **metadata**: extra evaluation data
+
+## Built-in evaluators
 
 ### ExactMatchEvaluator
 
-Checks if the output matches the expected result exactly. Useful for deterministic outputs where there's only one correct answer.
+Checks if the output matches the expected result exactly. Use it when there is one correct answer.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -104,17 +105,17 @@ val evaluator = exactMatch {
   </TabItem>
 </Tabs>
 
-Returns score `1.0` if they match, `0.0` otherwise.
+Returns `1.0` if the strings match, `0.0` otherwise.
 
-**When to use:** Math calculations, code generation, or any scenario where the output is a string that should be exactly as expected.
+**When to use:** math calculations, code generation, or any case where the output is a string that should come back exactly as expected.
 
 :::note
-`ExactMatchEvaluator` compares the **string forms** of the outputs (`toString()`). For a structured output — a record, `Map`, or list — use [`StructuralMatchEvaluator`](#structuralmatchevaluator) instead, which compares the values structurally and ignores formatting and numeric representation (`5` vs `5.0`).
+`ExactMatchEvaluator` compares the **string forms** of the outputs (`toString()`). For a structured output (a record, `Map`, or list) use [`StructuralMatchEvaluator`](#structuralmatchevaluator) instead. It compares the values structurally and ignores formatting and numeric representation (`5` vs `5.0`).
 :::
 
 ### RegexEvaluator
 
-Checks if the output matches a pattern. Useful for validating format without caring about the exact content.
+Checks if the output matches a pattern. Use it to validate format when the exact content can vary.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -155,11 +156,11 @@ val emailFormat = regex {
   </TabItem>
 </Tabs>
 
-**When to use:** Validating dates, emails, phone numbers, IDs, URLs, or any structured format where the exact value varies but the pattern should be consistent.
+**When to use:** validating dates, emails, phone numbers, IDs, or URLs, where the exact value varies but the pattern stays the same.
 
 ### LLMJudgeEvaluator
 
-Uses another LLM to evaluate outputs based on criteria you define in natural language. This is powerful for subjective quality checks that are hard to automate with rules.
+Uses a second LLM to score outputs against criteria you write in plain language. Use it for quality checks that rules cannot capture.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -196,11 +197,11 @@ val helpfulness: Evaluator = llmJudge(judge) {
   </TabItem>
 </Tabs>
 
-The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1. The reply is parsed leniently: a one-sentence preamble or trailing prose around the JSON is dropped, so a recoverable judgment is not lost to a formatting quirk.
+The evaluator sends your criteria and the test case to the judge model, which returns a score between 0 and 1. The reply is parsed leniently. A one-sentence preamble or trailing prose around the JSON is dropped, so a usable judgment is not lost to a formatting quirk.
 
-A structured output (a record, `Map`, or list) is rendered to the judge as pretty-printed JSON, so you can judge a structured value directly; String and primitive output is passed through verbatim.
+A structured output (a record, `Map`, or list) is rendered to the judge as pretty-printed JSON, so you can judge a structured value directly. String and primitive output is passed through verbatim.
 
-By default the judge scores on a 0..1 scale. To let the judge work on a different range, set `scoreRange(min, max)`. The reported score is then normalized back to 0..1, so your `threshold` always stays on the 0..1 scale:
+By default the judge scores on a 0..1 scale. To let it work on a different range, set `scoreRange(min, max)`. The reported score is normalized back to 0..1, so your `threshold` always stays on the 0..1 scale.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -232,13 +233,13 @@ val helpfulness: Evaluator = llmJudge(judge) {
   </TabItem>
 </Tabs>
 
-**When to use:** Checking semantic correctness, helpfulness, tone, clarity, or any quality dimension that's easier to describe in words than code.
+**When to use:** semantic correctness, helpfulness, tone, clarity, or any quality you can describe in words more easily than in code.
 
 ### StructuralMatchEvaluator
 
-Compares the actual output against the expected output as **JSON structures** rather than as opaque strings. Both operands are normalized to a JSON tree before comparison, so a record, a `Map`, or a JSON string all compare object-against-object. This makes it the right tool for structured output (extraction results, function-call arguments, typed POJOs) where reformatting, key ordering, or numeric representation should not count as a difference.
+Compares the actual output against the expected output as **JSON structures**, not as opaque strings. Both sides are normalized to a JSON tree first, so a record, a `Map`, or a JSON string all compare object against object. This is the right tool for structured output (extraction results, function-call arguments, typed POJOs) where reformatting, key ordering, or numeric representation should not count as a difference.
 
-Crucially, numbers compare **by value, not representation**: `5` equals `5.0`, and `1.0` equals `1.00`, in both modes. String equality of the serialized form would flag those as mismatches; structural comparison does not.
+Numbers compare **by value, not representation**: `5` equals `5.0`, and `1.0` equals `1.00`, in both modes. Plain string equality of the serialized form would flag those as mismatches. Structural comparison does not.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -257,7 +258,7 @@ var testCase = EvalTestCase.builder()
     .build();
 
 EvalResult result = structural.evaluate(testCase);
-// result.score() == 1.0 — 42.0 and 42.00 are value-equal
+// result.score() == 1.0 because 42.0 and 42.00 are value-equal
 ```
 
   </TabItem>
@@ -271,13 +272,13 @@ val structural: Evaluator = StructuralMatchEvaluator.builder()
     .threshold(1.0)
     .build()  // STRICT mode, outputKey "output", partial scoring
 
-val testCase = EvalTestCase(
-    expectedOutputs = mapOf("output" to Invoice("INV-1", 42.0, listOf("a", "b"))),
-    actualOutputs = mapOf("output" to Invoice("INV-1", 42.00, listOf("a", "b"))),
-)
+val testCase = EvalTestCase.builder()
+    .expectedOutput("output", Invoice("INV-1", 42.0, listOf("a", "b")))
+    .actualOutput("output", Invoice("INV-1", 42.00, listOf("a", "b")))
+    .build()
 
 val result = structural.evaluate(testCase)
-// result.score() == 1.0 — 42.0 and 42.00 are value-equal
+// result.score() == 1.0 because 42.0 and 42.00 are value-equal
 ```
 
   </TabItem>
@@ -285,10 +286,10 @@ val result = structural.evaluate(testCase)
 
 #### Comparison modes
 
-The comparison mode is set with `.mode(...)` using `StructuralMatchMode`:
+Set the mode with `.mode(...)` using `StructuralMatchMode`:
 
-- **`STRICT`** (the default) requires the **exact field set** and **exact array order**. An extra field in the actual output is a mismatch and penalizes the score, and a `null` value is distinct from a missing field.
-- **`LENIENT`** allows **extra actual fields** (the actual object may be a superset of the expected one) and ignores array order, comparing arrays as **multisets** — `[1, 1, 2]` does not match `[1, 2]`, but order is irrelevant. A `null` value and a missing field are treated as equal.
+- **`STRICT`** (the default) requires the **exact field set** and **exact array order**. An extra field in the actual output is a mismatch and lowers the score. A `null` value is distinct from a missing field.
+- **`LENIENT`** allows **extra actual fields** (the actual object may be a superset of the expected one) and ignores array order, comparing arrays as **multisets**. `[1, 1, 2]` does not match `[1, 2]`, but order does not matter. A `null` value and a missing field are treated as equal.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -317,9 +318,9 @@ val lenient: Evaluator = StructuralMatchEvaluator.builder()
 
 #### Scoring
 
-By default the score is the **fraction of matching leaf paths** in `[0.0, 1.0]`, so a single wrong field on a large object is a partial miss, not a total failure. In `STRICT` the denominator is the union of expected and actual leaf paths (extra fields lower the score); in `LENIENT` the denominator is the expected leaf paths only.
+By default the score is the **fraction of matching leaf paths** in `[0.0, 1.0]`, so one wrong field on a large object is a partial miss, not a total failure. In `STRICT` the denominator is the union of expected and actual leaf paths (extra fields lower the score). In `LENIENT` the denominator is the expected leaf paths only.
 
-Call `.binary()` for an **exact-contract gate**: the score collapses to `1.0` when the structures match completely and `0.0` when anything differs. Pair it with `threshold(1.0)` when the output contract must be satisfied exactly.
+Call `.binary()` for an **exact-contract gate**. The score collapses to `1.0` when the structures match completely and `0.0` when anything differs. Pair it with `threshold(1.0)` when the output contract must be satisfied exactly.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -346,17 +347,17 @@ val contract: Evaluator = StructuralMatchEvaluator.builder()
   </TabItem>
 </Tabs>
 
-By default the evaluator reads both operands from the `"output"` key of the expected and actual output maps. Use `.outputKey(...)` to read from a different key. The expected value is required — if it is absent the evaluator throws.
+By default the evaluator reads both sides from the `"output"` key of the expected and actual output maps. Use `.outputKey(...)` to read from a different key. The expected value is required. If it is absent, the evaluator throws.
 
 :::tip
-This evaluator pairs naturally with the typed output accessors on `EvalTestCase` (`actualOutputAs(...)` / `expectedOutputAs(...)`): store your structured result under a map key as a record or `Map`, compare it structurally here, and read it back as a typed object elsewhere. See the [Structured & Typed Data](./structured-typed-data.md) hub for the whole pipeline end to end.
+This evaluator pairs with the typed output accessors on `EvalTestCase` (`actualOutputAs(...)` and `expectedOutputAs(...)`). Store your structured result under a map key as a record or `Map`, compare it structurally here, and read it back as a typed object elsewhere. See the [Structured & Typed Data](./structured-typed-data.md) hub for the whole pipeline end to end.
 :::
 
-**When to use:** Structured or JSON output — extraction results, tool-call arguments, typed response objects — where you care about the data, not its textual formatting, and where numeric representation differences (`5` vs `5.0`) should never count as a regression.
+**When to use:** structured or JSON output (extraction results, tool-call arguments, typed response objects) where you care about the data, not its textual formatting, and where numeric representation differences (`5` vs `5.0`) should never count as a regression.
 
 ### FaithfulnessEvaluator
 
-Checks if the output is grounded in the provided context. This is essential for RAG systems where you need to ensure the LLM isn't making things up.
+Checks if the output is grounded in the provided context. Use it in RAG systems to make sure the LLM is not making things up.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -389,15 +390,16 @@ val faithfulness: Evaluator = faithfulness(judge) {
 </Tabs>
 
 The evaluator:
-1. Breaks down the output into individual claims
-2. Checks each claim against the retrieved context
-3. Calculates score = (supported claims) / (total claims)
 
-**When to use:** Any RAG system where accuracy matters. If your LLM is answering questions based on retrieved documents, you need this to catch hallucinations.
+1. Breaks the output into individual claims.
+2. Checks each claim against the retrieved context.
+3. Calculates score = (supported claims) / (total claims).
+
+**When to use:** any RAG system where accuracy matters. If your LLM answers from retrieved documents, use this to catch hallucinations.
 
 ### HallucinationEvaluator
 
-Detects when the output contains information not supported by the provided context. Unlike FaithfulnessEvaluator which measures how much is grounded, this evaluator specifically measures the proportion of hallucinated content.
+Detects output that the context does not support. `FaithfulnessEvaluator` measures how much is grounded. This evaluator measures the share of content that is hallucinated.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -430,17 +432,18 @@ val hallucination: Evaluator = hallucination(judge) {
 </Tabs>
 
 The evaluator:
-1. Breaks down the output into individual statements
-2. Checks if each statement is supported by the context
-3. Calculates score = (unsupported statements) / (total statements)
 
-**Important:** For this evaluator, **lower scores are better** (0.0 means no hallucinations). Success is determined by `score <= threshold`.
+1. Breaks the output into individual statements.
+2. Checks if the context supports each statement.
+3. Calculates score = (unsupported statements) / (total statements).
 
-**When to use:** When you need to specifically measure and limit hallucination rate, especially in high-stakes applications where any fabricated information is problematic.
+**Important:** for this evaluator, **lower scores are better** (0.0 means no hallucinations). Success is `score <= threshold`.
+
+**When to use:** when you need to measure and cap the hallucination rate, especially in high-stakes applications where any fabricated information is a problem.
 
 ### ContextualRelevanceEvaluator
 
-Measures how relevant retrieved context chunks are to a user's query. This is essential for evaluating retrieval quality in RAG systems.
+Measures how relevant the retrieved context chunks are to the user's query. Use it to evaluate retrieval quality in RAG systems.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -458,9 +461,10 @@ Evaluator relevance = ContextualRelevanceEvaluator.builder()
 ```
 
 The evaluator:
-1. Scores each context chunk independently (0.0 to 1.0) for relevance to the query
-2. Calculates final score as the mean average of all chunk scores
-3. Stores individual chunk scores in the result metadata for transparency
+
+1. Scores each context chunk on its own (0.0 to 1.0) for relevance to the query.
+2. Calculates the final score as the mean of all chunk scores.
+3. Stores the individual chunk scores in the result metadata.
 
 ```java
 var testCase = EvalTestCase.builder()
@@ -492,9 +496,10 @@ val relevance: Evaluator = contextualRelevance(judge) {
 ```
 
 The evaluator:
-1. Scores each context chunk independently (0.0 to 1.0) for relevance to the query
-2. Calculates final score as the mean average of all chunk scores
-3. Stores individual chunk scores in the result metadata for transparency
+
+1. Scores each context chunk on its own (0.0 to 1.0) for relevance to the query.
+2. Calculates the final score as the mean of all chunk scores.
+3. Stores the individual chunk scores in the result metadata.
 
 ```kotlin
 val testCase = EvalTestCase(
@@ -513,11 +518,11 @@ val result = relevance.evaluate(testCase)
   </TabItem>
 </Tabs>
 
-**When to use:** Evaluating retrieval quality in RAG pipelines. Helps identify when your retriever is returning irrelevant documents that could confuse the LLM or dilute answer quality.
+**When to use:** evaluating retrieval quality in RAG pipelines. It tells you when your retriever returns irrelevant documents that could confuse the LLM or dilute the answer.
 
 ### PrecisionEvaluator
 
-Measures what fraction of retrieved items are actually relevant. Requires ground truth labels.
+Measures what fraction of retrieved items are actually relevant. Needs ground truth labels.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -552,11 +557,11 @@ val precision: Evaluator = precision {
 
 A precision of 1.0 means every retrieved item was relevant (no false positives).
 
-**When to use:** When you need to minimize noise in retrieved results. High precision is critical when downstream processing is expensive or when irrelevant items could mislead the LLM.
+**When to use:** when you need to minimize noise in retrieved results. High precision matters when downstream processing is expensive or when irrelevant items could mislead the LLM.
 
 ### RecallEvaluator
 
-Measures what fraction of relevant items were actually retrieved. Requires ground truth labels.
+Measures what fraction of relevant items were actually retrieved. Needs ground truth labels.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -591,11 +596,11 @@ val recall: Evaluator = recall {
 
 A recall of 1.0 means all relevant items were found (no false negatives).
 
-**When to use:** When missing relevant information is costly. High recall is critical for comprehensive answers or when the user expects complete coverage.
+**When to use:** when missing relevant information is costly. High recall matters for complete answers or when the user expects full coverage.
 
-### Matching Strategies
+### Matching strategies
 
-Both Precision and Recall evaluators support flexible matching strategies for comparing retrieved items to ground truth:
+Both `PrecisionEvaluator` and `RecallEvaluator` support several strategies for matching retrieved items to ground truth.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -702,17 +707,18 @@ val testCase = EvalTestCase(
   </TabItem>
 </Tabs>
 
-### Agent Evaluators
+### Agent evaluators
 
-Dokimos includes specialized evaluators for AI agents that use tools. These cover task completion, tool call validation, argument hallucination detection, and tool definition quality.
+Dokimos ships specialized evaluators for AI agents that use tools. They cover task completion, tool call validation, argument hallucination detection, and tool definition quality.
 
 See the dedicated **[Agent Evaluation](./agent-evaluation)** guide for full documentation.
 
-## Common Configuration
+## Common configuration
 
-All evaluators have these settings:
+Every evaluator supports these settings.
 
-**Name**: How the evaluator shows up in results:
+**Name** sets how the evaluator shows up in results.
+
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
@@ -730,7 +736,8 @@ name = "Answer Quality"
   </TabItem>
 </Tabs>
 
-**Threshold**: Minimum score needed to pass:
+**Threshold** sets the minimum score needed to pass.
+
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
@@ -748,7 +755,8 @@ threshold = 0.8  // Needs 80% or higher
   </TabItem>
 </Tabs>
 
-**Evaluation Parameters**: What information to include for evaluators:
+**Evaluation parameters** set which fields the evaluator reads.
+
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
 
@@ -774,9 +782,9 @@ params(
   </TabItem>
 </Tabs>
 
-## Creating Custom Evaluators
+## Creating custom evaluators
 
-When the built-in evaluators don't fit your needs, create your own by extending `BaseEvaluator`:
+When no built-in evaluator fits, write your own by extending `BaseEvaluator`. Override `runEvaluation` and return an `EvalResult`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -850,11 +858,11 @@ val lengthCheck: Evaluator = ResponseLengthEvaluator(50, 200)
   </TabItem>
 </Tabs>
 
-For very simple checks, you can also implement the `Evaluator` interface directly.
+For very simple checks, implement the `Evaluator` interface directly.
 
-## Combining Multiple Evaluators
+## Combining multiple evaluators
 
-Most applications need to pass multiple quality checks. You can use several evaluators together:
+Most applications need to pass several quality checks. Put the evaluators in a list and run them together.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -915,30 +923,30 @@ val evaluators: List<Evaluator> = evaluators {
   </TabItem>
 </Tabs>
 
-An output only passes if it meets **all** the thresholds. This lets you enforce multiple quality dimensions at once.
+An output passes only if it meets **all** the thresholds. This lets you enforce several quality dimensions at once.
 
-## Best Practices
+## Best practices
 
 ### Pick the right evaluator for the job
 
-- Use **ExactMatch** when there's only one correct answer (like math or data extraction)
-- Use **Regex** for format validation (dates, emails, IDs)
-- Use **StructuralMatch** for structured/JSON output where formatting and numeric representation shouldn't count as differences (see the [Structured & Typed Data](./structured-typed-data.md) hub)
-- Use **LLMJudge** for semantic quality (helpfulness, clarity, tone)
-- Use **Faithfulness** for RAG systems to measure how grounded the output is
-- Use **Hallucination** to specifically measure and limit fabricated content
-- Use **ContextualRelevance** to evaluate retrieval quality without ground truth
-- Use **Precision/Recall** when you have ground truth labels for relevant items
-- Use **[Agent evaluators](./agent-evaluation)** to evaluate AI agents that use tools (task completion, tool validity, argument hallucination, tool reliability)
-- Build **custom evaluators** for domain-specific requirements
+- Use **ExactMatch** when there is only one correct answer (math, data extraction).
+- Use **Regex** for format validation (dates, emails, IDs).
+- Use **StructuralMatch** for structured or JSON output where formatting and numeric representation should not count as differences (see the [Structured & Typed Data](./structured-typed-data.md) hub).
+- Use **LLMJudge** for semantic quality (helpfulness, clarity, tone).
+- Use **Faithfulness** for RAG systems to measure how grounded the output is.
+- Use **Hallucination** to measure and cap fabricated content.
+- Use **ContextualRelevance** to evaluate retrieval quality without ground truth.
+- Use **Precision/Recall** when you have ground truth labels for relevant items.
+- Use **[Agent evaluators](./agent-evaluation)** to evaluate AI agents that use tools (task completion, tool validity, argument hallucination, tool reliability).
+- Build **custom evaluators** for domain-specific requirements.
 
 ### Start with looser thresholds
 
-Don't aim for perfection right away. Start with thresholds around 0.7-0.8 and tighten them as your system improves. A threshold of 1.0 means any imperfection fails.
+Do not aim for perfection right away. Start around 0.7 to 0.8 and tighten as your system improves. A threshold of 1.0 fails on any imperfection.
 
 ### Write specific criteria for LLM judges
 
-Be clear about what you're evaluating:
+Be clear about what you are scoring.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -967,11 +975,11 @@ criteria = "Is this good?"
 
 ### Use multiple evaluators for important outputs
 
-Check different aspects independently: correctness, format, grounding, tone, etc. This gives you more insight into where things go wrong.
+Check each aspect on its own: correctness, format, grounding, tone. This shows you exactly where things go wrong.
 
 ### Test your evaluators
 
-Make sure your evaluators work as expected on known examples before relying on them:
+Confirm your evaluators behave on known examples before you rely on them.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -997,10 +1005,10 @@ void faithfulnessEvaluatorShouldCatchHallucination() {
 ```kotlin
 @Test
 fun faithfulnessEvaluatorShouldCatchHallucination() {
-    val testCase = EvalTestCase(
-        actualOutputs = "The product costs $500",  // Made up
-        metadata = mapOf("context" to listOf("The product costs $100"))
-    )
+    val testCase = EvalTestCase.builder()
+        .actualOutput("The product costs $500")  // Made up
+        .metadata(mapOf("context" to listOf("The product costs $100")))
+        .build()
 
     val result = faithfulnessEvaluator.evaluate(testCase)
 
@@ -1012,9 +1020,9 @@ fun faithfulnessEvaluatorShouldCatchHallucination() {
   </TabItem>
 </Tabs>
 
-## Using Evaluator Results
+## Using evaluator results
 
-Evaluators return `EvalResult` objects with score, success status, and explanation:
+`evaluate` returns an `EvalResult` with the score, the pass status, and an explanation. Read them directly.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1041,7 +1049,7 @@ println("Reason: ${result.reason()}")
   </TabItem>
 </Tabs>
 
-In experiments, you can analyze results across all examples:
+In experiments, analyze results across all examples.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1086,7 +1094,7 @@ experimentResult.itemResults().forEach { item ->
   </TabItem>
 </Tabs>
 
-In JUnit tests, evaluators fail the test if they don't pass:
+In JUnit tests, a failing evaluator fails the test.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">

@@ -4,32 +4,156 @@ sidebar_position: 2
 
 # Evaluation Overview
 
-Evaluation is an important aspect of (Gen)AI applications and usually refers to evaluation an AI application with different evaluation methods and metrics to score the performance depending on the use case.
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Why use evaluation in GenAI?
+This page shows you how Dokimos scores the output of your LLM application, so you can measure quality, catch regressions, and compare changes with numbers instead of guesses.
 
-Evaluation is important for improving the performance, reliability, and safety of AI models. It helps to identify strengths and weaknesses, ensure alignment with user expectations, and mitigate risks associated with AI deployment. By systematically evaluating AI models, developers can make informed decisions about model selection, fine-tuning, and deployment strategies, ultimately leading to better user experiences and more trustworthy AI systems.
+## Run your first evaluation
 
-## Core Concepts in Dokimos
+Here is a full, runnable example. It builds a small dataset, runs your application against it, scores the answers with an LLM judge, and prints a pass rate. Copy it, swap in your own `customerSupportBot` and `judge`, and run it.
 
-Dokimos provides a flexible framework for evaluating LLM applications in Java and Kotlin. At the moment it supports offline evaluation, which can be used for evaluating the application with a curated dataset, which is useful for benchmarking and regression testing during development. This setup can also typically be part of a CI/CD pipeline to measure the current performance of a system and to catch regressions.
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
 
-The core concepts in Dokimos are:
-- **Datasets**: Datasets are collections of data points used for evaluation. Dokimos supports different ways to load datasets, including programmatically, from files, or custom sources.
-- **Examples**: Examples are individual data points within a dataset. Each example typically consists of an input (e.g., a prompt) and an expected output (e.g., the correct response).
-- **Evaluators**: Evaluators are responsible for assessing the performance of the LLM application. Dokimos provides built-in evaluators for common evaluation tasks, but also allows you to create custom evaluators.
-- **Experiments**: Experiments are the execution of evaluation tasks using datasets and evaluators. Dokimos allows you to run experiments in a test-driven way, often using parameterized tests.
+```java
+import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator;
+import java.util.List;
+import java.util.Map;
+
+// 1. Build a dataset: inputs paired with the expected answers.
+Dataset dataset = Dataset.builder()
+    .name("Product Support Questions")
+    .addExample(Example.of(
+        "How do I reset my password?",
+        "Click 'Forgot Password' on the login page and follow the email instructions"
+    ))
+    .addExample(Example.of(
+        "Where can I track my order?",
+        "Go to your account dashboard and click on 'Order History'"
+    ))
+    .build();
+
+// 2. Define the task: this calls your application for each example.
+Task task = example -> {
+    String answer = customerSupportBot.generateAnswer(example.input());
+    return Map.of("output", answer);
+};
+
+// 3. Pick an evaluator to score each output.
+List<Evaluator> evaluators = List.of(
+    LLMJudgeEvaluator.builder()
+        .name("Answer Quality")
+        .criteria("Is the answer helpful and accurate?")
+        .judge(judge)
+        .threshold(0.8)
+        .build()
+);
+
+// 4. Run the experiment and read the results.
+ExperimentResult result = Experiment.builder()
+    .name("QA Evaluation")
+    .dataset(dataset)
+    .task(task)
+    .evaluators(evaluators)
+    .build()
+    .run();
+
+System.out.println("Pass rate: " + String.format("%.2f%%", result.passRate() * 100));
+System.out.println("Passed: " + result.passCount());
+System.out.println("Failed: " + result.failCount());
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.kotlin.dsl.dataset
+import dev.dokimos.kotlin.dsl.evaluators
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.kotlin.dsl.task
+
+// 1. Build a dataset: inputs paired with the expected answers.
+val dataset = dataset {
+    name = "Product Support Questions"
+    example {
+        input = "How do I reset my password?"
+        expected = "Click 'Forgot Password' on the login page and follow the email instructions"
+    }
+    example {
+        input = "Where can I track my order?"
+        expected = "Go to your account dashboard and click on 'Order History'"
+    }
+}
+
+// 2. Define the task: this calls your application for each example.
+val task = task { example ->
+    val answer = customerSupportBot.generateAnswer(example.input())
+    mapOf("output" to answer)
+}
+
+// 3 and 4. Add an evaluator, run the experiment, read the results.
+val result = experiment {
+    name = "QA Evaluation"
+    dataset(dataset)
+    task(task)
+    evaluators {
+        llmJudge(judge) {
+            name = "Answer Quality"
+            criteria = "Is the answer helpful and accurate?"
+            threshold = 0.8
+        }
+    }
+}.run()
+
+println("Pass rate: %.2f%%".format(result.passRate() * 100))
+println("Passed: ${result.passCount()}")
+println("Failed: ${result.failCount()}")
+```
+
+  </TabItem>
+</Tabs>
+
+That is the whole loop: a dataset goes in, a scored result comes out. The rest of this page explains the pieces.
+
+## What evaluation gives you
+
+Evaluation scores the responses of an AI application against metrics that fit your use case. You run it to:
+
+- Find where your application is strong and where it is weak.
+- Check that outputs match what users expect.
+- Reduce the risk of shipping bad or unsafe responses.
+- Decide which model, prompt, or retrieval setup to ship.
+
+Scores turn "this feels better" into a number you can track over time.
+
+## Core concepts
+
+Dokimos evaluates LLM applications in Java and Kotlin. It runs offline evaluation: you score your application against a curated dataset. This fits benchmarking and regression testing during development, and it runs well inside a CI/CD pipeline to measure current performance and catch regressions.
+
+Four concepts make up the framework:
+
+- **Datasets**: A collection of data points used for evaluation. Load them programmatically, from files, or from a custom source. (In the example above, that is `Dataset.builder()`.)
+- **Examples**: One data point in a dataset. Each example holds an input (such as a prompt) and an expected output (the correct response). (That is `Example.of(...)`.)
+- **Evaluators**: The code that scores how well your application did. Dokimos ships built-in evaluators for common tasks, and you can write your own. (That is `LLMJudgeEvaluator` above.)
+- **Experiments**: One run of an evaluation: a dataset plus a task plus evaluators. You can run experiments test-driven, often with parameterized tests. (That is `Experiment.builder()`.)
 
 ## Experiments
 
-**Experiments** are the core of any evaluation process. They are used to run evaluations using specific datasets and evaluators. In Dokimos, experiments can be defined in a way that allows for easy integration with testing frameworks like JUnit, enabling automated evaluation as part of your development workflow.
+An experiment is the unit you run. It ties a dataset to a task and a set of evaluators, then produces scored results. Experiments plug into testing frameworks like JUnit, so you can run evaluation as part of your normal development workflow.
 
-For good experiments, it's recommended to:
-- Use representative datasets that reflect real-world scenarios.
-- Choose appropriate evaluators that align with your evaluation goals.
-- Analyze the results to identify areas for improvement in your LLM application.
+For useful experiments:
 
-To learn more about how to create Datasets, Evaluators, and run Experiments in Dokimos, check out the following guides:
-- [See how to create a Dataset](/evaluation/datasets)
-- [See how to create an Evaluator](/evaluation/evaluators)
-- [See how to run Experiments](/evaluation/experiments)
+- Use datasets that reflect real-world inputs.
+- Pick evaluators that match what you care about (accuracy, helpfulness, format, and so on).
+- Read the results to find what to improve.
+
+## Next steps
+
+Now go deeper on each piece:
+
+- [Create a Dataset](../evaluation/datasets)
+- [Create an Evaluator](../evaluation/evaluators)
+- [Run Experiments](../evaluation/experiments)

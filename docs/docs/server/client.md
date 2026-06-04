@@ -4,9 +4,14 @@ sidebar_position: 6
 
 # Client
 
-The `dokimos-server-client` module provides `DokimosServerReporter`, a client that sends experiment results to a Dokimos server.
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-## Installation
+This page shows you how to send experiment results to a Dokimos server from your code, so your evaluation runs land in the web UI instead of staying in the console.
+
+The `dokimos-server-client` module gives you `DokimosServerReporter`. It is a `Reporter` that batches results and POSTs them to a running server. You attach it to an experiment, run, and the results appear in the UI.
+
+## Install
 
 Add the dependency to your `pom.xml`:
 
@@ -18,18 +23,23 @@ Add the dependency to your `pom.xml`:
 </dependency>
 ```
 
-## Basic Usage
+## Quick start
+
+Build a reporter, point it at your server, and pass it to the experiment. Calling `run()` sends the results.
+
+<Tabs groupId="language">
+  <TabItem value="java" label="Java" default>
 
 ```java
 import dev.dokimos.server.client.DokimosServerReporter;
 
-// Create reporter
+// 1. Build the reporter.
 DokimosServerReporter reporter = DokimosServerReporter.builder()
     .serverUrl("http://localhost:8080")
     .projectName("my-project")
     .build();
 
-// Attach to experiment
+// 2. Attach it to the experiment and run.
 ExperimentResult result = Experiment.builder()
     .name("my-experiment")
     .dataset(dataset)
@@ -40,25 +50,56 @@ ExperimentResult result = Experiment.builder()
     .run();
 ```
 
-## Builder Options
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
 
-### Required Options
+```kotlin
+import dev.dokimos.kotlin.dsl.experiment
+import dev.dokimos.server.client.DokimosServerReporter
+
+// 1. Build the reporter.
+val serverReporter = DokimosServerReporter.builder()
+    .serverUrl("http://localhost:8080")
+    .projectName("my-project")
+    .build()
+
+// 2. Attach it to the experiment and run.
+val result = experiment {
+    name = "my-experiment"
+    dataset(dataset)
+    task(task)
+    evaluators { /* ... */ }
+    reporter = serverReporter
+}.run()
+```
+
+  </TabItem>
+</Tabs>
+
+That is the whole loop. `run()` calls `close()` for you, which flushes every pending result before returning. The rest of this page covers configuration, failure handling, and CI.
+
+## Builder options
+
+### Required
 
 | Option | Description |
 |--------|-------------|
-| `serverUrl(String)` | Base URL of the Dokimos server (e.g., `https://dokimos.example.com`) |
-| `projectName(String)` | Project name for organizing experiments |
+| `serverUrl(String)` | Base URL of the Dokimos server (for example, `https://dokimos.example.com`) |
+| `projectName(String)` | Project name that groups your experiments in the UI |
 
-### Optional Options
+### Optional
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `apiKey(String)` | API key for authentication | _(none)_ |
-| `apiVersion(String)` | API version to use | `v1` |
+| `apiKey(String)` | Bearer API key for authentication | _(none)_ |
+| `apiVersion(String)` | API version to call | `v1` |
 | `onItemDeliveryFailure(Consumer<ItemDeliveryFailure>)` | Callback for batches permanently dropped after retries | _(none)_ |
-| `spoolDirectory(Path)` | Append permanently-failed batches to disk for later replay | _(off)_ |
+| `spoolDirectory(Path)` | Append permanently failed batches to disk for later replay | _(off)_ |
 
-### Example with All Options
+### Set every option
+
+<Tabs groupId="language">
+  <TabItem value="java" label="Java" default>
 
 ```java
 DokimosServerReporter reporter = DokimosServerReporter.builder()
@@ -69,9 +110,24 @@ DokimosServerReporter reporter = DokimosServerReporter.builder()
     .build();
 ```
 
-## Environment Variable Configuration
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
 
-For CI/CD and containerized environments, configure via environment variables:
+```kotlin
+val reporter = DokimosServerReporter.builder()
+    .serverUrl("https://dokimos.example.com")
+    .projectName("my-llm-app")
+    .apiKey("your-api-key")
+    .apiVersion("v1")
+    .build()
+```
+
+  </TabItem>
+</Tabs>
+
+## Configure with environment variables
+
+For CI/CD and containers, read the configuration from the environment instead of hard-coding it.
 
 | Variable | Description | Required |
 |----------|-------------|----------|
@@ -80,77 +136,94 @@ For CI/CD and containerized environments, configure via environment variables:
 | `DOKIMOS_API_KEY` | API key | No |
 | `DOKIMOS_API_VERSION` | API version | No |
 
+Set the variables:
+
 ```bash
 export DOKIMOS_SERVER_URL=https://dokimos.example.com
 export DOKIMOS_PROJECT_NAME=my-project
 export DOKIMOS_API_KEY=your-api-key
 ```
 
+Then build the reporter from them:
+
+<Tabs groupId="language">
+  <TabItem value="java" label="Java" default>
+
 ```java
 DokimosServerReporter reporter = DokimosServerReporter.fromEnvironment();
 ```
 
-This throws `IllegalStateException` if required variables are missing.
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
 
-## How It Works
+```kotlin
+val reporter = DokimosServerReporter.fromEnvironment()
+```
 
-### Async Processing
+  </TabItem>
+</Tabs>
 
-The client processes results asynchronously to avoid blocking experiment execution:
+`fromEnvironment()` throws `IllegalStateException` if `DOKIMOS_SERVER_URL` or `DOKIMOS_PROJECT_NAME` is missing.
 
-1. When you call `reporter.reportItem()`, items are added to an internal queue
-2. A background thread batches items and sends them to the server
-3. Your experiment continues without waiting for HTTP responses
+## How it works
+
+### Async processing
+
+The client sends results in the background so it never blocks your experiment:
+
+1. You call `reporter.reportItem()`. The item goes onto an internal queue.
+2. A background thread batches queued items and POSTs them to the server.
+3. Your experiment keeps running and does not wait for HTTP responses.
 
 ### Batching
 
-Items are sent in batches to reduce HTTP overhead:
+Items ship in batches to cut HTTP overhead:
 
-- **Batch size**: Up to 10 items per request
-- **Batch timeout**: 500ms maximum wait time
+- **Batch size**: up to 10 items per request.
+- **Batch timeout**: 500ms maximum wait.
 
-Whichever threshold is reached first triggers a batch send.
+Whichever limit is hit first triggers a send.
 
 ### Retries
 
-Failed sends are retried up to 3 times with exponential backoff (starting at 100ms). Each batch POST carries an `Idempotency-Key` reused across retries, so a successful retry of an already-recorded request deduplicates server-side.
+A failed send retries up to 3 times with exponential backoff, starting at 100ms. Every batch POST carries an `Idempotency-Key` that is reused across retries, so a successful retry of an already recorded request deduplicates on the server.
 
-Retried status codes:
+Which status codes get retried:
 
-- **`429 Too Many Requests`**: treated as transient and retried. When the response includes a `Retry-After` header (delay in seconds), that delay overrides the backoff for the next attempt.
-- **`5x`**: retried with backoff.
+- **`429 Too Many Requests`**: treated as transient and retried. If the response includes a `Retry-After` header (delay in seconds), that delay overrides the backoff for the next attempt.
+- **`5xx`**: retried with backoff.
 - **Other `4xx`**: terminal. The batch is not retried.
 
-## Error Handling
+## Error handling
 
-### Server Unavailable at Start
+### Server unavailable at start
 
-If the server is unavailable when starting a run:
+If the server is down when you start a run, the run still proceeds. The handle gets a local ID instead of a server ID:
 
 ```java
 RunHandle handle = reporter.startRun("experiment", metadata);
-// handle.runId() will be "local-<timestamp>" if the server is unavailable
+// handle.runId() is "local-<timestamp>" when the server is unavailable.
 ```
 
-The experiment runs normally but results won't be stored.
+The experiment runs normally, but its results are not stored.
 
-### Authentication Errors
+### Authentication errors
 
-If API key authentication fails:
+If the API key check fails:
 
-- Server returns `401 Unauthorized`
-- Client logs warning: `Client error 401 for POST ...`
+- The server returns `401 Unauthorized`.
+- The client logs a warning like `Client error 401 for POST ...`.
 
-### Permanently Dropped Items
+### Permanently dropped items
 
-If a batch still fails after exhausting all retries, those items are dropped and never recorded. By default this only produces an error log, which can leave CI green while data is silently lost. Two opt-in mechanisms make dropped batches detectable.
+If a batch still fails after every retry, those items are dropped and never recorded. By default this only writes an error log, which can leave CI green while data is lost. Two opt-in mechanisms make dropped batches visible.
 
 #### getFailedItemCount()
 
-`getFailedItemCount()` returns the total number of items dropped after retries. Check it after the run and fail the build if any items were lost:
+`getFailedItemCount()` returns the total number of items dropped after retries. Check it after the run and fail the build if anything was lost:
 
 ```java
-reporter.close();  // flushes and drains all pending batches
+reporter.close();  // Flushes and drains all pending batches.
 
 if (reporter.getFailedItemCount() > 0) {
     throw new IllegalStateException(
@@ -160,7 +233,7 @@ if (reporter.getFailedItemCount() > 0) {
 
 #### onItemDeliveryFailure callback
 
-Register a callback to react to each dropped batch as it happens. It receives an `ItemDeliveryFailure` record carrying `runId()`, `itemCount()`, and the dropped `items()`:
+Register a callback to react to each dropped batch as it happens. It receives an `ItemDeliveryFailure` record with `runId()`, `itemCount()`, and the dropped `items()`:
 
 ```java
 DokimosServerReporter reporter = DokimosServerReporter.builder()
@@ -171,11 +244,11 @@ DokimosServerReporter reporter = DokimosServerReporter.builder()
     .build();
 ```
 
-The callback runs on the reporter's background worker thread, so keep it lightweight.
+The callback runs on the reporter's background worker thread, so keep it lightweight. Do not call `flush()`, `close()`, or `reportItem()` on the same reporter from inside it.
 
 #### Durable spooling
 
-Set `spoolDirectory(Path)` to persist permanently-failed batches to disk instead of losing them. Each dropped batch is appended as one JSON line to `failed-items.ndjson` in the directory, so a transient outage past all retries leaves a replayable record. Spooling is off by default.
+Set `spoolDirectory(Path)` to write permanently failed batches to disk instead of losing them. Each dropped batch is appended as one JSON line to `failed-items.ndjson` in that directory, so an outage that outlasts every retry leaves a replayable record. Spooling is off by default.
 
 ```java
 DokimosServerReporter reporter = DokimosServerReporter.builder()
@@ -185,35 +258,35 @@ DokimosServerReporter reporter = DokimosServerReporter.builder()
     .build();
 ```
 
-## Lifecycle Methods
+## Lifecycle methods
 
 ### flush()
 
-Force all queued items to be sent:
+Force every queued item to send and block until it is done:
 
 ```java
 reporter.reportItem(handle, item1);
 reporter.reportItem(handle, item2);
-reporter.flush();  // Blocks until all items are sent
+reporter.flush();  // Blocks until all items are sent.
 ```
 
-Useful when you need to ensure items are persisted before proceeding.
+Use this when you need items persisted before moving on.
 
 ### close()
 
-Shut down the reporter cleanly:
+Shut the reporter down cleanly:
 
 ```java
-reporter.close();  // Flushes remaining items and stops background thread
+reporter.close();  // Flushes remaining items and stops the background thread.
 ```
 
-The `Experiment.run()` method calls `close()` automatically after completing.
+`Experiment.run()` calls `close()` for you when the experiment finishes.
 
 ## Testing
 
-### Mocking the Reporter
+### Mock the reporter
 
-For unit tests, create a mock reporter:
+For unit tests, implement `Reporter` with a no-op stub that records what it received:
 
 ```java
 class MockReporter implements Reporter {
@@ -231,21 +304,21 @@ class MockReporter implements Reporter {
 
     @Override
     public void completeRun(RunHandle handle, RunStatus status) {
-        // No-op
+        // No-op.
     }
 
     @Override
     public void flush() {
-        // No-op
+        // No-op.
     }
 
     @Override
     public void close() {
-        // No-op
+        // No-op.
     }
 }
 
-// In test
+// In the test:
 MockReporter mockReporter = new MockReporter();
 Experiment.builder()
     .reporter(mockReporter)
@@ -256,7 +329,9 @@ Experiment.builder()
 assertThat(mockReporter.reportedItems).hasSize(expectedCount);
 ```
 
-## CI/CD Integration
+## CI/CD integration
+
+Run evaluations on every push (and on a schedule) and report straight to your server. Store the server URL and API key as secrets, set the project name inline.
 
 ### GitHub Actions
 
@@ -336,12 +411,13 @@ pipeline {
 IllegalStateException: serverUrl is required
 ```
 
-Either pass `serverUrl()` to the builder or set `DOKIMOS_SERVER_URL` environment variable.
+Pass `serverUrl()` to the builder, or set the `DOKIMOS_SERVER_URL` environment variable.
 
-### "401 Unauthorized" Errors
+### "401 Unauthorized" errors
 
-The server has API key authentication enabled but:
-- No API key provided, or
-- Wrong API key provided
+The server has API key authentication on, but one of these is true:
 
-Make sure that your `DOKIMOS_API_KEY` matches the server-side `DOKIMOS_API_KEY` environment variable.
+- No API key was provided, or
+- The wrong API key was provided.
+
+Make sure your `DOKIMOS_API_KEY` matches the server-side `DOKIMOS_API_KEY` environment variable.

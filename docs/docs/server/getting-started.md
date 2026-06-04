@@ -7,9 +7,9 @@ sidebar_position: 2
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get the Dokimos server running in under a minute. No building, no cloning, just Docker.
+This page gets the Dokimos server running locally and sends it your first evaluation results, so you can see pass rates in a web UI. No cloning, no building, just Docker.
 
-## Start the Server
+## Start the server
 
 Run these two commands:
 
@@ -21,15 +21,15 @@ curl -O https://raw.githubusercontent.com/dokimos-dev/dokimos/master/docker-comp
 docker compose up -d
 ```
 
-The server will now be running at [http://localhost:8080](http://localhost:8080).
+The server is now running at [http://localhost:8080](http://localhost:8080). Open it in your browser to confirm.
 
 :::tip No Docker?
 If you don't have Docker installed, get it from [docker.com](https://docs.docker.com/get-docker/).
 :::
 
-## Send Your First Results
+## Send your first results
 
-Add the client dependency to your project:
+First, add the client dependency to your project:
 
 ```xml
 <dependency>
@@ -39,7 +39,7 @@ Add the client dependency to your project:
 </dependency>
 ```
 
-Create an experiment that reports to the server:
+Next, run an experiment that reports to the server. Copy this in, swap `callYourLLM` for your own LLM call, and run it:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -140,29 +140,33 @@ fun main() {
   </TabItem>
 </Tabs>
 
-## View Results in the UI
+The `reporter` sends every run to the server. The `projectName` groups runs together in the UI.
 
-After running your experiment:
+## View results in the UI
+
+After the experiment runs, follow these steps:
 
 1. Open [http://localhost:8080](http://localhost:8080)
-2. Click on your project "my-first-project"
-3. Click on the experiment to see pass rates
-4. Click on a run to see individual test cases and evaluation details
+2. Click your project "my-first-project"
+3. Click the experiment to see pass rates
+4. Click a run to see individual test cases and evaluation details
 
-## Managing the Server
+## Manage the server
+
+Use these commands to watch logs, stop the server, or wipe its data:
 
 ```bash
 # View logs
 docker compose logs -f server
 
-# Stop the server 
+# Stop the server
 docker compose down
 
 # Stop and remove all data
 docker compose down -v
 ```
 
-## Next Steps
+## Next steps
 
 You have reported one run. The server is built to close the loop around it, so quality holds steady as your app changes:
 
@@ -172,7 +176,7 @@ You have reported one run. The server is built to close the loop around it, so q
 - [Production traces](./traces): ingest OTLP traces from your running app and evaluate them online
 - [Review and curation](./curation): turn the items evaluators got wrong into the next dataset version
 
-Operating the server:
+To operate the server, read these:
 
 - [Configuration](./configuration): Customize settings and environment variables
 - [Deployment](./deployment): Share with your team or run in production
@@ -181,9 +185,11 @@ Operating the server:
 
 ---
 
-## Building from Source (Development)
+## Build from source (development)
 
-If you're contributing to Dokimos and need to build the server locally:
+Building from source is only for contributing to Dokimos. To use the server, the [steps above](#start-the-server) are all you need.
+
+To build the server locally:
 
 ```bash
 # Clone the repository

@@ -7,33 +7,15 @@ sidebar_position: 1
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Dokimos integrates with JUnit's parameterized tests so you can test LLM applications the same way you test regular code - with fast-failing tests that catch regressions.
+Run your LLM evaluations as JUnit tests, so a bad output fails the build the same way a broken function does.
 
-## Why Use JUnit Integration?
+Dokimos plugs into JUnit parameterized tests. You load a dataset, run your LLM on each example, and assert that your evaluators pass. JUnit runs the test once per example and fails fast when an output misses your threshold.
 
-**Fast feedback during development** - Tests fail immediately when an output doesn't meet your criteria. You don't have to wait for a full evaluation run to finish.
+## Quick start
 
-**CI/CD quality gates** - Fail your build if critical test cases don't pass, just like you would with regular unit tests.
+Three steps: add the dependency, point `@DatasetSource` at a dataset, call `Assertions.assertEval`.
 
-**Familiar tooling** - Use the JUnit tools you already know: test runners, IDE integration, and reporting.
-
-**When to use JUnit tests:**
-- Testing critical examples that should never break
-- Quick validation during development
-- CI/CD pipelines where you want to fail fast
-- Test-driven development of LLM features
-
-**When to use experiments instead:**
-- Analyzing performance across large datasets
-- Comparing different models or configurations
-- Generating detailed reports with metrics
-- Exploratory evaluation of new features
-
-See [Experiments vs JUnit Testing](../evaluation/experiments#how-experiments-differ-from-junit-testing) for more details.
-
-## Setup
-
-Add the JUnit integration dependency:
+Add the dependency to your `pom.xml`:
 
 ```xml
 <dependency>
@@ -44,17 +26,9 @@ Add the JUnit integration dependency:
 </dependency>
 ```
 
-> **Note:** Supports JUnit 5.x and 6.x.
+Works with JUnit 5.x and 6.x.
 
-:::tip
-Your task can return a typed record (not just a string), and a JUnit test can read it back with `actualOutputAs(...)` or compare it with `StructuralMatchEvaluator`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
-:::
-
-## Basic Usage
-
-### Using @DatasetSource
-
-Load datasets with the `@DatasetSource` annotation:
+Write the test:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -62,19 +36,27 @@ Load datasets with the `@DatasetSource` annotation:
 ```java
 import dev.dokimos.junit.DatasetSource;
 import dev.dokimos.core.*;
+import dev.dokimos.core.evaluators.*;
 import org.junit.jupiter.params.ParameterizedTest;
 
 @ParameterizedTest
 @DatasetSource("classpath:datasets/support-qa.json")
 void shouldAnswerSupportQuestions(Example example) {
-    // Generate answer from your LLM
+    // Run your LLM on the example input.
     String answer = supportBot.generate(example.input());
-    
-    // Create test case
+
+    // Build a test case from the example plus the answer.
     EvalTestCase testCase = example.toTestCase(answer);
-    
-    // Assert evaluators pass (fails test if they don't)
-    Assertions.assertEval(testCase, evaluators);
+
+    // Assert the evaluator passes. The test fails if it misses its threshold.
+    Evaluator correctness = LLMJudgeEvaluator.builder()
+        .name("Helpfulness")
+        .criteria("Is the response helpful and does it address the customer's issue?")
+        .judge(judgeLM)
+        .threshold(0.7)
+        .build();
+
+    Assertions.assertEval(testCase, correctness);
 }
 ```
 
@@ -82,9 +64,11 @@ void shouldAnswerSupportQuestions(Example example) {
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
+import dev.dokimos.core.Assertions
 import dev.dokimos.core.Example
-import dev.dokimos.core.eval.EvalTestCaseParam
+import dev.dokimos.core.EvalTestCaseParam
 import dev.dokimos.junit.DatasetSource
+import dev.dokimos.kotlin.dsl.llmJudge
 import org.junit.jupiter.params.ParameterizedTest
 
 class SupportTests {
@@ -108,23 +92,56 @@ class SupportTests {
   </TabItem>
 </Tabs>
 
-JUnit runs this test once for each example in the dataset. If any evaluator doesn't pass its threshold, the test fails.
+JUnit runs this test once for each example in the dataset. If any evaluator misses its threshold, the test fails.
 
-### Loading Datasets
+## When to use JUnit tests
 
-From classpath (like `src/test/resources`):
+Use JUnit tests when you want fast, fail-fast checks:
+
+- **Fast feedback during development.** A test fails the moment an output misses your criteria. You do not wait for a full evaluation run.
+- **CI/CD quality gates.** Fail the build when critical test cases break, just like a regular unit test.
+- **Familiar tooling.** Use the test runners, IDE integration, and reports you already have.
+
+Reach for JUnit tests for:
+
+- Critical examples that should never break
+- Quick validation during development
+- CI/CD pipelines where you want to fail fast
+- Test-driven development of LLM features
+
+Reach for experiments instead when you want:
+
+- Analysis across large datasets
+- Comparison of different models or configurations
+- Detailed reports with metrics
+- Exploratory evaluation of new features
+
+See [Experiments vs JUnit Testing](../evaluation/experiments#when-to-use-experiments-vs-junit) for the full comparison.
+
+:::tip
+Your task can return a typed record, not just a string. A JUnit test reads it back with `actualOutputAs(...)` or compares it with `StructuralMatchEvaluator`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
+:::
+
+## Load a dataset
+
+`@DatasetSource` accepts a path or inline data. Pick the form that fits.
+
+From the classpath (for example `src/test/resources`):
+
 ```java
 @DatasetSource("classpath:datasets/support-qa.json")
 @DatasetSource("classpath:datasets/support-qa.jsonl")
 ```
 
-From file system:
+From the file system:
+
 ```java
 @DatasetSource("file:testdata/support-qa.json")
 @DatasetSource("file:testdata/support-qa.jsonl")
 ```
 
 Inline JSON for quick tests:
+
 ```java
 @DatasetSource(json = """
     {
@@ -137,6 +154,7 @@ Inline JSON for quick tests:
 ```
 
 Inline JSONL for quick tests:
+
 ```java
 @DatasetSource(jsonl = """
     {"input": "Reset password", "expectedOutput": "Click Forgot Password"}
@@ -144,21 +162,24 @@ Inline JSONL for quick tests:
     """)
 ```
 
-### Using assertEval
+## Assert with assertEval
 
-`Assertions.assertEval()` runs your evaluators and fails the test if any don't pass:
+`Assertions.assertEval()` runs your evaluators and fails the test if any miss their threshold:
 
 ```java
 Assertions.assertEval(testCase, evaluators);
 ```
 
-When a test fails, you get a clear error message:
+When a test fails, you get a clear message:
+
 ```
 Evaluation 'Answer Quality' failed: score=0.65 (threshold=0.80)
 Reason: The answer is incomplete and doesn't mention the 30-day policy.
 ```
 
-## Complete Example
+## Full example
+
+This test class sets up two evaluators once, then checks every example in the dataset.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -171,15 +192,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import java.util.List;
 
 class CustomerSupportTest {
-    
+
     private static List<Evaluator> evaluators;
     private static CustomerSupportBot supportBot;
-    
+
     @BeforeAll
     static void setup() {
         supportBot = new CustomerSupportBot(apiKey);
         JudgeLM judge = prompt -> judgeModel.generate(prompt);
-        
+
         evaluators = List.of(
             LLMJudgeEvaluator.builder()
                 .name("Answer Quality")
@@ -190,12 +211,12 @@ class CustomerSupportTest {
                 .build(),
             RegexEvaluator.builder()
                 .name("No Placeholders")
-                .pattern(".*\\[.*\\].*")  // Catch [PLACEHOLDER] text
-                .threshold(0.0)  // Should NOT match
+                .pattern(".*\\[.*\\].*")  // Catch [PLACEHOLDER] text.
+                .threshold(0.0)  // Should NOT match.
                 .build()
         );
     }
-    
+
     @ParameterizedTest(name = "[{index}] {0}")
     @DatasetSource("classpath:datasets/support-qa-v3.json")
     void shouldAnswerSupportQuestions(Example example) {
@@ -214,7 +235,7 @@ import dev.dokimos.core.Example
 import dev.dokimos.core.Evaluator
 import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.evaluators.RegexEvaluator
-import dev.dokimos.core.evaluators.llm.LLMJudgeEvaluator
+import dev.dokimos.core.evaluators.LLMJudgeEvaluator
 import dev.dokimos.junit.DatasetSource
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.params.ParameterizedTest
@@ -231,7 +252,7 @@ class CustomerSupportTest {
             supportBot = CustomerSupportBot(apiKey)
             val judge = JudgeLM { prompt -> judgeModel.generate(prompt) }
 
-            evaluators = 
+            evaluators =
                 evaluators {
                     llmJudge(judge) {
                         name = "Answer Quality"
@@ -240,8 +261,8 @@ class CustomerSupportTest {
                     }
                     regex {
                         name = "No Placeholders"
-                        pattern = """.*\[.*\].*"""  // Catch [PLACEHOLDER] text
-                        threshold = 0.0                // Should NOT match
+                        pattern = """.*\[.*\].*"""  // Catch [PLACEHOLDER] text.
+                        threshold = 0.0                // Should NOT match.
                     }
                 }
         }
@@ -260,11 +281,9 @@ class CustomerSupportTest {
   </TabItem>
 </Tabs>
 
-## Advanced Usage
+## Test RAG systems
 
-### Testing RAG Systems
-
-For RAG applications, include the retrieved context in your test case:
+For RAG, put the retrieved context in the test case so a faithfulness check can use it. Pass a map and store the context under a key like `retrievedContext`, then point `FaithfulnessEvaluator` at that key.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -273,19 +292,19 @@ For RAG applications, include the retrieved context in your test case:
 @ParameterizedTest
 @DatasetSource("classpath:datasets/product-docs-qa.json")
 void shouldAnswerFromDocumentation(Example example) {
-    // Retrieve relevant documents
+    // Retrieve relevant documents.
     List<String> docs = vectorStore.search(example.input(), topK = 5);
-    
-    // Generate answer with RAG
+
+    // Generate the answer with RAG.
     String answer = ragSystem.generate(example.input(), docs);
-    
-    // Include context in test case
+
+    // Put the answer and the context in the test case.
     EvalTestCase testCase = example.toTestCase(Map.of(
         "output", answer,
         "retrievedContext", docs
     ));
-    
-    // Check both quality and faithfulness
+
+    // Check both quality and faithfulness.
     Assertions.assertEval(testCase, List.of(
         LLMJudgeEvaluator.builder()
             .name("Answer Quality")
@@ -310,13 +329,13 @@ void shouldAnswerFromDocumentation(Example example) {
 @ParameterizedTest
 @DatasetSource("classpath:datasets/product-docs-qa.json")
 fun shouldAnswerFromDocumentation(example: Example) {
-    // Retrieve relevant documents
+    // Retrieve relevant documents.
     val docs = vectorStore.search(example.input(), topK = 5)
 
-    // Generate answer with RAG
+    // Generate the answer with RAG.
     val answer = ragSystem.generate(example.input(), docs)
 
-    // Include context in test case
+    // Put the answer and the context in the test case.
     val testCase = example.toTestCase(
         mapOf(
             "output" to answer,
@@ -324,7 +343,7 @@ fun shouldAnswerFromDocumentation(example: Example) {
         )
     )
 
-    // Check both quality and faithfulness
+    // Check both quality and faithfulness.
     val answerQuality = llmJudge(judge) {
         name = "Answer Quality"
         criteria = "Is the answer helpful?"
@@ -343,9 +362,9 @@ fun shouldAnswerFromDocumentation(example: Example) {
   </TabItem>
 </Tabs>
 
-### Readable Test Names
+## Name your tests
 
-Customize how tests appear in output:
+Set the `name` on `@ParameterizedTest` to control how each case shows up in output:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -372,14 +391,16 @@ fun shouldAnswerQuestions(example: Example) {
   </TabItem>
 </Tabs>
 
-### Reporting Real Outputs
+## Report real outputs to a server
 
-When a test class declares a static `@DatasetReporter` field, `@DatasetSource` opens a run and reports each invocation as an item result. By default that item is empty. Declare a `DatasetItemRecorder` parameter on the test method and populate it so the reported item carries the actual outputs and eval results the test produced.
+Declare a static `@DatasetReporter` field, and `@DatasetSource` opens a run and reports each invocation as an item result. By default that item is empty.
+
+To carry the real outputs and eval results, add a `DatasetItemRecorder` parameter to your test method and fill it in. The extension supplies a fresh recorder per invocation, so you never reset it between examples.
 
 ```java
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.Reporter;
-import dev.dokimos.junit.DatasetItemRecorder;
+import dev.dokimos.junit.DatasetRunExtension.DatasetItemRecorder;
 import dev.dokimos.junit.DatasetReporter;
 import dev.dokimos.junit.DatasetSource;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -406,9 +427,14 @@ class SupportEvaluationTest {
 }
 ```
 
-A fresh recorder is supplied per invocation, so you never reset it between examples. The recorder methods are chainable: `actualOutput(String key, Object value)`, `actualOutputs(Map<String, Object> outputs)`, `evalResult(EvalResult result)`, and `evalResults(List<EvalResult> results)`.
+The recorder methods are chainable:
 
-### Run Metadata
+- `actualOutput(String key, Object value)`
+- `actualOutputs(Map<String, Object> outputs)`
+- `evalResult(EvalResult result)`
+- `evalResults(List<EvalResult> results)`
+
+### Add run metadata
 
 When a `@DatasetReporter` field is present, `@DatasetSource` forwards metadata to the reporter. Use `entries` for type-safe key-value pairs:
 
@@ -425,13 +451,13 @@ void shouldAnswerSupportQuestions(Example example) {
 }
 ```
 
-The alternating-string `metadata = {"model", "gpt-4", "temperature", "0"}` form also works. When both are set, `entries` takes precedence.
+The alternating-string form `metadata = {"model", "gpt-4", "temperature", "0"}` also works. When you set both, `entries` wins.
 
-## CI/CD Integration
+## Run in CI/CD
 
 ### Maven
 
-Run tests in your CI pipeline:
+Run the tests in your pipeline:
 
 ```bash
 mvn test
@@ -447,21 +473,21 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           java-version: '21'
           distribution: 'temurin'
-      
+
       - name: Run LLM Tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: mvn test
-      
+
       - name: Publish Test Report
         if: always()
         uses: dorny/test-reporter@v1
@@ -471,9 +497,9 @@ jobs:
           reporter: java-junit
 ```
 
-### Test Reports
+### Test reports
 
-JUnit generates standard test reports that integrate with CI tools:
+JUnit writes standard reports that CI tools read:
 
 ```
 target/surefire-reports/
@@ -481,11 +507,11 @@ target/surefire-reports/
   └── CustomerSupportTest.txt
 ```
 
-## Parallel Test Execution
+## Run tests in parallel
 
-JUnit 5 and 6 support parallel test execution out of the box. This speeds up evaluation suites with many examples.
+JUnit 5 and 6 run tests in parallel out of the box. Use this to speed up suites with many examples.
 
-### Configuration
+### Turn it on
 
 Create `src/test/resources/junit-platform.properties`:
 
@@ -495,9 +521,9 @@ junit.jupiter.execution.parallel.mode.default=concurrent
 junit.jupiter.execution.parallel.config.fixed.parallelism=4
 ```
 
-### With @DatasetSource
+### It works with @DatasetSource
 
-Parameterized tests using `@DatasetSource` automatically benefit from parallel execution:
+Parameterized tests that use `@DatasetSource` get parallel execution automatically:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -528,27 +554,23 @@ fun shouldAnswerCorrectly(example: Example) {
   </TabItem>
 </Tabs>
 
-With parallelism enabled, JUnit runs multiple examples concurrently.
+With parallelism on, JUnit runs multiple examples at the same time.
 
-### Rate Limit Considerations
+### Watch for rate limits
 
-LLM APIs have rate limits. If you hit rate limits:
+LLM APIs have rate limits. If you hit them:
 
-- Reduce `parallelism` in the properties file
-- Or use the programmatic `Experiment` API with explicit `.parallelism()` control
+- Lower `parallelism` in the properties file.
+- Or use the programmatic `Experiment` API with explicit `.parallelism()` control.
 
-### Thread Safety
+### Keep it thread-safe
 
-Ensure your task implementation and any shared state is thread-safe when running tests in parallel.
+Make your task implementation and any shared state thread-safe before you run tests in parallel.
 
-## Best Practices
+## Best practices
 
-**Keep datasets in version control** - Store them alongside your code so tests are reproducible.
-
-**Start with critical examples** - Don't try to test everything. Focus on the most important cases that should never break.
-
-**Use clear test names** - Make it obvious what each test is checking.
-
-**Separate CI and comprehensive testing** - Use a smaller dataset for CI (maybe 10-20 examples) and run full evaluations separately.
-
-**Test at multiple levels** - Combine unit tests (JUnit) with comprehensive evaluations (Experiments) for best coverage.
+- **Keep datasets in version control.** Store them next to your code so tests stay reproducible.
+- **Start with critical examples.** Do not test everything. Focus on the cases that must never break.
+- **Use clear test names.** Make it obvious what each test checks.
+- **Split CI from full evaluation.** Use a small dataset for CI (10 to 20 examples) and run full evaluations separately.
+- **Test at multiple levels.** Combine unit tests (JUnit) with full evaluations (Experiments) for the best coverage.

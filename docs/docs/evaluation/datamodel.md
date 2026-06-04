@@ -7,16 +7,16 @@ sidebar_position: 5
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Understanding Dokimos's data model helps you work more effectively with datasets, experiments, and evaluation results. This guide covers the core classes and how they fit together.
+This page shows the classes Dokimos uses to hold your test cases, run your LLM, and report scores, so you know exactly what to build and what comes back.
 
 ## How the Pieces Fit Together
 
-Here's the flow:
+The flow is short:
 
-1. **Dataset** holds a collection of **Examples** (test cases)
-2. **Experiment** runs a **Task** (your LLM) on each example
-3. **Evaluators** check the outputs and produce **EvalResults**
-4. Everything gets collected into an **ExperimentResult**
+1. A **Dataset** holds a list of **Examples** (your test cases).
+2. An **Experiment** runs a **Task** (your LLM) on each example.
+3. **Evaluators** score the outputs and return **EvalResults**.
+4. Everything lands in one **ExperimentResult**.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -49,7 +49,7 @@ val result = experiment {
 
 ### Dataset
 
-A collection of test cases you want to evaluate.
+A list of test cases you want to evaluate.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -57,10 +57,11 @@ A collection of test cases you want to evaluate.
 | `description` | `String` | No | Description of the dataset |
 | `examples` | `List<Example>` | Yes | Your test cases |
 
-**Useful methods:**
-- `size()` → Number of examples
-- `get(int index)` → Get a specific example
-- `iterator()` → Loop through examples
+Methods you will use most:
+
+- `size()` returns the number of examples.
+- `get(int index)` returns one example.
+- `iterator()` lets you loop through them.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -84,6 +85,8 @@ dataset.forEach { ex -> println(ex.input()) }
 
   </TabItem>
 </Tabs>
+
+Build a dataset like this:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -125,7 +128,7 @@ val dataset = dataset {
 
 ### Example
 
-A single test case with input, expected output, and optional metadata.
+One test case: input, expected output, and optional metadata.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -133,9 +136,10 @@ A single test case with input, expected output, and optional metadata.
 | `expectedOutputs` | `Map<String, Object>` | No | What you expect as output |
 | `metadata` | `Map<String, Object>` | No | Extra info (tags, categories, etc.) |
 
-**Convenience shortcuts:**
-- `input()` → Gets `inputs.get("input")`
-- `expectedOutput()` → Gets `expectedOutputs.get("output")`
+Two shortcuts read the primary values:
+
+- `input()` returns `inputs.get("input")`.
+- `expectedOutput()` returns `expectedOutputs.get("output")`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -160,6 +164,8 @@ val primaryExpected = ex.expectedOutput() // "4"
 
   </TabItem>
 </Tabs>
+
+Start with the short form. Switch to the builder when you need more keys or metadata.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -215,7 +221,7 @@ val detailed = example {
 
 ### Experiment
 
-Runs your task on a dataset and evaluates the results.
+Runs your task on a dataset and scores the results.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -226,8 +232,7 @@ Runs your task on a dataset and evaluates the results.
 | `evaluators` | `List<Evaluator>` | No | How to judge outputs |
 | `metadata` | `Map<String, Object>` | No | Custom tracking info |
 
-**What it does:**
-- `run()` → Executes everything and returns ExperimentResult
+Call `run()` to execute everything. It returns an `ExperimentResult`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -247,6 +252,8 @@ println("Pass rate: ${result.passRate()}")
 
   </TabItem>
 </Tabs>
+
+A full experiment with two evaluators:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -291,7 +298,7 @@ val result = experiment {
 
 ### ExperimentResult
 
-Summary of how your experiment performed.
+The summary of how your experiment did.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -300,12 +307,13 @@ Summary of how your experiment performed.
 | `metadata` | `Map<String, Object>` | No | Custom metadata |
 | `itemResults` | `List<ItemResult>` | No | Results for each example |
 
-**Key metrics:**
-- `totalCount()` → Total examples evaluated
-- `passCount()` → How many passed all evaluators
-- `failCount()` → How many failed at least one evaluator
-- `passRate()` → Percentage that passed (0.0 to 1.0)
-- `averageScore(String)` → Average score for a specific evaluator
+The metrics you will read:
+
+- `totalCount()` returns the number of examples evaluated.
+- `passCount()` returns how many passed every evaluator.
+- `failCount()` returns how many failed at least one evaluator.
+- `passRate()` returns the fraction that passed (0.0 to 1.0).
+- `averageScore(String)` returns the average score for one named evaluator.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -352,8 +360,7 @@ The result of evaluating one example.
 | `actualOutputs` | `Map<String, Object>` | No | What your task produced |
 | `evalResults` | `List<EvalResult>` | No | Results from each evaluator |
 
-**What you can check:**
-- `success()` → True if all evaluators passed
+Call `success()` to check if every evaluator passed.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -401,7 +408,7 @@ experimentResult.itemResults().forEach { item ->
 
 ### EvalTestCase
 
-A test case ready for evaluation (combines example with actual output).
+A test case ready for evaluation. It combines an example with the actual output.
 
 | Attribute | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -410,12 +417,13 @@ A test case ready for evaluation (combines example with actual output).
 | `expectedOutputs` | `Map<String, Object>` | No | What you expected |
 | `metadata` | `Map<String, Object>` | No | Additional metadata |
 
-**Shortcuts:**
-- `input()` → Primary input
-- `actualOutput()` → Primary actual output  
-- `expectedOutput()` → Primary expected output
+Three shortcuts read the primary values:
 
-This is what gets passed to evaluators. Usually you don't create these directly; Dokimos builds them when running experiments.
+- `input()` returns the primary input.
+- `actualOutput()` returns the primary actual output.
+- `expectedOutput()` returns the primary expected output.
+
+This is the object Dokimos passes to each evaluator. You rarely build one yourself. Dokimos builds it when an experiment runs.
 
 **Created from:** Example + actual outputs  
 **Passed to:** Evaluators
@@ -424,10 +432,10 @@ This is what gets passed to evaluators. Usually you don't create these directly;
 
 ## Typed outputs
 
-The output and expected-output maps hold `Object` values, so the common pattern is to stringify everything. But a task can just as well produce a structured object — a record, a list, a POJO — and read it back type-safely later. This keeps your task body honest (return the thing you actually built, not a hand-assembled map) and lets custom evaluators work with real domain objects instead of parsing strings.
+The output and expected-output maps hold `Object` values, so the usual habit is to stringify everything. A task can instead return a structured object (a record, a list, a POJO) and read it back type-safely later. This keeps your task body honest (you return the thing you built, not a hand-assembled map) and lets custom evaluators work with real domain objects instead of parsing strings.
 
 :::tip
-For the whole typed pipeline narrated in one place — authoring a typed output, comparing it, reading it back, judging it as JSON, and typing tool-call results — see the [Structured & Typed Data](./structured-typed-data.md) hub. The sections below are the per-method reference it links into.
+For the whole typed pipeline in one place (authoring a typed output, comparing it, reading it back, judging it as JSON, and typing tool-call results), see the [Structured & Typed Data](./structured-typed-data.md) hub. The sections below are the per-method reference it links into.
 :::
 
 ### Returning a typed value from a task
@@ -435,7 +443,7 @@ For the whole typed pipeline narrated in one place — authoring a typed output,
 `Task.typed(fn)` wraps a function that returns a single value and stores it under the conventional `"output"` key. In Kotlin, the reified `typedTask<T> { ... }` DSL does the same thing.
 
 :::note
-`Task.typed` rejects a `null` return with `NullPointerException` — the output map cannot hold a null value. If you genuinely need an absent output, use a raw `Task`. As a convenience guard, if your function already returns a `Map`, that map is used directly as the output map rather than being nested under `"output"`, so a multi-key task can adopt `typed` without double-nesting.
+`Task.typed` rejects a `null` return with `NullPointerException`, because the output map cannot hold a null value. If you genuinely need an absent output, use a raw `Task`. As a convenience guard, if your function already returns a `Map`, that map is used directly as the output map rather than being nested under `"output"`, so a multi-key task can adopt `typed` without double-nesting.
 :::
 
 <Tabs groupId="lang" defaultValue="java">
@@ -478,7 +486,7 @@ val experiment = experiment {
 
 ### Reading typed values back
 
-Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`. The accessors default to the `"output"` key; keyed overloads read any other key.
+Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`. The accessors default to the `"output"` key, and keyed overloads read any other key.
 
 | Method | Reads | Returns |
 |--------|-------|---------|
@@ -552,7 +560,7 @@ class MovieEvaluator : Evaluator {
 
 ### Generic types with `OutputType<T>`
 
-A plain `Class<T>` cannot express a generic target such as `List<Movie>` — type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
+A plain `Class<T>` cannot express a generic target like `List<Movie>`, because type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -590,16 +598,16 @@ val shortlist: List<Movie> =
 </Tabs>
 
 :::tip
-Constructing an `OutputType` raw (`new OutputType() {}`) throws `IllegalArgumentException` — there is no type argument to capture. Use the `Class<T>` accessors for non-generic targets; reach for `OutputType<T>` only when the target is generic.
+Constructing an `OutputType` raw (`new OutputType() {}`) throws `IllegalArgumentException`, because there is no type argument to capture. Use the `Class<T>` accessors for non-generic targets, and reach for `OutputType<T>` only when the target is generic.
 :::
 
 ### Conversion contract
 
 The typed accessors share one conversion contract across `EvalTestCase` and `Example`:
 
-- **Absent key → `null`.** If the requested key is missing from the map, the accessor returns `null` (it does not throw).
-- **Already the right type → returned as-is.** For the `Class<T>` accessors, a stored value that is already an instance of the target type is cast directly without going through serialization.
-- **Otherwise → converted, or it throws.** Any other value is converted (via Jackson under the hood). If the value cannot be converted to the requested type, the accessor throws `DokimosTypeConversionException` (in `dev.dokimos.core.exceptions`).
+- **Absent key returns `null`.** If the requested key is missing from the map, the accessor returns `null` instead of throwing.
+- **Already the right type is returned as-is.** For the `Class<T>` accessors, a stored value that is already an instance of the target type is cast directly without going through serialization.
+- **Otherwise it is converted, or it throws.** Any other value is converted (via Jackson under the hood). If the value cannot be converted to the requested type, the accessor throws `DokimosTypeConversionException` (in `dev.dokimos.core.exceptions`).
 
 This is why a typed task pairs naturally with structural matching: `StructuralMatchEvaluator` compares the stored structured value against the expected structure, and your custom evaluators can read the same value back as a real object.
 
@@ -676,7 +684,7 @@ fun interface Task {
   </TabItem>
 </Tabs>
 
-**Implementation examples:**
+Return a single output, or return several keys at once:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -727,7 +735,7 @@ val detailed: Task = Task { example ->
 
 ### Evaluator
 
-Interface for judging outputs.
+The interface for judging outputs.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -754,14 +762,15 @@ interface Evaluator {
   </TabItem>
 </Tabs>
 
-**Built-in implementations:**
-- `ExactMatchEvaluator` – Checks for exact match
-- `RegexEvaluator` – Pattern matching
-- `LLMJudgeEvaluator` – Uses another LLM to judge
-- `FaithfulnessEvaluator` – Checks if answer is grounded in context
-- [Agent evaluators](./agent-evaluation) – Tool call validation, task completion, argument hallucination, and tool reliability
+Dokimos ships these built-in implementations:
 
-**Custom evaluator example:**
+- `ExactMatchEvaluator` checks for an exact match.
+- `RegexEvaluator` matches a pattern.
+- `LLMJudgeEvaluator` uses another LLM to judge.
+- `FaithfulnessEvaluator` checks that the answer is grounded in the context.
+- [Agent evaluators](./agent-evaluation) cover tool call validation, task completion, argument hallucination, and tool reliability.
+
+Write your own by implementing the three methods:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -819,7 +828,7 @@ class LengthEvaluator : Evaluator {
 
 ## Working with Maps
 
-Most attributes use `Map<String, Object>` for flexibility. Here are the common keys:
+Most attributes use `Map<String, Object>` so you can store anything. These are the keys Dokimos recognizes:
 
 | Key | Used In | Description |
 |-----|---------|-------------|
@@ -831,7 +840,7 @@ Most attributes use `Map<String, Object>` for flexibility. Here are the common k
 | `"tools"` | metadata | Available tool definitions (for [agent evaluation](./agent-evaluation)) |
 | `"tasks"` | metadata | Task list for agent completion evaluation |
 
-**Example with context:**
+For a RAG task, put the retrieved docs under `"context"` so evaluators can read them:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -868,4 +877,4 @@ val ragTask: Task = Task { example ->
   </TabItem>
 </Tabs>
 
-You can add any custom keys you need. Built-in evaluators use standard keys, but custom evaluators can access anything you put in the map.
+Add any custom keys you need. Built-in evaluators read the standard keys, and custom evaluators can read anything you put in the map.

@@ -7,15 +7,17 @@ sidebar_position: 5
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Evaluating multi-turn conversations is more complex than single-turn interactions. You need to test how your AI system handles back-and-forth exchanges, maintains context, and achieves user goals over multiple turns.
+This page shows you how to test a chat assistant across a full back-and-forth conversation, not just one prompt and reply.
 
-Dokimos provides a complete system for simulating and evaluating multi-turn conversations:
+Single-turn tests check one answer. Real users keep talking. They follow up, change their mind, and get frustrated. To test that, you need to drive a whole conversation and then judge how it went. Dokimos gives you three pieces to do that:
 
-- **Simulated Users**: LLM-based users that play different roles (angry customers, confused users, technical experts)
-- **Conversation Simulator**: Orchestrates turn-taking between your app and the simulated user
-- **Trajectory Evaluator**: Judges the entire conversation using LLM-as-judge patterns
+- **Simulated users**: an LLM that plays a role and types like a real person (an angry customer, a confused user, a technical expert).
+- **Conversation simulator**: takes turns between your app and the simulated user until the chat ends.
+- **Trajectory evaluator**: scores the whole conversation with an LLM as the judge.
 
 ## Quick Example
+
+Here is the full loop: build a fake user, wrap your app, run the chat, then grade it. Copy this and replace `chatClient` and `judgeLM` with your own.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -30,7 +32,7 @@ ConversationalApplication app = trajectory -> {
     return Message.assistant(response);
 };
 
-// 3. Run simulation
+// 3. Run the simulation
 ConversationTrajectory trajectory = ConversationSimulator.builder()
     .simulatedUser(user)
     .application(app)
@@ -68,7 +70,7 @@ val app: ConversationalApplication = ConversationalApplication { trajectory ->
     Message.assistant(response)
 }
 
-// 3. Run simulation
+// 3. Run the simulation
 val trajectory = simulator {
     simulatedUser = user
     application = app
@@ -96,11 +98,13 @@ val result = trajectoryEvaluator(judgeLM) {
   </TabItem>
 </Tabs>
 
+The rest of this page breaks down each step.
+
 ## Core Concepts
 
 ### Messages and Trajectories
 
-A conversation is a sequence of messages:
+A conversation is a list of messages. Each message has a role: user, assistant, or system. Build one with the matching factory method.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -123,7 +127,7 @@ val systemMsg = Message.system("You are a helpful support agent")
   </TabItem>
 </Tabs>
 
-A `ConversationTrajectory` holds the complete conversation history:
+A `ConversationTrajectory` holds the whole conversation. The simulator builds one for you, but you can also build one by hand to test a fixed transcript.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -137,7 +141,7 @@ ConversationTrajectory trajectory = ConversationTrajectory.builder()
     .assistantMessage("Let me check that for you")
     .build();
 
-// Helpful methods
+// Methods you will use
 trajectory.turnCount();           // Number of complete turns
 trajectory.userMessages();        // All user messages
 trajectory.assistantMessages();   // All assistant messages
@@ -158,7 +162,7 @@ val trajectory = trajectory {
     assistant("Let me check that for you")
 }
 
-// Helpful methods
+// Methods you will use
 trajectory.turnCount()           // Number of complete turns
 trajectory.userMessages()        // All user messages
 trajectory.assistantMessages()   // All assistant messages
@@ -172,7 +176,7 @@ trajectory.toText()              // Plain text transcript
 
 ### Simulated Users
 
-The `SimulatedUser` interface generates contextually appropriate user messages:
+A simulated user types the user side of the chat. The `SimulatedUser` interface takes the conversation so far and returns the next user message.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -198,7 +202,7 @@ fun interface SimulatedUser {
 
 #### LLM-Based Simulated User
 
-The `LLMSimulatedUser` uses an LLM to generate realistic user behavior:
+`LLMSimulatedUser` uses an LLM to write each message. Give it a persona and a few behavior rules, and it stays in character across turns.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -232,7 +236,7 @@ val user: SimulatedUser = llmUser(judgeLM) {
   </TabItem>
 </Tabs>
 
-You can also provide fixed initial messages:
+Want the conversation to start the same way every run? Set fixed responses for the opening turns.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -264,11 +268,11 @@ val user: SimulatedUser = llmUser(judgeLM) {
   </TabItem>
 </Tabs>
 
-The first two turns will use fixed responses; after that, the LLM generates contextual replies.
+The simulated user sends each fixed response in order, one per turn. After the list runs out, the LLM takes over and writes contextual replies.
 
 #### Pre-Built Personas
 
-Dokimos includes ready-to-use personas for common testing scenarios:
+`UserPersonas` ships ready-made characters for common tests. Pass your `judgeLM` and you get a configured `SimulatedUser`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -311,7 +315,7 @@ UserPersonas.offTopicUser(judgeLM)        // Goes on tangents
   </TabItem>
 </Tabs>
 
-Or create custom personas:
+Need a character that is not in the list? Build your own with `UserPersonas.custom`. Pass the judge, a one-line persona, and the behavior rules.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -349,7 +353,7 @@ val user: SimulatedUser = llmUser(judgeLM) {
 
 ### Conversation Simulator
 
-The `ConversationSimulator` orchestrates turn-taking:
+`ConversationSimulator` runs the chat. It alternates between the simulated user and your app until it hits `maxTurns` or your stopping condition. Each option is commented below.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -392,7 +396,7 @@ val trajectory = simulator.simulate()
   </TabItem>
 </Tabs>
 
-**Async simulation** is also supported:
+To run the chat off the calling thread, use `simulateAsync` instead of `simulate`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -415,7 +419,7 @@ val trajectory: ConversationTrajectory = simulator.simulateAsync().await()
 
 ### Wrapping Your Application
 
-Your application must implement `ConversationalApplication`:
+The simulator needs to call your app each turn. Implement `ConversationalApplication`. It takes the conversation so far and returns the assistant's next reply.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -439,7 +443,7 @@ fun interface ConversationalApplication {
   </TabItem>
 </Tabs>
 
-**Example with Spring AI:**
+Inside `respond`, convert the trajectory to your framework's message type, call your model, and wrap the reply in `Message.assistant(...)`. Here is how to do that with Spring AI.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -491,7 +495,7 @@ val app: ConversationalApplication = ConversationalApplication { trajectory ->
   </TabItem>
 </Tabs>
 
-**Example with LangChain4j:**
+The same pattern works with LangChain4j. Map the roles to LangChain4j message types and call your `chatModel`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -537,7 +541,7 @@ val app: ConversationalApplication = ConversationalApplication { trajectory ->
 
 ## Trajectory Evaluation
 
-The `TrajectoryEvaluator` assesses the entire conversation using LLM-as-judge:
+Once you have a trajectory, `TrajectoryEvaluator` grades it. It sends the whole conversation to the judge LLM and scores it against the criteria you pick. Set a `threshold` to decide pass or fail.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -579,7 +583,7 @@ val evaluator = trajectoryEvaluator(judgeLM) {
 
 ### Evaluation Criteria
 
-Each criterion defines what aspect to evaluate:
+Each criterion is one thing the judge checks. An `EvaluationCriterion` has a name, a description of what to look for, and a weight. Raise the weight to make a criterion count more in the final score.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -606,7 +610,7 @@ val criterion = EvaluationCriterion(
   </TabItem>
 </Tabs>
 
-**Pre-built criteria:**
+You do not have to write your own. `TrajectoryEvaluationCriteria` has ready-made criteria grouped by what they check.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -661,7 +665,7 @@ TrajectoryEvaluationCriteria.safety()               // Appropriate boundaries
 
 ### Aggregation Strategies
 
-Control how multiple criteria scores combine:
+The judge scores each criterion. The aggregation strategy decides how those scores combine into one number.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -688,7 +692,7 @@ AggregationStrategy.MAX            // Most lenient: highest score wins
 
 ### Evaluation Results
 
-Results include per-criterion scores in metadata:
+`evaluate` returns an `EvalResult` with the overall score, a pass flag, and metadata. When you set `includePerCriterionScores(true)`, the metadata holds the score and reason for every criterion under `criterionScores`. Read it like this.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -732,7 +736,7 @@ criterionScores.forEach { (name, details) ->
 
 ## Complete Example
 
-Here's a full example testing a customer service chatbot:
+This puts every step together: a runnable `main` that tests a customer service chatbot end to end. Swap `myChatbot` and `openAiClient` for your own.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -766,7 +770,7 @@ public class CustomerServiceEvaluation {
             return Message.assistant(response);
         };
 
-        // Run simulation
+        // Run the simulation
         ConversationTrajectory trajectory = ConversationSimulator.builder()
             .simulatedUser(user)
             .application(chatbot)
@@ -775,7 +779,7 @@ public class CustomerServiceEvaluation {
             .build()
             .simulate();
 
-        // Print conversation
+        // Print the conversation
         System.out.println("=== Conversation ===");
         System.out.println(trajectory.toText());
 
@@ -799,7 +803,7 @@ public class CustomerServiceEvaluation {
 
         EvalResult result = evaluator.evaluate(testCase);
 
-        // Print results
+        // Print the results
         System.out.println("\n=== Evaluation Results ===");
         System.out.println("Overall Score: " + String.format("%.2f", result.score()));
         System.out.println("Passed: " + result.success());
@@ -838,7 +842,7 @@ object CustomerServiceEvaluation {
             Message.assistant(response)
         }
 
-        // Run simulation
+        // Run the simulation
         val trajectory = simulator {
             simulatedUser = user
             application = chatbot
@@ -846,7 +850,7 @@ object CustomerServiceEvaluation {
             scenario = "Customer received damaged product and wants resolution"
         }.simulate()
 
-        // Print conversation
+        // Print the conversation
         println("=== Conversation ===")
         println(trajectory.toText())
 
@@ -869,7 +873,7 @@ object CustomerServiceEvaluation {
 
         val result = evaluator.evaluate(testCase)
 
-        // Print results
+        // Print the results
         println("\n=== Evaluation Results ===")
         println("Overall Score: ${"%.2f".format(result.score())}")
         println("Passed: ${result.success()}")
@@ -885,18 +889,19 @@ object CustomerServiceEvaluation {
 
 ### Choose appropriate personas
 
-Match the persona to what you're testing:
-- Testing robustness? Use `adversarialUser` or `aggressiveCustomer`
-- Testing clarity? Use `confusedUser` or `noviceUser`
-- Testing happy paths? Use `satisfiedCustomer`
+Pick the persona that matches what you are testing:
+
+- Testing how it holds up under pressure? Use `adversarialUser` or `aggressiveCustomer`.
+- Testing clarity? Use `confusedUser` or `noviceUser`.
+- Testing happy paths? Use `satisfiedCustomer`.
 
 ### Set realistic turn limits
 
-Most real conversations resolve in 5-10 turns. Setting `maxTurns` too high wastes resources; too low may cut off before resolution.
+Most real conversations resolve in 5 to 10 turns. A `maxTurns` that is too high wastes API calls. One that is too low cuts the chat off before it resolves.
 
 ### Use stopping conditions for efficiency
 
-End conversations early when the goal is clearly achieved:
+Stop the chat as soon as the goal is met, so you do not pay for extra turns.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -929,14 +934,14 @@ End conversations early when the goal is clearly achieved:
 
 ### Choose the right aggregation strategy
 
-- **WEIGHTED_MEAN**: Good for most cases, lets you prioritize criteria
-- **MIN**: Use when all criteria must pass (strict quality gate)
-- **MEAN**: Simple equal weighting
-- **MAX**: Lenient, use sparingly
+- **WEIGHTED_MEAN**: good default. Lets you prioritize criteria by weight.
+- **MIN**: every criterion must pass. Use it as a strict quality gate.
+- **MEAN**: simple equal weighting.
+- **MAX**: lenient. Use it sparingly.
 
 ### Test multiple scenarios
 
-Don't just test one user type. Create a test suite covering different personas and scenarios:
+Do not test one user type. Loop over several personas so you catch problems each one exposes.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -998,7 +1003,7 @@ personas.forEach { user ->
 
 ### Debug with trajectory JSON
 
-When tests fail, inspect the full conversation:
+When a test fails, print the full conversation to see what the assistant actually said.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">

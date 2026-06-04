@@ -7,19 +7,15 @@ sidebar_position: 3
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Dokimos works with [Spring AI](https://spring.io/projects/spring-ai) so you can evaluate your AI applications using Spring AI's `ChatClient` and `ChatModel`.
+This page shows you how to evaluate a [Spring AI](https://spring.io/projects/spring-ai) application with Dokimos. You reuse your existing `ChatClient` and `ChatModel`, so you do not stand up a separate LLM client just to score answers.
 
-## Why Use This Integration?
+## What you get
 
-**Simple conversion**: Turn a Spring AI `ChatClient` or `ChatModel` into a Dokimos-compatible `JudgeLM` for evaluation with one line of code.
+- **One-line judge**: turn a Spring AI `ChatClient` or `ChatModel` into a Dokimos `JudgeLM` with `SpringAiSupport.asJudge(...)`.
+- **No extra setup**: the judge runs on the same Spring AI infrastructure you already have.
+- **Two-way conversion**: move between Spring AI `EvaluationRequest`/`EvaluationResponse` and Dokimos `EvalTestCase`/`EvalResult`.
 
-**Spring AI compatibility**: Use your existing Spring AI infrastructure for evaluation without additional setup.
-
-**Flexible evaluation**: Bridge between Spring AI's `EvaluationRequest`/`EvaluationResponse` and the Dokimos evaluation framework.
-
-## Setup
-
-Add the Spring AI integration dependency:
+## Step 1: Add the dependency
 
 ### Maven
 
@@ -37,11 +33,13 @@ Add the Spring AI integration dependency:
 implementation 'dev.dokimos:dokimos-spring-ai:${dokimosVersion}'
 ```
 
-## Basic Usage
+## Step 2: Make a judge
 
-### Using ChatClient as LLM Judge
+A judge is the LLM that scores answers. You build one from a Spring AI component, then pass it to any LLM-based evaluator.
 
-Convert a Spring AI `ChatClient` to a `JudgeLM` for evaluation:
+### From a ChatClient
+
+Pass a `ChatClient.Builder` to `SpringAiSupport.asJudge(...)`:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -91,9 +89,9 @@ val correctness = llmJudge(judge) {
   </TabItem>
 </Tabs>
 
-### Using ChatModel as LLM Judge
+### From a ChatModel
 
-You can also convert a `ChatModel` directly:
+If you have a `ChatModel`, pass it directly. Dokimos wraps it in a `ChatClient` for you.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -102,11 +100,18 @@ You can also convert a `ChatModel` directly:
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.api.OpenAiApi;
+
+OpenAiApi openAiApi = OpenAiApi.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .build();
 
 ChatModel chatModel = OpenAiChatModel.builder()
-    .apiKey(System.getenv("OPENAI_API_KEY"))
-    .model("gpt-5.2")
+    .openAiApi(openAiApi)
+    .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
     .build();
 
 // Convert to JudgeLM
@@ -126,10 +131,16 @@ Evaluator faithfulness = FaithfulnessEvaluator.builder()
 import dev.dokimos.kotlin.dsl.faithfulness
 import dev.dokimos.springai.SpringAiSupport
 import org.springframework.ai.openai.OpenAiChatModel
+import org.springframework.ai.openai.OpenAiChatOptions
+import org.springframework.ai.openai.api.OpenAiApi
+
+val openAiApi = OpenAiApi.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .build()
 
 val chatModel = OpenAiChatModel.builder()
-    .apiKey(System.getenv("OPENAI_API_KEY"))
-    .model("gpt-5.2")
+    .openAiApi(openAiApi)
+    .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
     .build()
 
 // Convert to JudgeLM
@@ -144,11 +155,12 @@ val faithfulness = faithfulness(judge) {
   </TabItem>
 </Tabs>
 
-## Evaluating Spring AI Applications
+## Step 3: Convert test cases
 
-### Converting Between Spring AI and Dokimos
+Dokimos evaluators read an `EvalTestCase`. Spring AI evaluators read an `EvaluationRequest`. These two helpers move data between them:
 
-Convert Spring AI `EvaluationRequest` to Dokimos `EvalTestCase`:
+- `SpringAiSupport.toTestCase(request)` builds an `EvalTestCase` from an `EvaluationRequest`.
+- `SpringAiSupport.toEvaluationResponse(result)` builds an `EvaluationResponse` from an `EvalResult`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -157,6 +169,7 @@ Convert Spring AI `EvaluationRequest` to Dokimos `EvalTestCase`:
 import dev.dokimos.core.*;
 import dev.dokimos.springai.SpringAiSupport;
 import org.springframework.ai.evaluation.EvaluationRequest;
+import org.springframework.ai.evaluation.EvaluationResponse;
 import org.springframework.ai.document.Document;
 
 // Create Spring AI EvaluationRequest
@@ -226,7 +239,9 @@ println("Feedback: ${response.feedback}")
   </TabItem>
 </Tabs>
 
-### Complete Evaluation Example
+## Full example: run an experiment
+
+This puts the pieces together. It sets up a `ChatModel`, builds a dataset, runs the model as the task, scores answers with a Spring AI judge, and prints the pass rate.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -235,17 +250,22 @@ println("Feedback: ${response.feedback}")
 import dev.dokimos.core.*;
 import dev.dokimos.core.evaluators.*;
 import dev.dokimos.springai.SpringAiSupport;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.api.OpenAiApi;
 
 public class SpringAiEvaluation {
 
     public static void main(String[] args) {
         // 1. Set up ChatModel
-        ChatModel chatModel = OpenAiChatModel.builder()
+        OpenAiApi openAiApi = OpenAiApi.builder()
             .apiKey(System.getenv("OPENAI_API_KEY"))
-            .model("gpt-5.2")
+            .build();
+
+        ChatModel chatModel = OpenAiChatModel.builder()
+            .openAiApi(openAiApi)
+            .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
             .build();
 
         // 2. Create a dataset
@@ -269,8 +289,8 @@ public class SpringAiEvaluation {
 
         // 4. Set up evaluators with Spring AI judge
         ChatModel judgeModel = OpenAiChatModel.builder()
-            .apiKey(System.getenv("OPENAI_API_KEY"))
-            .modelName("gpt-4o")
+            .openAiApi(openAiApi)
+            .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
             .build();
 
         JudgeLM judge = SpringAiSupport.asJudge(judgeModel);
@@ -283,7 +303,7 @@ public class SpringAiEvaluation {
                 .judge(judge)
                 .threshold(0.8)
                 .build(),
-            new ExactMatchEvaluator()
+            ExactMatchEvaluator.builder().build()
         );
 
         // 5. Run experiment
@@ -311,17 +331,24 @@ public class SpringAiEvaluation {
 import dev.dokimos.kotlin.dsl.dataset
 import dev.dokimos.kotlin.dsl.experiment
 import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.kotlin.dsl.task
 import dev.dokimos.core.evaluators.ExactMatchEvaluator
 import dev.dokimos.springai.SpringAiSupport
 import org.springframework.ai.openai.OpenAiChatModel
+import org.springframework.ai.openai.OpenAiChatOptions
+import org.springframework.ai.openai.api.OpenAiApi
 
 object SpringAiEvaluation {
     @JvmStatic
     fun main(args: Array<String>) {
         // 1. Set up ChatModel
-        val chatModel = OpenAiChatModel.builder()
+        val openAiApi = OpenAiApi.builder()
             .apiKey(System.getenv("OPENAI_API_KEY"))
-            .model("gpt-5.2")
+            .build()
+
+        val chatModel = OpenAiChatModel.builder()
+            .openAiApi(openAiApi)
+            .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
             .build()
 
         // 2. Create a dataset
@@ -345,8 +372,8 @@ object SpringAiEvaluation {
 
         // 4. Set up evaluators with Spring AI judge
         val judgeModel = OpenAiChatModel.builder()
-            .apiKey(System.getenv("OPENAI_API_KEY"))
-            .modelName("gpt-4o")
+            .openAiApi(openAiApi)
+            .defaultOptions(OpenAiChatOptions.builder().model("gpt-5.2").build())
             .build()
 
         val judge = SpringAiSupport.asJudge(judgeModel)
@@ -361,7 +388,7 @@ object SpringAiEvaluation {
                     criteria = "Is the answer helpful and accurate?"
                     threshold = 0.8
                 }
-                evaluator(ExactMatchEvaluator())
+                evaluator(ExactMatchEvaluator.builder().build())
             }
         }.run()
 
@@ -377,15 +404,15 @@ object SpringAiEvaluation {
 
 :::tip
 
-Also see the [Datasets](../evaluation/datasets.md) and [Evaluators](../evaluation/evaluators) documentation for more details on creating and loading datasets, and using evaluators.
+See [Datasets](../evaluation/datasets.md) for loading data from JSON or CSV, and [Evaluators](../evaluation/evaluators) for the full list of evaluators.
 
 :::
 
-## Async Tasks
+## Run many calls at once (async)
 
-For datasets where each example is an independent, blocking `ChatClient` call, `asyncTask` lets the experiment keep many calls in flight instead of blocking one thread per example. Wire it with `Experiment.builder().asyncTask(...)` and bound concurrency with `parallelism(...)`.
+A plain `Task` blocks one thread per example. When each example is an independent `ChatClient` call, `asyncTask` keeps many calls in flight instead. Wire it with `Experiment.builder().asyncTask(...)` and cap how many run at once with `parallelism(...)`.
 
-`SpringAiSupport.asyncTask(client)` reads the example input as the user message and writes the response under the default `"output"` key. The blocking `ChatClient` call is dispatched on the common `ForkJoinPool` via `CompletableFuture.supplyAsync(...)`.
+`SpringAiSupport.asyncTask(client)` reads the example input as the user message and writes the response under the default `"output"` key. It runs the blocking `ChatClient` call on the common `ForkJoinPool` through `CompletableFuture.supplyAsync(...)`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -432,11 +459,11 @@ val result = experiment {
   </TabItem>
 </Tabs>
 
-To read and write different keys, use `asyncTask(client, inputKey, outputKey)`.
+To read and write different keys, call `asyncTask(client, inputKey, outputKey)`.
 
 :::note
 
-The common pool is shared process-wide and its effective parallelism is roughly one less than the CPU count, so it caps how many blocking calls actually run at once even when `parallelism` is higher. For controlled, isolated concurrency, pass an `Executor` sized to your target throughput — `asyncTask(client, executor)` or the four-arg `asyncTask(client, inputKey, outputKey, executor)`.
+The common pool is shared across the whole process, and its effective parallelism is about one less than the CPU count. So it caps how many blocking calls actually run at once, even when `parallelism` is higher. For controlled, isolated concurrency, pass an `Executor` sized to your target throughput. Use `asyncTask(client, executor)` or the four-arg `asyncTask(client, inputKey, outputKey, executor)`.
 
 :::
 
@@ -483,9 +510,9 @@ experiment {
   </TabItem>
 </Tabs>
 
-### Reactive Tasks
+### Reactive tasks
 
-If your pipeline is already reactive (`Mono`), bridge it directly instead of blocking on a pool. `reactiveStringTask` wraps a `Mono<String>` response under the default `"output"` key; `reactiveTask` adapts a `Mono<TaskResult>` when you want full control over the output map. Each `Mono` is converted to a `CompletableFuture` via `Mono.toFuture()`.
+If your pipeline already returns a `Mono`, bridge it directly instead of blocking on a pool. `reactiveStringTask` wraps a `Mono<String>` response under the default `"output"` key. `reactiveTask` adapts a `Mono<TaskResult>` when you want full control over the output map. Each `Mono` becomes a `CompletableFuture` through `Mono.toFuture()`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -545,11 +572,11 @@ val resultTask: AsyncTask = SpringAiSupport.reactiveTask { example ->
   </TabItem>
 </Tabs>
 
-## Evaluating Tool-Calling Agents
+## Evaluate tool-calling agents
 
-When your Spring AI agent calls tools, `toAgentTrace` turns an `AssistantMessage` (and its `ToolResponseMessage`s) into an `AgentTrace` you can feed straight into the [agent evaluators](../evaluation/agent-evaluation). Tool calls are matched to their results by tool-call id, and `toToolDefinitions` converts the Spring AI tool definitions the agent was given so calls can be checked against them.
+When your Spring AI agent calls tools, `toAgentTrace` turns an `AssistantMessage` (and its `ToolResponseMessage`s) into an `AgentTrace`. You feed that straight into the [agent evaluators](../evaluation/agent-evaluation). Tool calls match their results by tool-call id. `toToolDefinitions` converts the Spring AI tool definitions the agent was given, so calls can be checked against them.
 
-`AgentTrace.toTestCase(userMessage, tools)` produces the `EvalTestCase` the agent evaluators expect.
+`AgentTrace.toTestCase(userMessage, tools)` builds the `EvalTestCase` the agent evaluators expect.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -610,13 +637,13 @@ val result: EvalResult = ToolCorrectnessEvaluator().evaluate(testCase)
 
 :::note
 
-`toAgentTrace(message)` (without tool responses) builds a trace from the tool calls alone — use it when you only need to evaluate which tools the agent chose, not their results.
+`toAgentTrace(message)` (without tool responses) builds a trace from the tool calls alone. Use it when you only need to check which tools the agent chose, not their results.
 
 :::
 
-## Bridging Spring AI Evaluators
+## Bridge Spring AI evaluators
 
-If you're using Spring AI's built-in evaluators and want to integrate with Dokimos:
+If you already use Spring AI's built-in evaluators and want their scores tracked in Dokimos, convert the request and wrap the evaluator:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -646,9 +673,9 @@ EvaluationResponse springAiResponse = springAiEvaluator.evaluate(request);
 EvalTestCase testCase = SpringAiSupport.toTestCase(request);
 
 // You can also create a custom Dokimos evaluator that wraps Spring AI evaluators
-Evaluator dokimosEvaluator = new BaseEvaluator("relevancy") {
+Evaluator dokimosEvaluator = new BaseEvaluator("relevancy", 1.0, List.of()) {
     @Override
-    protected EvalResult doEvaluate(EvalTestCase testCase) {
+    protected EvalResult runEvaluation(EvalTestCase testCase) {
         // Convert Dokimos -> Spring AI -> evaluate -> convert back
         EvaluationRequest req = /* build from testCase */;
         EvaluationResponse resp = springAiEvaluator.evaluate(req);
@@ -709,9 +736,9 @@ val dokimosEvaluator = object : BaseEvaluator("relevancy", 1.0, listOf()) {
   </TabItem>
 </Tabs>
 
-## Working with RAG in Spring AI
+## Evaluate a RAG pipeline
 
-When evaluating RAG systems built with Spring AI:
+For a RAG system, your task retrieves documents and generates a response, then returns both under `"output"` and `"context"`. `FaithfulnessEvaluator` reads the context to check the answer stays grounded.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -834,7 +861,7 @@ val result = experiment {
 
 ## Structured / typed output
 
-When your Spring AI call returns structured data — for example a record mapped from the model's JSON output — return that object under `"output"` instead of a string. Compare it with `StructuralMatchEvaluator` (numbers compare by value, formatting and key order don't count), and read it back type-safely with `actualOutputAs(Record.class)`.
+When your Spring AI call returns structured data (for example a record mapped from the model's JSON output), return that object under `"output"` instead of a string. Compare it with `StructuralMatchEvaluator` (numbers compare by value, formatting and key order do not count), and read it back type-safely with `actualOutputAs(Record.class)`.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -883,7 +910,7 @@ val actual = testCase.actualOutputAs(Invoice::class.java)
 
 See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub for the full pipeline.
 
-## Field Mappings
+## Field mappings
 
 ### EvaluationRequest -> EvalTestCase
 
@@ -906,9 +933,9 @@ When converting from Dokimos back to Spring AI:
 | `reason()` | `getFeedback()` |
 | `metadata()` | `getMetadata()` (merged with score) |
 
-## Best Practices
+## Best practices
 
-**Combine with Spring Boot**: In a Spring Boot application, you can inject your ChatModel beans and use them directly for evaluation:
+**Combine with Spring Boot**: in a Spring Boot application, inject your `ChatModel` beans and use them directly for evaluation:
 
 <Tabs groupId="lang" defaultValue="java">
 <TabItem value="java" label="Java">
@@ -972,9 +999,9 @@ class AiEvaluationService(private val chatModel: ChatModel) {
   </TabItem>
 </Tabs>
 
-## JUnit Integration
+## JUnit integration
 
-Combine with [JUnit](./junit) for testing:
+Combine with [JUnit](./junit) to fail a build when an answer misses the mark. The `@DatasetSource` annotation feeds one `Example` per row into the test:
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1037,13 +1064,13 @@ class ChatAccuracyTests {
   </TabItem>
 </Tabs>
 
-### Threshold-Based Quality Assertions
+### Assert on the average score
 
-The parameterized test above fails if *any single example* fails evaluation. For many use cases, you may want to assert that the *average score* across all examples meets a quality threshold instead. This is useful when:
+The parameterized test above fails if any single example fails. Often you want a different gate: assert that the average score across all examples clears a threshold. This fits when:
 
-- Individual examples may occasionally score below the threshold, but overall quality should be high
-- You want to set different thresholds for different evaluators
-- You're running quality gates in CI/CD pipelines
+- Individual examples may dip below the threshold, but overall quality should stay high.
+- You want different thresholds for different evaluators.
+- You run quality gates in CI/CD pipelines.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -1151,10 +1178,10 @@ class ThresholdAssertions {
 
 :::tip
 
-Use `assertAll` to run all assertions and report all failures at once, rather than stopping at the first failure. This gives you a complete picture of which quality thresholds are not being met.
+Use `assertAll` to run every assertion and report all failures at once, instead of stopping at the first. That way you see every threshold that missed in one run.
 
 :::
 
-## Integration with Spring AI Testing
+## Use with Spring AI testing
 
-You can use Dokimos evaluators alongside Spring AI's testing utilities to create comprehensive test suites for your AI applications.
+You can run Dokimos evaluators next to Spring AI's own testing utilities to build full test suites for your AI applications.

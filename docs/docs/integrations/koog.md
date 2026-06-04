@@ -4,21 +4,25 @@ sidebar_position: 4
 
 # Koog Integration
 
-Dokimos works with [Koog](https://github.com/koog-ai/koog) so you can evaluate Koog agents and RAG pipelines using the Dokimos Kotlin DSL.
+Evaluate [Koog](https://github.com/koog-ai/koog) agents and RAG pipelines with the Dokimos Kotlin DSL, all in Kotlin.
 
-## Why Use This Integration?
+This page shows you how to turn a Koog agent into a judge, run an experiment over a dataset, score answers, run agent calls without blocking a thread, and evaluate a RAG pipeline.
 
-**One-line judge conversion**: Turn any Koog `AIAgent` (or suspending call) into a Dokimos `JudgeLM` with `asJudge`.
+## What this integration gives you
 
-**Kotlin-first experiments**: Build datasets, tasks, and evaluators with the Dokimos Kotlin DSL. No Java are builders needed.
+**One-line judge conversion.** Turn any Koog `AIAgent` (or any suspending call) into a Dokimos `JudgeLM` with `asJudge`.
+
+**Kotlin-first experiments.** Build datasets, tasks, and evaluators with the Dokimos Kotlin DSL. You do not need the Java builders.
 
 :::tip
-A `typedTask<T> { ... }` can return a Kotlin data class, which you compare with `StructuralMatchEvaluator` and read back with the reified `actualOutputAs<T>()`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
+A `typedTask<T> { ... }` can return a Kotlin data class. Compare it with `StructuralMatchEvaluator` and read it back with the reified `actualOutputAs<T>()`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
 :::
 
 ## Setup
 
-Add the Koog integration dependency:
+Add the Koog integration dependency.
+
+Maven:
 
 ```xml
 <dependency>
@@ -28,21 +32,28 @@ Add the Koog integration dependency:
 </dependency>
 ```
 
-### Gradle (Groovy DSL)
+Gradle (Groovy DSL):
 
 ```groovy
 implementation "dev.dokimos:dokimos-koog:${dokimosVersion}"
 ```
 
-### Gradle (Kotlin DSL)
+Gradle (Kotlin DSL):
 
 ```kotlin
 implementation("dev.dokimos:dokimos-koog:${dokimosVersion}")
 ```
 
-## Basic Usage (Kotlin DSL)
+## Run your first evaluation
 
-Evaluate a Koog agent with Dokimos, using the Kotlin DSL throughout:
+This example evaluates a Koog agent end to end with the Kotlin DSL. Copy it, set `OPENAI_API_KEY`, and run `main`.
+
+It does four things:
+
+1. Builds a generation agent and a separate judge agent.
+2. Wraps the judge agent as a `JudgeLM` with `asJudge`.
+3. Defines a two-example dataset and a task that calls the agent.
+4. Scores answers with `exactMatch` and an LLM judge, then prints the pass rate.
 
 ```kotlin
 import ai.koog.agents.core.agent.AIAgent
@@ -56,14 +67,14 @@ import dev.dokimos.kotlin.dsl.llmJudge
 fun main() {
     val apiKey = System.getenv("OPENAI_API_KEY") ?: throw IllegalStateException("OPENAI_API_KEY not set")
 
-    // Generation agent
+    // Generation agent.
     fun agent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
         maxIterations = 10
     )
 
-    // Judge agent -> JudgeLM
+    // Judge agent, wrapped as a JudgeLM.
     fun judgeAgent() = AIAgent(
         promptExecutor = simpleOpenAIExecutor(apiKey),
         llmModel = OpenAIModels.Chat.GPT5Nano,
@@ -76,13 +87,13 @@ fun main() {
 
         dataset {
             name = "customer-support-koog"
-            example { 
+            example {
                 input = "What is your return policy?"
-                expected = "30-day money-back guarantee" 
+                expected = "30-day money-back guarantee"
             }
-            example { 
+            example {
                 input = "How long does shipping take?"
-                expected = "5-7 business days" 
+                expected = "5-7 business days"
             }
         }
 
@@ -107,13 +118,18 @@ fun main() {
 }
 ```
 
-## Async Tasks
+## Run agent calls without blocking a thread
 
-The Basic Usage example calls the agent with `runBlocking`, which holds a thread per example. To let the experiment keep many agent calls in flight instead, adapt your `suspend` call into a Dokimos `AsyncTask` with `asTask` or `asTextTask`, wire it with `asyncTask(...)`, and bound concurrency with `parallelism`.
+The example above uses `runBlocking`, which holds one thread per example. To keep many agent calls in flight at once, adapt your `suspend` call into a Dokimos `AsyncTask`, wire it with `asyncTask(...)`, and cap concurrency with `parallelism`.
 
-Each invocation launches the suspend body on `Dispatchers.IO` and bridges the coroutine to a `CompletableFuture` via the kotlinx-coroutines `future` builder. A suspend exception surfaces as an exceptionally completed future, which the experiment isolates as a failed item while the run continues.
+You have two adapters:
 
-`asTextTask` is the convenience overload: the suspend body receives the example `input()` and returns the model response, which is stored under the `"output"` key. A blank response throws `IllegalArgumentException`.
+- `asTextTask` for the common case. The suspend body receives the example `input()` and returns the model response. Dokimos stores it under the `"output"` key. A blank response throws `IllegalArgumentException`.
+- `asTask` for the full output map (for example, RAG context alongside the answer). The suspend body receives the full `Example` and returns a `TaskResult`.
+
+Each invocation launches the suspend body on `Dispatchers.IO` and bridges the coroutine to a `CompletableFuture` with the kotlinx-coroutines `future` builder. A suspend exception becomes an exceptionally completed future, which the experiment isolates as a failed item while the run continues.
+
+Use `asTextTask` when you only need the answer text:
 
 ```kotlin
 import ai.koog.agents.core.agent.AIAgent
@@ -145,7 +161,7 @@ val result = experiment {
 }.run()
 ```
 
-When you need the full output map (for example to emit RAG context alongside the answer), use `asTask`, whose suspend body receives the full `Example` and returns a `TaskResult`:
+Use `asTask` when you need the full output map. Its suspend body receives the full `Example` and returns a `TaskResult`:
 
 ```kotlin
 import dev.dokimos.core.TaskResult
@@ -165,14 +181,14 @@ val ragTask = asTask { example ->
 ```
 
 :::note
-
-Both `asTask` and `asTextTask` default the coroutine scope to `GlobalScope` — the launched coroutine has no parent lifecycle to inherit. To opt into structured concurrency, pass your own scope as the first argument: `asTextTask(scope = myScope) { input -> ... }`.
-
+Both `asTask` and `asTextTask` default the coroutine scope to `GlobalScope`, so the launched coroutine has no parent lifecycle to inherit. To opt into structured concurrency, pass your own scope as the first argument: `asTextTask(scope = myScope) { input -> ... }`.
 :::
 
-## RAG Evaluation with Koog
+## Evaluate a RAG pipeline
 
-For RAG pipelines, emit both the generated answer and retrieved context. You can build it manually (as below) or wrap your call with `ragTask` if you already have a function returning `RagResult`.
+For RAG, return both the generated answer and the retrieved context. Put the answer under `"output"` and the context under `"context"`. The faithfulness evaluator reads the context key to ground its checks.
+
+This example embeds three documents, retrieves the top matches per query, answers with that context, and scores the answer for quality and faithfulness.
 
 ```kotlin
 import ai.koog.agents.core.agent.AIAgent
@@ -223,13 +239,13 @@ suspend fun main() {
 
         dataset {
             name = "customer-qa-rag-koog"
-            example { 
+            example {
                 input = "What is the refund policy?"
-                expected = "30-day money-back guarantee" 
+                expected = "30-day money-back guarantee"
             }
-            example { 
+            example {
                 input = "How long does shipping take?"
-                expected = "5-7 business days" 
+                expected = "5-7 business days"
             }
         }
 
@@ -271,12 +287,12 @@ suspend fun main() {
 }
 ```
 
-## Best Practices
+## Best practices
 
-- Prefer Kotlin DSL (`experiment { ... }`, `llmJudge`, `faithfulness`) instead of Java builders when working in Kotlin modules.
-- Keep judge and generation agents separate and use a stronger or more reliable model for judging when possible.
-- Include context in outputs when evaluating RAG so `FaithfulnessEvaluator` can ground its checks.
-- Use `runBlocking` from `dev.dokimos.koog` to call Koog agents inside tasks without leaking coroutines.
+- In Kotlin modules, use the Kotlin DSL (`experiment { ... }`, `llmJudge`, `faithfulness`) instead of the Java builders.
+- Keep the judge agent separate from the generation agent. Use a stronger model for judging when you can.
+- For RAG, include the context in the output map so `FaithfulnessEvaluator` can ground its checks.
+- Call Koog agents inside tasks with `runBlocking` from `dev.dokimos.koog` so you do not leak coroutines.
 
 :::tip
 See the Koog examples in `dokimos-examples/src/main/kotlin/dev/dokimos/examples/koog` for runnable Kotlin snippets.

@@ -132,7 +132,8 @@ function HomepageHeader() {
           <p className={styles.heroSubtitle}>
             Evaluate responses and agent tool calls, track quality over time, and catch regressions
             before they ship. Runs in the JUnit suite and CI you already have, one dependency, no
-            new infrastructure. Works with Spring AI, LangChain4j, and Koog.
+            new infrastructure. Framework agnostic, with one-line integrations for Spring AI,
+            LangChain4j, and Koog.
           </p>
           <div className={styles.heroButtons}>
             <Link className="button button--primary button--lg" to="/overview">

@@ -157,6 +157,26 @@ class ToolErrorEvaluatorTest {
     }
 
     @Test
+    @DisplayName("a structured map result with a top-level error field is detected through the fromMap path")
+    void mapInputWithStructuredErrorResult() {
+        // A dataset-sourced tool call whose result is a structured Map (not a String) flows through
+        // AgentEvalCasts -> ToolCall.fromMap, which serializes the Map to compact JSON ({"error":"boom"}).
+        // errorReason then parses that valid JSON and flags the top-level "error" field. This is exactly
+        // the regression surface: fromMap previously rendered the Map as a non-JSON toString() that
+        // readTree could not parse, silently scoring the call as a success. Pin the structured-result
+        // detection so that flip stays intentional.
+        var testCase = EvalTestCase.builder()
+                .actualOutput(
+                        "toolCalls",
+                        List.of(
+                                Map.of("name", "a", "result", Map.of("error", "boom")),
+                                Map.of("name", "b", "result", "ok")))
+                .build();
+        var result = ToolErrorEvaluator.builder().build().evaluate(testCase);
+        assertThat(result.score()).isEqualTo(0.5);
+    }
+
+    @Test
     @DisplayName("missing toolCalls throws EvaluationException")
     void missingKey() {
         var testCase = EvalTestCase.builder().actualOutput("output", "x").build();

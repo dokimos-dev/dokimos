@@ -244,6 +244,18 @@ class ToolCallTest {
         assertThat(call.resultAs(Booking.class)).isEqualTo(new Booking("ABC123", 3));
     }
 
+    @Test
+    void resultAsStringThrowsAfterFromMapWhenResultWasPlainText() {
+        // fromMap keeps a plain String result verbatim (it is not re-serialized), so a tool whose
+        // result is plain prose cannot be read back as a String: resultAs parses via Json.read, which
+        // rejects "Found 5 flights" as invalid JSON. Pin this so the verbatim-String storage contract
+        // and the JSON-string read contract cannot drift apart silently in either direction.
+        var call = ToolCall.fromMap(Map.<String, Object>of("name", "search_flights", "result", "Found 5 flights"));
+
+        assertThat(call.result()).isEqualTo("Found 5 flights");
+        assertThatThrownBy(() -> call.resultAs(String.class)).isInstanceOf(DokimosTypeConversionException.class);
+    }
+
     record Coordinates(double lat, double lon) {}
 
     @Test

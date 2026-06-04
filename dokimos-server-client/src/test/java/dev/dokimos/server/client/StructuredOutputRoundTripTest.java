@@ -154,6 +154,51 @@ class StructuredOutputRoundTripTest {
         assertThat(result.success()).isFalse();
     }
 
+    /** A typed target with an integral field — the shape a user reads a server-pulled dataset into. */
+    record WhiskyRecord(String name, int age) {}
+
+    @Test
+    void typedAccessorReadsAnIntegralFieldBackAcrossTheServerHop() throws Exception {
+        // The StructuralMatch round-trip tests above only exercise the BigDecimal-aware comparator. The
+        // typed-accessor path (EvalTestCase.expectedOutputAs -> convertFrom -> Json.convert ->
+        // MAPPER.convertValue) over the wire-retyped map had zero coverage in this module. This is the
+        // exact user flow: pull a dataset from the server, then read it back into a record. The dataset
+        // stored age as a floating-point literal (5.0); after the hop it is a Double, and the record
+        // field is an int. Json's MAPPER sets no number-coercion features, yet the integral-valued
+        // Double materializes cleanly into the int field. Pin that so the read does not start throwing.
+        Map<String, Object> expected = Map.of("output", Map.of("name", "Oban", "age", 5.0));
+        Map<String, Object> overWire = roundTrip(expected);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> wireInner = (Map<String, Object>) overWire.get("output");
+        // Sanity: the hop really did box age as a floating-point Double, not an Integer.
+        assertThat(wireInner.get("age")).isInstanceOf(Double.class).isEqualTo(5.0);
+
+        EvalTestCase testCase = EvalTestCase.builder()
+                .input("query", "describe the whisky")
+                .expectedOutputs(overWire)
+                .build();
+
+        assertThat(testCase.expectedOutputAs(WhiskyRecord.class)).isEqualTo(new WhiskyRecord("Oban", 5));
+    }
+
+    @Test
+    void typedAccessorTruncatesANonIntegralFieldAcrossTheServerHop() throws Exception {
+        // Companion to the test above, documenting the sharp edge of the same path: a NON-integral
+        // value (5.5) read into an int record field does NOT throw — Jackson's convertValue silently
+        // truncates it to 5. This is the default, unguarded coercion behavior; pinning it makes the
+        // data-loss visible so a future tightening (e.g. enabling a fail-on-coercion feature) is a
+        // deliberate, reviewed change rather than a silent behavior swing.
+        Map<String, Object> overWire = roundTrip(Map.of("output", Map.of("name", "Oban", "age", 5.5)));
+
+        EvalTestCase testCase = EvalTestCase.builder()
+                .input("query", "describe the whisky")
+                .expectedOutputs(overWire)
+                .build();
+
+        assertThat(testCase.expectedOutputAs(WhiskyRecord.class)).isEqualTo(new WhiskyRecord("Oban", 5));
+    }
+
     @Test
     void integerExpectedMatchesFloatingActualAcrossTheHop() throws Exception {
         // The classic 5 vs 5.0 hazard: the dataset stored an integer, the server returned a double

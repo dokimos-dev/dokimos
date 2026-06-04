@@ -3,6 +3,7 @@ package dev.dokimos.core.internal;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -206,6 +207,25 @@ public final class Json {
      */
     public static <T> T read(String json, JavaType type) {
         return readInternal(json, READER.forType(type));
+    }
+
+    /**
+     * Parses a JSON string into the generic target captured by a Jackson {@link TypeReference}, using
+     * the strict {@linkplain #comparisonReader() comparison reader} so duplicate object keys are
+     * rejected alongside the NaN/Infinity and trailing-token tightening that applies to every reader.
+     *
+     * <p>This is the load-path entry point for dataset and server JSON: malformed structured input
+     * (a duplicate key, a {@code NaN} token, trailing garbage) fails here at parse time rather than
+     * surfacing confusingly later during evaluation.
+     *
+     * @param json the JSON text to parse
+     * @param type the captured generic target type
+     * @param <T> the target type
+     * @return the parsed value (the JSON literal {@code null} parses to {@code null})
+     * @throws IllegalArgumentException if the text is not valid JSON or does not match {@code type}
+     */
+    public static <T> T read(String json, TypeReference<T> type) {
+        return readInternal(json, COMPARISON_READER.forType(type));
     }
 
     private static <T> T readInternal(String json, ObjectReader reader) {

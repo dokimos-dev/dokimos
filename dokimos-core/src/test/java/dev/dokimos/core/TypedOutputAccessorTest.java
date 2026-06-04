@@ -175,4 +175,70 @@ class TypedOutputAccessorTest {
         assertThatThrownBy(() -> example.expectedOutputAs(Whisky.class))
                 .isInstanceOf(DokimosTypeConversionException.class);
     }
+
+    @Test
+    void inputAsReadsTypedRecordPrimaryAndKeyed() {
+        var testCase = EvalTestCase.builder()
+                .input("input", Map.of("name", "Lagavulin", "age", 16))
+                .input("alt", Map.of("name", "Oban", "age", 14))
+                .build();
+
+        assertThat(testCase.inputAs(Whisky.class)).isEqualTo(new Whisky("Lagavulin", 16));
+        assertThat(testCase.inputAs("alt", Whisky.class)).isEqualTo(new Whisky("Oban", 14));
+    }
+
+    @Test
+    void inputAsReadsNestedGenericViaOutputType() {
+        var testCase = EvalTestCase.builder()
+                .input("input", List.of(Map.of("name", "Ardbeg", "age", 10), Map.of("name", "Oban", "age", 14)))
+                .build();
+
+        List<Whisky> whiskies = testCase.inputAs(new OutputType<List<Whisky>>() {});
+
+        assertThat(whiskies).containsExactly(new Whisky("Ardbeg", 10), new Whisky("Oban", 14));
+        assertThat(testCase.inputAs("input", new OutputType<List<Whisky>>() {})).isEqualTo(whiskies);
+    }
+
+    @Test
+    void inputAsAbsentReturnsNullAndBadTypeThrows() {
+        var testCase = EvalTestCase.builder().input("input", "not a whisky").build();
+
+        assertThat(testCase.inputAs("missing", Whisky.class)).isNull();
+        assertThat(testCase.inputAs("missing", new OutputType<List<Whisky>>() {}))
+                .isNull();
+        assertThatThrownBy(() -> testCase.inputAs(Whisky.class)).isInstanceOf(DokimosTypeConversionException.class);
+    }
+
+    @Test
+    void metadataAsReadsTypedValueAbsentNullAndBadTypeThrows() {
+        var testCase = EvalTestCase.builder()
+                .metadata("dram", Map.of("name", "Talisker", "age", 18))
+                .metadata("tags", List.of("smoky", "coastal"))
+                .metadata("bad", "not a whisky")
+                .build();
+
+        assertThat(testCase.metadataAs("dram", Whisky.class)).isEqualTo(new Whisky("Talisker", 18));
+        assertThat(testCase.metadataAs("tags", new OutputType<List<String>>() {}))
+                .containsExactly("smoky", "coastal");
+        assertThat(testCase.metadataAs("missing", Whisky.class)).isNull();
+        assertThatThrownBy(() -> testCase.metadataAs("bad", Whisky.class))
+                .isInstanceOf(DokimosTypeConversionException.class);
+    }
+
+    @Test
+    void exampleInputAndMetadataParityWithTestCase() {
+        var example = Example.builder()
+                .input("input", Map.of("name", "Lagavulin", "age", 16))
+                .input("alt", Map.of("name", "Oban", "age", 14))
+                .metadata("dram", Map.of("name", "Talisker", "age", 18))
+                .build();
+
+        assertThat(example.inputAs(Whisky.class)).isEqualTo(new Whisky("Lagavulin", 16));
+        assertThat(example.inputAs("alt", new OutputType<Whisky>() {})).isEqualTo(new Whisky("Oban", 14));
+        assertThat(example.metadataAs("dram", Whisky.class)).isEqualTo(new Whisky("Talisker", 18));
+        assertThat(example.metadataAs("missing", Whisky.class)).isNull();
+        assertThatThrownBy(() ->
+                        Example.builder().input("input", "not a whisky").build().inputAs(Whisky.class))
+                .isInstanceOf(DokimosTypeConversionException.class);
+    }
 }

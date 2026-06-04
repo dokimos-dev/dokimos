@@ -60,6 +60,9 @@ class SequentialToolCallingIntegrationTest {
     /** Structured result of {@code estimateShipping}. */
     record ShippingQuote(double amountUsd, int days) {}
 
+    /** Typed view of the arguments the model passed to {@code estimateShipping}. */
+    record ShippingArgs(double weightKg, String destination) {}
+
     /** In-memory order book. The weight lives here and nowhere in the prompt. */
     private static final Map<String, Order> ORDER_BOOK = Map.of("A123", new Order("A123", "Trail Runner shoes", 2.5));
 
@@ -136,6 +139,18 @@ class SequentialToolCallingIntegrationTest {
         assertThat(passedWeight)
                 .as("estimateShipping weight must come from the looked-up order (the only place it exists)")
                 .isCloseTo(order.weightKg(), within(0.01));
+
+        // --- argumentsAs round-trips the model's raw tool arguments into a typed record. ---
+        // Same guarantee as resultAs, but on the input side: the arguments map the model produced
+        // converts cleanly into a ShippingArgs the test code can use without manual map fishing.
+        ShippingArgs shippingArgs = shippingCall.argumentsAs(ShippingArgs.class);
+        assertThat(shippingArgs).isNotNull();
+        assertThat(shippingArgs.weightKg())
+                .as("typed weight argument must match the looked-up order weight")
+                .isCloseTo(order.weightKg(), within(0.01));
+        assertThat(shippingArgs.destination())
+                .as("typed destination argument must be present")
+                .isNotBlank();
 
         // --- The trace passes the agent tool-call validity evaluator. ---
         EvalTestCase testCase = trace.toTestCase(prompt, TOOLS);

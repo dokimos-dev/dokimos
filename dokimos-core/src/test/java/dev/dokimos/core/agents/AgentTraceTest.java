@@ -2,6 +2,8 @@ package dev.dokimos.core.agents;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.OutputType;
+import dev.dokimos.core.exceptions.DokimosTypeConversionException;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -94,5 +96,39 @@ class AgentTraceTest {
         var map = trace.toOutputMap();
 
         assertThat(map.get("output")).isEqualTo("");
+    }
+
+    @Test
+    void metadataAsReadsATypedValue() {
+        var trace = AgentTrace.builder().metadata("totalLatencyMs", 500).build();
+
+        assertThat(trace.metadataAs("totalLatencyMs", Integer.class)).isEqualTo(500);
+    }
+
+    @Test
+    void metadataAsReadsAGenericListViaOutputType() {
+        var trace = AgentTrace.builder()
+                .metadata("models", List.of("gpt-4o", "gpt-4o-mini"))
+                .build();
+
+        List<String> models = trace.metadataAs("models", new OutputType<List<String>>() {});
+
+        assertThat(models).containsExactly("gpt-4o", "gpt-4o-mini");
+    }
+
+    @Test
+    void metadataAsReturnsNullForAbsentKey() {
+        var trace = AgentTrace.builder().build();
+
+        assertThat(trace.metadataAs("missing", Integer.class)).isNull();
+    }
+
+    @Test
+    void metadataAsThrowsForWrongType() {
+        var trace =
+                AgentTrace.builder().metadata("totalLatencyMs", "not-a-number").build();
+
+        assertThatThrownBy(() -> trace.metadataAs("totalLatencyMs", Integer.class))
+                .isInstanceOf(DokimosTypeConversionException.class);
     }
 }

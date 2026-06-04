@@ -6,6 +6,7 @@ import dev.dokimos.core.Dataset;
 import dev.dokimos.core.DatasetResolutionException;
 import dev.dokimos.core.DatasetResolver;
 import dev.dokimos.core.Example;
+import dev.dokimos.core.internal.Json;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -176,7 +177,8 @@ public class ServerDatasetResolver implements DatasetResolver {
         String url = base + API_PATH + encode(name) + "/versions/" + encode(versionSegment);
         String body = sendWithRetry(url, apiKey);
         try {
-            JsonNode node = objectMapper.readTree(body);
+            // Hardened load path: reject duplicate keys, NaN/Infinity, and trailing garbage at parse.
+            JsonNode node = Json.comparisonReader().readTree(body);
             JsonNode versionNode = node.get("version");
             if (versionNode == null || !versionNode.isInt()) {
                 throw new DatasetResolutionException("Version response missing 'version' field: " + url);
@@ -197,7 +199,7 @@ public class ServerDatasetResolver implements DatasetResolver {
             String body = sendWithRetry(url, apiKey);
             JsonNode root;
             try {
-                root = objectMapper.readTree(body);
+                root = Json.comparisonReader().readTree(body);
             } catch (IOException e) {
                 throw new DatasetResolutionException("Failed to parse items response from " + url, e);
             }
@@ -242,7 +244,7 @@ public class ServerDatasetResolver implements DatasetResolver {
             return Map.of();
         }
         try {
-            return objectMapper.convertValue(node, Map.class);
+            return Json.convert(node, Map.class);
         } catch (IllegalArgumentException e) {
             return Map.of();
         }
@@ -361,8 +363,10 @@ public class ServerDatasetResolver implements DatasetResolver {
         if (target == null || !Files.isRegularFile(target)) {
             return null;
         }
-        try {
-            JsonNode root = objectMapper.readTree(target.toFile());
+        try (java.io.InputStream in = Files.newInputStream(target)) {
+            // Hardened load path: even an offline cache file is parsed strictly (duplicate keys,
+            // NaN/Infinity, trailing garbage) so a corrupt cache fails rather than degrading silently.
+            JsonNode root = Json.comparisonReader().readTree(in);
             JsonNode items = root.get("items");
             if (items == null || !items.isArray()) {
                 return null;

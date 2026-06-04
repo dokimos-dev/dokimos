@@ -234,13 +234,82 @@ class ToolCallTest {
     }
 
     @Test
-    void resultAsFailsAfterFromMapWhenResultWasStructuredObject() {
-        // fromMap stores rawResult.toString(): a Map becomes Java-map syntax ({a=1}), not JSON.
+    void resultAsRoundTripsAfterFromMapWhenResultWasStructuredObject() {
+        // fromMap now serializes a structured result to compact JSON, so it round-trips back.
         var map = Map.<String, Object>of("name", "book_hotel", "result", Map.of("confirmation", "ABC123", "nights", 3));
 
         var call = ToolCall.fromMap(map);
 
-        assertThat(call.result()).doesNotStartWith("{\"");
-        assertThatThrownBy(() -> call.resultAs(Booking.class)).isInstanceOf(DokimosTypeConversionException.class);
+        assertThat(call.result()).startsWith("{\"");
+        assertThat(call.resultAs(Booking.class)).isEqualTo(new Booking("ABC123", 3));
+    }
+
+    record Coordinates(double lat, double lon) {}
+
+    @Test
+    void argumentsAsRoundTripsARecord() {
+        var call = ToolCall.of("locate", Map.of("lat", 48.85, "lon", 2.35));
+
+        assertThat(call.argumentsAs(Coordinates.class)).isEqualTo(new Coordinates(48.85, 2.35));
+    }
+
+    @Test
+    void argumentsAsReadsAGenericListViaOutputType() {
+        var call = ToolCall.of("search", Map.of("tags", List.of("vip", "refundable")));
+
+        Map<String, List<String>> args = call.argumentsAs(new OutputType<Map<String, List<String>>>() {});
+
+        assertThat(args).containsEntry("tags", List.of("vip", "refundable"));
+    }
+
+    @Test
+    void argumentsAsThrowsForIncompatibleShape() {
+        var call = ToolCall.of("locate", Map.of("lat", "not-a-number", "lon", 2.35));
+
+        assertThatThrownBy(() -> call.argumentsAs(Coordinates.class))
+                .isInstanceOf(DokimosTypeConversionException.class);
+    }
+
+    @Test
+    void metadataAsReadsATypedValue() {
+        var call = ToolCall.builder()
+                .name("search")
+                .argument("q", "test")
+                .metadata("latencyMs", 150)
+                .build();
+
+        assertThat(call.metadataAs("latencyMs", Integer.class)).isEqualTo(150);
+    }
+
+    @Test
+    void metadataAsReadsAGenericListViaOutputType() {
+        var call = ToolCall.builder()
+                .name("search")
+                .argument("q", "test")
+                .metadata("tags", List.of("a", "b"))
+                .build();
+
+        List<String> tags = call.metadataAs("tags", new OutputType<List<String>>() {});
+
+        assertThat(tags).containsExactly("a", "b");
+    }
+
+    @Test
+    void metadataAsReturnsNullForAbsentKey() {
+        var call = ToolCall.of("search", Map.of("q", "test"));
+
+        assertThat(call.metadataAs("missing", Integer.class)).isNull();
+    }
+
+    @Test
+    void metadataAsThrowsForWrongType() {
+        var call = ToolCall.builder()
+                .name("search")
+                .argument("q", "test")
+                .metadata("latencyMs", "not-a-number")
+                .build();
+
+        assertThatThrownBy(() -> call.metadataAs("latencyMs", Integer.class))
+                .isInstanceOf(DokimosTypeConversionException.class);
     }
 }

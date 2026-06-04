@@ -1,7 +1,7 @@
 package dev.dokimos.core;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.internal.Json;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -15,7 +15,6 @@ import java.util.Map;
 
 public final class DatasetParser {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final char BOM = '﻿';
 
     private DatasetParser() {}
@@ -23,7 +22,11 @@ public final class DatasetParser {
     public static Dataset parseJson(String json) {
         json = stripBom(json);
         try {
-            Map<String, Object> root = MAPPER.readValue(json, new TypeReference<>() {});
+            // Hardened load path: the comparison reader rejects duplicate keys, NaN/Infinity tokens,
+            // and trailing garbage so malformed datasets fail here instead of confusingly later.
+            Map<String, Object> root = Json.comparisonReader()
+                    .forType(new TypeReference<Map<String, Object>>() {})
+                    .readValue(json);
 
             String name = (String) root.getOrDefault("name", "unnamed");
             String description = (String) root.getOrDefault("description", "");
@@ -108,7 +111,9 @@ public final class DatasetParser {
             if (line.isBlank()) continue;
 
             try {
-                Map<String, Object> raw = MAPPER.readValue(line, new TypeReference<>() {});
+                Map<String, Object> raw = Json.comparisonReader()
+                        .forType(new TypeReference<Map<String, Object>>() {})
+                        .readValue(line);
                 examples.add(parseExample(raw));
             } catch (IOException e) {
                 throw new IllegalArgumentException(

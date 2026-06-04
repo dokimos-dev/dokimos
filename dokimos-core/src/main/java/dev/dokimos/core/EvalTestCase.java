@@ -126,7 +126,7 @@ public record EvalTestCase(
      * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
      */
     public <T> T actualOutputAs(String key, Class<T> type) {
-        return convertOutput(actualOutputs.get(key), type);
+        return convertFrom(actualOutputs.get(key), type);
     }
 
     /**
@@ -139,7 +139,7 @@ public record EvalTestCase(
      * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
      */
     public <T> T actualOutputAs(String key, OutputType<T> type) {
-        return convertOutput(actualOutputs.get(key), type);
+        return convertFrom(actualOutputs.get(key), type);
     }
 
     /**
@@ -176,7 +176,7 @@ public record EvalTestCase(
      * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
      */
     public <T> T expectedOutputAs(String key, Class<T> type) {
-        return convertOutput(expectedOutputs.get(key), type);
+        return convertFrom(expectedOutputs.get(key), type);
     }
 
     /**
@@ -189,10 +189,86 @@ public record EvalTestCase(
      * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
      */
     public <T> T expectedOutputAs(String key, OutputType<T> type) {
-        return convertOutput(expectedOutputs.get(key), type);
+        return convertFrom(expectedOutputs.get(key), type);
     }
 
-    private static <T> T convertOutput(Object value, Class<T> type) {
+    /**
+     * Reads the primary input ({@code "input"}) converted to the given type.
+     *
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "input"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T inputAs(Class<T> type) {
+        return inputAs("input", type);
+    }
+
+    /**
+     * Reads the primary input ({@code "input"}) converted to the given generic type.
+     *
+     * @param type the target generic type token (for example {@code new OutputType<List<Foo>>() {}})
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if no {@code "input"} entry is present
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T inputAs(OutputType<T> type) {
+        return inputAs("input", type);
+    }
+
+    /**
+     * Reads the input under {@code key} converted to the given type.
+     *
+     * @param key the input key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T inputAs(String key, Class<T> type) {
+        return convertFrom(inputs.get(key), type);
+    }
+
+    /**
+     * Reads the input under {@code key} converted to the given generic type.
+     *
+     * @param key the input key
+     * @param type the target generic type token
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T inputAs(String key, OutputType<T> type) {
+        return convertFrom(inputs.get(key), type);
+    }
+
+    /**
+     * Reads the metadata value under {@code key} converted to the given type.
+     *
+     * @param key the metadata key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, Class<T> type) {
+        return convertFrom(metadata.get(key), type);
+    }
+
+    /**
+     * Reads the metadata value under {@code key} converted to the given generic type.
+     *
+     * @param key the metadata key
+     * @param type the target generic type token
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if {@code key} is absent
+     * @throws DokimosTypeConversionException if the stored value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, OutputType<T> type) {
+        return convertFrom(metadata.get(key), type);
+    }
+
+    private static <T> T convertFrom(Object value, Class<T> type) {
         if (value == null) {
             return null;
         }
@@ -202,18 +278,18 @@ public record EvalTestCase(
         try {
             return Json.convert(value, type);
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException("Cannot convert output value to " + type.getName(), e);
+            throw new DokimosTypeConversionException("Cannot convert value to " + type.getName(), e);
         }
     }
 
-    private static <T> T convertOutput(Object value, OutputType<T> type) {
+    private static <T> T convertFrom(Object value, OutputType<T> type) {
         if (value == null) {
             return null;
         }
         try {
             return Json.convert(value, type.toJavaType());
         } catch (RuntimeException e) {
-            throw new DokimosTypeConversionException("Cannot convert output value to " + type, e);
+            throw new DokimosTypeConversionException("Cannot convert value to " + type, e);
         }
     }
 

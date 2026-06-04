@@ -52,7 +52,14 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
         Map<String, Object> arguments =
                 map.containsKey("arguments") ? (Map<String, Object>) map.get("arguments") : Map.of();
         Object rawResult = map.get("result");
-        String result = rawResult != null ? rawResult.toString() : null;
+        String result;
+        if (rawResult == null) {
+            result = null;
+        } else if (rawResult instanceof String s) {
+            result = s;
+        } else {
+            result = Json.writeCompact(rawResult);
+        }
         Map<String, Object> metadata =
                 map.containsKey("metadata") ? (Map<String, Object>) map.get("metadata") : Map.of();
         return new ToolCall(name, arguments, result, metadata);
@@ -66,11 +73,10 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
      * blank result yields {@code null}, and the JSON literal {@code "null"} also parses to
      * {@code null}.
      * <p>
-     * <b>Note:</b> the result must be a JSON string for this to work. {@link Builder#resultJson(Object)}
-     * guarantees that. {@link #fromMap(Map)}, however, stores {@code rawResult.toString()}: a
-     * structured {@code Map} from a deserialized dataset becomes Java-map syntax
-     * (e.g. {@code {a=1}}), which is <b>not</b> valid JSON. So {@code resultAs} after {@code fromMap}
-     * only works when the stored result was already a JSON string.
+     * The result must be a JSON string for this to work. Both {@link Builder#resultJson(Object)} and
+     * {@link #fromMap(Map)} guarantee that: {@code fromMap} keeps a {@code String} result verbatim and
+     * serializes any structured value (a {@code Map}, list, or other object) to compact JSON, so a
+     * structured result from a deserialized dataset round-trips here as well.
      *
      * @param type the target class
      * @param <T> the target type
@@ -93,8 +99,7 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
      * {@link OutputType} token, for example {@code new OutputType<List<Order>>() {}}.
      * <p>
      * Use this overload when the target type has type arguments that a plain {@code Class<T>} cannot
-     * express. The same null/blank/JSON-null and {@code fromMap} caveats described on
-     * {@link #resultAs(Class)} apply.
+     * express. The same null/blank/JSON-null handling described on {@link #resultAs(Class)} applies.
      *
      * @param type the captured generic output type
      * @param <T> the target type
@@ -109,6 +114,88 @@ public record ToolCall(String name, Map<String, Object> arguments, String result
             return Json.read(result, Json.resolveType(type.getType()));
         } catch (RuntimeException e) {
             throw new DokimosTypeConversionException("Cannot convert tool result to " + type, e);
+        }
+    }
+
+    /**
+     * Converts this tool call's {@code arguments} map into an instance of {@code type}.
+     * <p>
+     * The arguments are already an in-memory map, so this converts in place (no textual round-trip).
+     * {@link #arguments()} is never {@code null} (it defaults to an empty map); converting an empty map
+     * to a record or bean yields an instance with default/empty fields.
+     *
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted arguments
+     * @throws DokimosTypeConversionException if the arguments cannot be converted to {@code type}
+     */
+    public <T> T argumentsAs(Class<T> type) {
+        try {
+            return Json.convert(arguments, type);
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert tool arguments to " + type.getName(), e);
+        }
+    }
+
+    /**
+     * Converts this tool call's {@code arguments} map into a generic target captured by an
+     * {@link OutputType} token, for example {@code new OutputType<List<String>>() {}}.
+     * <p>
+     * Use this overload when the target type has type arguments that a plain {@code Class<T>} cannot
+     * express.
+     *
+     * @param type the captured generic output type
+     * @param <T> the target type
+     * @return the converted arguments
+     * @throws DokimosTypeConversionException if the arguments cannot be converted to {@code type}
+     */
+    public <T> T argumentsAs(OutputType<T> type) {
+        try {
+            return Json.convert(arguments, Json.resolveType(type.getType()));
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert tool arguments to " + type, e);
+        }
+    }
+
+    /**
+     * Reads the metadata entry stored under {@code key} and converts it into an instance of
+     * {@code type}.
+     * <p>
+     * The value is already in memory, so this converts in place (no textual round-trip). An absent key
+     * (or a {@code null} stored value) yields {@code null}.
+     *
+     * @param key the metadata key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if the key is absent or its value is {@code null}
+     * @throws DokimosTypeConversionException if the value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, Class<T> type) {
+        try {
+            return Json.convert(metadata.get(key), type);
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException(
+                    "Cannot convert tool metadata '" + key + "' to " + type.getName(), e);
+        }
+    }
+
+    /**
+     * Reads the metadata entry stored under {@code key} and converts it into a generic target captured
+     * by an {@link OutputType} token, for example {@code new OutputType<List<String>>() {}}.
+     * <p>
+     * An absent key (or a {@code null} stored value) yields {@code null}.
+     *
+     * @param key the metadata key
+     * @param type the captured generic output type
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if the key is absent or its value is {@code null}
+     * @throws DokimosTypeConversionException if the value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, OutputType<T> type) {
+        try {
+            return Json.convert(metadata.get(key), Json.resolveType(type.getType()));
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert tool metadata '" + key + "' to " + type, e);
         }
     }
 

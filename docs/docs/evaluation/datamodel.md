@@ -264,8 +264,8 @@ ExperimentResult result = Experiment.builder()
     .dataset(supportDataset)
     .task(chatbotTask)
     .evaluators(List.of(
-        new ExactMatchEvaluator(),
-        new FaithfulnessEvaluator(judgeModel)
+        ExactMatchEvaluator.builder().build(),
+        FaithfulnessEvaluator.builder().judge(judge).build()
     ))
     .run();
 ```
@@ -477,7 +477,7 @@ val experiment = experiment {
     name = "Movie extraction"
     dataset(movieDataset)
     typedTask<Movie> { example -> parseMovie(llm.chat(example.input())) }
-    evaluator(StructuralMatchEvaluator())
+    evaluator(StructuralMatchEvaluator.builder().build())
 }
 ```
 

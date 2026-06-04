@@ -602,7 +602,7 @@ AgentTrace trace = SpringAiSupport.toAgentTrace(assistantMessage, toolResponses)
 EvalTestCase testCase = trace.toTestCase("What's the weather in Paris?", tools);
 
 // Evaluate with an agent evaluator
-EvalResult result = new ToolCorrectnessEvaluator().evaluate(testCase);
+EvalResult result = ToolCorrectnessEvaluator.builder().build().evaluate(testCase);
 ```
 
   </TabItem>

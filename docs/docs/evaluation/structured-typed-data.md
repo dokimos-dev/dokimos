@@ -57,7 +57,7 @@ val experiment = experiment {
     name = "Movie extraction"
     dataset(movieDataset)
     typedTask<Movie> { example -> parseMovie(llm.chat(example.input())) }
-    evaluator(StructuralMatchEvaluator())
+    evaluator(StructuralMatchEvaluator.builder().build())
 }
 ```
 

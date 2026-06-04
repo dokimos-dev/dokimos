@@ -1,6 +1,9 @@
 package dev.dokimos.core.agents;
 
 import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.OutputType;
+import dev.dokimos.core.exceptions.DokimosTypeConversionException;
+import dev.dokimos.core.internal.Json;
 import java.util.*;
 
 /**
@@ -99,6 +102,48 @@ public record AgentTrace(
             names.add(call.name());
         }
         return Collections.unmodifiableSet(names);
+    }
+
+    /**
+     * Reads the metadata entry stored under {@code key} and converts it into an instance of
+     * {@code type}.
+     * <p>
+     * The value is already in memory, so this converts in place (no textual round-trip). An absent key
+     * (or a {@code null} stored value) yields {@code null}.
+     *
+     * @param key the metadata key
+     * @param type the target class
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if the key is absent or its value is {@code null}
+     * @throws DokimosTypeConversionException if the value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, Class<T> type) {
+        try {
+            return Json.convert(metadata.get(key), type);
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException(
+                    "Cannot convert agent trace metadata '" + key + "' to " + type.getName(), e);
+        }
+    }
+
+    /**
+     * Reads the metadata entry stored under {@code key} and converts it into a generic target captured
+     * by an {@link OutputType} token, for example {@code new OutputType<List<String>>() {}}.
+     * <p>
+     * An absent key (or a {@code null} stored value) yields {@code null}.
+     *
+     * @param key the metadata key
+     * @param type the captured generic output type
+     * @param <T> the target type
+     * @return the converted value, or {@code null} if the key is absent or its value is {@code null}
+     * @throws DokimosTypeConversionException if the value cannot be converted to {@code type}
+     */
+    public <T> T metadataAs(String key, OutputType<T> type) {
+        try {
+            return Json.convert(metadata.get(key), Json.resolveType(type.getType()));
+        } catch (RuntimeException e) {
+            throw new DokimosTypeConversionException("Cannot convert agent trace metadata '" + key + "' to " + type, e);
+        }
     }
 
     /**

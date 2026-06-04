@@ -2,8 +2,10 @@ package dev.dokimos.langchain4j;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.AsyncTask;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.Task;
+import dev.dokimos.core.TaskResult;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
@@ -24,7 +26,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Utilities for integrating with LangChain4j.
@@ -211,7 +216,7 @@ public final class LangChain4jSupport {
             Result<String> result = assistantCall.apply(input);
 
             Map<String, Object> outputs = new HashMap<>();
-            outputs.put(outputKey, result.content());
+            outputs.put(outputKey, result.content() != null ? result.content() : "");
             outputs.put(contextKey, extractTexts(result.sources()));
             return outputs;
         };
@@ -247,6 +252,226 @@ public final class LangChain4jSupport {
      */
     public static Task customTask(Task taskFunction) {
         return taskFunction;
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation from a function that returns {@link Result}.
+     *
+     * <p>Async version of {@link #ragTask(Function)}: the blocking assistant call is dispatched on the
+     * common {@link java.util.concurrent.ForkJoinPool} via
+     * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}, so the experiment's async
+     * execution path can keep many calls in flight without a thread blocked per example. The output
+     * and retrieved context are written under the {@link #OUTPUT_KEY default} and
+     * {@link #CONTEXT_KEY context} keys.
+     *
+     * <p>Note: because the call blocks on the common pool, the experiment's {@code parallelism} bounds
+     * how many invocations are launched, but the effective concurrency of the blocking call is also
+     * limited by the common pool (~one less than the CPU count), which is shared process-wide. For
+     * higher, isolated concurrency use the {@link Executor}-accepting overload
+     * ({@link #asyncRagTask(Function, java.util.concurrent.Executor)}) to run calls on a pool you control.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * interface Assistant {
+     *     Result<String> chat(String userMessage);
+     * }
+     *
+     * Assistant assistant = AiServices.builder(Assistant.class)
+     *     .chatModel(chatModel)
+     *     .retrievalAugmentor(retrievalAugmentor)
+     *     .build();
+     *
+     * AsyncTask task = LangChain4jSupport.asyncRagTask(assistant::chat);
+     *
+     * Experiment.builder()
+     *     .asyncTask(task)
+     *     .parallelism(8)
+     *     .evaluators(List.of(faithfulness, contextRelevancy))
+     *     .build()
+     *     .run();
+     * }</pre>
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code assistantCall} is null
+     */
+    public static AsyncTask asyncRagTask(Function<String, Result<String>> assistantCall) {
+        return asyncRagTask(assistantCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation with default key names, dispatching each blocking
+     * assistant call on the supplied {@link Executor} so you control and isolate concurrency.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param executor      the executor each blocking call runs on, never null
+     * @return an AsyncTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if {@code assistantCall} or {@code executor} is null
+     */
+    public static AsyncTask asyncRagTask(Function<String, Result<String>> assistantCall, Executor executor) {
+        if (executor == null) {
+            throw new IllegalArgumentException("executor cannot be null");
+        }
+        return asyncRagTask(assistantCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, executor);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation with custom key names.
+     *
+     * <p>Behaves like {@link #asyncRagTask(Function)} but reads the input from {@code inputKey} and
+     * writes the output and context under {@code outputKey} and {@code contextKey}, for datasets or
+     * evaluators that use different key names.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param inputKey      the key to read from example inputs, never null
+     * @param outputKey     the key for the output in the result map, never null
+     * @param contextKey    the key for the retrieval context in the result map, never null
+     * @return an AsyncTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static AsyncTask asyncRagTask(
+            Function<String, Result<String>> assistantCall, String inputKey, String outputKey, String contextKey) {
+        return asyncRagTask(assistantCall, inputKey, outputKey, contextKey, null);
+    }
+
+    /**
+     * Creates an {@link AsyncTask} for RAG evaluation that dispatches each blocking assistant call on
+     * the supplied {@link Executor} (or the common {@link java.util.concurrent.ForkJoinPool} when
+     * {@code executor} is {@code null}).
+     *
+     * <p>Supplying an executor lets you control and isolate concurrency: the experiment's
+     * {@code parallelism} bounds in-flight invocations, and a pool sized to match gives true parallel
+     * blocking calls instead of the common pool's ~CPU-count, process-wide ceiling.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param inputKey      the key to read from example inputs, never null
+     * @param outputKey     the key for the output in the result map, never null
+     * @param contextKey    the key for the retrieval context in the result map, never null
+     * @param executor      the executor each blocking call runs on, or {@code null} for the common pool
+     * @return an AsyncTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if {@code assistantCall}, {@code inputKey}, {@code outputKey},
+     *     or {@code contextKey} is null
+     */
+    public static AsyncTask asyncRagTask(
+            Function<String, Result<String>> assistantCall,
+            String inputKey,
+            String outputKey,
+            String contextKey,
+            Executor executor) {
+        if (assistantCall == null) {
+            throw new IllegalArgumentException("assistantCall cannot be null");
+        }
+        if (inputKey == null) {
+            throw new IllegalArgumentException("inputKey cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        if (contextKey == null) {
+            throw new IllegalArgumentException("contextKey cannot be null");
+        }
+        return example -> {
+            Supplier<TaskResult> call = () -> {
+                String input = (String) example.inputs().get(inputKey);
+                Result<String> result = assistantCall.apply(input);
+
+                Map<String, Object> outputs = new HashMap<>();
+                outputs.put(outputKey, result.content() != null ? result.content() : "");
+                outputs.put(contextKey, extractTexts(result.sources()));
+                return TaskResult.of(outputs);
+            };
+            return executor == null
+                    ? CompletableFuture.supplyAsync(call)
+                    : CompletableFuture.supplyAsync(call, executor);
+        };
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation from a LangChain4j {@link ChatModel}.
+     *
+     * <p>Async version of {@link #simpleTask(ChatModel)}: the blocking {@code model.chat(...)} call is
+     * dispatched on the common {@link java.util.concurrent.ForkJoinPool} via
+     * {@link CompletableFuture#supplyAsync(java.util.function.Supplier)}. The response is written
+     * under the {@link #OUTPUT_KEY default output key}.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * ChatModel model = OpenAiChatModel.builder()...build();
+     * AsyncTask task = LangChain4jSupport.asyncTask(model);
+     * }</pre>
+     *
+     * @param model the ChatModel to evaluate, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code model} is null
+     */
+    public static AsyncTask asyncTask(ChatModel model) {
+        return asyncTask(model, OUTPUT_KEY);
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation with the default output key, dispatching
+     * each blocking {@code model.chat(...)} call on the supplied {@link Executor} so you control and
+     * isolate concurrency.
+     *
+     * @param model    the ChatModel to evaluate, never null
+     * @param executor the executor each blocking call runs on, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code model} or {@code executor} is null
+     */
+    public static AsyncTask asyncTask(ChatModel model, Executor executor) {
+        if (executor == null) {
+            throw new IllegalArgumentException("executor cannot be null");
+        }
+        return asyncTask(model, OUTPUT_KEY, executor);
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation that writes the response under a
+     * caller-chosen key.
+     *
+     * <p>Behaves like {@link #asyncTask(ChatModel)} but lets you override the
+     * {@link #OUTPUT_KEY default output key}.
+     *
+     * @param model     the ChatModel to evaluate, never null
+     * @param outputKey the key for the output in the result map, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if any argument is null
+     */
+    public static AsyncTask asyncTask(ChatModel model, String outputKey) {
+        return asyncTask(model, outputKey, null);
+    }
+
+    /**
+     * Creates a simple {@link AsyncTask} for Q&amp;A evaluation that dispatches each blocking
+     * {@code model.chat(...)} call on the supplied {@link Executor} (or the common
+     * {@link java.util.concurrent.ForkJoinPool} when {@code executor} is {@code null}).
+     *
+     * <p>Supplying an executor lets you control and isolate concurrency: the experiment's
+     * {@code parallelism} bounds in-flight invocations, and a pool sized to match gives true parallel
+     * blocking calls instead of the common pool's ~CPU-count, process-wide ceiling.
+     *
+     * @param model     the ChatModel to evaluate, never null
+     * @param outputKey the key for the output in the result map, never null
+     * @param executor  the executor each blocking call runs on, or {@code null} for the common pool
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code model} or {@code outputKey} is null
+     */
+    public static AsyncTask asyncTask(ChatModel model, String outputKey, Executor executor) {
+        if (model == null) {
+            throw new IllegalArgumentException("ChatModel cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        return example -> {
+            Supplier<TaskResult> call = () -> {
+                String output = model.chat(example.input());
+                return TaskResult.of(Map.of(outputKey, output != null ? output : ""));
+            };
+            return executor == null
+                    ? CompletableFuture.supplyAsync(call)
+                    : CompletableFuture.supplyAsync(call, executor);
+        };
     }
 
     /**

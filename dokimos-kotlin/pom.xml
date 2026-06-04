@@ -12,6 +12,8 @@
 
     <properties>
         <kotlin.version>2.3.10</kotlin.version>
+        <kotlinx.coroutines.version>1.9.0</kotlinx.coroutines.version>
+        <mockk.version>1.14.6</mockk.version>
         <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
@@ -49,6 +51,17 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-core</artifactId>
+            <version>${kotlinx.coroutines.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -57,6 +70,20 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-coroutines-test</artifactId>
+            <version>${kotlinx.coroutines.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.mockk</groupId>
+            <artifactId>mockk-jvm</artifactId>
+            <version>${mockk.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -321,6 +321,41 @@ ToolCall call = ToolCall.builder()
     .build();
 ```
 
+The `result` is a single string. `result(String)` stores whatever you pass verbatim — use it for a result your tool already rendered as a string. When the tool produced a structured value (a record, POJO, map, or list), use `resultJson(Object)` instead: it serializes the value to a compact, single-line JSON string and stores it in the same `result` component, so you stop hand-escaping JSON. A `null` value serializes to the JSON literal `null`.
+
+```java
+record Confirmation(String confirmation, double total) {}
+
+// Before — hand-escaped JSON, easy to get wrong
+ToolCall.builder()
+    .name("book_hotel")
+    .result("{\"confirmation\": \"ABC123\", \"total\": 540.0}")
+    .build();
+
+// After — serialize the value, no escaping
+ToolCall.builder()
+    .name("book_hotel")
+    .resultJson(new Confirmation("ABC123", 540.0))
+    .build();
+```
+
+Read a structured result back type-safely with `resultAs(Class<T>)` or `resultAs(OutputType<T>)` — the symmetric counterpart of `resultJson`. This is what makes a sequential agent's `output -> input -> output` chain assertable: capture each step's structured result, then read it back as a real object. Tool-call arguments read back the same way with `argumentsAs(Class<T>)` / `argumentsAs(OutputType<T>)`. This is one stop on Dokimos's typed-data pipeline — see the [Structured & Typed Data](./structured-typed-data.md) hub for how it connects to typed task outputs, structural matching, and the typed accessors on `EvalTestCase`.
+
+```java
+ToolCall call = ToolCall.builder()
+    .name("book_hotel")
+    .resultJson(new Confirmation("ABC123", 540.0))
+    .build();
+
+Confirmation booked = call.resultAs(Confirmation.class);   // back to a typed object
+List<Confirmation> many =
+    call.resultAs(new OutputType<List<Confirmation>>() {}); // generics via OutputType
+```
+
+:::note
+Both writers set the same `result` field, so downstream evaluators (`ToolErrorEvaluator`, the hallucination judge, and anything reading `ToolCall.result()`) see an identical string either way. `resultAs` parses that string as JSON (the form `resultJson` produces): a `null` or blank result returns `null`, and a raw non-JSON string from `result(String)` is not parseable — use `result()` for that.
+:::
+
 ### ToolDefinition
 
 A tool's contract: name, description, and JSON schema for arguments.

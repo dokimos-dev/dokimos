@@ -58,6 +58,8 @@
         <spotless.version>3.2.1</spotless.version>
         <palantir.version>2.86.0</palantir.version>
         <ktlint.version>1.5.0</ktlint.version>
+        <!-- Matches the reactor-core managed by Spring Boot 3.5.10 (reactor-bom 2024.0.14). -->
+        <reactor.version>3.7.15</reactor.version>
     </properties>
 
     <dependencyManagement>
@@ -120,6 +122,12 @@
                 <artifactId>openai-java</artifactId>
                 <version>4.11.0</version>
             </dependency>
+            <!-- Kotlin-aware Jackson module, pinned to the same Jackson version dokimos-core uses. -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-kotlin</artifactId>
+                <version>2.18.2</version>
+            </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-junit-jupiter</artifactId>
@@ -141,6 +149,12 @@
                 <groupId>io.opentelemetry.proto</groupId>
                 <artifactId>opentelemetry-proto</artifactId>
                 <version>1.7.0-alpha</version>
+            </dependency>
+            <!-- Reactor for the Spring AI reactive task adapter (provided scope in dokimos-spring-ai). -->
+            <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-core</artifactId>
+                <version>${reactor.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

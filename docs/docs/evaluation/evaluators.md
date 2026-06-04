@@ -106,7 +106,11 @@ val evaluator = exactMatch {
 
 Returns score `1.0` if they match, `0.0` otherwise.
 
-**When to use:** Math calculations, code generation, structured data extraction, or any scenario where the output should be exactly as expected.
+**When to use:** Math calculations, code generation, or any scenario where the output is a string that should be exactly as expected.
+
+:::note
+`ExactMatchEvaluator` compares the **string forms** of the outputs (`toString()`). For a structured output — a record, `Map`, or list — use [`StructuralMatchEvaluator`](#structuralmatchevaluator) instead, which compares the values structurally and ignores formatting and numeric representation (`5` vs `5.0`).
+:::
 
 ### RegexEvaluator
 
@@ -194,6 +198,8 @@ val helpfulness: Evaluator = llmJudge(judge) {
 
 The evaluator sends your criteria along with the test case to the judge model, which returns a score between 0 and 1. The reply is parsed leniently: a one-sentence preamble or trailing prose around the JSON is dropped, so a recoverable judgment is not lost to a formatting quirk.
 
+A structured output (a record, `Map`, or list) is rendered to the judge as pretty-printed JSON, so you can judge a structured value directly; String and primitive output is passed through verbatim.
+
 By default the judge scores on a 0..1 scale. To let the judge work on a different range, set `scoreRange(min, max)`. The reported score is then normalized back to 0..1, so your `threshold` always stays on the 0..1 scale:
 
 <Tabs groupId="lang" defaultValue="java">
@@ -227,6 +233,126 @@ val helpfulness: Evaluator = llmJudge(judge) {
 </Tabs>
 
 **When to use:** Checking semantic correctness, helpfulness, tone, clarity, or any quality dimension that's easier to describe in words than code.
+
+### StructuralMatchEvaluator
+
+Compares the actual output against the expected output as **JSON structures** rather than as opaque strings. Both operands are normalized to a JSON tree before comparison, so a record, a `Map`, or a JSON string all compare object-against-object. This makes it the right tool for structured output (extraction results, function-call arguments, typed POJOs) where reformatting, key ordering, or numeric representation should not count as a difference.
+
+Crucially, numbers compare **by value, not representation**: `5` equals `5.0`, and `1.0` equals `1.00`, in both modes. String equality of the serialized form would flag those as mismatches; structural comparison does not.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+record Invoice(String id, double total, List<String> items) {}
+
+Evaluator structural = StructuralMatchEvaluator.builder()
+    .name("Invoice Match")
+    .threshold(1.0)
+    .build();  // STRICT mode, outputKey "output", partial scoring
+
+var testCase = EvalTestCase.builder()
+    .expectedOutput("output", new Invoice("INV-1", 42.0, List.of("a", "b")))
+    .actualOutput("output", new Invoice("INV-1", 42.00, List.of("a", "b")))
+    .build();
+
+EvalResult result = structural.evaluate(testCase);
+// result.score() == 1.0 — 42.0 and 42.00 are value-equal
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class Invoice(val id: String, val total: Double, val items: List<String>)
+
+val structural: Evaluator = StructuralMatchEvaluator.builder()
+    .name("Invoice Match")
+    .threshold(1.0)
+    .build()  // STRICT mode, outputKey "output", partial scoring
+
+val testCase = EvalTestCase(
+    expectedOutputs = mapOf("output" to Invoice("INV-1", 42.0, listOf("a", "b"))),
+    actualOutputs = mapOf("output" to Invoice("INV-1", 42.00, listOf("a", "b"))),
+)
+
+val result = structural.evaluate(testCase)
+// result.score() == 1.0 — 42.0 and 42.00 are value-equal
+```
+
+  </TabItem>
+</Tabs>
+
+#### Comparison modes
+
+The comparison mode is set with `.mode(...)` using `StructuralMatchMode`:
+
+- **`STRICT`** (the default) requires the **exact field set** and **exact array order**. An extra field in the actual output is a mismatch and penalizes the score, and a `null` value is distinct from a missing field.
+- **`LENIENT`** allows **extra actual fields** (the actual object may be a superset of the expected one) and ignores array order, comparing arrays as **multisets** — `[1, 1, 2]` does not match `[1, 2]`, but order is irrelevant. A `null` value and a missing field are treated as equal.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+Evaluator lenient = StructuralMatchEvaluator.builder()
+    .name("Extraction Match")
+    .mode(StructuralMatchMode.LENIENT)  // tolerate extra fields, ignore array order
+    .threshold(0.9)
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val lenient: Evaluator = StructuralMatchEvaluator.builder()
+    .name("Extraction Match")
+    .mode(StructuralMatchMode.LENIENT)  // tolerate extra fields, ignore array order
+    .threshold(0.9)
+    .build()
+```
+
+  </TabItem>
+</Tabs>
+
+#### Scoring
+
+By default the score is the **fraction of matching leaf paths** in `[0.0, 1.0]`, so a single wrong field on a large object is a partial miss, not a total failure. In `STRICT` the denominator is the union of expected and actual leaf paths (extra fields lower the score); in `LENIENT` the denominator is the expected leaf paths only.
+
+Call `.binary()` for an **exact-contract gate**: the score collapses to `1.0` when the structures match completely and `0.0` when anything differs. Pair it with `threshold(1.0)` when the output contract must be satisfied exactly.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+Evaluator contract = StructuralMatchEvaluator.builder()
+    .name("Schema Contract")
+    .binary()          // 1.0 if everything matches, 0.0 otherwise
+    .threshold(1.0)
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val contract: Evaluator = StructuralMatchEvaluator.builder()
+    .name("Schema Contract")
+    .binary()          // 1.0 if everything matches, 0.0 otherwise
+    .threshold(1.0)
+    .build()
+```
+
+  </TabItem>
+</Tabs>
+
+By default the evaluator reads both operands from the `"output"` key of the expected and actual output maps. Use `.outputKey(...)` to read from a different key. The expected value is required — if it is absent the evaluator throws.
+
+:::tip
+This evaluator pairs naturally with the typed output accessors on `EvalTestCase` (`actualOutputAs(...)` / `expectedOutputAs(...)`): store your structured result under a map key as a record or `Map`, compare it structurally here, and read it back as a typed object elsewhere. See the [Structured & Typed Data](./structured-typed-data.md) hub for the whole pipeline end to end.
+:::
+
+**When to use:** Structured or JSON output — extraction results, tool-call arguments, typed response objects — where you care about the data, not its textual formatting, and where numeric representation differences (`5` vs `5.0`) should never count as a regression.
 
 ### FaithfulnessEvaluator
 
@@ -797,6 +923,7 @@ An output only passes if it meets **all** the thresholds. This lets you enforce 
 
 - Use **ExactMatch** when there's only one correct answer (like math or data extraction)
 - Use **Regex** for format validation (dates, emails, IDs)
+- Use **StructuralMatch** for structured/JSON output where formatting and numeric representation shouldn't count as differences (see the [Structured & Typed Data](./structured-typed-data.md) hub)
 - Use **LLMJudge** for semantic quality (helpfulness, clarity, tone)
 - Use **Faithfulness** for RAG systems to measure how grounded the output is
 - Use **Hallucination** to specifically measure and limit fabricated content

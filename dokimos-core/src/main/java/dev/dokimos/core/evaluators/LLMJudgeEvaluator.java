@@ -7,6 +7,7 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.EvalTestCaseParam;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
+import dev.dokimos.core.internal.Json;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,10 +52,12 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
             switch (param) {
                 case INPUT -> sb.append("Input: ").append(testCase.input()).append("\n");
                 case ACTUAL_OUTPUT ->
-                    sb.append("Actual Output: ").append(testCase.actualOutput()).append("\n");
+                    sb.append("Actual Output: ")
+                            .append(renderOutput(testCase.actualOutputs().get("output")))
+                            .append("\n");
                 case EXPECTED_OUTPUT ->
                     sb.append("Expected Output: ")
-                            .append(testCase.expectedOutput())
+                            .append(renderOutput(testCase.expectedOutputs().get("output")))
                             .append("\n");
             }
         }
@@ -67,6 +70,30 @@ public class LLMJudgeEvaluator extends BaseEvaluator {
         // TODO: Structured outputs?
         sb.append("Respond in JSON format: {\"score\": <number>, \"reason\": \"<explanation>\"}");
         return sb.toString();
+    }
+
+    /**
+     * Renders a raw output value for inclusion in the judge prompt.
+     *
+     * <p>Strings and primitive/boxed-primitive values (numbers, booleans, characters) are rendered
+     * verbatim via {@link String#valueOf(Object)}. Any other value (a POJO, {@link java.util.Map},
+     * {@link java.util.List}, etc.) is rendered as pretty-printed JSON via
+     * {@link Json#writePretty(Object)}, giving the judge a parseable view of the structured value.
+     *
+     * @param value the raw output value (may be {@code null})
+     * @return the rendered representation; {@code "null"} when {@code value} is {@code null}
+     */
+    private static String renderOutput(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof String
+                || value instanceof Number
+                || value instanceof Boolean
+                || value instanceof Character) {
+            return String.valueOf(value);
+        }
+        return Json.writePretty(value);
     }
 
     private EvalResult parseResponse(String response) {

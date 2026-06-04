@@ -32,6 +32,14 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- Provided: only the reactiveTask(...) adapter needs the Mono type; callers
+             already have Reactor on their classpath via Spring AI. -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

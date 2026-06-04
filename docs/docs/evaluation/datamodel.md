@@ -422,6 +422,189 @@ This is what gets passed to evaluators. Usually you don't create these directly;
 
 ---
 
+## Typed outputs
+
+The output and expected-output maps hold `Object` values, so the common pattern is to stringify everything. But a task can just as well produce a structured object — a record, a list, a POJO — and read it back type-safely later. This keeps your task body honest (return the thing you actually built, not a hand-assembled map) and lets custom evaluators work with real domain objects instead of parsing strings.
+
+:::tip
+For the whole typed pipeline narrated in one place — authoring a typed output, comparing it, reading it back, judging it as JSON, and typing tool-call results — see the [Structured & Typed Data](./structured-typed-data.md) hub. The sections below are the per-method reference it links into.
+:::
+
+### Returning a typed value from a task
+
+`Task.typed(fn)` wraps a function that returns a single value and stores it under the conventional `"output"` key. In Kotlin, the reified `typedTask<T> { ... }` DSL does the same thing.
+
+:::note
+`Task.typed` rejects a `null` return with `NullPointerException` — the output map cannot hold a null value. If you genuinely need an absent output, use a raw `Task`. As a convenience guard, if your function already returns a `Map`, that map is used directly as the output map rather than being nested under `"output"`, so a multi-key task can adopt `typed` without double-nesting.
+:::
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+record Movie(String title, String director, int year) {}
+
+Task task = Task.typed(example -> {
+    String json = llm.chat(example.input());
+    return Json.parseMovie(json); // returns a Movie record
+});
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+data class Movie(val title: String, val director: String, val year: Int)
+
+val task = typedTask<Movie> { example ->
+    val json = llm.chat(example.input())
+    parseMovie(json) // returns a Movie
+}
+```
+
+Inside `experiment { ... }` you can also set it directly with the `typedTask` builder method:
+
+```kotlin
+val experiment = experiment {
+    name = "Movie extraction"
+    dataset(movieDataset)
+    typedTask<Movie> { example -> parseMovie(llm.chat(example.input())) }
+    evaluator(StructuralMatchEvaluator())
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### Reading typed values back
+
+Both `EvalTestCase` and `Example` expose typed accessors. For a non-generic target, pass a `Class<T>`. The accessors default to the `"output"` key; keyed overloads read any other key.
+
+| Method | Reads | Returns |
+|--------|-------|---------|
+| `actualOutputAs(Class<T>)` | actual `"output"` | converted value or `null` |
+| `actualOutputAs(OutputType<T>)` | actual `"output"` | converted value or `null` |
+| `actualOutputAs(String, Class<T>)` | actual under `key` | converted value or `null` |
+| `actualOutputAs(String, OutputType<T>)` | actual under `key` | converted value or `null` |
+| `expectedOutputAs(Class<T>)` | expected `"output"` | converted value or `null` |
+| `expectedOutputAs(OutputType<T>)` | expected `"output"` | converted value or `null` |
+| `expectedOutputAs(String, Class<T>)` | expected under `key` | converted value or `null` |
+| `expectedOutputAs(String, OutputType<T>)` | expected under `key` | converted value or `null` |
+
+`Example` carries the `expectedOutputAs(...)` twins only (it has no actual output yet). `EvalTestCase` carries both the actual and expected variants.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+public class MovieEvaluator implements Evaluator {
+    @Override
+    public EvalResult evaluate(EvalTestCase testCase) {
+        Movie actual = testCase.actualOutputAs(Movie.class);
+        Movie expected = testCase.expectedOutputAs(Movie.class);
+
+        boolean match = actual != null
+            && actual.director().equals(expected.director());
+
+        return EvalResult.builder()
+            .name("Movie Director")
+            .score(match ? 1.0 : 0.0)
+            .success(match)
+            .reason(match ? "Director matches" : "Wrong director")
+            .build();
+    }
+
+    @Override
+    public String name() { return "Movie Director"; }
+
+    @Override
+    public double threshold() { return 1.0; }
+}
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+class MovieEvaluator : Evaluator {
+    override fun evaluate(testCase: EvalTestCase): EvalResult {
+        val actual = testCase.actualOutputAs(Movie::class.java)
+        val expected = testCase.expectedOutputAs(Movie::class.java)
+
+        val match = actual != null && actual.director == expected?.director
+
+        return EvalResult(
+            name = "Movie Director",
+            score = if (match) 1.0 else 0.0,
+            success = match,
+            reason = if (match) "Director matches" else "Wrong director",
+        )
+    }
+
+    override fun name(): String = "Movie Director"
+
+    override fun threshold(): Double = 1.0
+}
+```
+
+  </TabItem>
+</Tabs>
+
+### Generic types with `OutputType<T>`
+
+A plain `Class<T>` cannot express a generic target such as `List<Movie>` — type arguments are erased at runtime. `OutputType<T>` is a super-type token (the "Gafter gadget", like Jackson's `TypeReference` or Spring's `ParameterizedTypeReference`) that captures the full generic type. Always instantiate it as an **anonymous subclass** so the type argument is recorded:
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+// Task produces a List<Movie>
+Task task = Task.typed(example -> parseMovies(llm.chat(example.input())));
+
+// Read it back, preserving the element type
+List<Movie> movies =
+    testCase.actualOutputAs(new OutputType<List<Movie>>() {});
+
+// A keyed, non-"output" variant works the same way
+List<Movie> shortlist =
+    testCase.actualOutputAs("shortlist", new OutputType<List<Movie>>() {});
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Task produces a List<Movie>
+val task = typedTask<List<Movie>> { example -> parseMovies(llm.chat(example.input())) }
+
+// Read it back, preserving the element type
+val movies: List<Movie> =
+    testCase.actualOutputAs(object : OutputType<List<Movie>>() {})
+
+// A keyed, non-"output" variant works the same way
+val shortlist: List<Movie> =
+    testCase.actualOutputAs("shortlist", object : OutputType<List<Movie>>() {})
+```
+
+  </TabItem>
+</Tabs>
+
+:::tip
+Constructing an `OutputType` raw (`new OutputType() {}`) throws `IllegalArgumentException` — there is no type argument to capture. Use the `Class<T>` accessors for non-generic targets; reach for `OutputType<T>` only when the target is generic.
+:::
+
+### Conversion contract
+
+The typed accessors share one conversion contract across `EvalTestCase` and `Example`:
+
+- **Absent key → `null`.** If the requested key is missing from the map, the accessor returns `null` (it does not throw).
+- **Already the right type → returned as-is.** For the `Class<T>` accessors, a stored value that is already an instance of the target type is cast directly without going through serialization.
+- **Otherwise → converted, or it throws.** Any other value is converted (via Jackson under the hood). If the value cannot be converted to the requested type, the accessor throws `DokimosTypeConversionException` (in `dev.dokimos.core.exceptions`).
+
+This is why a typed task pairs naturally with structural matching: `StructuralMatchEvaluator` compares the stored structured value against the expected structure, and your custom evaluators can read the same value back as a real object.
+
+---
+
 ### EvalResult
 
 The score and feedback from one evaluator.

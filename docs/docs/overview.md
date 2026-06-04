@@ -11,8 +11,9 @@ Dokimos is an open-source Evaluation Framework for LLM applications in Java and 
 1. Build and manage datasets programatically, from files, or with custom sources
 2. Run experiments with built-in evaluators, or your own custom evaluators
 3. Evaluate AI agents, including their tool calls and execution traces
-4. Run evals in a test-driven way with JUnit parameterized tests
-5. Track experiment results over time with an optional server and web UI
+4. Work with typed, structured data end to end, from task output to evaluator
+5. Run evals in a test-driven way with JUnit parameterized tests
+6. Track experiment results over time with an optional server and web UI
 
 Dokimos aims to bring the evaluation tooling that Python developers have to the Java ecosystem.
 
@@ -23,6 +24,10 @@ Using a coding agent? Paste this to get a first eval written against your own co
 Read the **[Getting started Guide](./getting-started/installation)**.
 
 Lean more about what you can build with `dokimos` by exploring the [examples module](https://github.com/dokimos-dev/dokimos/tree/master/dokimos-examples).
+
+## Structured & typed data
+
+Dokimos supports typed, structured data end to end. A task can return a real domain object — a record, a POJO, a list — Dokimos compares it structurally (numbers compare by value, formatting and key order don't count), and you read it back type-safely in custom evaluators, LLM judges, tool-call results, and metadata. See the **[Structured & Typed Data](./evaluation/structured-typed-data.md)** guide for the whole pipeline in one place.
 
 ## The production eval loop
 

@@ -46,6 +46,10 @@ Add the JUnit integration dependency:
 
 > **Note:** Supports JUnit 5.x and 6.x.
 
+:::tip
+Your task can return a typed record (not just a string), and a JUnit test can read it back with `actualOutputAs(...)` or compare it with `StructuralMatchEvaluator`. See the [Structured & Typed Data](../evaluation/structured-typed-data.md) hub.
+:::
+
 ## Basic Usage
 
 ### Using @DatasetSource
@@ -180,6 +184,7 @@ class CustomerSupportTest {
             LLMJudgeEvaluator.builder()
                 .name("Answer Quality")
                 .criteria("Is the answer helpful and addresses the user's question?")
+                .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
                 .threshold(0.80)
                 .judge(judge)
                 .build(),
@@ -285,6 +290,7 @@ void shouldAnswerFromDocumentation(Example example) {
         LLMJudgeEvaluator.builder()
             .name("Answer Quality")
             .criteria("Is the answer helpful?")
+            .evaluationParams(List.of(EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT))
             .threshold(0.8)
             .judge(judge)
             .build(),

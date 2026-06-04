@@ -72,7 +72,7 @@ const config: Config = {
 
   // Latest released version, surfaced in the landing page install snippet.
   customFields: {
-    dokimosVersion: "0.19.0",
+    dokimosVersion: "0.20.0",
   },
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future

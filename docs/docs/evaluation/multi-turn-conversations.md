@@ -83,10 +83,10 @@ val trajectory = simulator {
 val result = trajectoryEvaluator(judgeLM) {
     name = "Customer Service Quality"
     threshold = 0.7
-    criteria(
+    criteria(listOf(
             TrajectoryEvaluationCriteria.userSatisfaction(),
             TrajectoryEvaluationCriteria.problemResolution()
-    )
+    ))
 }
     .evaluate(
         EvalTestCase(
@@ -258,10 +258,10 @@ SimulatedUser user = LLMSimulatedUser.builder()
 ```kotlin
 val user: SimulatedUser = llmUser(judgeLM) {
     persona = "customer with a complaint"
-    fixedResponses(
+    fixedResponses(listOf(
             "I ordered a blue shirt but received a red one!",
             "I want a full refund, not a replacement"
-    )
+    ))
 }
 ```
 
@@ -568,11 +568,11 @@ TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
 val evaluator = trajectoryEvaluator(judgeLM) {
     name = "Support Quality"
     threshold = 0.7
-    criteria(
+    criteria(listOf(
             TrajectoryEvaluationCriteria.userSatisfaction(),
             TrajectoryEvaluationCriteria.goalCompletion(),
             TrajectoryEvaluationCriteria.professionalTone()
-    )
+    ))
     aggregationStrategy = AggregationStrategy.WEIGHTED_MEAN
     includePerCriterionScores = true
 }
@@ -858,12 +858,12 @@ object CustomerServiceEvaluation {
         val evaluator = trajectoryEvaluator(judgeLM) {
             name = "Customer Service Quality"
             threshold = 0.7
-            criteria(
+            criteria(listOf(
                     TrajectoryEvaluationCriteria.userSatisfaction(),
                     TrajectoryEvaluationCriteria.problemResolution(),
                     TrajectoryEvaluationCriteria.professionalTone(),
                     TrajectoryEvaluationCriteria.helpfulness()
-            )
+            ))
             aggregationStrategy = AggregationStrategy.WEIGHTED_MEAN
         }
 

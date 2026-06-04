@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import styles from "./styles.module.css";
 
 type Group = { label: "Added" | "Changed" | "Fixed"; items: { title: string; body: ReactNode }[] };
-type Release = { version: string; date: string; latest?: boolean; lead?: string; groups: Group[] };
+type Release = { version: string; date: string; lead?: string; groups: Group[] };
 
 const RELEASES: Release[] = [
   {
@@ -125,7 +126,6 @@ const RELEASES: Release[] = [
   {
     version: "0.19.0",
     date: "June 2, 2026",
-    latest: true,
     lead: "Hardens the core: per-item failure isolation, RFC 4180 CSV, prose-tolerant judges, retry and observability for the server reporter, and a run of correctness fixes.",
     groups: [
       {
@@ -348,19 +348,20 @@ function slug(v: string) {
 }
 
 export default function ReleaseTimeline() {
+  const { siteConfig } = useDocusaurusContext();
+  const latestVersion = siteConfig.customFields?.latestVersion as string | undefined;
   return (
     <div className={styles.timeline}>
-      {RELEASES.map((rel) => (
-        <section
-          key={rel.version}
-          className={`${styles.release} ${rel.latest ? styles.current : ""}`}
-        >
+      {RELEASES.map((rel) => {
+        const isLatest = rel.version === latestVersion;
+        return (
+        <section key={rel.version} className={`${styles.release} ${isLatest ? styles.current : ""}`}>
           <span className={styles.node} aria-hidden="true" />
           <div className={styles.head}>
             <h2 id={slug(rel.version)} className={styles.ver}>
               v{rel.version}
             </h2>
-            {rel.latest && <span className={styles.tag}>Latest</span>}
+            {isLatest && <span className={styles.tag}>Latest</span>}
             <span className={styles.date}>{rel.date}</span>
           </div>
           {rel.lead && <p className={styles.lead}>{rel.lead}</p>}
@@ -382,7 +383,8 @@ export default function ReleaseTimeline() {
             </div>
           ))}
         </section>
-      ))}
+        );
+      })}
     </div>
   );
 }

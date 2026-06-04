@@ -64,15 +64,40 @@ knowledge disagree, the page is correct.
 
 Skill registry for agents: /.well-known/skills/index.json`;
 
+// Newest published release (v-prefixed tag) from GitHub, used for the changelog
+// "Latest" badge and the install snippet version. Falls back to the hardcoded
+// value if the API is unreachable (offline build, rate limit).
+async function latestReleaseVersion(fallback: string): Promise<string> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "dokimos-docs-build",
+    };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    const res = await fetch("https://api.github.com/repos/dokimos-dev/dokimos/releases/latest", {
+      headers,
+    });
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as { tag_name?: string };
+    const version = (data.tag_name ?? "").replace(/^v/, "");
+    return /^\d+\.\d+\.\d+/.test(version) ? version : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const config: Config = {
   title: "Dokimos | LLM Evaluation Framework for Java",
   tagline: "An Evaluation Framework for LLM applications in Java.",
   favicon: "img/favicon.ico",
   staticDirectories: ["public", "static"],
 
-  // Latest released version, surfaced in the landing page install snippet.
+  // Surfaced in the install snippets and the changelog "Latest" badge. Overridden
+  // at build time from the newest GitHub release (see createConfig below); these
+  // are the offline fallback.
   customFields: {
     dokimosVersion: "0.20.0",
+    latestVersion: "0.20.0",
   },
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -206,4 +231,10 @@ const config: Config = {
   } satisfies Preset.ThemeConfig,
 };
 
-export default config;
+export default async function createConfig(): Promise<Config> {
+  const latestVersion = await latestReleaseVersion("0.20.0");
+  return {
+    ...config,
+    customFields: { ...config.customFields, dokimosVersion: latestVersion, latestVersion },
+  };
+}

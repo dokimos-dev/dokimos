@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.OverAllStateBuilder;
 import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.OutputType;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
@@ -72,6 +73,44 @@ class SpringAiAlibabaAgentTraceTest {
         assertThat(trace.toolCalls().get(1).arguments()).containsEntry("nights", 3);
         assertThat(trace.toolCalls().get(1).result()).isEqualTo("{\"confirmation\":\"X\"}");
         assertThat(trace.finalResponse()).isEqualTo("All booked.");
+    }
+
+    @Test
+    @DisplayName("typed reads: structured arguments and a JSON result read back as records")
+    void structuredArgumentsAndJsonResultReadBackTyped() {
+        // Spring AI Alibaba carries tool arguments as a JSON string and tool results as a String. The
+        // fold parses the arguments into a Map and keeps the result verbatim, so the structured-output
+        // typed-read API works on the captured trace: argumentsAs(...) over the Map and resultAs(...)
+        // over the JSON result string.
+        OverAllState state = state(List.of(
+                new UserMessage("Plan my trip"),
+                assistant("Booking.", call("c1", "book_hotel", "{\"city\":\"Paris\",\"nights\":3}")),
+                responses(new ToolResponseMessage.ToolResponse(
+                        "c1", "book_hotel", "{\"confirmation\":\"X\",\"price\":120}")),
+                new AssistantMessage("Done.")));
+
+        ToolCall call = SpringAiAlibabaSupport.toAgentTrace(state).toolCalls().get(0);
+
+        BookingArgs args = call.argumentsAs(BookingArgs.class);
+        assertThat(args).isEqualTo(new BookingArgs("Paris", 3));
+
+        // 120 in the JSON result parses structurally to the record's double field (120.0).
+        Booking booking = call.resultAs(Booking.class);
+        assertThat(booking).isEqualTo(new Booking("X", 120.0));
+    }
+
+    @Test
+    @DisplayName("typed reads: a JSON array result reads back as a typed list via OutputType")
+    void jsonArrayResultReadsBackAsTypedListViaOutputType() {
+        OverAllState state = state(List.of(
+                assistant("Searching.", call("c1", "search_flights", "{}")),
+                responses(new ToolResponseMessage.ToolResponse(
+                        "c1", "search_flights", "[{\"id\":\"AF1\"},{\"id\":\"AF2\"}]")),
+                new AssistantMessage("Found.")));
+
+        ToolCall call = SpringAiAlibabaSupport.toAgentTrace(state).toolCalls().get(0);
+        List<FlightRef> flights = call.resultAs(new OutputType<List<FlightRef>>() {});
+        assertThat(flights).containsExactly(new FlightRef("AF1"), new FlightRef("AF2"));
     }
 
     @Test
@@ -271,4 +310,12 @@ class SpringAiAlibabaAgentTraceTest {
                         .score())
                 .isEqualTo(1.0);
     }
+
+    // --- typed-read fixtures ---------------------------------------------------------------------
+
+    record BookingArgs(String city, int nights) {}
+
+    record Booking(String confirmation, double price) {}
+
+    record FlightRef(String id) {}
 }

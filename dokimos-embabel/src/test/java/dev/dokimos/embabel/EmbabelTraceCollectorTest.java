@@ -12,6 +12,7 @@ import com.embabel.agent.api.event.AgentProcessFailedEvent;
 import com.embabel.agent.api.event.ToolCallRequestEvent;
 import com.embabel.agent.api.event.ToolCallResponseEvent;
 import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.OutputType;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
@@ -52,6 +53,41 @@ class EmbabelTraceCollectorTest {
         assertThat(second.name()).isEqualTo("bookHotel");
         assertThat(second.arguments()).containsEntry("id", 42);
         assertThat(second.result()).isEqualTo("booked");
+    }
+
+    @Test
+    void structuredArgumentsAndJsonResultReadBackTyped() {
+        // Embabel hands tool arguments over as a JSON string and the tool result as a String. The
+        // collector parses the arguments into a Map and stores the result verbatim, so the typed-read
+        // API added by the structured-output work works on a captured trace: argumentsAs(...) over the
+        // parsed Map and resultAs(...) over the JSON result string.
+        EmbabelTraceCollector collector = new EmbabelTraceCollector();
+        collector.onProcessEvent(responseEvent(
+                "searchHotels",
+                "{\"area\":\"EU\",\"nights\":3}",
+                successResult("{\"id\":\"H1\",\"name\":\"Grand\",\"price\":120}"),
+                4L,
+                "search"));
+
+        ToolCall call = collector.toolCalls().get(0);
+
+        SearchArgs args = call.argumentsAs(SearchArgs.class);
+        assertThat(args).isEqualTo(new SearchArgs("EU", 3));
+
+        // 120 in the JSON result parses structurally to the record's double field (120.0).
+        Hotel hotel = call.resultAs(Hotel.class);
+        assertThat(hotel).isEqualTo(new Hotel("H1", "Grand", 120.0));
+    }
+
+    @Test
+    void jsonArrayResultReadsBackAsTypedListViaOutputType() {
+        EmbabelTraceCollector collector = new EmbabelTraceCollector();
+        collector.onProcessEvent(
+                responseEvent("listHotels", "{}", successResult("[{\"id\":\"H1\"},{\"id\":\"H2\"}]"), 2L, "search"));
+
+        ToolCall call = collector.toolCalls().get(0);
+        List<HotelRef> hotels = call.resultAs(new OutputType<List<HotelRef>>() {});
+        assertThat(hotels).containsExactly(new HotelRef("H1"), new HotelRef("H2"));
     }
 
     @Test
@@ -250,4 +286,12 @@ class EmbabelTraceCollectorTest {
             throw new IllegalStateException(e);
         }
     }
+
+    // --- typed-read fixtures ---------------------------------------------------------------------
+
+    record SearchArgs(String area, int nights) {}
+
+    record Hotel(String id, String name, double price) {}
+
+    record HotelRef(String id) {}
 }

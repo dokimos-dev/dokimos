@@ -19,6 +19,8 @@ It is an open-source evaluation framework. It works with Spring AI, LangChain4j,
 5. Run evals in a test-driven way with JUnit parameterized tests
 6. Track experiment results over time with an optional server and web UI
 
+Dokimos is framework agnostic. The core depends on no AI framework, so it works with any LLM client, or none at all. The Spring AI, LangChain4j, and Koog modules are thin, optional bridges that capture a run in one line. You never need them to use Dokimos.
+
 Dokimos brings the evaluation tooling that Python developers have to the Java ecosystem.
 
 ## See it run

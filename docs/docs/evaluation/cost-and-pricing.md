@@ -70,7 +70,7 @@ private static final PriceTable PRICES = (model, tokensIn, tokensOut) -> {
 
 ## Precision: compute at 6dp, display at 4dp
 
-Per-call costs are often a fraction of a cent. Each item's cost is rounded to **6 decimal places** at capture (`Math.round(usd * 1_000_000d) / 1_000_000d`), so a sub-cent per-call cost survives instead of rounding to zero before it can be summed. The run-detail UI then displays the rolled-up **total** to **4 decimal places** (`$x.xxxx`). Compute precise per-item; display the rounded total.
+Per-call costs are often a fraction of a cent. The reference `PriceTable` rounds each item's cost to **6 decimal places** (`Math.round(usd * 1_000_000d) / 1_000_000d`) so a sub-cent per-call cost survives instead of rounding to zero before it is summed. Rounding is the `PriceTable`'s choice, not a framework guarantee — Dokimos stores whatever `Double` your `PriceTable` returns, unmodified. The run-detail UI then displays the rolled-up **total** to **4 decimal places** (`$x.xxxx`). Compute precise per-item; display the rounded total.
 
 ## Partial-coverage signal: "N/M items priced"
 

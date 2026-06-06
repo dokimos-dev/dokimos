@@ -99,6 +99,20 @@ class SpringAiMeasuredTaskTest {
     }
 
     @Test
+    void measuredAsyncTask_withAllZeroUsage_treatedAsNotMeasured() throws Exception {
+        ChatClient client = clientReturning(withUsage("hi", 0, 0));
+
+        AsyncTask task = SpringAiSupport.measuredAsyncTask(client, "<test-model>", PRICES);
+        CallMetrics metrics = task.run(Example.of("q", "a")).get().metrics();
+
+        // An all-zero DefaultUsage is a "not measured" sentinel, not a real zero — coalesce to null.
+        assertThat(metrics.tokensIn()).isNull();
+        assertThat(metrics.tokensOut()).isNull();
+        assertThat(metrics.costUsd()).isNull();
+        assertThat(metrics.latencyMs()).isNotNull();
+    }
+
+    @Test
     void measuredAsyncTask_nullClient_throws() {
         assertThatThrownBy(() -> SpringAiSupport.measuredAsyncTask(null, "<test-model>", PRICES))
                 .isInstanceOf(IllegalArgumentException.class);

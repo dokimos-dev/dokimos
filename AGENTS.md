@@ -107,6 +107,7 @@ When working on the core framework, understand these central types in `dokimos-c
 - **`Task`** — Functional interface for executing a single example (the LLM call under test).
 - **`Reporter`** — Reports experiment results (local logging or server-based).
 - **`JudgeLM`** — Functional interface for an LLM used as a judge in evaluations.
+- **`PriceTable`** — Functional interface turning a model id and token counts into a USD cost, returning null (never throwing) for an unknown model or a missing token count. A pluggable, point-in-time pricing seam: Dokimos ships no price data; the caller supplies the map. Cost is computed at capture time, where the model id is in scope, and frozen into `CallMetrics.costUsd()` (not recomputed downstream). In `dev.dokimos.core`.
 
 - **`ToolCall`** — Record representing a single tool invocation (name, arguments, result, metadata). In `dev.dokimos.core.agents`.
 - **`ToolDefinition`** — Record describing a tool's contract (name, description, JSON schema). In `dev.dokimos.core.agents`.

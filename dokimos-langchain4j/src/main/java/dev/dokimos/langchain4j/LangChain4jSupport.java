@@ -3,7 +3,10 @@ package dev.dokimos.langchain4j;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.AsyncTask;
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.MeasuredTask;
+import dev.dokimos.core.PriceTable;
 import dev.dokimos.core.Task;
 import dev.dokimos.core.TaskResult;
 import dev.dokimos.core.agents.AgentTrace;
@@ -11,7 +14,9 @@ import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.json.JsonArraySchema;
 import dev.langchain4j.model.chat.request.json.JsonBooleanSchema;
 import dev.langchain4j.model.chat.request.json.JsonIntegerSchema;
@@ -19,6 +24,8 @@ import dev.langchain4j.model.chat.request.json.JsonNumberSchema;
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.model.chat.request.json.JsonSchemaElement;
 import dev.langchain4j.model.chat.request.json.JsonStringSchema;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -252,6 +259,157 @@ public final class LangChain4jSupport {
      */
     public static Task customTask(Task taskFunction) {
         return taskFunction;
+    }
+
+    /**
+     * Creates a measured Q&amp;A {@link MeasuredTask} that captures token usage, latency, and (when a
+     * {@link PriceTable} is supplied) cost, lighting up the run's metrics cards.
+     *
+     * <p>This is the metrics-bearing counterpart to {@link #simpleTask(ChatModel)}. Where the plain
+     * {@code simpleTask} returns a {@link Task} whose result structurally cannot carry
+     * {@link CallMetrics}, this returns a {@link MeasuredTask}, so switch the builder call from
+     * {@code .task(...)} to {@code .measuredTask(...)}:
+     * <pre>{@code
+     * PriceTable prices = (model, in, out) -> ...;  // your price map, or null for tokens+latency only
+     * Experiment.builder()
+     *     .measuredTask(LangChain4jSupport.measuredTask(model, "<your-model>", prices))
+     *     .evaluators(...)
+     *     .build()
+     *     .run();
+     * }</pre>
+     *
+     * <p>The call uses the {@link ChatRequest}-based overload of {@link ChatModel} so the
+     * {@link ChatResponse}'s {@link TokenUsage} is available; the String-returning {@code chat(String)}
+     * used by {@code simpleTask} does not expose usage. When usage is absent the token fields are null;
+     * when {@code prices} is null (or returns null) the cost stays null and only the Tokens and Latency
+     * cards light up. Never throws on missing metrics.
+     *
+     * @param model   the ChatModel to evaluate, never null
+     * @param modelId the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices  the price lookup, or null to capture tokens and latency only
+     * @return a MeasuredTask suitable for {@code Experiment.builder().measuredTask(...)}
+     * @throws IllegalArgumentException if {@code model} is null
+     */
+    public static MeasuredTask measuredTask(ChatModel model, String modelId, PriceTable prices) {
+        return measuredTask(model, modelId, prices, OUTPUT_KEY);
+    }
+
+    /**
+     * Creates a measured Q&amp;A {@link MeasuredTask} that writes the response under a caller-chosen key.
+     *
+     * <p>Behaves like {@link #measuredTask(ChatModel, String, PriceTable)} but lets you override the
+     * {@link #OUTPUT_KEY default output key}.
+     *
+     * @param model     the ChatModel to evaluate, never null
+     * @param modelId   the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices    the price lookup, or null to capture tokens and latency only
+     * @param outputKey the key for the output in the result map, never null
+     * @return a MeasuredTask suitable for {@code Experiment.builder().measuredTask(...)}
+     * @throws IllegalArgumentException if {@code model} or {@code outputKey} is null
+     */
+    public static MeasuredTask measuredTask(ChatModel model, String modelId, PriceTable prices, String outputKey) {
+        if (model == null) {
+            throw new IllegalArgumentException("ChatModel cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        return example -> {
+            long start = System.nanoTime();
+            ChatResponse response = model.chat(ChatRequest.builder()
+                    .messages(UserMessage.from(example.input()))
+                    .build());
+            long latencyMs = (System.nanoTime() - start) / 1_000_000L;
+            String text = response != null && response.aiMessage() != null
+                    ? response.aiMessage().text()
+                    : null;
+            Map<String, Object> outputs = Map.of(outputKey, text != null ? text : "");
+            TokenUsage usage = response != null ? response.tokenUsage() : null;
+            return new TaskResult(outputs, toCallMetrics(usage, latencyMs, modelId, prices));
+        };
+    }
+
+    /**
+     * Creates a measured RAG {@link MeasuredTask} from a function returning {@link Result}, capturing
+     * the {@link Result#tokenUsage() token usage}, latency, and (when a {@link PriceTable} is supplied)
+     * cost alongside the output and retrieved context.
+     *
+     * <p>Metrics-bearing counterpart to {@link #ragTask(Function)}; use {@code .measuredTask(...)} on
+     * the builder. When the Result carries no usage the token fields are null; a null {@code prices}
+     * (or a null lookup result) leaves cost null and lights only the Tokens and Latency cards.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param modelId       the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices        the price lookup, or null to capture tokens and latency only
+     * @return a MeasuredTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if {@code assistantCall} is null
+     */
+    public static MeasuredTask measuredRagTask(
+            Function<String, Result<String>> assistantCall, String modelId, PriceTable prices) {
+        return measuredRagTask(assistantCall, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, modelId, prices);
+    }
+
+    /**
+     * Creates a measured RAG {@link MeasuredTask} with custom key names.
+     *
+     * @param assistantCall a function that takes the input string and returns a Result, never null
+     * @param inputKey      the key to read from example inputs, never null
+     * @param outputKey     the key for the output in the result map, never null
+     * @param contextKey    the key for the retrieval context in the result map, never null
+     * @param modelId       the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices        the price lookup, or null to capture tokens and latency only
+     * @return a MeasuredTask suitable for RAG evaluation
+     * @throws IllegalArgumentException if {@code assistantCall}, {@code inputKey}, {@code outputKey}, or
+     *     {@code contextKey} is null
+     */
+    public static MeasuredTask measuredRagTask(
+            Function<String, Result<String>> assistantCall,
+            String inputKey,
+            String outputKey,
+            String contextKey,
+            String modelId,
+            PriceTable prices) {
+        if (assistantCall == null) {
+            throw new IllegalArgumentException("assistantCall cannot be null");
+        }
+        if (inputKey == null) {
+            throw new IllegalArgumentException("inputKey cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        if (contextKey == null) {
+            throw new IllegalArgumentException("contextKey cannot be null");
+        }
+        return example -> {
+            String input = (String) example.inputs().get(inputKey);
+            long start = System.nanoTime();
+            Result<String> result = assistantCall.apply(input);
+            long latencyMs = (System.nanoTime() - start) / 1_000_000L;
+
+            Map<String, Object> outputs = new HashMap<>();
+            outputs.put(outputKey, result.content() != null ? result.content() : "");
+            outputs.put(contextKey, extractTexts(result.sources()));
+            return new TaskResult(outputs, toCallMetrics(result.tokenUsage(), latencyMs, modelId, prices));
+        };
+    }
+
+    /**
+     * Builds {@link CallMetrics} from a LangChain4j {@link TokenUsage}, the measured latency, and an
+     * optional {@link PriceTable}. Returns null token fields when usage is absent and null cost when no
+     * price is available; never throws.
+     *
+     * @param usage     the token usage, or null when the response carried none
+     * @param latencyMs the measured wall-clock latency in milliseconds
+     * @param modelId   the model id (price lookup key), or null to skip pricing
+     * @param prices    the price lookup, or null to skip pricing
+     * @return populated call metrics (any field may be null)
+     */
+    private static CallMetrics toCallMetrics(TokenUsage usage, long latencyMs, String modelId, PriceTable prices) {
+        Integer tokensIn = usage != null ? usage.inputTokenCount() : null;
+        Integer tokensOut = usage != null ? usage.outputTokenCount() : null;
+        Double costUsd = (prices != null && modelId != null) ? prices.costUsd(modelId, tokensIn, tokensOut) : null;
+        return new CallMetrics(tokensIn, tokensOut, costUsd, latencyMs);
     }
 
     /**

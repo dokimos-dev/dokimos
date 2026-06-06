@@ -1,0 +1,19 @@
+{
+  "name": "evaluate-embabel",
+  "version": "0.1.0",
+  "description": "Set up evaluation of Embabel agents using Dokimos. Capture an agent run as an AgentTrace with EmbabelTraceCollector and score its tool calls with the agent evaluators.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/integrations/embabel",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "embabel",
+    "agent",
+    "tool-call",
+    "llm-evaluation"
+  ]
+}

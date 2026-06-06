@@ -75,6 +75,22 @@
       "version": "0.1.0",
       "category": "integration",
       "tags": ["openai", "agent", "tool-call", "evaluation"]
+    },
+    {
+      "name": "evaluate-embabel",
+      "source": "./plugins/evaluate-embabel",
+      "description": "Set up evaluation of Embabel agents using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["embabel", "agent", "tool-call", "evaluation", "java"]
+    },
+    {
+      "name": "evaluate-spring-ai-alibaba",
+      "source": "./plugins/evaluate-spring-ai-alibaba",
+      "description": "Set up evaluation of Spring AI Alibaba graph agents using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["spring-ai-alibaba", "graph", "agent", "evaluation"]
     }
   ]
 }

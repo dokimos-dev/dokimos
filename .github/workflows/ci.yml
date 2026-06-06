@@ -145,6 +145,20 @@ jobs:
             property: koog.version
             version: '1.0.0'
             profiles: '-P!koog-live-it'
+          - module: dokimos-spring-ai-alibaba
+            property: spring-ai-alibaba.version
+            version: '1.0.0.2'
+          - module: dokimos-spring-ai-alibaba
+            property: spring-ai-alibaba.version
+            version: '1.1.2.3'
+          # Embabel ships Java 21 bytecode, so the module builds only on JDK 21+ (the embabel
+          # profile). This job already runs on JDK 21, so the profile is active and -pl resolves it.
+          - module: dokimos-embabel
+            property: embabel.version
+            version: '0.3.5'
+          - module: dokimos-embabel
+            property: embabel.version
+            version: '0.4.0'
 
     steps:
       - uses: actions/checkout@v4

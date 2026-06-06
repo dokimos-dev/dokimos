@@ -18,6 +18,8 @@
         <!-- Module-local, mirroring how dokimos-spring-ai keeps spring-ai.version local
              (house exception: provided SDK versions are not promoted to parent depMgmt). -->
         <spring-ai.version>1.1.6</spring-ai.version>
+        <!-- The self-contained 1.0.x line keeps ReactAgent in graph-core. The 1.1.x line relocated
+             the agent types to a separate artifact; the core fold is CI-tested against 1.1.2.3 too. -->
         <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
         <!-- Test-only live ChatModel for the integration test. -->
         <spring-ai-openai.version>1.1.5</spring-ai-openai.version>

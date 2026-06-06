@@ -188,7 +188,8 @@ public final class SpringAiAlibabaSupport {
      */
     public static AgentTrace toAgentTrace(ReactAgent agent, Map<String, Object> inputs, RunnableConfig config)
             throws GraphStateException {
-        CompiledGraph graph = agent.getCompiledGraph();
+        // getCompiledGraph() returns null until the graph is built; getAndCompileGraph() compiles it.
+        CompiledGraph graph = agent.getAndCompileGraph();
         Optional<OverAllState> state = config == null ? graph.invoke(inputs) : graph.invoke(inputs, config);
         return toAgentTrace(state);
     }

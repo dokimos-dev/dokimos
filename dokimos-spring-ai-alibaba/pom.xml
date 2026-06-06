@@ -65,6 +65,14 @@
             <version>${spring-ai-openai.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- graph-core declares gson as provided (non-transitive), but a live ReactAgent run needs
+             it at runtime. Bring it in at test scope so the integration test can run. -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>

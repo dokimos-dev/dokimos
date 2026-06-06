@@ -74,7 +74,7 @@ val trace: AgentTrace = SpringAiAlibabaSupport.toAgentTrace(state)
 
 ## Step 3: Run the agent and read the state
 
-The compiled graph is the full-fidelity entry point. Call `getCompiledGraph().invoke(...)`, which returns an `Optional<OverAllState>` carrying the whole run. The one-liner `toAgentTrace(agent, inputs, config)` does this for you: it invokes the agent's compiled graph and folds the returned state.
+The compiled graph is the full-fidelity entry point. Call `getAndCompileGraph().invoke(...)`, which returns an `Optional<OverAllState>` carrying the whole run. The one-liner `toAgentTrace(agent, inputs, config)` does this for you: it invokes the agent's compiled graph and folds the returned state.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -141,7 +141,7 @@ If you manage the graph yourself, invoke it and fold the `Optional` it returns:
 import com.alibaba.cloud.ai.graph.OverAllState;
 import dev.dokimos.springai.alibaba.SpringAiAlibabaSupport;
 
-Optional<OverAllState> state = agent.getCompiledGraph().invoke(inputs);
+Optional<OverAllState> state = agent.getAndCompileGraph().invoke(inputs);
 
 AgentTrace trace = SpringAiAlibabaSupport.toAgentTrace(state);
 ```
@@ -164,7 +164,7 @@ val trace = SpringAiAlibabaSupport.toAgentTrace(state)
 
 :::note
 
-Use `getCompiledGraph().invoke(...)` rather than a single-shot call. The compiled graph preserves every intermediate tool call across turns; a single-shot call would lose them.
+Use `getAndCompileGraph().invoke(...)` rather than a single-shot call. The compiled graph preserves every intermediate tool call across turns; a single-shot call would lose them.
 
 :::
 

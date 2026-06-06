@@ -189,6 +189,14 @@ curl -X POST http://localhost:8080/api/chat \
 RUN_EVAL_TESTS=true OPENAI_API_KEY='your-api-key' mvn test -pl dokimos-examples -Dtest=KnowledgeAssistantEvaluationTest
 ```
 
+### 9. Spring AI Alibaba Agent Evaluation
+
+**Location**: `dev.dokimos.examples.springai.alibaba.SpringAiAlibabaAgentEvalExample`
+
+Runs a Spring AI Alibaba `ReactAgent` over a tool, captures the whole run as an `AgentTrace`, and scores its tool calls with the agent evaluators. Requires `OPENAI_API_KEY` at runtime.
+
+> The Embabel adapter has an integration test rather than a runnable example here, because Embabel requires Java 21 while this examples module targets the Java 17 baseline. See the [Embabel integration guide](https://dokimos.dev/integrations/embabel).
+
 ## Building the Examples
 
 Build all examples:

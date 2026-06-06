@@ -39,7 +39,8 @@ knowledge disagree, the page is correct.
    actualOutputAs(...). Plain text: exact match, regex, or an LLM judge.
 4. Read the matching page below (full text in llms-full.txt) before writing code: getting
    started and installation; the evaluators reference; agent and tool-call evaluation,
-   which also covers the Spring AI, LangChain4j, Koog, and OpenAI trace extractors;
+   which also covers the Spring AI, Spring AI Alibaba, LangChain4j, Koog, Embabel, and OpenAI
+   trace extractors;
    structured and typed data (Task.typed, StructuralMatchEvaluator, actualOutputAs,
    resultJson/resultAs); datasets; experiments; the JUnit integration (@DatasetSource,
    Assertions.assertEval).
@@ -154,7 +155,7 @@ const config: Config = {
       {
         title: "Dokimos",
         description:
-          "The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, run evals in JUnit and CI, and integrate with Spring AI, LangChain4j, and Koog.",
+          "The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, run evals in JUnit and CI, and integrate with Spring AI, Spring AI Alibaba, LangChain4j, Koog, and Embabel.",
         generateMarkdownFiles: true,
         rootContent: LLMS_ROOT_CONTENT,
         fullRootContent: LLMS_ROOT_CONTENT,

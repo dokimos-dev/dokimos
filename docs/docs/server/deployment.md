@@ -80,7 +80,7 @@ The `latest` tag moves. Pin a release so upgrades never surprise you:
 ```yaml
 services:
   server:
-    image: ghcr.io/dokimos-dev/dokimos-server:0.13.0  # Pin version
+    image: ghcr.io/dokimos-dev/dokimos-server:0.20.0  # Pin version
 ```
 
 ## Run it in production
@@ -95,7 +95,7 @@ Replace the bundled PostgreSQL with a managed service (for example AWS RDS). Set
 # docker-compose.yml (production)
 services:
   server:
-    image: ghcr.io/dokimos-dev/dokimos-server:0.13.0
+    image: ghcr.io/dokimos-dev/dokimos-server:0.20.0
     ports:
       - "8080:8080"
     environment:
@@ -123,7 +123,7 @@ docker run -d \
   -e DB_USERNAME=your-user \
   -e DB_PASSWORD=your-password \
   -e DOKIMOS_API_KEY=your-api-key \
-  ghcr.io/dokimos-dev/dokimos-server:0.13.0
+  ghcr.io/dokimos-dev/dokimos-server:0.20.0
 ```
 
 ## Run it on Kubernetes
@@ -147,7 +147,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: ghcr.io/dokimos-dev/dokimos-server:0.13.0
+        image: ghcr.io/dokimos-dev/dokimos-server:0.20.0
         ports:
         - containerPort: 8080
         env:

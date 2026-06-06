@@ -48,7 +48,7 @@ Add to your project's `.claude/settings.json`:
 
 | File | Description |
 |------|-------------|
-| `SKILL.md` | Data model (ToolCall, ToolDefinition, AgentTrace), all 6 evaluators, Java and Kotlin patterns, EvalTestCase conventions |
+| `SKILL.md` | Data model (ToolCall, ToolDefinition, AgentTrace), all 9 evaluators, Java and Kotlin patterns, EvalTestCase conventions |
 
 ## Usage
 
@@ -91,6 +91,10 @@ Agent evaluation is built into `dokimos-core` — no additional modules needed:
 This plugin lives in the Dokimos repository at `plugins/evaluate-agent/`.
 
 ## Version History
+
+### 0.2.0
+
+- Added three agent evaluators: trajectory, tool error, tool efficiency (nine total)
 
 ### 0.1.0
 

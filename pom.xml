@@ -40,6 +40,7 @@
         <module>dokimos-junit</module>
         <module>dokimos-langchain4j</module>
         <module>dokimos-spring-ai</module>
+        <module>dokimos-spring-ai-alibaba</module>
         <module>dokimos-koog</module>
         <module>dokimos-kotlin</module>
         <module>dokimos-server-client</module>
@@ -60,6 +61,7 @@
         <ktlint.version>1.5.0</ktlint.version>
         <!-- Matches the reactor-core managed by Spring Boot 3.5.10 (reactor-bom 2024.0.14). -->
         <reactor.version>3.7.15</reactor.version>
+        <embabel.version>0.4.0</embabel.version>
     </properties>
 
     <dependencyManagement>
@@ -155,6 +157,13 @@
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
                 <version>${reactor.version}</version>
+            </dependency>
+            <!-- Embabel agent API (provided scope in dokimos-embabel). Genuinely new to the repo,
+                 so the version is managed here; Spring AI / Alibaba stay module-local (house exception). -->
+            <dependency>
+                <groupId>com.embabel.agent</groupId>
+                <artifactId>embabel-agent-api</artifactId>
+                <version>${embabel.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -340,6 +349,17 @@
     </reporting>
 
     <profiles>
+        <!-- Embabel's published jars are compiled for Java 21, so the adapter only builds on JDK 21+.
+             Core and the other adapters keep the Java 17 baseline. -->
+        <profile>
+            <id>embabel</id>
+            <activation>
+                <jdk>[21,)</jdk>
+            </activation>
+            <modules>
+                <module>dokimos-embabel</module>
+            </modules>
+        </profile>
         <profile>
             <id>sign</id>
             <activation>

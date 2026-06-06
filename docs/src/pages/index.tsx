@@ -63,7 +63,7 @@ const AGENT_ONELINER =
 
 const PROOF_POINTS = [
   "Runs in JUnit and CI",
-  "Spring AI · LangChain4j · Koog",
+  "Framework agnostic",
   "MIT · Maven Central",
 ];
 
@@ -132,8 +132,8 @@ function HomepageHeader() {
           <p className={styles.heroSubtitle}>
             Evaluate responses and agent tool calls, track quality over time, and catch regressions
             before they ship. Runs in the JUnit suite and CI you already have, one dependency, no
-            new infrastructure. Framework agnostic, with one-line integrations for Spring AI,
-            LangChain4j, and Koog.
+            new infrastructure. Framework agnostic, with one-line integrations for Spring AI, Spring
+            AI Alibaba, LangChain4j, Koog, and Embabel.
           </p>
           <div className={styles.heroButtons}>
             <Link className="button button--primary button--lg" to="/overview">
@@ -190,8 +190,9 @@ function HumansPanel({ version }: { version: string }) {
           <CodeBlock code={pomCode(version)} language="markup" />
         </div>
         <p className={styles.infoNote}>
-          Pulls in <code>dokimos-core</code>. Gradle and the Spring AI, LangChain4j, and Koog
-          modules are in the <Link to="/getting-started/installation">install guide</Link>.
+          Pulls in <code>dokimos-core</code>. Gradle and the framework integration modules (Spring
+          AI, Spring AI Alibaba, LangChain4j, Koog, Embabel) are in the{" "}
+          <Link to="/getting-started/installation">install guide</Link>.
         </p>
       </div>
       <div className={styles.infoCard}>
@@ -320,7 +321,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, catch regressions in JUnit and CI, and integrate with Spring AI, LangChain4j, and Koog."
+      description="The LLM evaluation framework for Java and Kotlin. Evaluate responses and agent tool calls, catch regressions in JUnit and CI, and integrate with Spring AI, Spring AI Alibaba, LangChain4j, Koog, and Embabel."
     >
       <HomepageHeader />
       <main>

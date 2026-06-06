@@ -26,7 +26,7 @@
 
 Dokimos is an evaluation framework for LLM applications in Java and Kotlin. It helps you evaluate responses, track quality over time, and catch regressions before they reach production.
 
-It integrates with **JUnit**, **LangChain4j**, **Spring AI** and **Koog** so you can run evaluations as part of your existing test suite and CI/CD pipeline. It evaluates both LLM responses and agent behavior, including tool calls and execution traces.
+It integrates with **JUnit**, **LangChain4j**, **Spring AI**, **Spring AI Alibaba**, **Koog**, and **Embabel** so you can run evaluations as part of your existing test suite and CI/CD pipeline. It evaluates both LLM responses and agent behavior, including tool calls and execution traces.
 
 ## Why Dokimos?
 
@@ -240,7 +240,9 @@ Build custom evaluators by extending `BaseEvaluator`, or use `LLMJudgeEvaluator`
 | `dokimos-junit`         | JUnit integration with `@DatasetSource` for parameterized tests      |
 | `dokimos-langchain4j`   | LangChain4j support for evaluating RAG systems and agents            |
 | `dokimos-spring-ai`     | Spring AI integration using `ChatClient` and `ChatModel` as judges   |
+| `dokimos-spring-ai-alibaba` | Spring AI Alibaba graph-agent integration: capture a run as a trace |
 | `dokimos-koog`          | Koog integration using `AIAgent` as judge.                           |
+| `dokimos-embabel`       | Embabel agent integration: capture a run as a trace (Java 21+)       |
 | `dokimos-server`        | Optional API and web UI for tracking experiments over time           |
 | `dokimos-server-client` | Client library for reporting to the Dokimos server                   |
 | `dokimos-mcp-server`    | MCP server exposing evaluation tools to any MCP client               |
@@ -282,10 +284,24 @@ Add the modules you need (check [Maven Central](https://central.sonatype.com/art
         <version>${dokimos.version}</version>
     </dependency>
 
+    <!-- Spring AI Alibaba integration -->
+    <dependency>
+        <groupId>dev.dokimos</groupId>
+        <artifactId>dokimos-spring-ai-alibaba</artifactId>
+        <version>${dokimos.version}</version>
+    </dependency>
+
     <!-- Koog integration -->
     <dependency>
         <groupId>dev.dokimos</groupId>
         <artifactId>dokimos-koog</artifactId>
+        <version>${dokimos.version}</version>
+    </dependency>
+
+    <!-- Embabel integration (requires Java 21) -->
+    <dependency>
+        <groupId>dev.dokimos</groupId>
+        <artifactId>dokimos-embabel</artifactId>
         <version>${dokimos.version}</version>
     </dependency>
 
@@ -308,7 +324,9 @@ dependencies {
     testImplementation 'dev.dokimos:dokimos-junit:$dokimosVersion'
     implementation 'dev.dokimos:dokimos-langchain4j:$dokimosVersion'
     implementation 'dev.dokimos:dokimos-spring-ai:$dokimosVersion'
+    implementation 'dev.dokimos:dokimos-spring-ai-alibaba:$dokimosVersion'
     implementation 'dev.dokimos:dokimos-koog:$dokimosVersion'
+    implementation 'dev.dokimos:dokimos-embabel:$dokimosVersion' // requires Java 21
     implementation 'dev.dokimos:dokimos-kotlin:$dokimosVersion'
 }
 ```
@@ -483,6 +501,14 @@ val result = experiment {
 
 println("Pass rate: ${result.passRate()}")
 ```
+
+### Spring AI Alibaba
+
+Capture a Spring AI Alibaba graph-agent run as an `AgentTrace` and score its tool calls. Targets the current 1.1.x line (`spring-ai-alibaba-agent-framework`). See the [Spring AI Alibaba integration guide](https://dokimos.dev/integrations/spring-ai-alibaba).
+
+### Embabel (Java 21+)
+
+Capture an Embabel agent run as an `AgentTrace` through an `AgenticEventListener`. Requires Java 21, since Embabel ships Java 21 bytecode. See the [Embabel integration guide](https://dokimos.dev/integrations/embabel).
 
 ## Experiment Server
 

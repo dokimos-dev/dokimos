@@ -1,0 +1,20 @@
+{
+  "name": "evaluate-spring-ai-alibaba",
+  "version": "0.1.0",
+  "description": "Set up evaluation of Spring AI Alibaba graph agents using Dokimos. Fold a graph run's OverAllState into an AgentTrace with SpringAiAlibabaSupport and score its tool calls with the agent evaluators.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/integrations/spring-ai-alibaba",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "spring-ai-alibaba",
+    "graph",
+    "agent",
+    "tool-call",
+    "llm-evaluation"
+  ]
+}

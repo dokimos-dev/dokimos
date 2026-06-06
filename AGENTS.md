@@ -4,7 +4,7 @@
 
 Dokimos is an LLM evaluation framework for Java and Kotlin. It provides tools for evaluating LLM application responses, tracking quality over time, catching regressions, and running evaluations as part of test suites and CI/CD pipelines.
 
-Current version: **0.13.0** | License: MIT | Published to Maven Central under `dev.dokimos`.
+Current version: **0.21.0-SNAPSHOT** (latest release: 0.20.0) | License: MIT | Published to Maven Central under `dev.dokimos`.
 
 ## Project Structure
 
@@ -16,7 +16,9 @@ dokimos/
 ├── dokimos-junit/          # JUnit 5/6 integration (@DatasetSource annotation)
 ├── dokimos-langchain4j/    # LangChain4j integration (RAG evaluators)
 ├── dokimos-spring-ai/      # Spring AI integration
+├── dokimos-spring-ai-alibaba/ # Spring AI Alibaba graph-agent integration
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)
+├── dokimos-embabel/        # Embabel agent integration (Java 21+, built via a JDK-21 profile)
 ├── dokimos-kotlin/         # Kotlin DSL for experiment builders
 ├── dokimos-server-client/  # HTTP client for the experiment server
 ├── dokimos-mcp-server/     # MCP server exposing evaluation tools over stdio to any MCP client
@@ -109,7 +111,7 @@ When working on the core framework, understand these central types in `dokimos-c
 - **`ToolCall`** — Record representing a single tool invocation (name, arguments, result, metadata). In `dev.dokimos.core.agents`.
 - **`ToolDefinition`** — Record describing a tool's contract (name, description, JSON schema). In `dev.dokimos.core.agents`.
 - **`AgentTrace`** — Wraps a complete agent execution trace. Use `toOutputMap()` to produce the map format evaluators expect. In `dev.dokimos.core.agents`.
-- **Agent evaluators** — Six evaluators in `dev.dokimos.core.evaluators.agents`: `ToolCallValidityEvaluator`, `ToolCorrectnessEvaluator`, `TaskCompletionEvaluator`, `ToolArgumentHallucinationEvaluator`, `ToolNameReliabilityEvaluator`, `ToolDescriptionReliabilityEvaluator`. Agent evaluators use custom `EvalTestCase` map keys (`"toolCalls"`, `"tools"`, `"tasks"`) and set `evaluationParams = List.of()` to skip standard key validation.
+- **Agent evaluators** — Nine evaluators in `dev.dokimos.core.evaluators.agents`: `ToolCallValidityEvaluator`, `ToolCorrectnessEvaluator`, `ToolTrajectoryEvaluator`, `ToolErrorEvaluator`, `ToolEfficiencyEvaluator`, `TaskCompletionEvaluator`, `ToolArgumentHallucinationEvaluator`, `ToolNameReliabilityEvaluator`, `ToolDescriptionReliabilityEvaluator`. Agent evaluators use custom `EvalTestCase` map keys (`"toolCalls"`, `"tools"`, `"tasks"`) and set `evaluationParams = List.of()` to skip standard key validation.
 
 ## Module-Specific Notes
 
@@ -145,7 +147,7 @@ When working on the core framework, understand these central types in `dokimos-c
 
 ## Dependencies
 
-- LangChain4j, Spring AI, and Koog are **provided-scope** dependencies — users bring their own version.
+- LangChain4j, Spring AI, Spring AI Alibaba, Koog, and Embabel are **provided-scope** dependencies — users bring their own version. Embabel ships Java 21 bytecode, so `dokimos-embabel` is built only on JDK 21+ (via an `embabel` profile in the parent POM).
 - All dependency versions are managed in the **parent POM** (`pom.xml` at repo root).
 - Do not add dependencies to individual module POMs without declaring them in the parent's `<dependencyManagement>`.
 

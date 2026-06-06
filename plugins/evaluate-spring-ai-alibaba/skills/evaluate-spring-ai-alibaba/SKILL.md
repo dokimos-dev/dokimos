@@ -58,7 +58,7 @@ A captured `ToolCall` keeps its arguments as a `Map` and its result as the strin
 </dependency>
 ```
 
-Spring AI Alibaba itself is a provided-scope dependency: the user brings their own version (`com.alibaba.cloud.ai:spring-ai-alibaba-graph-core`).
+Spring AI Alibaba itself is a provided-scope dependency: the user brings their own version (`com.alibaba.cloud.ai:spring-ai-alibaba-agent-framework`, the 1.1.x line).
 
 ## Steps
 

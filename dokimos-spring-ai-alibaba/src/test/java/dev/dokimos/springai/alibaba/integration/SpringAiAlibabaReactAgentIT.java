@@ -38,10 +38,6 @@ import org.springframework.ai.tool.support.ToolDefinitions;
  * exhaustively by the unit tests, which build deterministic states; this test does not assert a
  * specific tool was called, since whether a given model calls a tool on a given turn is not
  * deterministic.
- *
- * <p>At spring-ai-alibaba-graph-core {@code 1.0.0.2} only {@code ReactAgent}/{@code
- * ReactAgentWithHuman}/{@code ReflectAgent} exist; {@code SequentialAgent}/{@code ParallelAgent} are
- * unreleased (1.1.x).
  */
 @Tag("integration")
 class SpringAiAlibabaReactAgentIT {
@@ -77,7 +73,6 @@ class SpringAiAlibabaReactAgentIT {
                 .name("weather-assistant")
                 .chatClient(chatClient)
                 .tools(callbacks)
-                .maxIterations(5)
                 .build();
 
         String prompt = "Use the getWeather tool to look up the current weather in Paris, then tell me.";

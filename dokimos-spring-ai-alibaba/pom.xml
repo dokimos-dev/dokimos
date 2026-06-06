@@ -18,9 +18,10 @@
         <!-- Module-local, mirroring how dokimos-spring-ai keeps spring-ai.version local
              (house exception: provided SDK versions are not promoted to parent depMgmt). -->
         <spring-ai.version>1.1.6</spring-ai.version>
-        <!-- The self-contained 1.0.x line keeps ReactAgent in graph-core. The 1.1.x line relocated
-             the agent types to a separate artifact; the core fold is CI-tested against 1.1.2.3 too. -->
-        <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
+        <!-- Targets the current 1.1.x line. The SDK is not source-compatible across releases
+             (1.0.0.4 added a checked exception on CompiledGraph.invoke; 1.1.x relocated the agent
+             types and changed the ReactAgent builder), so we pin and track one supported version. -->
+        <spring-ai-alibaba.version>1.1.2.3</spring-ai-alibaba.version>
         <!-- Test-only live ChatModel for the integration test. -->
         <spring-ai-openai.version>1.1.5</spring-ai-openai.version>
     </properties>
@@ -49,10 +50,11 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Alibaba graph runtime (OverAllState, CompiledGraph, ReactAgent): provided. -->
+        <!-- Alibaba agent framework: ReactAgent and the agent types, plus the graph runtime
+             (OverAllState, CompiledGraph) transitively via graph-core. Provided. -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-graph-core</artifactId>
+            <artifactId>spring-ai-alibaba-agent-framework</artifactId>
             <version>${spring-ai-alibaba.version}</version>
             <scope>provided</scope>
         </dependency>

@@ -77,7 +77,6 @@ public class SpringAiAlibabaAgentEvalExample {
                 .name("weather-assistant")
                 .chatClient(chatClient)
                 .tools(callbacks)
-                .maxIterations(5)
                 .build();
 
         String userQuery = "What is the weather in Paris?";

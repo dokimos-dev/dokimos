@@ -17,7 +17,7 @@ This page shows you how to evaluate a [Spring AI Alibaba](https://github.com/ali
 
 ## Step 1: Add the dependency
 
-This module pulls `dokimos-core` and `dokimos-spring-ai`. You bring the Spring AI Alibaba SDK (`spring-ai-alibaba-graph-core:1.0.0.2`) yourself.
+This module pulls `dokimos-core` and `dokimos-spring-ai`. You bring the Spring AI Alibaba SDK (`spring-ai-alibaba-agent-framework`, the 1.1.x line) yourself.
 
 ### Maven
 

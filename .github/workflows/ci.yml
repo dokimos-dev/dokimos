@@ -145,12 +145,12 @@ jobs:
             property: koog.version
             version: '1.0.0'
             profiles: '-P!koog-live-it'
-          # spring-ai-alibaba is not source-compatible across patch releases: 1.0.0.4 deprecates
-          # CompiledGraph.invoke and adds a checked GraphRunnerException, and 1.1.x relocates the
-          # agent types out of graph-core. So we pin and test the one supported version.
+          # spring-ai-alibaba is not source-compatible across releases (1.0.0.4 added a checked
+          # exception on CompiledGraph.invoke; 1.1.x relocated the agent types and changed the
+          # ReactAgent builder), so we track the one supported version on the current 1.1.x line.
           - module: dokimos-spring-ai-alibaba
             property: spring-ai-alibaba.version
-            version: '1.0.0.2'
+            version: '1.1.2.3'
           # Embabel ships Java 21 bytecode, so the module builds only on JDK 21+ (the embabel
           # profile). This job already runs on JDK 21, so the profile is active and -pl resolves it.
           - module: dokimos-embabel

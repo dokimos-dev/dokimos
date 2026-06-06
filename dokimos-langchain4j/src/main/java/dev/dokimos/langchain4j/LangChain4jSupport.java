@@ -406,8 +406,20 @@ public final class LangChain4jSupport {
      * @return populated call metrics (any field may be null)
      */
     private static CallMetrics toCallMetrics(TokenUsage usage, long latencyMs, String modelId, PriceTable prices) {
-        Integer tokensIn = usage != null ? usage.inputTokenCount() : null;
-        Integer tokensOut = usage != null ? usage.outputTokenCount() : null;
+        Integer tokensIn = null;
+        Integer tokensOut = null;
+        if (usage != null) {
+            Integer in = usage.inputTokenCount();
+            Integer out = usage.outputTokenCount();
+            // Treat all-zero usage as "not measured" (null), mirroring the Spring AI and Embabel adapters,
+            // so a provider that reports TokenUsage(0, 0) does not show a false zero. LangChain4j usually
+            // returns a null TokenUsage when nothing is reported; this also guards the explicit-zero case.
+            boolean measured = !((in == null || in == 0) && (out == null || out == 0));
+            if (measured) {
+                tokensIn = in;
+                tokensOut = out;
+            }
+        }
         Double costUsd = (prices != null && modelId != null) ? prices.costUsd(modelId, tokensIn, tokensOut) : null;
         return new CallMetrics(tokensIn, tokensOut, costUsd, latencyMs);
     }

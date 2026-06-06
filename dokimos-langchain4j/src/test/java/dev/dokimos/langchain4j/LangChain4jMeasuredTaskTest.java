@@ -108,6 +108,24 @@ class LangChain4jMeasuredTaskTest {
     }
 
     @Test
+    void measuredTask_withAllZeroUsage_treatedAsNotMeasured() {
+        ChatModel model = modelReturning(ChatResponse.builder()
+                .aiMessage(AiMessage.from("hi"))
+                .tokenUsage(new TokenUsage(0, 0))
+                .build());
+
+        MeasuredTask task = LangChain4jSupport.measuredTask(model, "<test-model>", PRICES);
+        CallMetrics metrics = task.run(Example.of("q", "a")).metrics();
+
+        // An all-zero TokenUsage is a "not measured" sentinel, not a real zero — coalesce to null
+        // (matching the Spring AI and Embabel adapters) so the card stays dark, not a false 0.
+        assertThat(metrics.tokensIn()).isNull();
+        assertThat(metrics.tokensOut()).isNull();
+        assertThat(metrics.costUsd()).isNull();
+        assertThat(metrics.latencyMs()).isNotNull();
+    }
+
+    @Test
     void measuredTask_nullModel_throws() {
         assertThatThrownBy(() -> LangChain4jSupport.measuredTask(null, "<test-model>", PRICES))
                 .isInstanceOf(IllegalArgumentException.class);

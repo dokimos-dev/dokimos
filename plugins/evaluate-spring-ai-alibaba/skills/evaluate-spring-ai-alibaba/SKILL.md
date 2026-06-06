@@ -23,14 +23,14 @@ A Spring AI Alibaba graph run carries its whole conversation as standard Spring 
 - **`toAgentTrace(ReactAgent, Map<String,Object> inputs, RunnableConfig)`** — the one-liner: run the agent's compiled graph with full fidelity and fold.
 - **`toToolDefinitions(List<ToolCallback>)`** — map the tool callbacks the agent was built with to `ToolDefinition`s.
 
-Use `getCompiledGraph().invoke(...)`, not `call(...)`: the latter is lossy and drops intermediate tool calls.
+Use `getAndCompileGraph().invoke(...)`, not `call(...)`: the latter is lossy and drops intermediate tool calls.
 
 There is no `asJudge` or `asyncTask` here. Spring AI Alibaba runs on a standard Spring AI `ChatModel`, so use `SpringAiSupport.asJudge(...)` and `SpringAiSupport.asyncTask(...)` for those.
 
 ## Evaluation pattern
 
 ```java
-OverAllState state = agent.getCompiledGraph().invoke(inputs, config).orElseThrow();
+OverAllState state = agent.getAndCompileGraph().invoke(inputs, config).orElseThrow();
 AgentTrace trace = SpringAiAlibabaSupport.toAgentTrace(state);
 // or the one-liner:
 AgentTrace trace = SpringAiAlibabaSupport.toAgentTrace(agent, inputs, config);
@@ -63,7 +63,7 @@ Spring AI Alibaba itself is a provided-scope dependency: the user brings their o
 ## Steps
 
 1. Understand from `$ARGUMENTS` what the graph agent does and which tools it calls
-2. Run the agent through `getCompiledGraph().invoke(...)` and fold the state into an `AgentTrace`
+2. Run the agent through `getAndCompileGraph().invoke(...)` and fold the state into an `AgentTrace`
 3. Convert to an `EvalTestCase` with `trace.toTestCase(input, tools)`
 4. Score with the agent evaluators (prefer deterministic ones for CI)
 5. For the full agent evaluator set, use the `evaluate-agent` skill

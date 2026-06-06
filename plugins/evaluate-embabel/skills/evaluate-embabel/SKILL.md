@@ -32,10 +32,10 @@ The collector is single-run and not thread-safe. Reuse one instance only after c
 
 ```java
 EmbabelTraceCollector collector = new EmbabelTraceCollector();
-ProcessOptions options = EmbabelSupport.attach(ProcessOptions.builder().build(), collector);
+ProcessOptions options = EmbabelSupport.attach(new ProcessOptions(), collector);
 
 AgentInvocation<String> invocation =
-        AgentInvocation.builder(platform).options(options).build();
+        AgentInvocation.builder(platform).options(options).build(String.class);
 invocation.invoke(input);
 
 AgentTrace trace = collector.trace();

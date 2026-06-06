@@ -48,7 +48,7 @@ Add to your project's `.claude/settings.json`:
 
 | File | Description |
 |------|-------------|
-| `SKILL.md` | Data model (ToolCall, ToolDefinition, AgentTrace), all 6 evaluators, Java and Kotlin patterns, EvalTestCase conventions |
+| `SKILL.md` | Data model (ToolCall, ToolDefinition, AgentTrace), all 9 evaluators, Java and Kotlin patterns, EvalTestCase conventions |
 
 ## Usage
 

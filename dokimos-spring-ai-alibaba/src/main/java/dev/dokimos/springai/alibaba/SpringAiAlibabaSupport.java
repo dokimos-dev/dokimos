@@ -249,7 +249,10 @@ public final class SpringAiAlibabaSupport {
      * counts you obtain from your own Alibaba setup (a usage callback on the underlying
      * {@code ChatModel}, the {@code AssistantMessage} metadata, etc.). Leave
      * {@link #tokensIn()}/{@link #tokensOut()} null when you have no counts: latency is still captured
-     * automatically and the Cost/Tokens cards simply stay dark.
+     * automatically and the Cost/Tokens cards simply stay dark. Counts you do supply are taken at face
+     * value — an explicit {@code 0} is recorded as zero, not coalesced to null the way the
+     * framework-reading adapters (LangChain4j, Spring AI, Embabel) treat an all-zero usage sentinel,
+     * since here the caller owns the values.
      *
      * @param text      the agent's output text, or null (stored as an empty string)
      * @param tokensIn  prompt tokens, or null if not available

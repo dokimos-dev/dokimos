@@ -15,9 +15,10 @@ It is an open-source evaluation framework. It works with Spring AI, Spring AI Al
 1. Build and manage datasets in code, from files, or with custom sources
 2. Run experiments with built-in evaluators, or your own custom evaluators
 3. Evaluate AI agents, including their tool calls and execution traces
-4. Work with typed, structured data end to end, from task output to evaluator
-5. Run evals in a test-driven way with JUnit parameterized tests
-6. Track experiment results over time with an optional server and web UI
+4. Capture per-call cost, tokens, and latency and roll them up per run
+5. Work with typed, structured data end to end, from task output to evaluator
+6. Run evals in a test-driven way with JUnit parameterized tests
+7. Track experiment results over time with an optional server and web UI
 
 Dokimos is framework agnostic. The core depends on no AI framework, so it works with any LLM client, or none at all. The Spring AI, Spring AI Alibaba, LangChain4j, Koog, and Embabel modules are thin, optional bridges that capture a run in one line. You never need them to use Dokimos.
 

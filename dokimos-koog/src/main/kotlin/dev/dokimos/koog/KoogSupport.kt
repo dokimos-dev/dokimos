@@ -117,6 +117,9 @@ fun asTextTask(scope: CoroutineScope = GlobalScope, agentCall: suspend (String) 
  * is still evolving, so this carrier lets you supply the counts you obtain from your own agent setup
  * (a token-usage callback, the prompt executor, etc.). Leave [tokensIn]/[tokensOut] null when you have
  * no counts: latency is still captured automatically and the Cost/Tokens cards simply stay dark.
+ * Counts you do supply are taken at face value — an explicit `0` is recorded as zero, not coalesced to
+ * null the way the framework-reading adapters (LangChain4j, Spring AI, Embabel) treat an all-zero usage
+ * sentinel, since here the caller owns the values.
  *
  * @property text the model output text
  * @property tokensIn prompt tokens, or null if not available

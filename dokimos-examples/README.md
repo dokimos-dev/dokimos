@@ -197,6 +197,28 @@ Runs a Spring AI Alibaba `ReactAgent` over a tool, captures the whole run as an 
 
 > The Embabel adapter has an integration test rather than a runnable example here, because Embabel requires Java 21 while this examples module targets the Java 17 baseline. See the [Embabel integration guide](https://dokimos.dev/integrations/embabel).
 
+### 10. Cost, Token, and Latency Metrics
+
+**Location**: `dev.dokimos.examples.langchain4j.CostMetricsExample`
+
+Lights up the run-detail Total Tokens, Total Cost, and Avg Latency cards end to end:
+
+- Switches a plain `.task(...)` to `.measuredTask(...)` so `CallMetrics` flow through to the server
+- Reads token usage and times the call via `LangChain4jSupport.measuredTask(...)`
+- Composes cost from a copyable, **illustrative** `PriceTable` reference map (you pin your own rates)
+- Reports to a running Dokimos server
+
+**Prerequisites**: a running server (`cd dokimos-server && docker-compose up`) and `OPENAI_API_KEY`.
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.langchain4j.CostMetricsExample"
+```
+
+See the [Cost and Pricing](https://dokimos.dev/docs/evaluation/cost-and-pricing) guide for the `PriceTable` seam and the partial-coverage signal.
+
 ## Building the Examples
 
 Build all examples:

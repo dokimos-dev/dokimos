@@ -268,7 +268,26 @@ See [Agent Evaluation](../evaluation/agent-evaluation) for the full set of agent
 
 ## Judges and async tasks
 
-This module deliberately does not add `asJudge` or `asyncTask`. Spring AI Alibaba agents run on a standard Spring AI `ChatModel` or `ChatClient`, so use `SpringAiSupport.asJudge(...)` and `SpringAiSupport.asyncTask(...)` from the [Spring AI integration](./spring-ai) directly.
+For judging and plain async execution, this module does not add its own `asJudge` or `asyncTask`. Spring AI Alibaba agents run on a standard Spring AI `ChatModel` or `ChatClient`, so use `SpringAiSupport.asJudge(...)` and `SpringAiSupport.asyncTask(...)` from the [Spring AI integration](./spring-ai) directly.
+
+## Cost, tokens, and latency
+
+For metrics capture, the module **does** add `SpringAiAlibabaSupport.measuredAsyncTask(...)`. The `ReactAgent` graph path returns a bare `AssistantMessage` with no typed `Usage`, so you supply the token counts via an `AlibabaAgentResponse` carrier (`AlibabaAgentResponse.of(text)` for text-only, or with `tokensIn`/`tokensOut` when you have them). Latency is timed automatically and cost is composed from an optional `PriceTable`:
+
+```java
+PriceTable prices = (model, in, out) -> /* your price map */ null;
+
+AsyncTask task = SpringAiAlibabaSupport.measuredAsyncTask(
+        example -> {
+            String answer = runYourAgent(example.input());          // your ReactAgent call -> text
+            // supply token counts from your usage source, or AlibabaAgentResponse.of(answer) for latency-only
+            return new AlibabaAgentResponse(answer, promptTokens, completionTokens);
+        },
+        "your-model",
+        prices);
+```
+
+See [Cost and Pricing](../evaluation/cost-and-pricing) for the `PriceTable` seam and the run-detail metric cards.
 
 ## Coopetition note
 

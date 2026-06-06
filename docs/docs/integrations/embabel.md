@@ -268,6 +268,16 @@ Beyond `trace()`, the collector exposes the raw observations. Use these to debug
 - `collector.observedToolNames()` returns the distinct tool names seen, in order.
 - `collector.trace()` assembles the full `AgentTrace`.
 
+## Cost, tokens, and latency
+
+The same collector captures metrics. After the run, call `collector.callMetrics(model, priceTable)` to get a `CallMetrics` (`tokensIn`, `tokensOut`, `costUsd`, `latencyMs` — any may be null), or `collector.callMetrics()` for tokens and latency only. Feed it into a `MeasuredTask`'s `TaskResult` so the run detail shows Total Tokens, Total Cost, and Avg Latency.
+
+```java
+CallMetrics metrics = collector.callMetrics("your-model", priceTable);
+```
+
+Embabel reports its own cost on the completed agent process, so cost precedence here differs from the other adapters: Embabel's own non-zero `totalCost()` wins, and the `PriceTable` is consulted only when Embabel reported `$0` and a model id is supplied. All-zero token usage is treated as "not measured" (null), and `callMetrics()` returns `null` when nothing was captured. See [Cost and Pricing](../evaluation/cost-and-pricing) for the pricing seam.
+
 ## Limitations
 
 Two limitations follow from how Embabel reports events. Keep them in mind when you pick evaluators.

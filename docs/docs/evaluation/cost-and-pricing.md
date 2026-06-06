@@ -20,13 +20,19 @@ In a builder, the switch is one method:
 .measuredTask(measuredTask)
 ```
 
-The full `MeasuredTask` / `CallMetrics` API is documented under [Recording tokens, cost, and latency](./experiments.md#recording-tokens-cost-and-latency). Each framework adapter wires this up for you:
+The full `MeasuredTask` / `CallMetrics` API is documented under [Recording tokens, cost, and latency](./experiments.md#recording-tokens-cost-and-latency). All five framework adapters wire this up:
 
-- **LangChain4j** — `LangChain4jSupport.measuredTask(model, modelId, priceTable)`
-- **Spring AI** — `measuredAsyncTask(...)`
-- **Koog** — `measuredTextTask(...)`
+- **LangChain4j** — `LangChain4jSupport.measuredTask(model, modelId, priceTable)` (and `measuredRagTask(...)`). Reads `TokenUsage` from the response.
+- **Spring AI** — `SpringAiSupport.measuredAsyncTask(client, modelId, priceTable)`. Reads `Usage` from the `ChatResponse`.
+- **Spring AI Alibaba** — `SpringAiAlibabaSupport.measuredAsyncTask(...)`. The `ReactAgent` graph path returns no typed usage, so you supply token counts via an `AlibabaAgentResponse` carrier; latency and cost are still captured.
+- **Koog** — `measuredTextTask(...)`. You supply token counts via a `KoogResponse` carrier; latency and cost are captured automatically.
+- **Embabel** — `EmbabelTraceCollector.callMetrics(model, priceTable)`. Reads token usage, cost, and running time off the completed agent process (see the precedence note below).
 
-Each adapter reads the response token usage, times the call, and composes the cost via a supplied `PriceTable`, emitting a `CallMetrics`.
+Where the framework exposes token usage on the response (LangChain4j, Spring AI), the adapter extracts it for you; where it does not surface usage on the call path (Spring AI Alibaba, Koog), you pass the counts you have. In every case latency is timed automatically and cost is composed from a supplied `PriceTable` (null when none is given).
+
+### Embabel: framework cost takes precedence
+
+Embabel reports its own cost on the completed agent process, so it is the one adapter where the `PriceTable` is a fallback rather than the sole cost source. `EmbabelTraceCollector.callMetrics(model, priceTable)` uses Embabel's own non-zero `totalCost()` when present, and consults the `PriceTable` only when Embabel reported `$0` and a model id is supplied.
 
 ## The PriceTable seam
 
@@ -81,8 +87,17 @@ The denominator is **tokenized** items, not all items:
 - An item with **tokens but no cost** is one your `PriceTable` could not price (unknown model). It counts against coverage — this is exactly the gap the signal reports.
 - An item with **no tokens at all** was never measured (a plain `.task`). It counts toward neither number — you cannot price what was never measured.
 
-This is surfaced as two nullable computed fields, `pricedItemCount` and `tokenizedItemCount`, on both `RunDetails` and `RunSummary`. There is **no new database column and no migration** — the counts are computed at read time from two indexed `COUNT` queries. For an in-progress run they accrue live alongside the totals; for a completed run the totals come from the run's materialized columns while the coverage counts are still computed live from the run's (now immutable) item rows.
+This is surfaced as two nullable computed fields, `pricedItemCount` and `tokenizedItemCount`, on `RunDetails` (the run-detail view) only. The run list (`RunSummary`) deliberately carries no coverage signal, so listing runs adds no per-run queries. There is **no new database column and no migration** — the counts are computed at read time from two indexed `COUNT` queries. For an in-progress run they accrue live alongside the totals; for a completed run the totals come from the run's materialized columns while the coverage counts are still computed live from the run's (now immutable) item rows.
 
 :::note
-The two TypeScript fields (`pricedItemCount`, `tokenizedItemCount`) in the frontend's generated API types are produced by orval from the server's OpenAPI spec. Regenerating with orval is the canonical path; any interim hand-edit is reconciled on the next regen.
+The two TypeScript fields (`pricedItemCount`, `tokenizedItemCount`) in the frontend's generated API types are produced by orval from the server's OpenAPI spec, on the `RunDetails` type only. Regenerating with orval is the canonical path.
 :::
+
+## Not yet covered
+
+A few things are intentionally out of scope for now, mostly because no adapter framework surfaces them uniformly:
+
+- **Cached / prompt-cached input tokens.** `CallMetrics` and `PriceTable` model only `tokensIn`/`tokensOut`; cached-token discounts are not represented.
+- **Reasoning tokens.** Reasoning/thinking tokens are not split out from the output count.
+- **Non-USD currency.** `PriceTable` returns a single USD `Double`; there is no currency conversion (the stored column is `cost_usd`).
+- **The zero-priced run in the UI.** When *every* tokenized item is unpriced, the run has no cost total, so the Total Cost card — and with it the "N/M items priced" subtitle — does not render. The Total Tokens card still shows the run was measured; the partial-coverage signal is for runs that are *partly* priced.

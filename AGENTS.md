@@ -16,7 +16,9 @@ dokimos/
 ├── dokimos-junit/          # JUnit 5/6 integration (@DatasetSource annotation)
 ├── dokimos-langchain4j/    # LangChain4j integration (RAG evaluators)
 ├── dokimos-spring-ai/      # Spring AI integration
+├── dokimos-spring-ai-alibaba/ # Spring AI Alibaba graph-agent integration
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)
+├── dokimos-embabel/        # Embabel agent integration (Java 21+, built via a JDK-21 profile)
 ├── dokimos-kotlin/         # Kotlin DSL for experiment builders
 ├── dokimos-server-client/  # HTTP client for the experiment server
 ├── dokimos-mcp-server/     # MCP server exposing evaluation tools over stdio to any MCP client
@@ -145,7 +147,7 @@ When working on the core framework, understand these central types in `dokimos-c
 
 ## Dependencies
 
-- LangChain4j, Spring AI, and Koog are **provided-scope** dependencies — users bring their own version.
+- LangChain4j, Spring AI, Spring AI Alibaba, Koog, and Embabel are **provided-scope** dependencies — users bring their own version. Embabel ships Java 21 bytecode, so `dokimos-embabel` is built only on JDK 21+ (via an `embabel` profile in the parent POM).
 - All dependency versions are managed in the **parent POM** (`pom.xml` at repo root).
 - Do not add dependencies to individual module POMs without declaring them in the parent's `<dependencyManagement>`.
 

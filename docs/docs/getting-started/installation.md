@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 This page shows you how to add Dokimos to a Java or Kotlin project so you can start writing evaluations.
 
-You only need one dependency to start: `dokimos-core`. Kotlin users add a second one for the DSL. Integrations (JUnit, LangChain4j, Spring AI, Koog) are extra dependencies you add when you want them.
+You only need one dependency to start: `dokimos-core`. Kotlin users add a second one for the DSL. Integrations (JUnit, LangChain4j, Spring AI, Spring AI Alibaba, Koog, Embabel) are extra dependencies you add when you want them.
 
 ## Step 1: Add the core dependency
 
@@ -62,12 +62,14 @@ Replace `${dokimos.version}` (or `${dokimosVersion}`) with the latest release. D
 
 Dokimos ships separate dependencies for the tools you already use. Add one only when you need it.
 
-| Integration | Artifact | Docs |
-| --- | --- | --- |
-| JUnit 5 / 6 | `dokimos-junit` | [JUnit Integration](../integrations/junit) |
-| LangChain4j | `dokimos-langchain4j` | [LangChain4j Integration](../integrations/langchain4j) |
-| Spring AI | `dokimos-spring-ai` | [Spring AI Integration](../integrations/spring-ai) |
-| Koog | `dokimos-koog` | [Koog Integration](../integrations/koog) |
+| Integration        | Artifact                    | Docs                                                               |
+| ------------------ | --------------------------- | ------------------------------------------------------------------ |
+| JUnit 5 / 6        | `dokimos-junit`             | [JUnit Integration](../integrations/junit)                         |
+| LangChain4j        | `dokimos-langchain4j`       | [LangChain4j Integration](../integrations/langchain4j)             |
+| Spring AI          | `dokimos-spring-ai`         | [Spring AI Integration](../integrations/spring-ai)                 |
+| Spring AI Alibaba  | `dokimos-spring-ai-alibaba` | [Spring AI Alibaba Integration](../integrations/spring-ai-alibaba) |
+| Koog               | `dokimos-koog`              | [Koog Integration](../integrations/koog)                           |
+| Embabel (Java 21+) | `dokimos-embabel`           | [Embabel Integration](../integrations/embabel)                     |
 
 Each integration page lists its exact dependency block. For example, to run evaluations as JUnit tests:
 
@@ -98,4 +100,4 @@ You are set up. Now write your first evaluation:
 
 - [Your first evaluation](./evaluation) covers the core concepts: datasets, evaluators, tasks, and experiments.
 - [JUnit Integration](../integrations/junit) walks through evaluating LLM output in a test.
-- Read the integration page that matches your stack: [LangChain4j](../integrations/langchain4j), [Spring AI](../integrations/spring-ai), or [Koog](../integrations/koog).
+- Read the integration page that matches your stack: [LangChain4j](../integrations/langchain4j), [Spring AI](../integrations/spring-ai), [Spring AI Alibaba](../integrations/spring-ai-alibaba), [Koog](../integrations/koog), or [Embabel](../integrations/embabel).

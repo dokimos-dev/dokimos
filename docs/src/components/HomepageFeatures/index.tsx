@@ -35,7 +35,7 @@ const FeatureList: FeatureItem[] = [
     description: (
       <>
         The core depends on no AI framework, so it works with any LLM client. Optional one-line
-        integrations cover Spring AI, LangChain4j, Koog, and JUnit.
+        integrations cover Spring AI, Spring AI Alibaba, LangChain4j, Koog, Embabel, and JUnit.
       </>
     ),
   },

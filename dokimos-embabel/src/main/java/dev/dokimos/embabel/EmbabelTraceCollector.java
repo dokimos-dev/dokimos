@@ -5,8 +5,12 @@ import com.embabel.agent.api.event.AgentProcessEvent;
 import com.embabel.agent.api.event.AgenticEventListener;
 import com.embabel.agent.api.event.ToolCallRequestEvent;
 import com.embabel.agent.api.event.ToolCallResponseEvent;
+import com.embabel.agent.core.AgentProcess;
+import com.embabel.agent.core.Usage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.dokimos.core.CallMetrics;
+import dev.dokimos.core.PriceTable;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import java.lang.reflect.Method;
@@ -60,6 +64,13 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
     private final Set<String> observedToolNames = new LinkedHashSet<>();
     private String finalResponse;
 
+    // Token usage, Embabel's own computed cost, and total LLM latency, snapshotted off the completed
+    // process. All null until a completion event with a readable AgentProcess is seen.
+    private Integer tokensIn;
+    private Integer tokensOut;
+    private Double costUsd;
+    private Long latencyMs;
+
     /**
      * Creates a fresh collector with no captured events.
      */
@@ -81,6 +92,64 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
         } else if (event instanceof AgentProcessCompletedEvent completed) {
             Object result = completed.getResult();
             finalResponse = result != null ? String.valueOf(result) : null;
+            captureMetrics(completed.getAgentProcess());
+        }
+    }
+
+    /**
+     * Snapshots token usage, cost, and total LLM latency off the completed {@link AgentProcess}.
+     *
+     * <p>Unlike tool calls, Embabel exposes these only as an aggregate on the process: it accumulates
+     * an {@code LlmInvocation} per model call (each carrying a {@link Usage} and a running time) and
+     * sums them via {@code AgentProcess.totalUsage()}, {@code totalCost()}, and the per-invocation
+     * {@code getRunningTime()}. We read them once, at completion, when they are final. Embabel computes
+     * the cost itself from its own pricing model; a {@link PriceTable} is consulted only as a fallback
+     * (see {@link #callMetrics(String, PriceTable)}). Never throws; any unreadable field stays null.
+     */
+    private void captureMetrics(AgentProcess process) {
+        if (process == null) {
+            return;
+        }
+        try {
+            Usage usage = process.totalUsage();
+            if (usage != null) {
+                Integer prompt = usage.getPromptTokens();
+                Integer completion = usage.getCompletionTokens();
+                // Embabel reports 0/0 when no provider usage was recorded; treat all-zero as "not
+                // measured" (null) so the card stays dark rather than showing a false 0. A real call
+                // always has prompt tokens > 0, so this only nulls out the sentinel, not genuine counts.
+                boolean measured = !((prompt == null || prompt == 0) && (completion == null || completion == 0));
+                if (measured) {
+                    tokensIn = prompt;
+                    tokensOut = completion;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // never throw out of the collector
+        }
+        try {
+            double cost = process.totalCost();
+            // Embabel returns 0.0 when no priced model ran; treat that as "no cost measured" (null) so
+            // the card stays dark rather than asserting a real $0.00.
+            costUsd = cost > 0.0 ? cost : null;
+        } catch (RuntimeException ignored) {
+            // never throw out of the collector
+        }
+        try {
+            long sum = 0L;
+            boolean any = false;
+            for (var invocation : process.getLlmInvocations()) {
+                Duration running = invocation.getRunningTime();
+                if (running != null) {
+                    sum += running.toMillis();
+                    any = true;
+                }
+            }
+            if (any) {
+                latencyMs = sum;
+            }
+        } catch (RuntimeException ignored) {
+            // never throw out of the collector
         }
     }
 
@@ -162,6 +231,50 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
     }
 
     /**
+     * Returns the {@link CallMetrics} captured from the completed run, with no price fallback.
+     *
+     * <p>Equivalent to {@link #callMetrics(String, PriceTable) callMetrics(null, null)}: token counts
+     * and latency come from the completed {@link AgentProcess}, and cost is Embabel's own
+     * {@code totalCost()} (null when Embabel reported $0). Returns null until a completion event with a
+     * readable process has been seen.
+     *
+     * @return the captured call metrics, or null if no completion event was observed
+     */
+    public CallMetrics callMetrics() {
+        return callMetrics(null, null);
+    }
+
+    /**
+     * Returns the {@link CallMetrics} captured from the completed run, lighting up the run's metrics
+     * cards.
+     *
+     * <p>Counterpart to the Spring AI {@code measuredAsyncTask} family: Embabel reports token usage
+     * and a computed cost as an aggregate on the {@link AgentProcess}, snapshotted at completion. The
+     * token fields and Embabel's own {@code totalCost()} are used as-is. The {@code model}/{@code prices}
+     * arguments are an optional fallback: when Embabel reported no cost (its pricing model didn't know
+     * the model) but a {@link PriceTable} and model id are supplied, cost is recomputed via
+     * {@code prices.costUsd(model, tokensIn, tokensOut)} so a known model still lights the Cost card.
+     * Embabel's own non-zero cost always wins. Any field stays null when not measured; never throws.
+     *
+     * <p>Returns null until a completion event with a readable process has been seen, so a run that
+     * failed or was never executed yields no metrics rather than a fabricated zero.
+     *
+     * @param model  the model id used as the {@link PriceTable} fallback lookup key, or null to skip it
+     * @param prices the price lookup consulted only when Embabel reported no cost, or null to skip it
+     * @return the captured call metrics, or null if no completion event was observed
+     */
+    public CallMetrics callMetrics(String model, PriceTable prices) {
+        if (tokensIn == null && tokensOut == null && costUsd == null && latencyMs == null) {
+            return null;
+        }
+        Double resolvedCost = costUsd;
+        if (resolvedCost == null && prices != null && model != null) {
+            resolvedCost = prices.costUsd(model, tokensIn, tokensOut);
+        }
+        return new CallMetrics(tokensIn, tokensOut, resolvedCost, latencyMs);
+    }
+
+    /**
      * Clears all captured state so this collector can observe a fresh run.
      *
      * <p>Call between runs when reusing one collector instance to prevent tool calls from a prior
@@ -171,6 +284,10 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
         toolCalls.clear();
         observedToolNames.clear();
         finalResponse = null;
+        tokensIn = null;
+        tokensOut = null;
+        costUsd = null;
+        latencyMs = null;
     }
 
     /**

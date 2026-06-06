@@ -92,6 +92,10 @@ This plugin lives in the Dokimos repository at `plugins/evaluate-agent/`.
 
 ## Version History
 
+### 0.2.0
+
+- Added three agent evaluators: trajectory, tool error, tool efficiency (nine total)
+
 ### 0.1.0
 
 - Initial release

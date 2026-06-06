@@ -110,9 +110,12 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
         if (process == null) {
             return;
         }
+        // totalUsage() and totalCost() were added to AgentProcess after the floor Embabel version
+        // (0.3.5), so call them reflectively: the adapter still compiles against older provided-scope
+        // versions and simply records no usage/cost there. getLlmInvocations()/getRunningTime() exist
+        // across the supported range and are called directly below.
         try {
-            Usage usage = process.totalUsage();
-            if (usage != null) {
+            if (invokeNoArg(process, "totalUsage") instanceof Usage usage) {
                 Integer prompt = usage.getPromptTokens();
                 Integer completion = usage.getCompletionTokens();
                 // Embabel reports 0/0 when no provider usage was recorded; treat all-zero as "not
@@ -127,13 +130,10 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
         } catch (RuntimeException ignored) {
             // never throw out of the collector
         }
-        try {
-            double cost = process.totalCost();
-            // Embabel returns 0.0 when no priced model ran; treat that as "no cost measured" (null) so
-            // the card stays dark rather than asserting a real $0.00.
-            costUsd = cost > 0.0 ? cost : null;
-        } catch (RuntimeException ignored) {
-            // never throw out of the collector
+        // Embabel returns 0.0 (and older versions expose no method at all) when no priced model ran;
+        // treat a non-positive or absent cost as "no cost measured" (null) rather than a real $0.00.
+        if (invokeNoArg(process, "totalCost") instanceof Number cost && cost.doubleValue() > 0.0) {
+            costUsd = cost.doubleValue();
         }
         try {
             long sum = 0L;
@@ -150,6 +150,21 @@ public final class EmbabelTraceCollector implements AgenticEventListener {
             }
         } catch (RuntimeException ignored) {
             // never throw out of the collector
+        }
+    }
+
+    /**
+     * Invokes a public no-arg method by name, returning {@code null} if the method is absent (an
+     * Embabel version that predates it) or the call fails. Lets the collector use the newer
+     * {@code totalUsage()}/{@code totalCost()} accessors while still compiling against — and degrading
+     * gracefully on — the oldest supported Embabel.
+     */
+    private static Object invokeNoArg(Object target, String method) {
+        try {
+            Method m = target.getClass().getMethod(method);
+            return m.invoke(target);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
         }
     }
 

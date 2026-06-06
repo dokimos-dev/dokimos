@@ -51,4 +51,44 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <!--
+          The cost/latency metrics test stubs AgentProcess.totalUsage()/totalCost(), which only exist
+          on Embabel versions after the 0.3.5 floor. It lives in src/it/java and is compiled in normal
+          builds (and the JDK 21/25 matrix, which pins the current Embabel), but is excluded from the
+          adapter-compat 0.3.5 row, which runs with -P!embabel-metrics-it so the matrix can sweep
+          versions whose AgentProcess predates those accessors. The adapter's main code calls them
+          reflectively and degrades to null, so it stays source-compatible across the range.
+        -->
+        <profile>
+            <id>embabel-metrics-it</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-metrics-it-source</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>${project.basedir}/src/it/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

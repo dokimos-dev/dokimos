@@ -156,6 +156,9 @@ jobs:
           - module: dokimos-embabel
             property: embabel.version
             version: '0.3.5'
+            # 0.3.5 predates AgentProcess.totalUsage()/totalCost(); the adapter main calls them
+            # reflectively, but the metrics test stubs them, so exclude that src/it test here.
+            profiles: '-P!embabel-metrics-it'
           - module: dokimos-embabel
             property: embabel.version
             version: '0.4.0'

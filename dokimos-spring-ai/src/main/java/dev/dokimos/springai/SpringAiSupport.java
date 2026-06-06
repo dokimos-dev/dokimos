@@ -3,9 +3,11 @@ package dev.dokimos.springai;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.dokimos.core.AsyncTask;
+import dev.dokimos.core.CallMetrics;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.PriceTable;
 import dev.dokimos.core.TaskResult;
 import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
@@ -21,7 +23,9 @@ import java.util.function.Supplier;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.evaluation.EvaluationRequest;
 import org.springframework.ai.evaluation.EvaluationResponse;
@@ -396,6 +400,134 @@ public final class SpringAiSupport {
                 .map(output -> TaskResult.of(Map.of(OUTPUT_KEY, output != null ? output : "")))
                 .defaultIfEmpty(TaskResult.of(Map.of(OUTPUT_KEY, "")))
                 .toFuture();
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} that calls a Spring AI {@link ChatClient} and captures token
+     * usage, latency, and (when a {@link PriceTable} is supplied) cost, lighting up the run's metrics
+     * cards.
+     *
+     * <p>Counterpart to {@link #asyncTask(ChatClient)}: instead of reading only {@code .call().content()},
+     * it reads {@code .call().chatResponse()} so the {@link org.springframework.ai.chat.metadata.Usage}
+     * (prompt/completion tokens) is available, times the call, and composes cost via {@code prices}. The
+     * blocking call runs on the common {@link java.util.concurrent.ForkJoinPool}; for isolated, true
+     * concurrency use {@link #measuredAsyncTask(ChatClient, String, PriceTable, Executor)} with a pool you
+     * size to the experiment's {@code parallelism} (the common pool's ceiling is ~CPU-count, process-wide).
+     *
+     * <p>Missing usage leaves the token fields null; a null {@code prices} (or a null lookup result)
+     * leaves cost null so only the Tokens and Latency cards light. Never throws on missing metrics.
+     *
+     * @param client  the ChatClient to call, never null
+     * @param modelId the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices  the price lookup, or null to capture tokens and latency only
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client} is null
+     */
+    public static AsyncTask measuredAsyncTask(ChatClient client, String modelId, PriceTable prices) {
+        return measuredAsyncTask(client, INPUT_KEY, OUTPUT_KEY, modelId, prices, null);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} that dispatches each blocking call on the supplied
+     * {@link Executor} so you control and isolate concurrency.
+     *
+     * @param client   the ChatClient to call, never null
+     * @param modelId  the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices   the price lookup, or null to capture tokens and latency only
+     * @param executor the executor each blocking call runs on, never null
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client} or {@code executor} is null
+     */
+    public static AsyncTask measuredAsyncTask(ChatClient client, String modelId, PriceTable prices, Executor executor) {
+        if (executor == null) {
+            throw new IllegalArgumentException("executor cannot be null");
+        }
+        return measuredAsyncTask(client, INPUT_KEY, OUTPUT_KEY, modelId, prices, executor);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} with caller-chosen input and output keys, dispatching each
+     * blocking call on the supplied {@link Executor} (or the common
+     * {@link java.util.concurrent.ForkJoinPool} when {@code executor} is {@code null}).
+     *
+     * @param client    the ChatClient to call, never null
+     * @param inputKey  the key to read the user message from the example inputs, never null
+     * @param outputKey the key the response is written under in the result, never null
+     * @param modelId   the model id used as the {@link PriceTable} lookup key, or null to skip pricing
+     * @param prices    the price lookup, or null to capture tokens and latency only
+     * @param executor  the executor each blocking call runs on, or {@code null} for the common pool
+     * @return an AsyncTask suitable for {@code Experiment.builder().asyncTask(...)}
+     * @throws IllegalArgumentException if {@code client}, {@code inputKey}, or {@code outputKey} is null
+     */
+    public static AsyncTask measuredAsyncTask(
+            ChatClient client,
+            String inputKey,
+            String outputKey,
+            String modelId,
+            PriceTable prices,
+            Executor executor) {
+        if (client == null) {
+            throw new IllegalArgumentException("ChatClient cannot be null");
+        }
+        if (inputKey == null) {
+            throw new IllegalArgumentException("inputKey cannot be null");
+        }
+        if (outputKey == null) {
+            throw new IllegalArgumentException("outputKey cannot be null");
+        }
+        return example -> {
+            Supplier<TaskResult> call = () -> {
+                Object input = example.inputs().get(inputKey);
+                long start = System.nanoTime();
+                ChatResponse response =
+                        client.prompt().user(String.valueOf(input)).call().chatResponse();
+                long latencyMs = (System.nanoTime() - start) / 1_000_000L;
+                String content = textOf(response);
+                return new TaskResult(
+                        Map.of(outputKey, content != null ? content : ""),
+                        toCallMetrics(response, latencyMs, modelId, prices));
+            };
+            return executor == null
+                    ? CompletableFuture.supplyAsync(call)
+                    : CompletableFuture.supplyAsync(call, executor);
+        };
+    }
+
+    private static String textOf(ChatResponse response) {
+        if (response == null
+                || response.getResult() == null
+                || response.getResult().getOutput() == null) {
+            return null;
+        }
+        return response.getResult().getOutput().getText();
+    }
+
+    /**
+     * Builds {@link CallMetrics} from a Spring AI {@link ChatResponse}, the measured latency, and an
+     * optional {@link PriceTable}. Returns null token fields when usage is absent and null cost when no
+     * price is available; never throws.
+     */
+    private static CallMetrics toCallMetrics(ChatResponse response, long latencyMs, String modelId, PriceTable prices) {
+        Integer tokensIn = null;
+        Integer tokensOut = null;
+        if (response != null
+                && response.getMetadata() != null
+                && response.getMetadata().getUsage() != null) {
+            Usage usage = response.getMetadata().getUsage();
+            Integer promptTokens = usage.getPromptTokens();
+            Integer completionTokens = usage.getCompletionTokens();
+            // Spring AI returns an EmptyUsage (0/0/0) when the provider reported none; treat all-zero as
+            // "not measured" (null) so the card stays dark rather than showing a false 0. A real call
+            // always has prompt tokens > 0, so this only nulls out the sentinel, not genuine counts.
+            boolean measured = !((promptTokens == null || promptTokens == 0)
+                    && (completionTokens == null || completionTokens == 0));
+            if (measured) {
+                tokensIn = promptTokens;
+                tokensOut = completionTokens;
+            }
+        }
+        Double costUsd = (prices != null && modelId != null) ? prices.costUsd(modelId, tokensIn, tokensOut) : null;
+        return new CallMetrics(tokensIn, tokensOut, costUsd, latencyMs);
     }
 
     private static final ObjectMapper TOOL_ARG_MAPPER = new ObjectMapper();

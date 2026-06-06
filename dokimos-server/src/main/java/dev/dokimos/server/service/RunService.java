@@ -276,6 +276,7 @@ public class RunService {
         ExperimentRun run = getRun(runId, scope);
         Experiment experiment = run.getExperiment();
         RunMetrics metrics = computeMetrics(run);
+        CoverageCounts coverage = computeCoverage(run);
 
         Page<ItemResult> itemPage = itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable);
         Map<UUID, AnnotationView> annotationsByItemId = loadAnnotations(itemPage.getContent());
@@ -304,6 +305,8 @@ public class RunService {
                 metrics.totalTokensOut(),
                 metrics.totalCostUsd(),
                 metrics.avgLatencyMs(),
+                coverage.pricedItemCount(),
+                coverage.tokenizedItemCount(),
                 itemSummaries);
     }
 
@@ -385,6 +388,19 @@ public class RunService {
                 run.getTotalTokensOut(),
                 run.getTotalCostUsd(),
                 run.getAvgLatencyMs());
+    }
+
+    /**
+     * Priced/tokenized coverage for the single-run DETAIL view. Read live in every status: no
+     * materialized column backs it (no migration), item rows are frozen once a run is terminal so the
+     * COUNT is exact, and the LIST path deliberately does not compute it (the run list renders no
+     * coverage signal), which is why this is not part of {@link RunMetrics}.
+     */
+    private record CoverageCounts(long pricedItemCount, long tokenizedItemCount) {}
+
+    private CoverageCounts computeCoverage(ExperimentRun run) {
+        return new CoverageCounts(
+                itemResultRepository.countPricedItemsByRun(run), itemResultRepository.countTokenizedItemsByRun(run));
     }
 
     private Map<UUID, DatasetItem> loadDatasetItems(List<AddItemsRequest.ItemData> items, TenantScope scope) {

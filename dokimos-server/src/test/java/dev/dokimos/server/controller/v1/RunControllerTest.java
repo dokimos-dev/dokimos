@@ -96,6 +96,8 @@ class RunControllerTest extends AbstractControllerTest {
                 150L,
                 0.006,
                 412.5,
+                null,
+                null,
                 page);
 
         when(runService.getRunDetails(eq(runId), any(Pageable.class), any(TenantScope.class)))

@@ -658,6 +658,86 @@ class RunServiceTest {
     }
 
     @Test
+    void getRunDetails_shouldSurfacePartialCostCoverageWhileRunning() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        Pageable pageable = PageRequest.of(0, 50);
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
+        when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(new PageImpl<>(List.of()));
+        when(itemResultRepository.countByRun(run)).thenReturn(5L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(4L);
+        when(itemResultRepository.sumCostByRun(run)).thenReturn(0.003);
+        // 5 items tokenized, only 2 priced: a partially-priced run.
+        when(itemResultRepository.countPricedItemsByRun(run)).thenReturn(2L);
+        when(itemResultRepository.countTokenizedItemsByRun(run)).thenReturn(5L);
+
+        RunDetails result =
+                runService.getRunDetails(runId, pageable, dev.dokimos.server.tenant.TenantScope.unrestricted());
+
+        assertThat(result.pricedItemCount()).isEqualTo(2L);
+        assertThat(result.tokenizedItemCount()).isEqualTo(5L);
+        assertThat(result.pricedItemCount()).isLessThan(result.tokenizedItemCount());
+        // The labelled total still reflects only the priced rows (the bug we surface, not hide).
+        assertThat(result.totalCostUsd()).isEqualTo(0.003);
+    }
+
+    @Test
+    void getRunDetails_shouldReportEqualCoverageWhenAllItemsPricedWhileRunning() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.RUNNING);
+        setField(run, "id", runId);
+
+        Pageable pageable = PageRequest.of(0, 50);
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
+        when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(new PageImpl<>(List.of()));
+        when(itemResultRepository.countByRun(run)).thenReturn(3L);
+        when(itemResultRepository.countItemsWithAllEvalsPassed(run)).thenReturn(3L);
+        when(itemResultRepository.countPricedItemsByRun(run)).thenReturn(3L);
+        when(itemResultRepository.countTokenizedItemsByRun(run)).thenReturn(3L);
+
+        RunDetails result =
+                runService.getRunDetails(runId, pageable, dev.dokimos.server.tenant.TenantScope.unrestricted());
+
+        assertThat(result.pricedItemCount())
+                .isEqualTo(result.tokenizedItemCount())
+                .isEqualTo(3L);
+    }
+
+    @Test
+    void getRunDetails_shouldComputeCoverageLiveEvenForCompletedRun() {
+        UUID runId = UUID.randomUUID();
+        Project project = createProject("my-project");
+        Experiment experiment = createExperiment(project, "my-experiment");
+        ExperimentRun run = createRun(experiment, RunStatus.SUCCESS);
+        setField(run, "id", runId);
+        setMaterializedCounts(run, 10, 8);
+        setField(run, "totalCostUsd", 0.05); // materialized total omits the unpriced items
+
+        Pageable pageable = PageRequest.of(0, 50);
+        when(runRepository.findById(eq(runId), any())).thenReturn(Optional.of(run));
+        when(itemResultRepository.findByRunOrderByCreatedAtAsc(run, pageable)).thenReturn(new PageImpl<>(List.of()));
+        // Terminal run: totals come from materialized columns, coverage counts from a live COUNT.
+        when(itemResultRepository.countPricedItemsByRun(run)).thenReturn(6L);
+        when(itemResultRepository.countTokenizedItemsByRun(run)).thenReturn(10L);
+
+        RunDetails result =
+                runService.getRunDetails(runId, pageable, dev.dokimos.server.tenant.TenantScope.unrestricted());
+
+        assertThat(result.totalCostUsd()).isEqualTo(0.05); // still from the materialized column
+        assertThat(result.pricedItemCount()).isEqualTo(6L);
+        assertThat(result.tokenizedItemCount()).isEqualTo(10L);
+        // The terminal branch must NOT call the live total aggregates.
+        verify(itemResultRepository, never()).sumCostByRun(run);
+        verify(itemResultRepository, never()).countByRun(run);
+    }
+
+    @Test
     void getRunDetails_shouldThrowWhenRunNotFound() {
         UUID runId = UUID.randomUUID();
         when(runRepository.findById(eq(runId), any())).thenReturn(Optional.empty());

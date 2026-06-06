@@ -7,6 +7,14 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 
+/**
+ * Detail view of a single run. The two coverage counts let the UI flag partial pricing: when
+ * {@code pricedItemCount < tokenizedItemCount} the summed {@code totalCostUsd} omits the unpriced
+ * items. Both are nullable and additive; older clients ignore them.
+ *
+ * @param pricedItemCount    items that carried a non-null cost, or null if not computed
+ * @param tokenizedItemCount items that carried a non-null prompt-token count, or null if not computed
+ */
 public record RunDetails(
         UUID id,
         UUID experimentId,
@@ -25,6 +33,8 @@ public record RunDetails(
         Long totalTokensOut,
         Double totalCostUsd,
         Double avgLatencyMs,
+        Long pricedItemCount,
+        Long tokenizedItemCount,
         Page<ItemSummary> items) {
     public record ItemSummary(
             UUID id,

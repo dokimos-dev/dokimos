@@ -21,6 +21,10 @@ export function RunMetricCards({ run }: RunMetricCardsProps) {
   const hasTokens = run.totalTokensIn != null || run.totalTokensOut != null;
   const hasCost = run.totalCostUsd != null;
   const hasLatency = run.avgLatencyMs != null;
+  const showCoverage =
+    run.pricedItemCount != null &&
+    run.tokenizedItemCount != null &&
+    run.pricedItemCount < run.tokenizedItemCount;
 
   if (!hasTokens && !hasCost && !hasLatency) {
     return null;
@@ -49,6 +53,11 @@ export function RunMetricCards({ run }: RunMetricCardsProps) {
             <p className="text-2xl font-bold tabular-nums">
               {formatCost(run.totalCostUsd ?? 0)}
             </p>
+            {showCoverage && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {run.pricedItemCount}/{run.tokenizedItemCount} items priced
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

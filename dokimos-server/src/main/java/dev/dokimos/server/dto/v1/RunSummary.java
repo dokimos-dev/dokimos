@@ -5,6 +5,9 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Summary view of a single run in a list.
+ */
 public record RunSummary(
         UUID id,
         RunStatus status,

@@ -161,7 +161,7 @@ mvn exec:java -pl dokimos-examples \
 
 **Location**: `dev.dokimos.examples.springai.tutorial`
 
-A complete example from the [Spring AI Agent Evaluation Tutorial](https://dokimos.dev/docs/tutorials/spring-ai-agent-evaluation). Includes:
+A complete example from the [Spring AI Agent Evaluation Tutorial](https://dokimos.dev/tutorials/spring-ai-agent-evaluation). Includes:
 
 - REST API for the Knowledge Assistant (`POST /api/chat`)
 - RAG implementation with Spring AI
@@ -217,7 +217,7 @@ mvn exec:java -pl dokimos-examples \
   -Dexec.mainClass="dev.dokimos.examples.langchain4j.CostMetricsExample"
 ```
 
-See the [Cost and Pricing](https://dokimos.dev/docs/evaluation/cost-and-pricing) guide for the `PriceTable` seam and the partial-coverage signal.
+See the [Cost and Pricing](https://dokimos.dev/evaluation/cost-and-pricing) guide for the `PriceTable` seam and the partial-coverage signal.
 
 ## Building the Examples
 

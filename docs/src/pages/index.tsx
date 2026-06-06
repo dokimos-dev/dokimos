@@ -63,7 +63,7 @@ const AGENT_ONELINER =
 
 const PROOF_POINTS = [
   "Runs in JUnit and CI",
-  "Spring AI · LangChain4j · Koog",
+  "Framework agnostic",
   "MIT · Maven Central",
 ];
 

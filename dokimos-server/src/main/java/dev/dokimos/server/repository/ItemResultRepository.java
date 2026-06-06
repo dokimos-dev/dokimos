@@ -77,6 +77,32 @@ public interface ItemResultRepository extends JpaRepository<ItemResult, UUID> {
     Double avgLatencyByRun(ExperimentRun run);
 
     /**
+     * Counts the run's items that carry a non-null cost, i.e. the items that contributed to
+     * {@link #sumCostByRun(ExperimentRun)}. Read together with
+     * {@link #countTokenizedItemsByRun(ExperimentRun)} this is the numerator of the cost-coverage
+     * signal: when fewer items are priced than tokenized, {@code sumCostByRun} omits the unpriced
+     * items and the surfaced total understates the true cost rather than failing.
+     *
+     * @param run the run to aggregate
+     * @return the number of items with a non-null {@code costUsd}; zero if none
+     */
+    @Query("SELECT COUNT(i) FROM ItemResult i WHERE i.run = :run AND i.costUsd IS NOT NULL")
+    long countPricedItemsByRun(ExperimentRun run);
+
+    /**
+     * Counts the run's items that carry a non-null prompt-token count, used as the denominator of the
+     * cost-coverage signal: an item with tokens but no cost is one a {@code PriceTable} could not price
+     * (unknown model or null token count), which is exactly the gap the signal reports. An item with no
+     * tokens at all was never measured (a plain {@code .task}) and counts toward neither this nor
+     * {@link #countPricedItemsByRun(ExperimentRun)}.
+     *
+     * @param run the run to aggregate
+     * @return the number of items with a non-null {@code tokensIn}; zero if none
+     */
+    @Query("SELECT COUNT(i) FROM ItemResult i WHERE i.run = :run AND i.tokensIn IS NOT NULL")
+    long countTokenizedItemsByRun(ExperimentRun run);
+
+    /**
      * Seek-based page of run items that carry no eval result for the given evaluator yet. Items are
      * ordered by id so the worker can page forward by passing the last id it saw as {@code afterId};
      * the {@code NOT EXISTS} filter is scoped by evaluator name so adding an evaluator to a previously

@@ -685,6 +685,8 @@ export interface RunDetails {
   totalTokensOut?: number;
   totalCostUsd?: number;
   avgLatencyMs?: number;
+  pricedItemCount?: number;
+  tokenizedItemCount?: number;
   items?: PageItemSummary;
 }
 

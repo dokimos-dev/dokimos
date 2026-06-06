@@ -9,11 +9,36 @@ const RELEASES: Release[] = [
   {
     version: "0.21.0",
     date: "June 2026",
-    lead: "Two new agent integrations: capture an Embabel or Spring AI Alibaba agent run as an AgentTrace and score it with the agent evaluators, using the same trace model as the existing framework adapters.",
+    lead: "Cost, token, and latency metrics across all five framework adapters with a pluggable pricing seam, plus two new agent integrations (Embabel and Spring AI Alibaba) that capture an agent run as an AgentTrace for the agent evaluators.",
     groups: [
       {
         label: "Added",
         items: [
+          {
+            title: "Cost, token & latency metrics",
+            body: (
+              <>
+                Capture per-call <code>tokensIn</code>/<code>tokensOut</code>, <code>costUsd</code>,
+                and <code>latencyMs</code> across all five adapters via measured tasks (
+                <code>measuredTask</code>/<code>measuredAsyncTask</code>/<code>measuredTextTask</code>,
+                and <code>EmbabelTraceCollector.callMetrics</code>). Cost is composed at capture time
+                through a pluggable <code>PriceTable</code> seam in <code>dokimos-core</code> —
+                Dokimos ships no price data, you supply the map. The run detail rolls up Total
+                Tokens, Total Cost, and Avg Latency.
+              </>
+            ),
+          },
+          {
+            title: "Partial cost-coverage signal",
+            body: (
+              <>
+                When a run mixes priced and unpriced items, the run-detail Total Cost card shows an{" "}
+                <code>N/M items priced</code> subtitle so a partial total is never mistaken for a
+                complete one. Computed at read time on <code>RunDetails</code> — no new column, no
+                migration.
+              </>
+            ),
+          },
           {
             title: "Embabel integration",
             body: (

@@ -31,9 +31,10 @@ It integrates with **JUnit**, **LangChain4j**, **Spring AI**, **Spring AI Alibab
 ## Why Dokimos?
 
 - **JUnit integration**: Run evaluations as parameterized tests in your existing test suite.
-- **Framework agnostic**: Works with LangChain4j, Spring AI, Koog or any LLM client. Powered by any LLM.
+- **Framework agnostic**: Works with LangChain4j, Spring AI, Spring AI Alibaba, Koog, and Embabel, or any LLM client. Powered by any LLM.
 - **Built in evaluators**: Hallucination detection, faithfulness, contextual relevance, LLM as a judge, and more.
 - **Agent evaluation**: Evaluate AI agents with tool call validation, task completion, argument hallucination detection, and tool reliability checks.
+- **Cost & latency tracking**: Capture per-call tokens, cost, and latency across all five adapters, with a pluggable `PriceTable` seam (you supply the prices) and per-run roll-ups.
 - **Custom evaluators**: Build your own metrics by extending `BaseEvaluator` or using `LLMJudgeEvaluator`.
 - **Dataset support**: Load test cases from JSON, CSV, or define them programmatically.
 - **CI/CD ready**: Runs locally or in any CI/CD environment. Fail builds when quality drops.

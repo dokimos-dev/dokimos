@@ -2,8 +2,10 @@ package dev.dokimos.koog
 
 import ai.koog.agents.core.agent.AIAgent
 import dev.dokimos.core.AsyncTask
+import dev.dokimos.core.CallMetrics
 import dev.dokimos.core.Example
 import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.PriceTable
 import dev.dokimos.core.TaskResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -107,6 +109,63 @@ fun asTextTask(scope: CoroutineScope = GlobalScope, agentCall: suspend (String) 
         require(content.isNotBlank()) { "Agent response content was blank" }
         TaskResult.of(mapOf(OUTPUT_KEY to content))
     }
+
+/**
+ * A Koog agent's text output paired with optional token usage, consumed by [measuredTextTask].
+ *
+ * Koog's simple `AIAgent.run(input): String` path does not surface token usage, and Koog's usage API
+ * is still evolving, so this carrier lets you supply the counts you obtain from your own agent setup
+ * (a token-usage callback, the prompt executor, etc.). Leave [tokensIn]/[tokensOut] null when you have
+ * no counts: latency is still captured automatically and the Cost/Tokens cards simply stay dark.
+ * Counts you do supply are taken at face value — an explicit `0` is recorded as zero, not coalesced to
+ * null the way the framework-reading adapters (LangChain4j, Spring AI, Embabel) treat an all-zero usage
+ * sentinel, since here the caller owns the values.
+ *
+ * @property text the model output text
+ * @property tokensIn prompt tokens, or null if not available
+ * @property tokensOut completion tokens, or null if not available
+ */
+data class KoogResponse(val text: String, val tokensIn: Int? = null, val tokensOut: Int? = null)
+
+/**
+ * Adapts a `suspend` Koog agent call into a measured [AsyncTask] that captures latency automatically
+ * and, when a [PriceTable] and model id are supplied, cost, lighting up the run's metrics cards.
+ *
+ * Counterpart to [asTextTask] (named distinctly, not an overload, to avoid Kotlin overload-resolution
+ * ambiguity at existing call sites): the suspend body returns a [KoogResponse] carrying the output text
+ * plus any token counts you extracted from your Koog agent. Wall-clock latency is measured around the
+ * call; cost is computed via `prices.costUsd(model, tokensIn, tokensOut)` when both `prices` and
+ * `model` are non-null. Missing token counts leave those fields null (only the Latency card lights);
+ * a null `prices` or model leaves cost null. Never throws on missing metrics.
+ *
+ * @param scope the coroutine scope used to launch each invocation. Defaults to [GlobalScope].
+ * @param model the model id used as the [PriceTable] lookup key, or null to skip pricing.
+ * @param prices the price lookup, or null to capture tokens and latency only.
+ * @param agentCall a suspend function that accepts the example input and returns a [KoogResponse].
+ * @return an [AsyncTask] suitable for the non-blocking experiment execution path.
+ */
+@OptIn(DelicateCoroutinesApi::class)
+fun measuredTextTask(
+    scope: CoroutineScope = GlobalScope,
+    model: String? = null,
+    prices: PriceTable? = null,
+    agentCall: suspend (String) -> KoogResponse,
+): AsyncTask = asTask(scope) { example ->
+    val start = System.nanoTime()
+    val response = agentCall(example.input())
+    val latencyMs = (System.nanoTime() - start) / 1_000_000L
+    val cost = if (prices != null &&
+        model != null
+    ) {
+        prices.costUsd(model, response.tokensIn, response.tokensOut)
+    } else {
+        null
+    }
+    TaskResult(
+        mapOf(OUTPUT_KEY to response.text),
+        CallMetrics(response.tokensIn, response.tokensOut, cost, latencyMs),
+    )
+}
 
 /**
  * Executes the `run` method of the `AIAgent` in a blocking coroutine context.

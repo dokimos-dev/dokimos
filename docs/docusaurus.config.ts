@@ -97,8 +97,8 @@ const config: Config = {
   // at build time from the newest GitHub release (see createConfig below); these
   // are the offline fallback.
   customFields: {
-    dokimosVersion: "0.20.0",
-    latestVersion: "0.20.0",
+    dokimosVersion: "0.21.0",
+    latestVersion: "0.21.0",
   },
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -233,7 +233,7 @@ const config: Config = {
 };
 
 export default async function createConfig(): Promise<Config> {
-  const latestVersion = await latestReleaseVersion("0.20.0");
+  const latestVersion = await latestReleaseVersion("0.21.0");
   return {
     ...config,
     customFields: { ...config.customFields, dokimosVersion: latestVersion, latestVersion },

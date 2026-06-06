@@ -87,6 +87,8 @@ The denominator is **tokenized** items, not all items:
 - An item with **tokens but no cost** is one your `PriceTable` could not price (unknown model). It counts against coverage — this is exactly the gap the signal reports.
 - An item with **no tokens at all** was never measured (a plain `.task`). It counts toward neither number — you cannot price what was never measured.
 
+(One edge: Embabel reports its own cost independently of token usage, so an Embabel item can carry a cost without token counts. The displayed total stays correct; only the "priced ≤ tokenized" relationship the signal assumes may not strictly hold for such items.)
+
 This is surfaced as two nullable computed fields, `pricedItemCount` and `tokenizedItemCount`, on `RunDetails` (the run-detail view) only. The run list (`RunSummary`) deliberately carries no coverage signal, so listing runs adds no per-run queries. There is **no new database column and no migration** — the counts are computed at read time from two indexed `COUNT` queries. For an in-progress run they accrue live alongside the totals; for a completed run the totals come from the run's materialized columns while the coverage counts are still computed live from the run's (now immutable) item rows.
 
 :::note

@@ -19,6 +19,10 @@ This page shows you how to evaluate a [Spring AI Alibaba](https://github.com/ali
 
 This module pulls `dokimos-core` and `dokimos-spring-ai`. You bring the Spring AI Alibaba SDK (`spring-ai-alibaba-agent-framework`, the 1.1.x line) yourself.
 
+:::note Version compatibility
+This adapter targets the current Spring AI Alibaba **1.1.x** line (`spring-ai-alibaba-agent-framework`, which carries `ReactAgent` and the graph runtime). Spring AI Alibaba is not source-compatible across releases: the 1.0.x line kept the agent types in `spring-ai-alibaba-graph-core`, 1.0.0.4 added a checked exception to `CompiledGraph.invoke`, and 1.1.x relocated the agent types and changed the `ReactAgent` builder. Use a 1.1.x version.
+:::
+
 ### Maven
 
 ```xml

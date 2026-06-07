@@ -336,4 +336,23 @@ class RegressionGateRunnerTest {
         assertThat(readVerdictJson(verdictDir, "alpha").status()).isEqualTo("PASS");
         assertThat(readVerdictJson(verdictDir, "beta").status()).isEqualTo("FAIL");
     }
+
+    @Test
+    void verdictFileNameSanitizesTheBaselineStemAndFallsBack(@TempDir Path dir) throws Exception {
+        Path verdictDir = dir.resolve("verdict");
+        ExperimentResult run = thirtyItems(-1, 1.0, 1.0);
+
+        // Characters outside [A-Za-z0-9._-] in the baseline stem become '-' in the verdict filename,
+        // so a verdict can never escape the verdict dir or collide via an exotic name.
+        Path special = dir.resolve("my eval@v2.json");
+        BaselineStore.write(special, run, GateConfig.defaults());
+        RegressionGateRunner.run(run, special, GateConfig.defaults(), new StubEnv(false, false, verdictDir));
+        assertThat(verdictDir.resolve("my-eval-v2.json")).exists();
+
+        // A stem that sanitizes to empty/'.'/'..' falls back to gate-verdict.json.
+        Path dotted = dir.resolve("..json");
+        BaselineStore.write(dotted, run, GateConfig.defaults());
+        RegressionGateRunner.run(run, dotted, GateConfig.defaults(), new StubEnv(false, false, verdictDir));
+        assertThat(verdictDir.resolve("gate-verdict.json")).exists();
+    }
 }

@@ -188,4 +188,18 @@ class BaselineStoreTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no evaluators");
     }
+
+    @Test
+    void readRejectsMultiRunBaseline(@TempDir Path dir) throws IOException {
+        // v1 stores a single observation per item; a multi-run file is a future (v2) shape.
+        Path p = dir.resolve("b.json");
+        Files.writeString(p, """
+                {"formatVersion":1,"experiment":"e","pairing":"positional","runsPerItem":2,
+                 "items":[{"key":"item-0","input":"a",
+                   "evaluators":[{"name":"c","score":1.0,"threshold":0.7,"pass":true}]}]}
+                """);
+        assertThatThrownBy(() -> BaselineStore.read(p))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("runsPerItem");
+    }
 }

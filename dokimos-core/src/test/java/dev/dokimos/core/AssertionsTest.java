@@ -2,9 +2,14 @@ package dev.dokimos.core;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.gate.GateConfig;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class AssertionsTest {
 
@@ -161,5 +166,50 @@ class AssertionsTest {
                 .isInstanceOf(AssertionError.class);
 
         assertThat(secondCalled.get()).isFalse();
+    }
+
+    // The default-name guard fires before any filesystem or environment access, so calling the public
+    // wrapper directly is hermetic here (unlike the path overloads, which reach the runner).
+
+    @Test
+    void assertNoRegressionRejectsTheDefaultUnnamedExperiment() {
+        ExperimentResult unnamed = new ExperimentResult("unnamed", "", Map.of(), List.of());
+
+        assertThatThrownBy(() -> Assertions.assertNoRegression(unnamed))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unnamed")
+                .hasMessageContaining("explicit");
+    }
+
+    @Test
+    void assertNoRegressionWithConfigRejectsTheDefaultUnnamedExperiment() {
+        ExperimentResult unnamed = new ExperimentResult("unnamed", "", Map.of(), List.of());
+
+        assertThatThrownBy(() -> Assertions.assertNoRegression(unnamed, "unnamed", GateConfig.defaults()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unnamed");
+    }
+
+    @Test
+    void assertNoRegressionRejectsABlankBaselineName() {
+        ExperimentResult result = new ExperimentResult("rag-eval", "", Map.of(), List.of());
+
+        assertThatThrownBy(() -> Assertions.assertNoRegression(result, "  "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void assertNoRegressionPathOverloadBypassesTheUnnamedGuard(@TempDir Path dir) {
+        // The candidate is "unnamed", which the logical-name overload rejects. Routed through the Path
+        // overload it must NOT apply the name guard: it reaches the runner, which on a missing baseline
+        // writes one and throws AssertionError (bootstrap) — not IllegalArgumentException.
+        EvalResult eval = new EvalResult("correctness", 1.0, 0.7, true, "", Map.of());
+        ItemResult item = new ItemResult(Example.of("q", "a"), Map.of("output", "x"), List.of(eval));
+        ExperimentResult unnamed = new ExperimentResult("unnamed", "", Map.of(), List.of(new RunResult(0, List.of(item))));
+        Path baseline = dir.resolve("b.json");
+
+        assertThatThrownBy(() -> Assertions.assertNoRegression(unnamed, baseline))
+                .isInstanceOf(AssertionError.class)
+                .isNotInstanceOf(IllegalArgumentException.class);
     }
 }

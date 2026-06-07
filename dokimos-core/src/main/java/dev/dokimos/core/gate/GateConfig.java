@@ -1,0 +1,275 @@
+package dev.dokimos.core.gate;
+
+/**
+ * Configuration for the server-free regression gate.
+ *
+ * <p>Defaults are informed by the judge-noise measurement: gate on aggregate/per-evaluator
+ * significance (quiet on noise), keep the per-item display margin and the localized-severity
+ * threshold as <em>separate</em> knobs so widening the comment filter cannot silently weaken the
+ * gate, and recommend a temperature-0 judge.
+ *
+ * <p>Accessors follow the framework convention (no {@code get} prefix). Construct via {@link
+ * #defaults()} or {@link #builder()}.
+ */
+public final class GateConfig {
+
+    /** How baseline and candidate items are paired. */
+    public enum Pairing {
+        /** Pair by {@code datasetItemId} when every item carries one, else positionally. */
+        AUTO,
+        /** Always pair by position ({@code "item-<index>"} keys). */
+        POSITIONAL,
+        /** Always pair by {@code datasetItemId} (fails if any item lacks one). */
+        DATASET_ITEM_ID
+    }
+
+    /** What to do when an evaluator present in the baseline is missing from the candidate. */
+    public enum RemovedEvaluatorPolicy {
+        /** Fail the gate: a dropped evaluator is indistinguishable from hiding a regression. */
+        FAIL,
+        /** Warn only. */
+        WARN
+    }
+
+    private final double alpha;
+    private final long seed;
+    private final int permutationIterations;
+    private final int bootstrapIterations;
+    private final double displayMarginScore;
+    private final double severityMargin;
+    private final int runsPerItem;
+    private final Pairing pairing;
+    private final boolean failOnRegression;
+    private final boolean failOnRemovedItems;
+    private final RemovedEvaluatorPolicy onRemovedEvaluator;
+    private final boolean bootstrapPasses;
+    private final boolean updateBaseline;
+
+    private GateConfig(Builder b) {
+        this.alpha = b.alpha;
+        this.seed = b.seed;
+        this.permutationIterations = b.permutationIterations;
+        this.bootstrapIterations = b.bootstrapIterations;
+        this.displayMarginScore = b.displayMarginScore;
+        this.severityMargin = b.severityMargin;
+        this.runsPerItem = b.runsPerItem;
+        this.pairing = b.pairing;
+        this.failOnRegression = b.failOnRegression;
+        this.failOnRemovedItems = b.failOnRemovedItems;
+        this.onRemovedEvaluator = b.onRemovedEvaluator;
+        this.bootstrapPasses = b.bootstrapPasses;
+        this.updateBaseline = b.updateBaseline;
+    }
+
+    /**
+     * Returns a configuration with all defaults.
+     *
+     * @return the default gate configuration
+     */
+    public static GateConfig defaults() {
+        return builder().build();
+    }
+
+    /**
+     * Creates a new builder.
+     *
+     * @return a new builder pre-populated with defaults
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Whether an explicit baseline update was requested via {@code DOKIMOS_UPDATE_BASELINE} (env, the
+     * primary control because {@code -D} does not reach the test JVM under default Gradle or the
+     * IntelliJ runner) or the {@code dokimos.updateBaseline} system property.
+     *
+     * @return true if a baseline overwrite was requested out of band
+     */
+    public static boolean updateBaselineRequested() {
+        return truthy(System.getenv("DOKIMOS_UPDATE_BASELINE")) || truthy(System.getProperty("dokimos.updateBaseline"));
+    }
+
+    private static boolean truthy(String v) {
+        return v != null && (v.equalsIgnoreCase("true") || v.equals("1") || v.equalsIgnoreCase("yes"));
+    }
+
+    /** @return the significance level for the statistical tests */
+    public double alpha() {
+        return alpha;
+    }
+
+    /** @return the RNG seed for the permutation and bootstrap tests (pinned for reproducibility) */
+    public long seed() {
+        return seed;
+    }
+
+    /** @return the permutation-test iteration count */
+    public int permutationIterations() {
+        return permutationIterations;
+    }
+
+    /** @return the bootstrap iteration count */
+    public int bootstrapIterations() {
+        return bootstrapIterations;
+    }
+
+    /** @return the per-item score-drop threshold used only to rank/cap the PR-comment cases */
+    public double displayMarginScore() {
+        return displayMarginScore;
+    }
+
+    /** @return the per-item worst-evaluator score-drop threshold that fails the gate (guard 2) */
+    public double severityMargin() {
+        return severityMargin;
+    }
+
+    /** @return the number of observations per item the baseline file represents (v1: always 1) */
+    public int runsPerItem() {
+        return runsPerItem;
+    }
+
+    /** @return the item pairing strategy */
+    public Pairing pairing() {
+        return pairing;
+    }
+
+    /** @return whether a detected regression fails the gate */
+    public boolean failOnRegression() {
+        return failOnRegression;
+    }
+
+    /** @return whether a removed item (present in baseline, absent in candidate) fails the gate */
+    public boolean failOnRemovedItems() {
+        return failOnRemovedItems;
+    }
+
+    /** @return the policy for an evaluator present in the baseline but missing from the candidate */
+    public RemovedEvaluatorPolicy onRemovedEvaluator() {
+        return onRemovedEvaluator;
+    }
+
+    /** @return whether a missing-baseline bootstrap passes instead of failing loud once */
+    public boolean bootstrapPasses() {
+        return bootstrapPasses;
+    }
+
+    /** @return whether the baseline should be overwritten from the candidate and the gate pass */
+    public boolean updateBaseline() {
+        return updateBaseline;
+    }
+
+    /** Builder for {@link GateConfig}. */
+    public static final class Builder {
+        private double alpha = 0.05;
+        private long seed = 42L;
+        private int permutationIterations = 10_000;
+        private int bootstrapIterations = 10_000;
+        private double displayMarginScore = 0.10;
+        private double severityMargin = 0.15;
+        private int runsPerItem = 1;
+        private Pairing pairing = Pairing.AUTO;
+        private boolean failOnRegression = true;
+        private boolean failOnRemovedItems = false;
+        private RemovedEvaluatorPolicy onRemovedEvaluator = RemovedEvaluatorPolicy.FAIL;
+        private boolean bootstrapPasses = false;
+        private boolean updateBaseline = false;
+
+        /** @param alpha the significance level @return this builder */
+        public Builder alpha(double alpha) {
+            this.alpha = alpha;
+            return this;
+        }
+
+        /** @param seed the RNG seed @return this builder */
+        public Builder seed(long seed) {
+            this.seed = seed;
+            return this;
+        }
+
+        /** @param iterations the permutation-test iteration count @return this builder */
+        public Builder permutationIterations(int iterations) {
+            this.permutationIterations = iterations;
+            return this;
+        }
+
+        /** @param iterations the bootstrap iteration count @return this builder */
+        public Builder bootstrapIterations(int iterations) {
+            this.bootstrapIterations = iterations;
+            return this;
+        }
+
+        /** @param margin the PR-comment display margin @return this builder */
+        public Builder displayMarginScore(double margin) {
+            this.displayMarginScore = margin;
+            return this;
+        }
+
+        /** @param margin the guard-2 localized-severity FAIL threshold @return this builder */
+        public Builder severityMargin(double margin) {
+            this.severityMargin = margin;
+            return this;
+        }
+
+        /** @param runsPerItem observations per item (v1 supports 1) @return this builder */
+        public Builder runsPerItem(int runsPerItem) {
+            this.runsPerItem = runsPerItem;
+            return this;
+        }
+
+        /** @param pairing the pairing strategy @return this builder */
+        public Builder pairing(Pairing pairing) {
+            this.pairing = pairing;
+            return this;
+        }
+
+        /** @param failOnRegression whether a regression fails the gate @return this builder */
+        public Builder failOnRegression(boolean failOnRegression) {
+            this.failOnRegression = failOnRegression;
+            return this;
+        }
+
+        /** @param failOnRemovedItems whether a removed item fails the gate @return this builder */
+        public Builder failOnRemovedItems(boolean failOnRemovedItems) {
+            this.failOnRemovedItems = failOnRemovedItems;
+            return this;
+        }
+
+        /** @param policy the removed-evaluator policy @return this builder */
+        public Builder onRemovedEvaluator(RemovedEvaluatorPolicy policy) {
+            this.onRemovedEvaluator = policy;
+            return this;
+        }
+
+        /** @param bootstrapPasses whether a missing-baseline bootstrap passes @return this builder */
+        public Builder bootstrapPasses(boolean bootstrapPasses) {
+            this.bootstrapPasses = bootstrapPasses;
+            return this;
+        }
+
+        /** @param updateBaseline whether to overwrite the baseline and pass @return this builder */
+        public Builder updateBaseline(boolean updateBaseline) {
+            this.updateBaseline = updateBaseline;
+            return this;
+        }
+
+        /**
+         * Builds the configuration.
+         *
+         * @return a new {@link GateConfig}
+         * @throws IllegalArgumentException if any value is out of range
+         */
+        public GateConfig build() {
+            if (alpha <= 0.0 || alpha >= 1.0) {
+                throw new IllegalArgumentException("alpha must be in (0, 1): " + alpha);
+            }
+            if (runsPerItem < 1) {
+                throw new IllegalArgumentException("runsPerItem must be >= 1: " + runsPerItem);
+            }
+            if (displayMarginScore < 0.0 || severityMargin < 0.0) {
+                throw new IllegalArgumentException("margins must be >= 0");
+            }
+            return new GateConfig(this);
+        }
+    }
+}

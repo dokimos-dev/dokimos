@@ -1,0 +1,51 @@
+{
+  "formatVersion" : 1,
+  "experiment" : "gate-example",
+  "dataset" : {
+    "itemCount" : 4
+  },
+  "pairing" : "positional",
+  "runsPerItem" : 1,
+  "items" : [ {
+    "key" : "item-0",
+    "fingerprint" : "sha256:0dac43b1fa1b4822c8b4c57186adf78a158a26dbba9d935d0aa209310e9c62b2",
+    "input" : "What is 2+2?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-1",
+    "fingerprint" : "sha256:8cdb12eed48a9d3ca74fd7e2e43c54a0b73ed497a1165ab884f642d52c399f6f",
+    "input" : "What is the capital of France?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-2",
+    "fingerprint" : "sha256:02c99db1be1300bdedee8cf023b10649dff7aef35b433909cb2a67c52e6a2c53",
+    "input" : "What is the capital of Switzerland?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-3",
+    "fingerprint" : "sha256:7760482e4186fe5930f44773a4c57bb3aaaaa978bac584f41c2595297302af4c",
+    "input" : "What is the capital of Japan?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  } ],
+  "provenance" : { }
+}

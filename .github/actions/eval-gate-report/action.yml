@@ -1,0 +1,80 @@
+name: Dokimos eval gate report
+description: Render a server-free gate verdict (gate-verdict.json) to the job summary, post a sticky PR comment, and fail on a regression.
+
+inputs:
+  verdict-file:
+    description: Path to the gate verdict JSON written by the regression gate.
+    required: false
+    default: "target/dokimos/gate-verdict.json"
+  comment:
+    description: Post (or update) a sticky pull-request comment with the verdict.
+    required: false
+    default: "true"
+  fail-on-regression:
+    description: Fail the step when the gate verdict is FAIL.
+    required: false
+    default: "true"
+
+outputs:
+  status:
+    description: PASS, FAIL, or NO_BASELINE.
+    value: ${{ steps.read.outputs.status }}
+  passed:
+    description: true when the gate did not find a significant regression.
+    value: ${{ steps.read.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - id: read
+      shell: bash
+      env:
+        VERDICT_FILE: ${{ inputs.verdict-file }}
+      run: |
+        set -euo pipefail
+        # The runner writes the verdict before throwing on a regression, so on a real FAIL the file
+        # always exists. A missing file means the gate never ran (compile/dependency break upstream);
+        # fail loudly rather than report a green that didn't happen.
+        if [ ! -f "$VERDICT_FILE" ]; then
+          echo "No verdict file at $VERDICT_FILE; the gate did not run or aborted before writing it." >&2
+          exit 1
+        fi
+
+        status=$(jq -r '.status' "$VERDICT_FILE")
+        passed=$(jq -r '.passed' "$VERDICT_FILE")
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+        echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
+        # Reuse the server action's renderer (it lives in a sibling dir, so resolve from the workspace).
+        "$GITHUB_WORKSPACE/.github/actions/eval-gate/render-comment.sh" < "$VERDICT_FILE" > gate-comment.md
+        cat gate-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+    - id: comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        marker="<!-- dokimos-eval-gate -->"
+        existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty")
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" -F body=@gate-comment.md >/dev/null
+        else
+          gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@gate-comment.md >/dev/null
+        fi
+
+    - id: verdict
+      shell: bash
+      env:
+        FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        STATUS: ${{ steps.read.outputs.status }}
+      run: |
+        set -euo pipefail
+        if [ "$FAIL_ON_REGRESSION" = "true" ] && [ "$STATUS" = "FAIL" ]; then
+          echo "Eval gate failed: a significant regression was detected." >&2
+          exit 1
+        fi

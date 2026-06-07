@@ -67,7 +67,7 @@ class RegressionGateExampleTest {
         return switch (question) {
             case "What is 2+2?" -> "4";
             case "What is the capital of France?" -> "Paris";
-            case "What is the capital of Switzerland?" -> "Bern";
+            case "What is the capital of Switzerland?" -> "Zurich";
             case "What is the capital of Japan?" -> "Tokyo";
             default -> "I don't know";
         };

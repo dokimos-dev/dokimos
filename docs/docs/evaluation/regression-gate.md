@@ -12,6 +12,8 @@ Run your evals as a test and fail the build when quality drops. You commit a bas
 
 This is eval-driven development: a quality change shows up as a red build on the PR that caused it, the same place a broken unit test does.
 
+![An eval gate failing a build: the test prints the regressed cases and exits non-zero](/img/regression-gate.gif)
+
 ## Quickstart
 
 Build an experiment, run it, and assert it has not regressed against a named baseline.

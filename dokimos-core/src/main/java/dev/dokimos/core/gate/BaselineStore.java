@@ -156,6 +156,7 @@ public final class BaselineStore {
         if (items == null || items.isEmpty()) {
             throw new IllegalStateException("Baseline has no items");
         }
+        boolean positional = !"dataset_item_id".equals(baseline.pairing());
         Set<String> seen = new HashSet<>();
         for (BaselineItem item : items) {
             if (item.key() == null || item.key().isBlank()) {
@@ -163,6 +164,12 @@ public final class BaselineStore {
             }
             if (!seen.add(item.key())) {
                 throw new IllegalStateException("Baseline has a duplicate item key: " + item.key());
+            }
+            // Positional keys are sorted by their numeric index; reject a malformed one here with a
+            // clear, key-naming error rather than letting it surface as a raw NumberFormatException
+            // deep in the sort comparator.
+            if (positional) {
+                positionalIndex(item.key());
             }
             if (item.evaluators() == null || item.evaluators().isEmpty()) {
                 throw new IllegalStateException("Baseline item '" + item.key() + "' has no evaluators");
@@ -223,7 +230,18 @@ public final class BaselineStore {
     }
 
     private static int positionalIndex(String key) {
-        return Integer.parseInt(key.substring(POSITIONAL_PREFIX.length()));
+        if (key.startsWith(POSITIONAL_PREFIX)) {
+            try {
+                int index = Integer.parseInt(key.substring(POSITIONAL_PREFIX.length()));
+                if (index >= 0) {
+                    return index;
+                }
+            } catch (NumberFormatException ignored) {
+                // Fall through to the uniform error below (empty, non-numeric, or overflowing suffix).
+            }
+        }
+        throw new IllegalStateException(
+                "Malformed positional baseline key '" + key + "'; expected '" + POSITIONAL_PREFIX + "<index>'");
     }
 
     private static double round6(double value) {

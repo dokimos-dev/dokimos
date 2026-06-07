@@ -190,6 +190,22 @@ class BaselineStoreTest {
     }
 
     @Test
+    void readRejectsMalformedPositionalKey(@TempDir Path dir) throws IOException {
+        // A hand-corrupted positional baseline must fail at read with a clear, key-naming error,
+        // not as a raw NumberFormatException when the items are later sorted by index.
+        Path p = dir.resolve("b.json");
+        Files.writeString(p, """
+                {"formatVersion":1,"experiment":"e","pairing":"positional","runsPerItem":1,
+                 "items":[{"key":"item-x","input":"a",
+                   "evaluators":[{"name":"c","score":1.0,"threshold":0.7,"pass":true}]}]}
+                """);
+        assertThatThrownBy(() -> BaselineStore.read(p))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Malformed positional baseline key")
+                .hasMessageContaining("item-x");
+    }
+
+    @Test
     void readRejectsMultiRunBaseline(@TempDir Path dir) throws IOException {
         // v1 stores a single observation per item; a multi-run file is a future (v2) shape.
         Path p = dir.resolve("b.json");

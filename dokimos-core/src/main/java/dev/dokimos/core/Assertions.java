@@ -2,6 +2,7 @@ package dev.dokimos.core;
 
 import dev.dokimos.core.gate.GateConfig;
 import dev.dokimos.core.gate.RegressionGateRunner;
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -119,13 +120,26 @@ public class Assertions {
 
     /**
      * Resolves a logical baseline name to its module-relative source path, guarding the names that
-     * cannot map to a stable file. The explicit-Path overloads bypass this guard.
+     * cannot map to a stable file. A logical name must be a single filename segment so it stays inside
+     * {@code src/test/resources/dokimos/baselines/}; a name with a separator, {@code .}/{@code ..}, or
+     * an absolute path is rejected. The explicit-Path overloads bypass this guard for nested or
+     * absolute locations.
      */
     private static Path baselinePathFor(String name) {
         if (name == null || name.isBlank() || "unnamed".equals(name)) {
             throw new IllegalArgumentException("Cannot resolve a baseline path for a blank or default ('unnamed')"
                     + " experiment name; name the experiment (Experiment.builder().name(...)) or pass an explicit"
                     + " Path to assertNoRegression. Two unnamed experiments would collide on one baseline.");
+        }
+        if (".".equals(name)
+                || "..".equals(name)
+                || name.indexOf('/') >= 0
+                || name.indexOf('\\') >= 0
+                || name.indexOf(File.separatorChar) >= 0
+                || new File(name).isAbsolute()) {
+            throw new IllegalArgumentException("A baseline name must be a single filename segment (got '" + name
+                    + "'); it cannot contain a path separator, be '.'/'..', or be absolute. Pass an explicit Path"
+                    + " to assertNoRegression for a nested or absolute baseline location.");
         }
         return Path.of("src", "test", "resources", "dokimos", "baselines", name + ".json");
     }

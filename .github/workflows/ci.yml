@@ -194,7 +194,7 @@ jobs:
           cache: 'maven'
 
       # Option A: a real regression fails this step. The report step still runs (if: always()),
-      # and the gate writes gate-verdict.json before throwing, so the verdict is always available.
+      # and the gate writes a per-baseline verdict file before throwing, so the verdict is always available.
       - name: Run eval gate
         id: gate
         run: |
@@ -207,4 +207,4 @@ jobs:
         if: always()
         uses: ./.github/actions/eval-gate-report
         with:
-          verdict-file: dokimos-examples/target/dokimos/gate-verdict.json
+          verdict-dir: dokimos-examples/target/dokimos

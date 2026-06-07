@@ -89,9 +89,14 @@ class RegressionGateRunnerTest {
         }
     }
 
+    /** The verdict file is named for the baseline stem; every test below uses a {@code rag.json} baseline. */
     private static GateVerdict readVerdictJson(Path verdictDir) {
+        return readVerdictJson(verdictDir, "rag");
+    }
+
+    private static GateVerdict readVerdictJson(Path verdictDir, String baselineStem) {
         try {
-            String json = Files.readString(verdictDir.resolve("gate-verdict.json"));
+            String json = Files.readString(verdictDir.resolve(baselineStem + ".json"));
             return Json.read(json, GateVerdict.class);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -138,7 +143,7 @@ class RegressionGateRunnerTest {
         assertThat(baseline).exists();
         assertThat(verdict.passed()).isTrue();
         // No comparison ran on bootstrap, so no verdict JSON is written.
-        assertThat(env.verdictDir().resolve("gate-verdict.json")).doesNotExist();
+        assertThat(env.verdictDir().resolve("rag.json")).doesNotExist();
     }
 
     @Test
@@ -184,7 +189,7 @@ class RegressionGateRunnerTest {
         assertThat(Files.readString(baseline)).isNotEqualTo(before);
         assertThat(env.logs).anyMatch(m -> m.contains("baseline updated"));
         // Update did not compare, so no verdict JSON.
-        assertThat(env.verdictDir().resolve("gate-verdict.json")).doesNotExist();
+        assertThat(env.verdictDir().resolve("rag.json")).doesNotExist();
     }
 
     @Test
@@ -304,5 +309,31 @@ class RegressionGateRunnerTest {
                 .isInstanceOf(AssertionError.class);
 
         assertThat(env.logs).anyMatch(m -> m.contains("could not write"));
+    }
+
+    @Test
+    void twoBaselinesInOneVerdictDirWriteDistinctFilesWithoutClobbering(@TempDir Path dir) throws Exception {
+        // Two gates compared into a shared verdictDir must each write a verdict named for its baseline
+        // stem, so neither overwrites the other. alpha is all-passing (PASS); beta has a guard-2 break
+        // (FAIL), so the two files must carry different statuses.
+        Path alpha = dir.resolve("alpha.json");
+        Path beta = dir.resolve("beta.json");
+        ExperimentResult alphaRun = thirtyItems(-1, 1.0, 1.0);
+        ExperimentResult betaBaseRun = thirtyItems(-1, 1.0, 1.0);
+        BaselineStore.write(alpha, alphaRun, GateConfig.defaults());
+        BaselineStore.write(beta, betaBaseRun, GateConfig.defaults());
+
+        Path verdictDir = dir.resolve("verdict");
+        StubEnv env = new StubEnv(false, false, verdictDir);
+
+        RegressionGateRunner.run(alphaRun, alpha, GateConfig.defaults(), env);
+        ExperimentResult betaCandidate = thirtyItems(3, 1.0, 0.0); // guard-2 localized break
+        assertThatThrownBy(() -> RegressionGateRunner.run(betaCandidate, beta, GateConfig.defaults(), env))
+                .isInstanceOf(AssertionError.class);
+
+        assertThat(verdictDir.resolve("alpha.json")).exists();
+        assertThat(verdictDir.resolve("beta.json")).exists();
+        assertThat(readVerdictJson(verdictDir, "alpha").status()).isEqualTo("PASS");
+        assertThat(readVerdictJson(verdictDir, "beta").status()).isEqualTo("FAIL");
     }
 }

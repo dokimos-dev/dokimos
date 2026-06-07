@@ -66,3 +66,19 @@ jobs:
         run: |
           git push origin release-${{ inputs.releaseVersion }}
           git push origin v${{ inputs.releaseVersion }}
+
+      # Move the v0 major tag to the just-cut release so docs can reference actions at @v0 (the
+      # @v4/@v5 moving-tag convention). Guarded to the 0.x line so a future 1.x release never moves it.
+      - name: Update moving v0 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.releaseVersion }}" in
+            0.*)
+              git tag -f v0 v${{ inputs.releaseVersion }}
+              git push -f origin v0
+              ;;
+            *)
+              echo "Release ${{ inputs.releaseVersion }} is not on the 0.x line; leaving the v0 tag unchanged."
+              ;;
+          esac

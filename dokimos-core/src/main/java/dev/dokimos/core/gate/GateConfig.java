@@ -4,9 +4,8 @@ package dev.dokimos.core.gate;
  * Configuration for the server-free regression gate.
  *
  * <p>Defaults are informed by the judge-noise measurement: gate on aggregate/per-evaluator
- * significance (quiet on noise), keep the per-item display margin and the localized-severity
- * threshold as <em>separate</em> knobs so widening the comment filter cannot silently weaken the
- * gate, and recommend a temperature-0 judge.
+ * significance (quiet on noise), keep {@code severityMargin} as the one live per-item knob that
+ * fails the gate on a localized-severe break, and recommend a temperature-0 judge.
  *
  * <p>Accessors follow the framework convention (no {@code get} prefix). Construct via {@link
  * #defaults()} or {@link #builder()}.
@@ -35,9 +34,7 @@ public final class GateConfig {
     private final long seed;
     private final int permutationIterations;
     private final int bootstrapIterations;
-    private final double displayMarginScore;
     private final double severityMargin;
-    private final int runsPerItem;
     private final Pairing pairing;
     private final boolean failOnRegression;
     private final boolean failOnRemovedItems;
@@ -50,9 +47,7 @@ public final class GateConfig {
         this.seed = b.seed;
         this.permutationIterations = b.permutationIterations;
         this.bootstrapIterations = b.bootstrapIterations;
-        this.displayMarginScore = b.displayMarginScore;
         this.severityMargin = b.severityMargin;
-        this.runsPerItem = b.runsPerItem;
         this.pairing = b.pairing;
         this.failOnRegression = b.failOnRegression;
         this.failOnRemovedItems = b.failOnRemovedItems;
@@ -114,19 +109,9 @@ public final class GateConfig {
         return bootstrapIterations;
     }
 
-    /** @return the per-item score-drop threshold used only to rank/cap the PR-comment cases */
-    public double displayMarginScore() {
-        return displayMarginScore;
-    }
-
     /** @return the per-item worst-evaluator score-drop threshold that fails the gate (guard 2) */
     public double severityMargin() {
         return severityMargin;
-    }
-
-    /** @return the number of observations per item the baseline file represents (v1: always 1) */
-    public int runsPerItem() {
-        return runsPerItem;
     }
 
     /** @return the item pairing strategy */
@@ -165,9 +150,7 @@ public final class GateConfig {
         private long seed = 42L;
         private int permutationIterations = 10_000;
         private int bootstrapIterations = 10_000;
-        private double displayMarginScore = 0.10;
         private double severityMargin = 0.15;
-        private int runsPerItem = 1;
         private Pairing pairing = Pairing.AUTO;
         private boolean failOnRegression = true;
         private boolean failOnRemovedItems = false;
@@ -199,21 +182,9 @@ public final class GateConfig {
             return this;
         }
 
-        /** @param margin the PR-comment display margin @return this builder */
-        public Builder displayMarginScore(double margin) {
-            this.displayMarginScore = margin;
-            return this;
-        }
-
         /** @param margin the guard-2 localized-severity FAIL threshold @return this builder */
         public Builder severityMargin(double margin) {
             this.severityMargin = margin;
-            return this;
-        }
-
-        /** @param runsPerItem observations per item (v1 supports 1) @return this builder */
-        public Builder runsPerItem(int runsPerItem) {
-            this.runsPerItem = runsPerItem;
             return this;
         }
 
@@ -263,11 +234,8 @@ public final class GateConfig {
             if (alpha <= 0.0 || alpha >= 1.0) {
                 throw new IllegalArgumentException("alpha must be in (0, 1): " + alpha);
             }
-            if (runsPerItem < 1) {
-                throw new IllegalArgumentException("runsPerItem must be >= 1: " + runsPerItem);
-            }
-            if (displayMarginScore < 0.0 || severityMargin < 0.0) {
-                throw new IllegalArgumentException("margins must be >= 0");
+            if (severityMargin < 0.0) {
+                throw new IllegalArgumentException("severityMargin must be >= 0: " + severityMargin);
             }
             return new GateConfig(this);
         }

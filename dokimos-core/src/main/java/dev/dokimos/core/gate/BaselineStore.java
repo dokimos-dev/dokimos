@@ -16,8 +16,6 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -73,8 +71,7 @@ public final class BaselineStore {
         List<BaselineItem> baselineItems = new ArrayList<>(byKey.size());
         for (Map.Entry<String, ItemAgg> e : byKey.entrySet()) {
             ItemAgg agg = e.getValue();
-            baselineItems.add(new BaselineItem(
-                    e.getKey(), fingerprint(agg.example), anchor(agg.example), agg.toEntries(e.getKey())));
+            baselineItems.add(new BaselineItem(e.getKey(), anchor(agg.example), agg.toEntries(e.getKey())));
         }
         baselineItems.sort(byId ? Comparator.comparing(BaselineItem::key) : positionalKeyComparator());
 
@@ -242,14 +239,7 @@ public final class BaselineStore {
         return normalized.length() > ANCHOR_MAX ? normalized.substring(0, ANCHOR_MAX) : normalized;
     }
 
-    private static String fingerprint(Example example) {
-        String canonical = Json.writeCompact(canonicalize(example.inputs()))
-                + "|"
-                + Json.writeCompact(canonicalize(example.expectedOutputs()));
-        return "sha256:" + sha256Hex(canonical);
-    }
-
-    /** Recursively sorts map keys so the serialized form (and thus the fingerprint) is deterministic. */
+    /** Recursively sorts map keys so the serialized anchor form is deterministic. */
     private static Object canonicalize(Object value) {
         if (value instanceof Map<?, ?> map) {
             TreeMap<String, Object> sorted = new TreeMap<>();
@@ -266,19 +256,6 @@ public final class BaselineStore {
             return out;
         }
         return value;
-    }
-
-    private static String sha256Hex(String input) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (byte b : digest) {
-                sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new AssertionError("SHA-256 unavailable", e);
-        }
     }
 
     private static String datasetName(ExperimentResult result) {

@@ -32,7 +32,9 @@ import java.util.Locale;
  * @param regressedCount the displayed regressed-case count: the larger of the engine's broad-guard
  *     count and the deduped union of guard-1 and guard-2 cases, so the shell renderer (which reuses
  *     this field as both the metric value and the "Showing N of M" denominator) never reports 0
- *     above a populated case list
+ *     above a populated case list. This displayed count intentionally differs from the server {@code
+ *     GateResult.regressedCount} (the engine's authoritative significant-regression count); they
+ *     share a name but are not the same number by design.
  * @param totalRegressedCases the deduped union total of regressed cases before the display cap;
  *     additive (the shell renderer ignores it) and used by {@link #toMarkdown()} as the truncation
  *     denominator so it is exact even for a guard-2-only break

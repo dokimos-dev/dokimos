@@ -140,6 +140,66 @@ class RegressionGateTest {
     }
 
     @Test
+    void idPairingWithACandidateItemMissingItsIdFailsHard() {
+        // Baseline is id-paired and all-passing. The candidate keeps every score but one item loses its
+        // id (a positional Example with no datasetItemId). That item cannot be paired by id, so a
+        // regression on it would slip both guards; the gate must FAIL on the coverage loss alone.
+        List<ItemResult> baseItems = new ArrayList<>();
+        List<ItemResult> candItems = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            String id = "q" + i;
+            baseItems.add(idItem(id, ev("correctness", 1.0, 0.7)));
+            // item 7 collapses 1.0 -> 0.0 AND has no id, so the regression is exactly the one that hides.
+            if (i == 7) {
+                candItems.add(item(i, ev("correctness", 0.0, 0.7)));
+            } else {
+                candItems.add(idItem(id, ev("correctness", 1.0, 0.7)));
+            }
+        }
+        GateConfig cfg =
+                GateConfig.builder().pairing(GateConfig.Pairing.DATASET_ITEM_ID).build();
+        BaselineFile baseline = BaselineStore.project(experiment(baseItems), cfg);
+        assertThat(baseline.pairing()).isEqualTo("dataset_item_id");
+
+        GateVerdict verdict = RegressionGate.evaluate(experiment(candItems), baseline, cfg);
+        assertThat(verdict.status()).isEqualTo("FAIL");
+        assertThat(verdict.passed()).isFalse();
+        assertThat(verdict.warnings()).anyMatch(w -> w.contains("no datasetItemId") && w.contains("slip both guards"));
+    }
+
+    @Test
+    void idPairingWithARenamedIdWarnsLoudlyAndFailsOnlyWhenConfigured() {
+        // Baseline carries id q7; the candidate renames it to q99 (a new id) while keeping every score.
+        // Under id pairing q7 pairs against nothing: a loud warning names the missing baseline id. By
+        // default that is a removed-item WARN (status PASS); with failOnRemovedItems it FAILs.
+        List<ItemResult> baseItems = new ArrayList<>();
+        List<ItemResult> candItems = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            String id = "q" + i;
+            baseItems.add(idItem(id, ev("correctness", 1.0, 0.7)));
+            String candId = i == 7 ? "q99" : id;
+            candItems.add(idItem(candId, ev("correctness", 1.0, 0.7)));
+        }
+        GateConfig cfg =
+                GateConfig.builder().pairing(GateConfig.Pairing.DATASET_ITEM_ID).build();
+        BaselineFile baseline = BaselineStore.project(experiment(baseItems), cfg);
+
+        GateVerdict warnVerdict = RegressionGate.evaluate(experiment(candItems), baseline, cfg);
+        assertThat(warnVerdict.status()).isEqualTo("PASS");
+        assertThat(warnVerdict.warnings())
+                .anyMatch(w -> w.contains("Baseline item id 'q7'") && w.contains("not in the candidate"));
+
+        GateConfig failOnRemoved = GateConfig.builder()
+                .pairing(GateConfig.Pairing.DATASET_ITEM_ID)
+                .failOnRemovedItems(true)
+                .build();
+        GateVerdict failVerdict = RegressionGate.evaluate(experiment(candItems), baseline, failOnRemoved);
+        assertThat(failVerdict.status()).isEqualTo("FAIL");
+        assertThat(failVerdict.warnings())
+                .anyMatch(w -> w.contains("Baseline item id 'q7'") && w.contains("not in the candidate"));
+    }
+
+    @Test
     void capsCasesAtFiftyAndFlagsTruncationOffTheUnionTotal() {
         // 60 localized breaks: cases cap at 50, casesTruncated true, and the honest union total is 60
         // even though the engine's significance-gated regressedCount may differ.

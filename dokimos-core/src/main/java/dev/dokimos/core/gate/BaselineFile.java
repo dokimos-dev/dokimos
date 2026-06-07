@@ -50,12 +50,11 @@ public record BaselineFile(
      * One item's projection.
      *
      * @param key the engine pairing key: {@code "item-<index>"} (positional) or a {@code datasetItemId}
-     * @param fingerprint a stable hash of inputs + expected outputs, to detect silent mis-pairing
      * @param input a truncated human anchor for readable diffs; advisory, never paired on
      * @param evaluators the per-evaluator entries, sorted by name
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record BaselineItem(String key, String fingerprint, String input, List<EvaluatorEntry> evaluators) {}
+    public record BaselineItem(String key, String input, List<EvaluatorEntry> evaluators) {}
 
     /**
      * One evaluator's recorded outcome for an item.

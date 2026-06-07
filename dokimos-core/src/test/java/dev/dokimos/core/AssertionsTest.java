@@ -199,6 +199,24 @@ class AssertionsTest {
     }
 
     @Test
+    void assertNoRegressionRejectsANameThatIsNotASingleSegment() {
+        // A separator-bearing or absolute logical name would escape the baselines directory; it must be
+        // rejected before any I/O (offer the Path overload instead). The guard fires regardless of the
+        // candidate, so an empty result is enough.
+        ExperimentResult result = new ExperimentResult("rag-eval", "", Map.of(), List.of());
+
+        assertThatThrownBy(() -> Assertions.assertNoRegression(result, "../escape"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("single filename segment");
+        assertThatThrownBy(() -> Assertions.assertNoRegression(result, "a/b"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("single filename segment");
+        assertThatThrownBy(() -> Assertions.assertNoRegression(result, "/tmp/x"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("single filename segment");
+    }
+
+    @Test
     void assertNoRegressionPathOverloadBypassesTheUnnamedGuard(@TempDir Path dir) {
         // The candidate is "unnamed", which the logical-name overload rejects. Routed through the Path
         // overload it must NOT apply the name guard: it reaches the runner, which on a missing baseline

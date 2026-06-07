@@ -92,6 +92,12 @@ class RegressionGateTest {
 
 `assertNoRegression(result)` (no name) resolves the baseline from the experiment name; the explicit name above is the same thing spelled out. Both throw `IllegalArgumentException` if the experiment is unnamed, because two unnamed experiments would collide on one baseline file. To put the baseline somewhere else, pass a `Path` instead of a name.
 
+:::note Working directory
+
+The logical-name overload resolves `src/test/resources/dokimos/baselines/<name>.json` relative to the test JVM's working directory. Under Maven Surefire that is the module directory, so the path resolves correctly. If your runner starts the test JVM somewhere else, pass the `Path` overload (`assertNoRegression(result, Path)`) to make the location explicit.
+
+:::
+
 ### First run writes the baseline
 
 There is no baseline yet, so the first **local** run writes one and fails once:
@@ -119,7 +125,6 @@ It is a stable projection of a run, not a dump of one. It records exactly what t
   "runsPerItem" : 1,
   "items" : [ {
     "key" : "item-0",
-    "fingerprint" : "sha256:0dac43b1...",
     "input" : "What is 2+2?",
     "evaluators" : [ {
       "name" : "Exact Match",
@@ -151,14 +156,13 @@ The gate fails when either of two independent guards fires:
 1. **Broad regression.** A significance test (McNemar for pass/fail, a paired permutation test with a bootstrap interval otherwise) flags a real aggregate pass-rate drop or a significantly regressed evaluator. This is what keeps a noisy judge from flaking your build — random per-item flapping does not clear the test.
 2. **Localized-severe regression.** Any single item whose worst per-evaluator score drop exceeds `severityMargin` (default 0.15) fails the gate, even on a dataset too small for the significance test to react. This catches the one case that broke hard.
 
-A third knob, `displayMarginScore` (default 0.10), only decides which cases the PR comment lists. It never changes the pass/fail decision.
-
 ### Pin your judge
 
 The gate is only as stable as the scores it compares. Deterministic evaluators like `ExactMatchEvaluator` are stable by construction — they need no special care. For an LLM judge, pin two things so the baseline does not drift:
 
 - **`temperature = 0`** — at temperature 0 a modern judge's per-item verdict is effectively fixed run to run, so an unchanged candidate reproduces the baseline.
 - **A dated model snapshot** (e.g. a `-2025-..` id), not a floating alias — a floating alias silently swaps the model under you and moves the baseline for reasons that have nothing to do with your code.
+- **A fixed evaluator set** — adding or removing an evaluator changes the population the significance test runs over, which shifts the other evaluators' p-values. Re-baseline after any evaluator-set change.
 
 ## Stable ids for evolving datasets
 
@@ -198,7 +202,7 @@ eval-gate:
         cache: 'maven'
 
     # A real regression fails this step. The report step still runs (if: always()),
-    # and the gate writes gate-verdict.json before throwing, so the verdict is always available.
+    # and the gate writes a per-baseline verdict file before throwing, so the verdict is always available.
     - name: Run eval gate
       run: mvn -B test -Dtest=RegressionGateTest
 
@@ -206,14 +210,14 @@ eval-gate:
       if: always()
       uses: dokimos-dev/dokimos/.github/actions/eval-gate-report@v0
       with:
-        verdict-file: target/dokimos/gate-verdict.json
+        verdict-dir: target/dokimos
 ```
 
 `RegressionGateTest` and the single-module `mvn test` are placeholders — point `-Dtest` at your own gate test and adjust the build for your module layout.
 
-The `if: always()` on the report step is the load-bearing part. The gate writes `target/dokimos/gate-verdict.json` *before* it throws, so the report step posts the sticky PR comment after a failing build — without `always()`, the one run you most want explained would post nothing. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
+The `if: always()` on the report step is the load-bearing part. The gate writes a per-baseline verdict JSON under `target/dokimos` *before* it throws, so the report step posts the sticky PR comment after a failing build — without `always()`, the one run you most want explained would post nothing. The action renders every verdict file in the directory, so one job can gate several baselines. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
 
-**Not on GitHub?** A failing `mvn test` is the gate on every runner — GitLab, Jenkins, Gradle, local. The verdict JSON is at `target/dokimos/gate-verdict.json` if you want to render it yourself.
+**Not on GitHub?** A failing `mvn test` is the gate on every runner — GitLab, Jenkins, Gradle, local. The verdict JSON lands under `target/dokimos`, one file per baseline (named for the baseline stem), if you want to render it yourself.
 
 **Cost.** The candidate re-runs the eval on every push, so an LLM-judge gate costs tokens each time. Path-filter the workflow to PRs that touch datasets, prompts, model config, or the code under test — there is nothing to regress when only docs changed. Deterministic evaluators are free, so a gate built on those can run on every push.
 

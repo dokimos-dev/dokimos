@@ -38,10 +38,12 @@ import java.util.TreeSet;
  *       evaluator's overall verdict is not significant — exactly the blindness guard 2 exists to fix.
  * </ul>
  *
- * <p>Two coverage-loss conditions fail the gate independently of {@code failOnRegression}, because
- * guard 1 structurally cannot see them: a removed evaluator (per {@code onRemovedEvaluator}) and a
- * removed item (only when {@code failOnRemovedItems}). A threshold change between sides is advisory
- * and only warns.
+ * <p>Coverage-loss conditions fail the gate independently of {@code failOnRegression}, because guard
+ * 1 structurally cannot see them: a removed evaluator (per {@code onRemovedEvaluator}), a removed
+ * item (only when {@code failOnRemovedItems}), and — under {@code dataset_item_id} pairing — a
+ * candidate item with no id, which pairs against nothing and would hide a regression on it (always a
+ * FAIL). A baseline id absent from the candidate warns loudly; whether it also fails is governed by
+ * {@code failOnRemovedItems}. A threshold change between sides is advisory and only warns.
  */
 public final class RegressionGate {
 
@@ -94,8 +96,28 @@ public final class RegressionGate {
         }
         boolean removedItemFail = config.failOnRemovedItems() && result.removedCount() > 0;
 
+        // Coverage-loss under id pairing: an item the candidate cannot key by id is invisible to both
+        // guards (it pairs against nothing), so a real regression on it slips through silently. Mirror
+        // BaselineStore.resolvePairById's write-time invariant, but as a hard FAIL verdict (the runner
+        // turns FAIL into the throw) rather than a thrown exception. A baseline id absent from the
+        // candidate is a likely rename/loss; name it loudly, but leave the FAIL decision to the
+        // existing removed-item path (failOnRemovedItems), which already counts it.
+        boolean idPairingBrokenFail = false;
+        if (byId) {
+            if (anyCandidateMissingId(candidateRuns)) {
+                idPairingBrokenFail = true;
+                warnings.add("pairing is dataset_item_id but the candidate has item(s) with no datasetItemId;"
+                        + " they cannot be paired by id, so a regression on them would slip both guards."
+                        + " Give every candidate item a stable id, or re-baseline with positional pairing.");
+            }
+            for (String missing : missingBaselineIds(baseline, candidateMeans)) {
+                warnings.add("Baseline item id '" + missing + "' is not in the candidate (likely a rename or"
+                        + " loss); it is excluded from the comparison. Re-baseline to accept, or restore the id.");
+            }
+        }
+
         boolean regressionFail = config.failOnRegression() && (guard1 || guard2);
-        boolean fail = regressionFail || removedEvaluatorFail || removedItemFail;
+        boolean fail = regressionFail || removedEvaluatorFail || removedItemFail || idPairingBrokenFail;
         String status = fail ? "FAIL" : "PASS";
 
         List<GateVerdict.RegressedEvaluator> regressedEvaluators = result.regressions().stream()
@@ -281,6 +303,30 @@ public final class RegressionGate {
             cases.add(new GateVerdict.RegressedCase(isDatasetItemKey(key) ? key : null, key, drops));
         }
         return cases;
+    }
+
+    /** Whether any candidate item lacks a datasetItemId, so it cannot be paired by id. */
+    private static boolean anyCandidateMissingId(List<RunResult> runs) {
+        for (RunResult run : runs) {
+            for (ItemResult item : run.itemResults()) {
+                if (item.example().datasetItemId() == null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Baseline item keys (ids) that no candidate item carries, sorted for a stable warning order. */
+    private static TreeSet<String> missingBaselineIds(
+            BaselineFile baseline, Map<String, Map<String, Double>> candidateMeans) {
+        TreeSet<String> missing = new TreeSet<>();
+        for (BaselineItem item : baseline.items()) {
+            if (!candidateMeans.containsKey(item.key())) {
+                missing.add(item.key());
+            }
+        }
+        return missing;
     }
 
     /**

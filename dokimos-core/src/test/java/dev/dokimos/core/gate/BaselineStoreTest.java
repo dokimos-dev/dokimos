@@ -153,7 +153,7 @@ class BaselineStoreTest {
         Path p = dir.resolve("b.json");
         Files.writeString(p, """
                 {"formatVersion":2,"experiment":"e","pairing":"positional","runsPerItem":1,
-                 "items":[{"key":"item-0","fingerprint":"f","input":"a",
+                 "items":[{"key":"item-0","input":"a",
                    "evaluators":[{"name":"c","score":1.0,"threshold":0.7,"pass":true}]}]}
                 """);
         assertThatThrownBy(() -> BaselineStore.read(p))
@@ -167,9 +167,9 @@ class BaselineStoreTest {
         Files.writeString(p, """
                 {"formatVersion":1,"experiment":"e","pairing":"positional","runsPerItem":1,
                  "items":[
-                   {"key":"item-0","fingerprint":"f","input":"a",
+                   {"key":"item-0","input":"a",
                     "evaluators":[{"name":"c","score":1.0,"threshold":0.7,"pass":true}]},
-                   {"key":"item-0","fingerprint":"f","input":"b",
+                   {"key":"item-0","input":"b",
                     "evaluators":[{"name":"c","score":1.0,"threshold":0.7,"pass":true}]}]}
                 """);
         assertThatThrownBy(() -> BaselineStore.read(p))
@@ -182,7 +182,7 @@ class BaselineStoreTest {
         Path p = dir.resolve("b.json");
         Files.writeString(p, """
                 {"formatVersion":1,"experiment":"e","pairing":"positional","runsPerItem":1,
-                 "items":[{"key":"item-0","fingerprint":"f","input":"a","evaluators":[]}]}
+                 "items":[{"key":"item-0","input":"a","evaluators":[]}]}
                 """);
         assertThatThrownBy(() -> BaselineStore.read(p))
                 .isInstanceOf(IllegalStateException.class)

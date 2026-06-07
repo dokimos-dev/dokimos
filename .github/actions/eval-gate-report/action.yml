@@ -1,26 +1,26 @@
 name: Dokimos eval gate report
-description: Render a server-free gate verdict (gate-verdict.json) to the job summary, post a sticky PR comment, and fail on a regression.
+description: Render one or more per-baseline gate verdict JSON files to the job summary, post a sticky PR comment, and fail on a regression.
 
 inputs:
-  verdict-file:
-    description: Path to the gate verdict JSON written by the regression gate.
+  verdict-dir:
+    description: Directory the regression gate wrote per-baseline verdict JSON files into.
     required: false
-    default: "target/dokimos/gate-verdict.json"
+    default: "target/dokimos"
   comment:
     description: Post (or update) a sticky pull-request comment with the verdict.
     required: false
     default: "true"
   fail-on-regression:
-    description: Fail the step when the gate verdict is FAIL.
+    description: Fail the step when any gate verdict is FAIL.
     required: false
     default: "true"
 
 outputs:
   status:
-    description: PASS, FAIL, or NO_BASELINE.
+    description: PASS, FAIL, or NO_BASELINE (FAIL dominates across the per-baseline files).
     value: ${{ steps.read.outputs.status }}
   passed:
-    description: true when the gate did not find a significant regression.
+    description: true when no per-baseline verdict found a significant regression.
     value: ${{ steps.read.outputs.passed }}
 
 runs:
@@ -29,24 +29,42 @@ runs:
     - id: read
       shell: bash
       env:
-        VERDICT_FILE: ${{ inputs.verdict-file }}
+        VERDICT_DIR: ${{ inputs.verdict-dir }}
       run: |
         set -euo pipefail
-        # The runner writes the verdict before throwing on a regression, so on a real FAIL the file
-        # always exists. A missing file means the gate never ran (compile/dependency break upstream);
+        # The runner writes a per-baseline verdict before throwing on a regression, so on a real FAIL
+        # the file always exists. No files means the gate never ran (compile/dependency break upstream);
         # fail loudly rather than report a green that didn't happen.
-        if [ ! -f "$VERDICT_FILE" ]; then
-          echo "No verdict file at $VERDICT_FILE; the gate did not run or aborted before writing it." >&2
+        shopt -s nullglob
+        files=("$VERDICT_DIR"/*.json)
+        if [ "${#files[@]}" -eq 0 ]; then
+          echo "No gate verdict JSON files in $VERDICT_DIR; the gate did not run or aborted before writing one." | tee -a "$GITHUB_STEP_SUMMARY" >&2
           exit 1
         fi
 
-        status=$(jq -r '.status' "$VERDICT_FILE")
-        passed=$(jq -r '.passed' "$VERDICT_FILE")
-        echo "status=$status" >> "$GITHUB_OUTPUT"
-        echo "passed=$passed" >> "$GITHUB_OUTPUT"
+        renderer="$GITHUB_WORKSPACE/.github/actions/eval-gate/render-comment.sh"
+        overall="NO_BASELINE"
+        # gate-comment.md is CWD-relative; the comment step reads it from the same composite-step CWD.
+        : > gate-comment.md
+        for f in "${files[@]}"; do
+          fstatus=$(jq -r '.status' "$f")
+          # FAIL dominates; PASS outranks NO_BASELINE.
+          if [ "$fstatus" = "FAIL" ]; then
+            overall="FAIL"
+          elif [ "$fstatus" = "PASS" ] && [ "$overall" != "FAIL" ]; then
+            overall="PASS"
+          fi
+          "$renderer" < "$f" >> gate-comment.md
+          echo >> gate-comment.md
+        done
 
-        # Reuse the server action's renderer (it lives in a sibling dir, so resolve from the workspace).
-        "$GITHUB_WORKSPACE/.github/actions/eval-gate/render-comment.sh" < "$VERDICT_FILE" > gate-comment.md
+        if [ "$overall" = "FAIL" ]; then
+          passed="false"
+        else
+          passed="true"
+        fi
+        echo "status=$overall" >> "$GITHUB_OUTPUT"
+        echo "passed=$passed" >> "$GITHUB_OUTPUT"
         cat gate-comment.md >> "$GITHUB_STEP_SUMMARY"
 
     - id: comment
@@ -58,6 +76,8 @@ runs:
         REPO: ${{ github.repository }}
       run: |
         set -euo pipefail
+        # Each render emits the marker as its first line; gate-comment.md therefore starts with it, so
+        # the startswith query still finds and updates this action's own sticky comment.
         marker="<!-- dokimos-eval-gate -->"
         existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
           --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty")

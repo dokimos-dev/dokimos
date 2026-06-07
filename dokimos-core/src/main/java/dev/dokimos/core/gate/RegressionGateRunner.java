@@ -4,8 +4,10 @@ import dev.dokimos.core.ExperimentResult;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
@@ -29,7 +31,8 @@ import org.slf4j.LoggerFactory;
 public final class RegressionGateRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RegressionGateRunner.class);
-    private static final String VERDICT_FILE = "gate-verdict.json";
+    private static final String VERDICT_SUFFIX = ".json";
+    private static final String VERDICT_FALLBACK = "gate-verdict"; // when a baseline stem sanitizes to empty
 
     private RegressionGateRunner() {}
 
@@ -44,7 +47,7 @@ public final class RegressionGateRunner {
         /** @return true when an out-of-band baseline update was requested (env var or system property) */
         boolean updateRequested();
 
-        /** @return the directory {@code gate-verdict.json} is written to */
+        /** @return the directory the per-baseline verdict JSON (named for the baseline stem) is written to */
         Path verdictDir();
 
         /** @return the sink for the one-time bootstrap / no-baseline banners and warnings */
@@ -90,7 +93,7 @@ public final class RegressionGateRunner {
         if (Files.notExists(baseline)) {
             if (env.ci()) {
                 GateVerdict verdict = GateVerdict.noBaseline(candidate.passRate());
-                writeVerdictJson(env, verdict);
+                writeVerdictJson(env, baseline, verdict);
                 env.log()
                         .accept("No committed baseline; run locally with DOKIMOS_UPDATE_BASELINE=true and"
                                 + " commit the file. The gate measured nothing.");
@@ -109,7 +112,7 @@ public final class RegressionGateRunner {
 
         BaselineFile baselineFile = readBaseline(baseline);
         GateVerdict verdict = RegressionGate.evaluate(candidate, baselineFile, config);
-        writeVerdictJson(env, verdict); // always, before any throw, so a CI action can post the comment
+        writeVerdictJson(env, baseline, verdict); // always, before any throw, so a CI action can post the comment
         // RegressionGate already folds config.failOnRegression() (and the coverage-loss guards) into
         // the status, so the throw is purely on FAIL — re-checking failOnRegression here would
         // double-gate and suppress coverage-loss failures that fire independently of it.
@@ -171,17 +174,49 @@ public final class RegressionGateRunner {
     }
 
     /**
-     * Writes {@code gate-verdict.json} best-effort: a write failure is logged and swallowed so it can
-     * never mask the gate result (the throw-on-FAIL or the pass-return proceeds regardless).
+     * Writes the verdict JSON best-effort, to a per-baseline file named for the baseline stem (so two
+     * gates in one {@code verdictDir} do not clobber each other). The write is atomic — a temp file in
+     * the same directory then an {@code ATOMIC_MOVE} (with a {@code REPLACE_EXISTING} fallback) — and
+     * fully swallowed on failure (logged, never rethrown) so it can never mask the gate result (the
+     * throw-on-FAIL or the pass-return proceeds regardless).
      */
-    private static void writeVerdictJson(Environment env, GateVerdict verdict) {
-        Path target = env.verdictDir().resolve(VERDICT_FILE);
+    private static void writeVerdictJson(Environment env, Path baseline, GateVerdict verdict) {
+        Path dir = env.verdictDir();
+        Path target = dir.resolve(verdictFileName(baseline));
         try {
-            Files.createDirectories(env.verdictDir());
-            Files.writeString(target, verdict.toJson(), StandardCharsets.UTF_8);
+            Files.createDirectories(dir);
+            Path tmp = Files.createTempFile(dir, ".gate-verdict-", ".tmp");
+            try {
+                Files.writeString(tmp, verdict.toJson(), StandardCharsets.UTF_8);
+                try {
+                    Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException e) {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(tmp);
+            }
         } catch (IOException e) {
-            env.log().accept("could not write " + VERDICT_FILE + " at " + target + ": " + e.getMessage());
+            env.log().accept("could not write verdict JSON at " + target + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Derives the verdict filename from the baseline filename stem (trailing {@code .json} stripped),
+     * sanitized to a single safe segment: any character outside {@code [A-Za-z0-9._-]} becomes
+     * {@code -}. Falls back to {@code gate-verdict} when the stem is empty or {@code .}/{@code ..}.
+     */
+    private static String verdictFileName(Path baseline) {
+        String name = baseline.getFileName() != null ? baseline.getFileName().toString() : "";
+        String stem = name.regionMatches(true, name.length() - VERDICT_SUFFIX.length(), VERDICT_SUFFIX, 0,
+                        VERDICT_SUFFIX.length())
+                ? name.substring(0, name.length() - VERDICT_SUFFIX.length())
+                : name;
+        String slug = stem.replaceAll("[^A-Za-z0-9._-]", "-");
+        if (slug.isEmpty() || ".".equals(slug) || "..".equals(slug)) {
+            slug = VERDICT_FALLBACK;
+        }
+        return slug + VERDICT_SUFFIX;
     }
 
     /**

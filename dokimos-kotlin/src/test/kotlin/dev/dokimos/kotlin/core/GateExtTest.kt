@@ -7,12 +7,12 @@ import dev.dokimos.core.ItemResult
 import dev.dokimos.core.RunResult
 import dev.dokimos.core.gate.BaselineStore
 import dev.dokimos.core.gate.GateConfig
-import java.nio.file.Path
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 
 // Tests the env-independent paths only: the COMPARE path (every test pre-writes a baseline so the
 // extension never enters the bootstrap branch, which reads the real CI env and diverges between

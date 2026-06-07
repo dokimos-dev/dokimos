@@ -280,8 +280,7 @@ class RegressionGateRunnerTest {
         // FAIL). No score regressed, so the FAIL has no regressed evaluator or case — the only
         // explanation is the warning, which the console message must surface (not just the JSON).
         Path baseline = dir.resolve("rag.json");
-        BaselineStore.write(
-                baseline, thirtyItemsWithEvaluators("correctness", "relevance"), GateConfig.defaults());
+        BaselineStore.write(baseline, thirtyItemsWithEvaluators("correctness", "relevance"), GateConfig.defaults());
 
         StubEnv env = new StubEnv(false, false, dir.resolve("verdict"));
         ExperimentResult candidate = thirtyItemsWithEvaluators("correctness");

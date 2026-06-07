@@ -208,8 +208,8 @@ public final class RegressionGateRunner {
      */
     private static String verdictFileName(Path baseline) {
         String name = baseline.getFileName() != null ? baseline.getFileName().toString() : "";
-        String stem = name.regionMatches(true, name.length() - VERDICT_SUFFIX.length(), VERDICT_SUFFIX, 0,
-                        VERDICT_SUFFIX.length())
+        String stem = name.regionMatches(
+                        true, name.length() - VERDICT_SUFFIX.length(), VERDICT_SUFFIX, 0, VERDICT_SUFFIX.length())
                 ? name.substring(0, name.length() - VERDICT_SUFFIX.length())
                 : name;
         String slug = stem.replaceAll("[^A-Za-z0-9._-]", "-");

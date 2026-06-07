@@ -2,6 +2,7 @@ package dev.dokimos.core;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.gate.BaselineStore;
 import dev.dokimos.core.gate.GateConfig;
 import java.nio.file.Path;
 import java.util.List;
@@ -217,17 +218,18 @@ class AssertionsTest {
     }
 
     @Test
-    void assertNoRegressionPathOverloadBypassesTheUnnamedGuard(@TempDir Path dir) {
+    void assertNoRegressionPathOverloadBypassesTheUnnamedGuard(@TempDir Path dir) throws Exception {
         // The candidate is "unnamed", which the logical-name overload rejects. Routed through the Path
-        // overload it must NOT apply the name guard: it reaches the runner, which on a missing baseline
-        // writes one and throws AssertionError (bootstrap) — not IllegalArgumentException.
+        // overload the name guard must NOT apply — it reaches the gate. With a matching baseline already
+        // committed, the gate compares and passes (no exception), proving the name guard was bypassed.
+        // The test stays on the env-independent compare path; the bootstrap path's behavior differs in CI.
         EvalResult eval = new EvalResult("correctness", 1.0, 0.7, true, "", Map.of());
         ItemResult item = new ItemResult(Example.of("q", "a"), Map.of("output", "x"), List.of(eval));
-        ExperimentResult unnamed = new ExperimentResult("unnamed", "", Map.of(), List.of(new RunResult(0, List.of(item))));
+        ExperimentResult unnamed =
+                new ExperimentResult("unnamed", "", Map.of(), List.of(new RunResult(0, List.of(item))));
         Path baseline = dir.resolve("b.json");
+        BaselineStore.write(baseline, unnamed, GateConfig.defaults());
 
-        assertThatThrownBy(() -> Assertions.assertNoRegression(unnamed, baseline))
-                .isInstanceOf(AssertionError.class)
-                .isNotInstanceOf(IllegalArgumentException.class);
+        assertThatNoException().isThrownBy(() -> Assertions.assertNoRegression(unnamed, baseline));
     }
 }

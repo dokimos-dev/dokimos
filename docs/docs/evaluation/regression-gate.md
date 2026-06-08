@@ -100,15 +100,19 @@ The logical-name overload resolves `src/test/resources/dokimos/baselines/<name>.
 
 :::
 
-### First run writes the baseline
+### First run scaffolds the baseline
 
-There is no baseline yet, so the first **local** run writes one and fails once:
+There is no baseline yet, so the first **local** run writes one and passes:
 
 ```
-Baseline created at .../src/test/resources/dokimos/baselines/rag.json. Review and commit it, then re-run.
+Baseline created at .../src/test/resources/dokimos/baselines/rag.json. Commit it so the gate compares against it from now on.
 ```
 
-Review the file, commit it, and re-run — now the test is green and stays green until quality actually changes. A **CI** run with no committed baseline does not write one (the checkout is ephemeral, so the write would be lost); it reports `NO_BASELINE` and passes without measuring anything. Create and commit the baseline locally first.
+The new file shows up in your `git status` and your PR diff — review it and commit it like any other test fixture. From the next run on, the gate compares against it and stays green until quality actually changes.
+
+A **CI** run with no committed baseline does not write one (the checkout is ephemeral, so the write would be lost); it reports `NO_BASELINE` and passes with a warning, measuring nothing. Create and commit the baseline locally first.
+
+Prefer a red build until the baseline is reviewed? Set `bootstrapPasses(false)` and the first run still writes the file but fails once (`Review and commit it, then re-run.`) — the strict approval-test stance, where an unreviewed baseline never quietly becomes the source of truth. See [Configuration](#configuration).
 
 ## The baseline file
 
@@ -165,6 +169,55 @@ The gate is only as stable as the scores it compares. Deterministic evaluators l
 - **`temperature = 0`** — at temperature 0 a modern judge's per-item verdict is effectively fixed run to run, so an unchanged candidate reproduces the baseline.
 - **A dated model snapshot** (e.g. a `-2025-..` id), not a floating alias — a floating alias silently swaps the model under you and moves the baseline for reasons that have nothing to do with your code.
 - **A fixed evaluator set** — adding or removing an evaluator changes the population the significance test runs over, which shifts the other evaluators' p-values. Re-baseline after any evaluator-set change.
+
+## Configuration
+
+The defaults are tuned for an LLM-judge gate and need no configuration to start. To change them, build a `GateConfig` and pass it as the last argument to `assertNoRegression`.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+import dev.dokimos.core.gate.GateConfig;
+
+GateConfig config = GateConfig.builder()
+    .severityMargin(0.10)                              // stricter single-item drop guard
+    .pairing(GateConfig.Pairing.DATASET_ITEM_ID)       // pair strictly by id
+    .bootstrapPasses(false)                            // fail once until the baseline is reviewed
+    .build();
+
+Assertions.assertNoRegression(result, "rag", config);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+import dev.dokimos.core.gate.GateConfig
+
+val config = GateConfig.builder()
+    .severityMargin(0.10)
+    .build()
+
+result.assertNoRegression("rag", config)
+```
+
+  </TabItem>
+</Tabs>
+
+| Option | Default | What it controls |
+| --- | --- | --- |
+| `bootstrapPasses` | `true` | First local run with no baseline writes the file and passes. Set `false` to write it but fail once until you review and commit it (the strict approval-test stance). |
+| `severityMargin` | `0.15` | Guard 2. Any single item whose worst per-evaluator score drops by more than this fails the gate, even on a dataset too small for the significance test to react. |
+| `pairing` | `AUTO` | How baseline and candidate items are matched. `AUTO` pairs by `id` when every item carries one, else by position; `POSITIONAL` always pairs by position; `DATASET_ITEM_ID` always pairs by id and fails if any item lacks one. |
+| `failOnRegression` | `true` | Whether a significant regression fails the gate. Set `false` to record the verdict without failing the build. |
+| `failOnRemovedItems` | `false` | Whether an item present in the baseline but absent from the candidate fails the gate. |
+| `onRemovedEvaluator` | `FAIL` | What happens when an evaluator in the baseline is missing from the candidate. `FAIL`, because a dropped evaluator is indistinguishable from hiding a regression; `WARN` to allow it. |
+| `alpha` | `0.05` | Significance level for the McNemar and permutation tests. Lower is more conservative — fewer changes are called regressions. |
+| `seed` | `42` | RNG seed for the permutation and bootstrap tests, pinned so a verdict is reproducible run to run. |
+| `permutationIterations` | `10000` | Permutation-test iteration count (guard 1, non-binary scores). |
+| `bootstrapIterations` | `10000` | Bootstrap confidence-interval iteration count (guard 1). |
+| `updateBaseline` | `false` | Overwrite the baseline from this run and pass. Usually set out of band with `DOKIMOS_UPDATE_BASELINE=true` (see [Re-baseline an intended change](#re-baseline-an-intended-change)) rather than in code. |
 
 ## Stable ids for evolving datasets
 

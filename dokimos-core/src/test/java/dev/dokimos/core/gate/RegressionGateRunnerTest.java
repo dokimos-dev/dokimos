@@ -104,17 +104,20 @@ class RegressionGateRunnerTest {
     }
 
     @Test
-    void localBootstrapWritesTheBaselineAndThrowsOnce(@TempDir Path dir) {
+    void localBootstrapWritesTheBaselineAndPassesByDefault(@TempDir Path dir) {
+        // The default (bootstrapPasses=true) writes the baseline and passes, so a first local run is
+        // green and the new file lands in the PR diff for review. The log nudges committing it.
         Path baseline = dir.resolve("baselines").resolve("rag.json");
         StubEnv env = new StubEnv(false, false, dir.resolve("verdict"));
         ExperimentResult candidate = thirtyItems(-1, 1.0, 1.0);
 
-        assertThatThrownBy(() -> RegressionGateRunner.run(candidate, baseline, GateConfig.defaults(), env))
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining("created")
-                .hasMessageContaining(baseline.toAbsolutePath().toString());
+        GateVerdict verdict = RegressionGateRunner.run(candidate, baseline, GateConfig.defaults(), env);
 
         assertThat(baseline).exists();
+        assertThat(verdict.passed()).isTrue();
+        assertThat(env.logs).anyMatch(m -> m.contains("Baseline created") && m.contains("Commit it"));
+        // No comparison ran on bootstrap, so no verdict JSON is written.
+        assertThat(env.verdictDir().resolve("rag.json")).doesNotExist();
     }
 
     @Test
@@ -123,8 +126,8 @@ class RegressionGateRunnerTest {
         StubEnv env = new StubEnv(false, false, dir.resolve("verdict"));
         ExperimentResult candidate = thirtyItems(-1, 1.0, 1.0);
 
-        assertThatThrownBy(() -> RegressionGateRunner.run(candidate, baseline, GateConfig.defaults(), env))
-                .isInstanceOf(AssertionError.class);
+        GateVerdict verdict = RegressionGateRunner.run(candidate, baseline, GateConfig.defaults(), env);
+        assertThat(verdict.passed()).isTrue();
 
         BaselineFile written = BaselineStore.read(baseline);
         assertThat(written.items()).hasSize(30);
@@ -132,18 +135,20 @@ class RegressionGateRunnerTest {
     }
 
     @Test
-    void localBootstrapWithBootstrapPassesWritesButDoesNotThrow(@TempDir Path dir) {
+    void strictBootstrapWritesTheBaselineAndThrowsOnceUntilReviewed(@TempDir Path dir) {
+        // The opt-in strict stance (bootstrapPasses=false) writes the file but fails once, so the run
+        // is red until the new baseline is reviewed and committed.
         Path baseline = dir.resolve("rag.json");
         StubEnv env = new StubEnv(false, false, dir.resolve("verdict"));
         ExperimentResult candidate = thirtyItems(-1, 1.0, 1.0);
-        GateConfig config = GateConfig.builder().bootstrapPasses(true).build();
+        GateConfig config = GateConfig.builder().bootstrapPasses(false).build();
 
-        GateVerdict verdict = RegressionGateRunner.run(candidate, baseline, config, env);
+        assertThatThrownBy(() -> RegressionGateRunner.run(candidate, baseline, config, env))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("created")
+                .hasMessageContaining(baseline.toAbsolutePath().toString());
 
         assertThat(baseline).exists();
-        assertThat(verdict.passed()).isTrue();
-        // No comparison ran on bootstrap, so no verdict JSON is written.
-        assertThat(env.verdictDir().resolve("rag.json")).doesNotExist();
     }
 
     @Test

@@ -65,7 +65,8 @@ public final class RegressionGateRunner {
      *   <li><b>No baseline, CI</b>: do not write a baseline (the checkout is ephemeral); emit a
      *       NO_BASELINE verdict and the loud banner, write the verdict JSON, and pass.
      *   <li><b>No baseline, local</b>: write the baseline from the candidate. Pass when {@code
-     *       config.bootstrapPasses()}; otherwise throw once so the new file is reviewed and committed.
+     *       config.bootstrapPasses()} (the default, so the new file lands in the PR diff for review);
+     *       otherwise throw once so the new file is reviewed and committed before it counts.
      *   <li><b>Compare</b>: read the baseline, evaluate, always write the verdict JSON, then throw on a
      *       FAIL verdict.
      * </ol>
@@ -103,7 +104,9 @@ public final class RegressionGateRunner {
             // Absolute path here is deliberate (unlike the relative commit-path in failMessage): the
             // user needs to locate the file just written, not type it into `git commit`.
             if (config.bootstrapPasses()) {
-                env.log().accept("Baseline created at " + baseline.toAbsolutePath());
+                env.log()
+                        .accept("Baseline created at " + baseline.toAbsolutePath()
+                                + ". Commit it so the gate compares against it from now on.");
                 return GateVerdict.noBaseline(candidate.passRate());
             }
             throw new AssertionError(

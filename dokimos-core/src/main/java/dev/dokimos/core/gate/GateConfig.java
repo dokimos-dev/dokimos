@@ -134,7 +134,14 @@ public final class GateConfig {
         return onRemovedEvaluator;
     }
 
-    /** @return whether a missing-baseline bootstrap passes instead of failing loud once */
+    /**
+     * Whether a missing-baseline bootstrap writes the file and passes (the default), versus the
+     * strict approval-test stance that writes it but fails once so the run is red until the new
+     * baseline is reviewed and committed. The CI no-baseline branch is unaffected either way: it
+     * never writes (the checkout is ephemeral) and always passes with a warning.
+     *
+     * @return true if a local missing-baseline bootstrap passes after writing
+     */
     public boolean bootstrapPasses() {
         return bootstrapPasses;
     }
@@ -155,7 +162,10 @@ public final class GateConfig {
         private boolean failOnRegression = true;
         private boolean failOnRemovedItems = false;
         private RemovedEvaluatorPolicy onRemovedEvaluator = RemovedEvaluatorPolicy.FAIL;
-        private boolean bootstrapPasses = false;
+        // Default: a first local run writes the baseline and passes, so the new file lands in the PR
+        // diff for review without a red build on run one. Set false for the strict approval-test
+        // stance (write it, fail once until reviewed and committed).
+        private boolean bootstrapPasses = true;
         private boolean updateBaseline = false;
 
         /** @param alpha the significance level @return this builder */
@@ -212,7 +222,11 @@ public final class GateConfig {
             return this;
         }
 
-        /** @param bootstrapPasses whether a missing-baseline bootstrap passes @return this builder */
+        /**
+         * @param bootstrapPasses whether a missing-baseline bootstrap passes after writing (default
+         *     {@code true}); {@code false} fails once until the new baseline is reviewed and committed
+         * @return this builder
+         */
         public Builder bootstrapPasses(boolean bootstrapPasses) {
             this.bootstrapPasses = bootstrapPasses;
             return this;

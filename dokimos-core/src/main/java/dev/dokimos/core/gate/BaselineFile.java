@@ -22,7 +22,7 @@ import java.util.List;
  * @param pairing {@code "positional"} or {@code "dataset_item_id"}
  * @param runsPerItem observations per item this file represents (v1: always 1)
  * @param items the per-item projections, sorted by key
- * @param provenance build/judge context, quarantined and excluded from the stability guarantee
+ * @param provenance build/judge context, kept separate and excluded from the byte-stability guarantee
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record BaselineFile(
@@ -70,7 +70,7 @@ public record BaselineFile(
 
     /**
      * Build/judge context, kept separate from the measured signal and excluded from the byte-stability
-     * guarantee. There is intentionally no {@code createdAt} — git records when the file changed.
+     * guarantee. It carries no {@code createdAt}; git already records when the file changed.
      *
      * @param dokimosVersion the Dokimos version that wrote the file, or null in dev builds
      * @param judge the judge provenance, or null

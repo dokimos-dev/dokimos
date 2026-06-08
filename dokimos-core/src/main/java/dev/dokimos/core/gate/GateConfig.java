@@ -3,9 +3,10 @@ package dev.dokimos.core.gate;
 /**
  * Configuration for the server-free regression gate.
  *
- * <p>Defaults are informed by the judge-noise measurement: gate on aggregate/per-evaluator
- * significance (quiet on noise), keep {@code severityMargin} as the one live per-item knob that
- * fails the gate on a localized-severe break, and recommend a temperature-0 judge.
+ * <p>The defaults suit an LLM-judge gate: it flags only statistically significant aggregate and
+ * per-evaluator drops, so a noisy judge does not flake the build, while {@code severityMargin} still
+ * fails the gate on a single item that breaks hard. Pair the gate with a temperature-0 judge for
+ * stable scores.
  *
  * <p>Accessors follow the framework convention (no {@code get} prefix). Construct via {@link
  * #defaults()} or {@link #builder()}.

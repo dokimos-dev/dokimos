@@ -7,19 +7,17 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The server-free regression-gate verdict: the server {@code GateResult} minus the two run UUIDs
- * (the PR-comment renderer never reads them), plus two additive fields the renderer ignores —
- * {@code warnings} (coverage-loss and threshold-drift notices) and {@code comparedPass} (true when a
- * real comparison ran, distinguishing it from a no-op {@link #noBaseline(double)}).
+ * The result of a regression-gate comparison: the overall {@code status}, the pass-rate move, the
+ * regressed evaluators and cases, and any coverage-loss or threshold-drift {@code warnings}.
  *
- * <p>{@link #toJson()} is field-name compatible with the server result on the subset {@code
- * render-comment.sh} consumes, so the unmodified shell renders this verdict on GitHub. The per-case
- * key serializes under the property name {@code index} (the script reads {@code .index}), not {@code
- * key}. {@code candidatePassRate} is a primitive double so it is always present as a number — the
- * script multiplies it by 100 without a null guard.
+ * <p>{@link #toJson()} writes the verdict in the shape the CI report action consumes (one verdict
+ * file per baseline under {@code target/dokimos}); {@link #toMarkdown()} renders the same content as
+ * a CI-agnostic comment. The JSON field names are a stable contract for that renderer: the per-case
+ * key serializes under {@code index}, and {@code candidatePassRate} is always present as a number.
  *
- * <p>Thresholds are advisory: pass/fail is the stored verdict, never recomputed here. A threshold
- * change between baseline and candidate produces a warning, never a gate failure.
+ * <p>Thresholds are advisory: the verdict uses each side's recorded pass/fail, never a recomputed
+ * threshold comparison. A threshold change between baseline and candidate produces a warning, not a
+ * gate failure.
  *
  * @param status one of {@code PASS}, {@code FAIL}, {@code NO_BASELINE}
  * @param passed true when the gate allows the build to proceed ({@code status != FAIL})
@@ -29,15 +27,11 @@ import java.util.Locale;
  * @param passRateDelta candidate minus baseline pass rate, or null when NO_BASELINE
  * @param significant whether the pass-rate change is statistically significant
  * @param improvedCount items significantly improved
- * @param regressedCount the displayed regressed-case count: the larger of the engine's broad-guard
- *     count and the deduped union of guard-1 and guard-2 cases, so the shell renderer (which reuses
- *     this field as both the metric value and the "Showing N of M" denominator) never reports 0
- *     above a populated case list. This displayed count intentionally differs from the server {@code
- *     GateResult.regressedCount} (the engine's authoritative significant-regression count); they
- *     share a name but are not the same number by design.
- * @param totalRegressedCases the deduped union total of regressed cases before the display cap;
- *     additive (the shell renderer ignores it) and used by {@link #toMarkdown()} as the truncation
- *     denominator so it is exact even for a guard-2-only break
+ * @param regressedCount the regressed-case count shown in the comment: the larger of the engine's
+ *     significance-gated count and the deduped union of guard-1 and guard-2 cases, so a guard-2-only
+ *     break never renders as "0 regressed cases" above a populated list
+ * @param totalRegressedCases the deduped union total of regressed cases before the display cap, used
+ *     by {@link #toMarkdown()} as the truncation denominator so it is exact even for a guard-2-only break
  * @param unchangedCount items with no significant change
  * @param addedCount items present only in the candidate
  * @param removedCount items present only in the baseline
@@ -45,7 +39,7 @@ import java.util.Locale;
  * @param cases regressed items shown in the comment (capped at 50)
  * @param casesTruncated true when the deduped case total exceeded the cap
  * @param comparedPass true when a real comparison ran (false only for NO_BASELINE)
- * @param warnings additive coverage-loss / drift notices; the shell renderer ignores them
+ * @param warnings coverage-loss and threshold-drift notices
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GateVerdict(
@@ -89,8 +83,8 @@ public record GateVerdict(
 
     /**
      * A single regressed item, identified by its dataset item id when paired by id or by its
-     * positional index otherwise. The comparison key serializes under {@code index} (a hard contract
-     * with the PR-comment renderer); {@code datasetItemId} is set only when the key is a dataset id.
+     * positional index otherwise. The comparison key serializes under {@code index}; {@code
+     * datasetItemId} is set only when the key is a dataset id.
      *
      * @param datasetItemId the dataset item id, or null for positionally paired items
      * @param index the comparison key (dataset item id or {@code "item-<index>"})
@@ -146,7 +140,7 @@ public record GateVerdict(
     }
 
     /**
-     * Serializes to compact JSON for {@code render-comment.sh} (read via jq from stdin).
+     * Serializes to compact JSON, the shape the CI report action consumes.
      *
      * @return the verdict as a single-line JSON document
      */
@@ -155,9 +149,8 @@ public record GateVerdict(
     }
 
     /**
-     * Renders the verdict as CI-agnostic Markdown, mirroring {@code render-comment.sh} so GitLab,
-     * Jenkins, and any non-GitHub runner can post the same comment without the shell. Unlike the
-     * shell, a FAIL with no per-item case (a broad significance failure) renders an explicit
+     * Renders the verdict as CI-agnostic Markdown so any runner (GitLab, Jenkins, local) can post the
+     * same comment. A FAIL with no per-item case (a broad significance failure) renders an explicit
      * aggregate-regression line rather than an empty section, and any {@code warnings} are appended.
      *
      * @return the Markdown summary
@@ -322,8 +315,8 @@ public record GateVerdict(
 
     /**
      * Formats a score, delta, or p-value for the comment: fixed decimals (no scientific notation),
-     * trailing zeros stripped so a clean {@code 1.0→0.0} drop reads the same as the shell's raw jq
-     * output rather than {@code 1.000→0.000}.
+     * trailing zeros stripped so a clean {@code 1.0→0.0} drop reads that way rather than {@code
+     * 1.000→0.000}.
      */
     private static String num(double value) {
         if (value == 0.0) {

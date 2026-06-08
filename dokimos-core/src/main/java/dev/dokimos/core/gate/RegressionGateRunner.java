@@ -17,16 +17,16 @@ import org.slf4j.LoggerFactory;
  * The run lifecycle around {@link RegressionGate}: resolves whether to update, bootstrap, or compare
  * a baseline, performs the file I/O, and turns a FAIL verdict into an {@link AssertionError}.
  *
- * <p>{@link RegressionGate#evaluate} is the pure verdict layer; this is the side-effecting layer that
+ * <p>{@link RegressionGate#evaluate} produces the verdict; this layer adds the side effects that
  * {@link dev.dokimos.core.Assertions#assertNoRegression} delegates to. Everything that reads the
  * outside world — CI detection, the update-requested flag, the verdict-output directory, the log sink
- * — is injected through {@link Environment}, so the whole lifecycle is unit-testable with a hand-built
- * environment and a temp directory: no real environment variables, no writes into the source tree.
+ * — is injected through {@link Environment}, so callers and tests can supply their own without
+ * touching real environment variables or the source tree.
  *
  * <p>The throw decision is identical in CI and locally: a FAIL verdict throws on every runner, so a
  * failing {@code mvn test} (or Gradle, GitLab, Jenkins) is the gate without any CI-specific wiring.
  * {@link Environment#ci()} is consulted in exactly one place — suppressing the bootstrap write when
- * no baseline exists, because a CI checkout is ephemeral and the write would be gitignored and lost.
+ * no baseline exists, because a CI checkout is ephemeral and the write would be lost.
  */
 public final class RegressionGateRunner {
 
@@ -75,8 +75,8 @@ public final class RegressionGateRunner {
      * @param baseline the baseline file path (already resolved; this layer applies no path convention)
      * @param config the gate configuration
      * @param env the injected environment
-     * @return the verdict on every passing path; the update and bootstrap paths return a non-null
-     *     sentinel the void assertion API discards
+     * @return the verdict; the update and bootstrap paths return a {@code NO_BASELINE} verdict (no
+     *     comparison ran), which the void assertion API discards
      * @throws AssertionError on a FAIL verdict, and on a local missing baseline unless {@code
      *     config.bootstrapPasses()}
      * @throws UncheckedIOException if the baseline itself cannot be written or read (a real gate error,
@@ -86,8 +86,8 @@ public final class RegressionGateRunner {
         if (config.updateBaseline() || env.updateRequested()) {
             writeBaseline(baseline, candidate, config);
             env.log().accept("baseline updated at " + baseline.toAbsolutePath());
-            // No comparison ran this invocation; the return is an unobserved sentinel (the void
-            // assertion API discards it) and comparedPass=false is the honest signal.
+            // No comparison ran, so comparedPass stays false; the void assertion API discards the
+            // returned verdict.
             return GateVerdict.noBaseline(candidate.passRate());
         }
 
@@ -101,8 +101,7 @@ public final class RegressionGateRunner {
                 return verdict;
             }
             writeBaseline(baseline, candidate, config);
-            // Absolute path here is deliberate (unlike the relative commit-path in failMessage): the
-            // user needs to locate the file just written, not type it into `git commit`.
+            // Absolute path so the user can locate the file just written.
             if (config.bootstrapPasses()) {
                 env.log()
                         .accept("Baseline created at " + baseline.toAbsolutePath()
@@ -116,9 +115,9 @@ public final class RegressionGateRunner {
         BaselineFile baselineFile = readBaseline(baseline);
         GateVerdict verdict = RegressionGate.evaluate(candidate, baselineFile, config);
         writeVerdictJson(env, baseline, verdict); // always, before any throw, so a CI action can post the comment
-        // RegressionGate already folds config.failOnRegression() (and the coverage-loss guards) into
-        // the status, so the throw is purely on FAIL — re-checking failOnRegression here would
-        // double-gate and suppress coverage-loss failures that fire independently of it.
+        // RegressionGate already folded failOnRegression and the coverage-loss guards into the status;
+        // re-checking failOnRegression here would double-gate and suppress the coverage-loss failures
+        // that fire independently of it.
         if ("FAIL".equals(verdict.status())) {
             throw new AssertionError(failMessage(verdict, baseline));
         }
@@ -322,7 +321,7 @@ public final class RegressionGateRunner {
     }
 
     private static String num(double value) {
-        // Mirrors GateVerdict.num (private there); kept local rather than widening GateVerdict's API.
+        // Compact number formatting for the FAIL message, matching the comment renderer.
         if (value == 0.0) {
             return "0";
         }
@@ -331,7 +330,7 @@ public final class RegressionGateRunner {
     }
 
     private static boolean truthy(String v) {
-        // Mirrors GateConfig.truthy (private there); kept local rather than widening GateConfig's API.
+        // Accepts the same truthy spellings as GateConfig.
         return v != null && (v.equalsIgnoreCase("true") || v.equals("1") || v.equalsIgnoreCase("yes"));
     }
 }

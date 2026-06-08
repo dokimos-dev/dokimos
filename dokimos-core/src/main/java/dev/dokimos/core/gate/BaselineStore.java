@@ -29,9 +29,9 @@ import java.util.TreeMap;
  * Reads and writes the regression-gate baseline file, and reconstructs comparison-ready {@link
  * RunResult}s from it.
  *
- * <p>The baseline is a committed source artifact: it is read AND written through the module-relative
- * filesystem path, never the classpath, so a surefire/Gradle copy of {@code src/test/resources} to
- * {@code target/test-classes} can never split the read from the write.
+ * <p>The baseline is a committed source file. It is read and written through the module-relative
+ * filesystem path, never the classpath, so the read and the write always target the same file (a
+ * classpath copy under {@code target/test-classes} would not).
  */
 public final class BaselineStore {
 

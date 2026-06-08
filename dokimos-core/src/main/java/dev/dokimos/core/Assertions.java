@@ -50,17 +50,19 @@ public class Assertions {
      * Asserts that the candidate has not regressed against its committed baseline, resolving the
      * baseline from the experiment name.
      *
-     * <p>The baseline lives at {@code src/test/resources/dokimos/baselines/<name>.json} relative to
-     * the module directory (the surefire working directory). With no baseline yet, the first local run
-     * writes one and fails once so it is reviewed and committed (opt out with {@link
-     * GateConfig.Builder#bootstrapPasses(boolean)}); a CI run reports NO_BASELINE without writing
-     * (the checkout is ephemeral). Re-run with {@code DOKIMOS_UPDATE_BASELINE=true} (or {@code
-     * -Ddokimos.updateBaseline}) to overwrite the baseline and pass.
+     * <p>The baseline lives at {@code src/test/resources/dokimos/baselines/<name>.json}, resolved
+     * relative to the module directory. With no baseline yet, the first local run writes one and
+     * passes, so the new file can be reviewed and committed; set {@link
+     * GateConfig.Builder#bootstrapPasses(boolean)} to {@code false} to fail that first run instead,
+     * until the baseline is committed. A CI run never writes a baseline (the checkout is ephemeral)
+     * and reports {@code NO_BASELINE}. To accept an intended change, re-run with {@code
+     * DOKIMOS_UPDATE_BASELINE=true} (or {@code -Ddokimos.updateBaseline}) to overwrite the baseline.
      *
      * @param candidate the candidate experiment result
      * @throws IllegalArgumentException if the experiment name is blank or the default {@code "unnamed"}
      *     (two unnamed experiments would collide on one baseline); name the experiment or pass a Path
-     * @throws AssertionError on a regression, or on a first local baseline write
+     * @throws AssertionError on a regression, or on the first local baseline write when {@code
+     *     bootstrapPasses} is false
      */
     public static void assertNoRegression(ExperimentResult candidate) {
         assertNoRegression(candidate, candidate.name());
@@ -73,7 +75,8 @@ public class Assertions {
      * @param baselineName the logical baseline name (resolved to {@code
      *     src/test/resources/dokimos/baselines/<name>.json})
      * @throws IllegalArgumentException if {@code baselineName} is blank or {@code "unnamed"}
-     * @throws AssertionError on a regression, or on a first local baseline write
+     * @throws AssertionError on a regression, or on the first local baseline write when {@code
+     *     bootstrapPasses} is false
      */
     public static void assertNoRegression(ExperimentResult candidate, String baselineName) {
         assertNoRegression(candidate, baselinePathFor(baselineName), GateConfig.defaults());
@@ -88,7 +91,8 @@ public class Assertions {
      *     src/test/resources/dokimos/baselines/<name>.json})
      * @param config the gate configuration
      * @throws IllegalArgumentException if {@code baselineName} is blank or {@code "unnamed"}
-     * @throws AssertionError on a regression, or on a first local baseline write
+     * @throws AssertionError on a regression, or on the first local baseline write when {@code
+     *     bootstrapPasses} is false
      */
     public static void assertNoRegression(ExperimentResult candidate, String baselineName, GateConfig config) {
         assertNoRegression(candidate, baselinePathFor(baselineName), config);
@@ -99,7 +103,8 @@ public class Assertions {
      *
      * @param candidate the candidate experiment result
      * @param baseline the baseline file path
-     * @throws AssertionError on a regression, or on a first local baseline write
+     * @throws AssertionError on a regression, or on the first local baseline write when {@code
+     *     bootstrapPasses} is false
      */
     public static void assertNoRegression(ExperimentResult candidate, Path baseline) {
         assertNoRegression(candidate, baseline, GateConfig.defaults());
@@ -112,7 +117,8 @@ public class Assertions {
      * @param candidate the candidate experiment result
      * @param baseline the baseline file path
      * @param config the gate configuration
-     * @throws AssertionError on a regression, or on a first local baseline write
+     * @throws AssertionError on a regression, or on the first local baseline write when {@code
+     *     bootstrapPasses} is false
      */
     public static void assertNoRegression(ExperimentResult candidate, Path baseline, GateConfig config) {
         RegressionGateRunner.run(candidate, baseline, config, RegressionGateRunner.systemEnvironment());

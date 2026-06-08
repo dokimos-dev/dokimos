@@ -10,8 +10,8 @@ import java.nio.file.Path
  * experiment name), resolved to `src/test/resources/dokimos/baselines/<name>.json`.
  *
  * Throws [IllegalArgumentException] if [baseline] is blank or `"unnamed"`, and [AssertionError] on a
- * regression or a first local baseline write. See [Assertions.assertNoRegression] for the full
- * lifecycle.
+ * regression (or, when `bootstrapPasses` is false, on the first local baseline write). See
+ * [Assertions.assertNoRegression] for the full lifecycle.
  */
 fun ExperimentResult.assertNoRegression(baseline: String = name, config: GateConfig = GateConfig.defaults()) =
     Assertions.assertNoRegression(this, baseline, config)

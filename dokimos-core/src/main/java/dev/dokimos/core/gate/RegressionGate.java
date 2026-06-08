@@ -20,34 +20,33 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * The server-free regression gate: compares a candidate experiment result against a committed
- * baseline and produces a {@link GateVerdict}. This is the verdict layer only — no file I/O, no CI
- * detection.
+ * Compares a candidate experiment result against a committed baseline and produces a {@link
+ * GateVerdict}. This is the comparison step only; reading the baseline file and turning a verdict
+ * into a test failure are handled by {@link RegressionGateRunner} and {@link
+ * dev.dokimos.core.Assertions}.
  *
  * <p>The gate fails if either of two independent guards fires:
  *
  * <ul>
- *   <li><b>Guard 1 (broad)</b> — the core {@link RunComparison} engine reports a significant
- *       aggregate pass-rate drop or any significantly regressed evaluator ({@link
- *       RunComparisonResult#hasRegressions()}). Quiet on judge noise; insensitive to a localized
- *       break on a small dataset.
- *   <li><b>Guard 2 (localized-severe)</b> — any shared item's worst raw per-evaluator score drop
- *       falls below {@code -severityMargin}. Guard 2 computes its deltas directly from the baseline
- *       entries and the candidate means; it must <em>not</em> read {@link
- *       ItemComparison#evaluatorDeltas()}, which the engine gates to UNCHANGED whenever the
- *       evaluator's overall verdict is not significant — exactly the blindness guard 2 exists to fix.
+ *   <li><b>Guard 1 (broad)</b> — the {@link RunComparison} engine reports a significant aggregate
+ *       pass-rate drop or any significantly regressed evaluator ({@link
+ *       RunComparisonResult#hasRegressions()}). It stays quiet on judge noise but cannot see a
+ *       localized break on a small dataset.
+ *   <li><b>Guard 2 (localized-severe)</b> — any shared item whose worst raw per-evaluator score drop
+ *       falls below {@code -severityMargin}. This catches a single item that breaks hard even when
+ *       the aggregate change is not significant.
  * </ul>
  *
  * <p>Coverage-loss conditions fail the gate independently of {@code failOnRegression}, because guard
- * 1 structurally cannot see them: a removed evaluator (per {@code onRemovedEvaluator}), a removed
- * item (only when {@code failOnRemovedItems}), and — under {@code dataset_item_id} pairing — a
- * candidate item with no id, which pairs against nothing and would hide a regression on it (always a
- * FAIL). A baseline id absent from the candidate warns loudly; whether it also fails is governed by
- * {@code failOnRemovedItems}. A threshold change between sides is advisory and only warns.
+ * 1 cannot see them: a removed evaluator (per {@code onRemovedEvaluator}), a removed item (only when
+ * {@code failOnRemovedItems}), and — under {@code dataset_item_id} pairing — a candidate item with no
+ * id, which pairs against nothing and would hide a regression on it (always a FAIL). A baseline id
+ * absent from the candidate warns; whether it also fails is governed by {@code failOnRemovedItems}. A
+ * threshold change between sides only warns.
  */
 public final class RegressionGate {
 
-    /** Cap on regressed cases shown inline, to keep the PR comment bounded. Matches the server. */
+    /** Cap on regressed cases shown inline, to keep the PR comment bounded. */
     private static final int MAX_CASES = 50;
 
     private static final double PRECISION_SCALE = 1_000_000.0; // 6 decimals, matching the baseline writer
@@ -96,12 +95,10 @@ public final class RegressionGate {
         }
         boolean removedItemFail = config.failOnRemovedItems() && result.removedCount() > 0;
 
-        // Coverage-loss under id pairing: an item the candidate cannot key by id is invisible to both
-        // guards (it pairs against nothing), so a real regression on it slips through silently. Mirror
-        // BaselineStore.resolvePairById's write-time invariant, but as a hard FAIL verdict (the runner
-        // turns FAIL into the throw) rather than a thrown exception. A baseline id absent from the
-        // candidate is a likely rename/loss; name it loudly, but leave the FAIL decision to the
-        // existing removed-item path (failOnRemovedItems), which already counts it.
+        // Coverage-loss under id pairing: an item the candidate cannot key by id pairs against
+        // nothing, so a real regression on it slips both guards. Fail the gate. A baseline id absent
+        // from the candidate is a likely rename or loss; name it, but leave the FAIL-vs-warn decision
+        // to the removed-item path (failOnRemovedItems), which already counts it.
         boolean idPairingBrokenFail = false;
         if (byId) {
             if (anyCandidateMissingId(candidateRuns)) {
@@ -144,17 +141,15 @@ public final class RegressionGate {
         int totalCaseCount = byKey.size();
         List<GateVerdict.RegressedCase> shown =
                 byKey.values().stream().limit(MAX_CASES).toList();
-        // casesTruncated is the deduped union total over the cap, NOT the server's
-        // regressedCount>size formula, which is wrong once guard 2 contributes cases.
+        // Truncation is measured against the deduped union total, not the engine's significance-gated
+        // count, which undercounts once guard 2 contributes cases.
         boolean casesTruncated = totalCaseCount > shown.size();
 
         boolean significant = result.passRateSignificance().significant();
 
-        // regressedCount is the displayed regressed-case count: render-comment.sh reuses it as the
-        // metrics-table value AND the "Showing N of M" denominator, so it must cover the union of
-        // both guards' cases. The engine's significance-gated count is 0 for a guard-2-only break,
-        // which would otherwise print "0 regressed cases" above a populated list. totalRegressedCases
-        // carries the exact pre-cap union total for the canonical Markdown renderer.
+        // The displayed regressed-case count must cover the union of both guards' cases: the engine's
+        // significance-gated count is 0 for a guard-2-only break, which would otherwise show "0
+        // regressed cases" above a populated list. totalRegressedCases carries the exact pre-cap total.
         int displayedRegressedCount = Math.max(result.regressedCount(), totalCaseCount);
 
         return new GateVerdict(
@@ -252,7 +247,10 @@ public final class RegressionGate {
 
     /**
      * Fires guard 2 and appends a case for each item whose worst raw per-evaluator drop is strictly
-     * below {@code -severityMargin}. Only the breaching evaluators become drops.
+     * below {@code -severityMargin}. Only the breaching evaluators become drops. Deltas are taken from
+     * the baseline entries and the candidate means rather than from {@link
+     * ItemComparison#evaluatorDeltas()}, which the engine reports as UNCHANGED when an evaluator's
+     * overall verdict is not significant — the case this guard exists to catch.
      *
      * @return true if any shared item breached the margin
      */

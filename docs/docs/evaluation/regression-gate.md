@@ -7,8 +7,9 @@ title: Regression gate (server-free)
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ThemedImage from '@theme/ThemedImage';
 
-Run your evals as a test and fail the build when quality drops. You commit a baseline next to your test, and on every run the gate compares the fresh result against it and throws on a real regression. No server, no account, no API key for the gate itself — the failing test is the gate, and it fires the same way locally and in CI.
+Run your evals as a test and fail the build when quality drops. You commit a baseline next to your test, and on every run the gate compares the fresh result against it and throws on a real regression. No server, no account, no API key for the gate itself. The failing test is the gate, and it fires the same way locally and in CI.
 
 This is eval-driven development: a quality change shows up as a red build on the PR that caused it, the same place a broken unit test does.
 
@@ -108,17 +109,17 @@ There is no baseline yet, so the first **local** run writes one and passes:
 Baseline created at .../src/test/resources/dokimos/baselines/rag.json. Commit it so the gate compares against it from now on.
 ```
 
-The new file shows up in your `git status` and your PR diff — review it and commit it like any other test fixture. From the next run on, the gate compares against it and stays green until quality actually changes.
+The new file shows up in your `git status` and your PR diff. Review it and commit it like any other test fixture. From the next run on, the gate compares against it and stays green until quality actually changes.
 
 A **CI** run with no committed baseline does not write one (the checkout is ephemeral, so the write would be lost); it reports `NO_BASELINE` and passes with a warning, measuring nothing. Create and commit the baseline locally first.
 
-Prefer a red build until the baseline is reviewed? Set `bootstrapPasses(false)` and the first run still writes the file but fails once (`Review and commit it, then re-run.`) — the strict approval-test stance, where an unreviewed baseline never quietly becomes the source of truth. See [Configuration](#configuration).
+Prefer a red build until the baseline is reviewed? Set `bootstrapPasses(false)` and the first run still writes the file but fails once (`Review and commit it, then re-run.`), the strict approval-test stance where an unreviewed baseline never quietly becomes the source of truth. See [Configuration](#configuration).
 
 ## The baseline file
 
 The baseline lives at `src/test/resources/dokimos/baselines/<name>.json`, committed to git alongside the test.
 
-It is a stable projection of a run, not a dump of one. It records exactly what the comparison reads — a per-item key plus each evaluator's score, threshold, and pass/fail — and excludes model outputs, judge prose, and call metrics. The file changes only when measured quality changes, so a git diff shows the regression and nothing else.
+It is a stable projection of a run, not a dump of one. It records exactly what the comparison reads (a per-item key plus each evaluator's score, threshold, and pass/fail) and excludes model outputs, judge prose, and call metrics. The file changes only when measured quality changes, so a git diff shows the regression and nothing else.
 
 ```json
 {
@@ -143,7 +144,7 @@ It is a stable projection of a run, not a dump of one. It records exactly what t
 }
 ```
 
-The `dataset` summary and the `provenance` block (Dokimos version and judge model/temperature, when known) are advisory — the comparison reads neither. They round out what a real committed file looks like.
+The `dataset` summary and the `provenance` block (Dokimos version and judge model/temperature, when known) are advisory; the comparison reads neither. They round out what a real committed file looks like.
 
 ### Re-baseline an intended change
 
@@ -153,22 +154,22 @@ When a change moves scores on purpose, accept it by regenerating the file. Re-ru
 DOKIMOS_UPDATE_BASELINE=true mvn test
 ```
 
-The `-Ddokimos.updateBaseline=true` system property does the same thing, but the env var is the one to reach for — `-D` does not always reach the test JVM under Gradle or the IntelliJ runner. The FAIL message prints this exact command, so you never have to remember it.
+The `-Ddokimos.updateBaseline=true` system property does the same thing, but the env var is the one to reach for. `-D` does not always reach the test JVM under Gradle or the IntelliJ runner. The FAIL message prints this exact command, so you never have to remember it.
 
 ## How the gate decides
 
 The gate fails when either of two independent guards fires:
 
-1. **Broad regression.** A significance test (McNemar for pass/fail, a paired permutation test with a bootstrap interval otherwise) flags a real aggregate pass-rate drop or a significantly regressed evaluator. This is what keeps a noisy judge from flaking your build — random per-item flapping does not clear the test.
+1. **Broad regression.** A significance test (McNemar for pass/fail, a paired permutation test with a bootstrap interval otherwise) flags a real aggregate pass-rate drop or a significantly regressed evaluator. This is what keeps a noisy judge from flaking your build: random per-item flapping does not clear the test.
 2. **Localized-severe regression.** Any single item whose worst per-evaluator score drop exceeds `severityMargin` (default 0.15) fails the gate, even on a dataset too small for the significance test to react. This catches the one case that broke hard.
 
 ### Pin your judge
 
-The gate is only as stable as the scores it compares. Deterministic evaluators like `ExactMatchEvaluator` are stable by construction — they need no special care. For an LLM judge, pin two things so the baseline does not drift:
+The gate is only as stable as the scores it compares. Deterministic evaluators like `ExactMatchEvaluator` are stable by construction, so they need no special care. For an LLM judge, pin two things so the baseline does not drift:
 
-- **`temperature = 0`** — at temperature 0 a modern judge's per-item verdict is effectively fixed run to run, so an unchanged candidate reproduces the baseline.
-- **A dated model snapshot** (e.g. a `-2025-..` id), not a floating alias — a floating alias silently swaps the model under you and moves the baseline for reasons that have nothing to do with your code.
-- **A fixed evaluator set** — adding or removing an evaluator changes the population the significance test runs over, which shifts the other evaluators' p-values. Re-baseline after any evaluator-set change.
+- **`temperature = 0`**: at temperature 0 a modern judge's per-item verdict is effectively fixed run to run, so an unchanged candidate reproduces the baseline.
+- **A dated model snapshot** (e.g. a `-2025-..` id), not a floating alias. A floating alias silently swaps the model under you and moves the baseline for reasons that have nothing to do with your code.
+- **A fixed evaluator set**: adding or removing an evaluator changes the population the significance test runs over, which shifts the other evaluators' p-values. Re-baseline after any evaluator-set change.
 
 ## Configuration
 
@@ -213,7 +214,7 @@ result.assertNoRegression("rag", config)
 | `failOnRegression` | `true` | Whether a significant regression fails the gate. Set `false` to record the verdict without failing the build. |
 | `failOnRemovedItems` | `false` | Whether an item present in the baseline but absent from the candidate fails the gate. |
 | `onRemovedEvaluator` | `FAIL` | What happens when an evaluator in the baseline is missing from the candidate. `FAIL`, because a dropped evaluator is indistinguishable from hiding a regression; `WARN` to allow it. |
-| `alpha` | `0.05` | Significance level for the McNemar and permutation tests. Lower is more conservative — fewer changes are called regressions. |
+| `alpha` | `0.05` | Significance level for the McNemar and permutation tests. Lower is more conservative, so fewer changes are called regressions. |
 | `seed` | `42` | RNG seed for the permutation and bootstrap tests, pinned so a verdict is reproducible run to run. |
 | `permutationIterations` | `10000` | Permutation-test iteration count (guard 1, non-binary scores). |
 | `bootstrapIterations` | `10000` | Bootstrap confidence-interval iteration count (guard 1). |
@@ -236,7 +237,7 @@ qa-001,What is 2+2?,4
 
 ## In CI
 
-The loop is: run the gate test (it throws on a regression), then report the verdict — even when the build failed. Drop this PR-triggered job into your workflow:
+The loop is: run the gate test (it throws on a regression), then report the verdict, even when the build failed. Drop this PR-triggered job into your workflow:
 
 ```yaml
 eval-gate:
@@ -268,16 +269,24 @@ eval-gate:
         verdict-dir: target/dokimos
 ```
 
-`RegressionGateTest` and the single-module `mvn test` are placeholders — point `-Dtest` at your own gate test and adjust the build for your module layout.
+`RegressionGateTest` and the single-module `mvn test` are placeholders. Point `-Dtest` at your own gate test and adjust the build for your module layout.
 
-The `if: always()` on the report step is the load-bearing part. The gate writes a per-baseline verdict JSON under `target/dokimos` *before* it throws, so the report step posts the sticky PR comment after a failing build — without `always()`, the one run you most want explained would post nothing. The action renders every verdict file in the directory, so one job can gate several baselines. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
+The `if: always()` on the report step is the load-bearing part. The gate writes a per-baseline verdict JSON under `target/dokimos` *before* it throws, so the report step posts the sticky PR comment after a failing build. Without `always()`, the one run you most want explained would post nothing. The action renders every verdict file in the directory, so one job can gate several baselines. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
 
-![The eval gate's comment on a pull request: a failing run posts the pass-rate move, the significance flag, and the regressed cases](/img/eval-gate-pr-comment.png)
+<div style={{maxWidth: '560px'}}>
+  <ThemedImage
+    alt="The eval gate's comment on a pull request: a failing run posts the pass-rate move, the significance flag, and the regressed cases"
+    sources={{
+      light: '/img/eval-gate-pr-comment-light.png',
+      dark: '/img/eval-gate-pr-comment-dark.png',
+    }}
+  />
+</div>
 
-**Not on GitHub?** A failing `mvn test` is the gate on every runner — GitLab, Jenkins, Gradle, local. The verdict JSON lands under `target/dokimos`, one file per baseline (named for the baseline stem), if you want to render it yourself.
+**Not on GitHub?** A failing `mvn test` is the gate on every runner: GitLab, Jenkins, Gradle, local. The verdict JSON lands under `target/dokimos`, one file per baseline (named for the baseline stem), if you want to render it yourself.
 
-**Cost.** The candidate re-runs the eval on every push, so an LLM-judge gate costs tokens each time. Path-filter the workflow to PRs that touch datasets, prompts, model config, or the code under test — there is nothing to regress when only docs changed. Deterministic evaluators are free, so a gate built on those can run on every push.
+**Cost.** The candidate re-runs the eval on every push, so an LLM-judge gate costs tokens each time. Path-filter the workflow to PRs that touch datasets, prompts, model config, or the code under test. There is nothing to regress when only docs changed. Deterministic evaluators are free, so a gate built on those can run on every push.
 
 ## Server-based gate
 
-Already running the Dokimos server? It offers the same gate as an HTTP endpoint that picks the baseline run for you and branches CI on a single `passed` boolean — no committed baseline file to maintain. See [CI regression gate](../server/ci-gate.md). The server-free gate on this page is the right fit when you want the baseline in git and the gate to run as an ordinary test with no extra infrastructure.
+Already running the Dokimos server? It offers the same gate as an HTTP endpoint that picks the baseline run for you and branches CI on a single `passed` boolean, with no committed baseline file to maintain. See [CI regression gate](../server/ci-gate.md). The server-free gate on this page is the right fit when you want the baseline in git and the gate to run as an ordinary test with no extra infrastructure.

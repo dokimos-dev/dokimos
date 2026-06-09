@@ -9,7 +9,7 @@ const RELEASES: Release[] = [
   {
     version: "0.22.0",
     date: "June 2026",
-    lead: "A server-free regression gate: commit a baseline next to your test and fail the build when quality drops, with the same verdict locally and in CI — no server, account, or API key for the gate itself.",
+    lead: "A server-free regression gate: commit a baseline next to your test and fail the build when quality drops, with the same verdict locally and in CI. No server, account, or API key for the gate itself.",
     groups: [
       {
         label: "Added",

@@ -8,6 +8,8 @@ The diff view shows you what changed between two runs of the same experiment, it
 
 It is the same comparison the [CI gate](./ci-gate) and [regression alerting](./alerting) act on, shown as a table you can read.
 
+![Comparing two runs: the pass-rate movement, improved and regressed counts, a significance verdict, and a per-case delta of every evaluator score](/img/server-diff.png)
+
 ## Get a diff in one call
 
 Compare a candidate run against a baseline run:

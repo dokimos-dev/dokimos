@@ -10,6 +10,8 @@ It also closes the eval loop: hold datasets centrally and pin tests to a version
 
 The loop, end to end: pin a test to a [server dataset](./datasets) version, report the run, [gate it](./ci-gate) against its baseline in CI, [score](./llm-judge) runs and [production traces](./traces) with a judge, get [alerted](./alerting) on a regression, then [review and curate](./curation) the misses into the next dataset version.
 
+![The Dokimos server dashboard: every project that has reported a run, with its experiment count and latest activity](/img/server-dashboard.png)
+
 ## Start the server
 
 Two commands get you running:
@@ -104,8 +106,12 @@ See all your projects in one place with their latest runs.
 ### Experiment view
 View all runs for an experiment with pass rate trends over time.
 
+![An experiment view: latest and best pass rate, a pass-rate trend chart, and every run with its score and duration](/img/server-experiment.png)
+
 ### Run details
-Drill into a run to see individual test cases, scores, and evaluation reasons.
+Drill into a run to see individual test cases, scores, and evaluation reasons. Token, cost, and latency roll up into cards when your task reports them.
+
+![A run detail: total items, pass rate, and token, cost, and latency cards above a per-item table of evaluator scores](/img/server-run.png)
 
 ### Expandable items
 Click any item to see full input/output text and detailed evaluation results.

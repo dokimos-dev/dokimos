@@ -40,7 +40,9 @@ class QaEvaluationIT {
 
         evaluators = List.of(LLMJudgeEvaluator.builder()
                 .name("answer-correctness")
-                .criteria("is the answer correctly answering the question?")
+                .criteria("Does the answer correctly answer the question? Treat it as correct when it"
+                        + " conveys the expected answer's meaning, even if it adds further accurate detail"
+                        + " or uses different wording.")
                 .evaluationParams(List.of(
                         EvalTestCaseParam.INPUT, EvalTestCaseParam.ACTUAL_OUTPUT, EvalTestCaseParam.EXPECTED_OUTPUT))
                 .threshold(0.5)

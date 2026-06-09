@@ -1,0 +1,51 @@
+name: Eval Gate
+
+# Dogfoods the server-free regression gate on this repo. Scoped to PRs that touch files which can
+# move the gate's verdict or its rendered comment, so version bumps and unrelated changes do not get
+# a redundant "passed" comment. This mirrors the advice in docs/evaluation/regression-gate.md: there
+# is nothing to regress when the eval-relevant code did not change.
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'dokimos-examples/**'
+      - 'dokimos-core/src/main/java/dev/dokimos/core/gate/**'
+      - 'dokimos-core/src/main/java/dev/dokimos/core/comparison/**'
+      - '.github/actions/eval-gate-report/**'
+      - '.github/actions/eval-gate/**'
+      - '.github/workflows/eval-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  eval-gate:
+    name: Eval Gate (server-free)
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # A real regression fails this step. The report step still runs (if: always()), and the gate
+      # writes a per-baseline verdict file before throwing, so the verdict is always available.
+      - name: Run eval gate
+        id: gate
+        run: |
+          # -am installs the upstream reactor chain dokimos-examples depends on (its sibling
+          # SNAPSHOTs aren't on Maven Central), so the test step resolves them from the local repo.
+          mvn -B -pl dokimos-examples -am install -DskipTests
+          mvn -B -pl dokimos-examples test -Dtest=dev.dokimos.examples.gate.RegressionGateExampleTest -DfailIfNoTests=false
+
+      - name: Report gate verdict
+        if: always()
+        uses: ./.github/actions/eval-gate-report
+        with:
+          verdict-dir: dokimos-examples/target/dokimos

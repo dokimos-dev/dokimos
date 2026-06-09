@@ -12,7 +12,7 @@ Run your evals as a test and fail the build when quality drops. You commit a bas
 
 This is eval-driven development: a quality change shows up as a red build on the PR that caused it, the same place a broken unit test does.
 
-![An eval gate failing a build: the test prints the regressed cases and exits non-zero](/img/regression-gate.gif)
+![The eval gate as a JUnit test: a clean run passes, a quality drop fails with the regressed cases, and re-running with the update flag re-baselines](/img/regression-gate.png)
 
 ## Quickstart
 
@@ -271,6 +271,8 @@ eval-gate:
 `RegressionGateTest` and the single-module `mvn test` are placeholders — point `-Dtest` at your own gate test and adjust the build for your module layout.
 
 The `if: always()` on the report step is the load-bearing part. The gate writes a per-baseline verdict JSON under `target/dokimos` *before* it throws, so the report step posts the sticky PR comment after a failing build — without `always()`, the one run you most want explained would post nothing. The action renders every verdict file in the directory, so one job can gate several baselines. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
+
+![The eval gate's comment on a pull request: a failing run posts the pass-rate move, the significance flag, and the regressed cases](/img/eval-gate-pr-comment.png)
 
 **Not on GitHub?** A failing `mvn test` is the gate on every runner — GitLab, Jenkins, Gradle, local. The verdict JSON lands under `target/dokimos`, one file per baseline (named for the baseline stem), if you want to render it yourself.
 

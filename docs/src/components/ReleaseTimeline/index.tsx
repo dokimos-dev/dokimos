@@ -7,6 +7,52 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.22.0",
+    date: "June 2026",
+    lead: "A server-free regression gate: commit a baseline next to your test and fail the build when quality drops, with the same verdict locally and in CI — no server, account, or API key for the gate itself.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Server-free regression gate",
+            body: (
+              <>
+                <code>Assertions.assertNoRegression(result, "name")</code> compares a fresh experiment
+                result against a committed baseline at{" "}
+                <code>src/test/resources/dokimos/baselines/&lt;name&gt;.json</code> and throws on a real
+                regression. Two guards fire it: a significance test on the aggregate pass rate and
+                per-evaluator means (quiet on judge noise), and a localized-severity check that catches
+                a single item breaking hard. The first local run writes the baseline and fails once so
+                you review and commit it.
+              </>
+            ),
+          },
+          {
+            title: "Kotlin assertNoRegression",
+            body: (
+              <>
+                <code>ExperimentResult.assertNoRegression(...)</code> is available as a Kotlin extension
+                so the gate reads naturally from a Kotlin test.
+              </>
+            ),
+          },
+          {
+            title: "CI report action",
+            body: (
+              <>
+                The <code>eval-gate-report</code> composite action renders each per-baseline verdict
+                JSON under <code>target/dokimos</code> into the job summary and a sticky PR comment, and
+                fails the step on a regression. Pair it with <code>if: always()</code> so the comment
+                posts even after a failing build.
+              </>
+            ),
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.21.0",
     date: "June 2026",
     lead: "Cost, token, and latency metrics across all five framework adapters with a pluggable pricing seam, plus two new agent integrations (Embabel and Spring AI Alibaba) that capture an agent run as an AgentTrace for the agent evaluators.",

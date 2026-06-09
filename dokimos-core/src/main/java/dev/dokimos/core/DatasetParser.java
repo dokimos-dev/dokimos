@@ -65,7 +65,10 @@ public final class DatasetParser {
             expectedOutputs = Map.of("output", raw.get("expectedOutput"));
         }
 
-        return new Example(inputs, expectedOutputs, metadata);
+        Object idValue = raw.get("id");
+        String id = idValue != null ? idValue.toString() : null;
+
+        return new Example(inputs, expectedOutputs, metadata, id);
     }
 
     /**
@@ -147,6 +150,7 @@ public final class DatasetParser {
 
         int inputIdx = findColumnIndex(headers, "input");
         int outputIdx = findColumnIndex(headers, "expectedOutput", "expected_output", "output");
+        int idIdx = findColumnIndex(headers, "id");
 
         if (inputIdx == -1) {
             throw new IllegalArgumentException(
@@ -160,6 +164,7 @@ public final class DatasetParser {
             Map<String, Object> inputs = new HashMap<>();
             Map<String, Object> expectedOutputs = new HashMap<>();
             Map<String, Object> metadata = new HashMap<>();
+            String datasetItemId = null;
 
             for (int i = 0; i < headers.length && i < values.size(); i++) {
                 String header = headers[i];
@@ -169,12 +174,15 @@ public final class DatasetParser {
                     inputs.put("input", value);
                 } else if (i == outputIdx) {
                     expectedOutputs.put("output", value);
+                } else if (i == idIdx) {
+                    // A blank id cell is no id (matches the JSON null), not a useless empty pairing key.
+                    datasetItemId = value.isBlank() ? null : value;
                 } else {
                     metadata.put(header, value);
                 }
             }
 
-            examples.add(new Example(inputs, expectedOutputs, metadata));
+            examples.add(new Example(inputs, expectedOutputs, metadata, datasetItemId));
         }
 
         return Dataset.builder().name(name).addExamples(examples).build();

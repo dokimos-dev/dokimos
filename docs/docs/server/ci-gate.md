@@ -117,6 +117,8 @@ Two inputs let you soften the gate:
 - Set `fail-on-regression: "false"` to post the comment without blocking the merge.
 - Set `comment: "false"` to skip the PR comment.
 
+This page covers the server-based gate. If you would rather keep the baseline in git and run the gate as an ordinary test with no server, see [Regression gate (server-free)](../evaluation/regression-gate.md).
+
 ## Next steps
 
 - [Comparing runs](./diff): read the same comparison item by item in the web UI

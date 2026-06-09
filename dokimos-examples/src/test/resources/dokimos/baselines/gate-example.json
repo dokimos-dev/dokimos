@@ -1,0 +1,47 @@
+{
+  "formatVersion" : 1,
+  "experiment" : "gate-example",
+  "dataset" : {
+    "itemCount" : 4
+  },
+  "pairing" : "positional",
+  "runsPerItem" : 1,
+  "items" : [ {
+    "key" : "item-0",
+    "input" : "What is 2+2?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-1",
+    "input" : "What is the capital of France?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-2",
+    "input" : "What is the capital of Switzerland?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  }, {
+    "key" : "item-3",
+    "input" : "What is the capital of Japan?",
+    "evaluators" : [ {
+      "name" : "Exact Match",
+      "score" : 1.0,
+      "threshold" : 1.0,
+      "pass" : true
+    } ]
+  } ],
+  "provenance" : { }
+}

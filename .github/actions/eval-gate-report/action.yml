@@ -1,0 +1,100 @@
+name: Dokimos eval gate report
+description: Render one or more per-baseline gate verdict JSON files to the job summary, post a sticky PR comment, and fail on a regression.
+
+inputs:
+  verdict-dir:
+    description: Directory the regression gate wrote per-baseline verdict JSON files into.
+    required: false
+    default: "target/dokimos"
+  comment:
+    description: Post (or update) a sticky pull-request comment with the verdict.
+    required: false
+    default: "true"
+  fail-on-regression:
+    description: Fail the step when any gate verdict is FAIL.
+    required: false
+    default: "true"
+
+outputs:
+  status:
+    description: PASS, FAIL, or NO_BASELINE (FAIL dominates across the per-baseline files).
+    value: ${{ steps.read.outputs.status }}
+  passed:
+    description: true when no per-baseline verdict found a significant regression.
+    value: ${{ steps.read.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - id: read
+      shell: bash
+      env:
+        VERDICT_DIR: ${{ inputs.verdict-dir }}
+      run: |
+        set -euo pipefail
+        # The runner writes a per-baseline verdict before throwing on a regression, so on a real FAIL
+        # the file always exists. No files means the gate never ran (compile/dependency break upstream);
+        # fail loudly rather than report a green that didn't happen.
+        shopt -s nullglob
+        files=("$VERDICT_DIR"/*.json)
+        if [ "${#files[@]}" -eq 0 ]; then
+          echo "No gate verdict JSON files in $VERDICT_DIR; the gate did not run or aborted before writing one." | tee -a "$GITHUB_STEP_SUMMARY" >&2
+          exit 1
+        fi
+
+        renderer="$GITHUB_WORKSPACE/.github/actions/eval-gate/render-comment.sh"
+        overall="NO_BASELINE"
+        # gate-comment.md is CWD-relative; the comment step reads it from the same composite-step CWD.
+        : > gate-comment.md
+        for f in "${files[@]}"; do
+          fstatus=$(jq -r '.status' "$f")
+          # FAIL dominates; PASS outranks NO_BASELINE.
+          if [ "$fstatus" = "FAIL" ]; then
+            overall="FAIL"
+          elif [ "$fstatus" = "PASS" ] && [ "$overall" != "FAIL" ]; then
+            overall="PASS"
+          fi
+          "$renderer" < "$f" >> gate-comment.md
+          echo >> gate-comment.md
+        done
+
+        if [ "$overall" = "FAIL" ]; then
+          passed="false"
+        else
+          passed="true"
+        fi
+        echo "status=$overall" >> "$GITHUB_OUTPUT"
+        echo "passed=$passed" >> "$GITHUB_OUTPUT"
+        cat gate-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+    - id: comment
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        # Each render emits the marker as its first line; gate-comment.md therefore starts with it, so
+        # the startswith query still finds and updates this action's own sticky comment.
+        marker="<!-- dokimos-eval-gate -->"
+        existing=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+          --jq "[.[] | select(.body | startswith(\"$marker\"))][0].id // empty")
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/${REPO}/issues/comments/${existing}" -F body=@gate-comment.md >/dev/null
+        else
+          gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@gate-comment.md >/dev/null
+        fi
+
+    - id: verdict
+      shell: bash
+      env:
+        FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        STATUS: ${{ steps.read.outputs.status }}
+      run: |
+        set -euo pipefail
+        if [ "$FAIL_ON_REGRESSION" = "true" ] && [ "$STATUS" = "FAIL" ]; then
+          echo "Eval gate failed: a significant regression was detected." >&2
+          exit 1
+        fi

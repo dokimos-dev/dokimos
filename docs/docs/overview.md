@@ -171,7 +171,7 @@ See the [server overview](./server/overview) for how the pieces fit together.
 
 ## For AI agents
 
-Point a coding agent at the machine-readable docs. [llms.txt](https://dokimos.dev/llms.txt) indexes the documentation, and [llms-full.txt](https://dokimos.dev/llms-full.txt) is the whole thing in one file. Every page also has a markdown version and an "Open in ChatGPT / Claude" action in its footer.
+Point a coding agent at the machine-readable docs. [llms.txt](https://dokimos.dev/llms.txt) indexes the documentation, and [llms-full.txt](https://dokimos.dev/llms-full.txt) is the whole thing in one file. Every page also has a Markdown version, linked from its footer under "For AI agents".
 
 ## What's next
 

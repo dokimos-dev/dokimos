@@ -7,24 +7,13 @@ title: Regression gate (server-free)
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ThemedImage from '@theme/ThemedImage';
 
 Run your evals as a test and fail the build when quality drops. You commit a baseline next to your test, and on every run the gate compares the fresh result against it and throws on a real regression. No server, no account, no API key for the gate itself. The failing test is the gate, and it fires the same way locally and in CI.
 
 This is eval-driven development: a quality change shows up as a red build on the PR that caused it, the same place a broken unit test does.
 
-```text title="The gate is a JUnit test: green until quality drops"
-$ mvn test -Dtest=RegressionGateExampleTest
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
-[INFO] BUILD SUCCESS
-
-# a change drops answer quality...
-$ mvn test -Dtest=RegressionGateExampleTest
-[ERROR] Eval gate FAILED: pass rate 100% -> 75% (-25 pts).
-        Regressed cases: item-2  Exact Match 1.0 -> 0.0
-        To accept: re-run with DOKIMOS_UPDATE_BASELINE=true and commit the baseline.
-[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
-[INFO] BUILD FAILURE
-```
+![The eval gate as a JUnit test: a clean run passes, a quality drop fails with the regressed cases, then re-running with the update flag re-baselines](/img/regression-gate-terminal.svg)
 
 ## Quickstart
 
@@ -284,24 +273,15 @@ eval-gate:
 
 The `if: always()` on the report step is the load-bearing part. The gate writes a per-baseline verdict JSON under `target/dokimos` *before* it throws, so the report step posts the sticky PR comment after a failing build. Without `always()`, the one run you most want explained would post nothing. The action renders every verdict file in the directory, so one job can gate several baselines. The comment shows the pass-rate move and the regressed cases, and updates in place on each push instead of stacking up.
 
-:::note The comment the gate posts on your PR
-
-**❌ Eval gate failed**
-
-| metric | value |
-| --- | --- |
-| pass rate | 100% → 75% (-25 pts) |
-| significant | false |
-| regressed cases | 1 |
-| improved cases | 0 |
-| added / removed | 0 / 0 |
-| pairing | positional |
-
-**Regressed cases**
-
-- row item-2: Exact Match 1.0→0.0
-
-:::
+<div style={{maxWidth: '560px'}}>
+  <ThemedImage
+    alt="The eval gate's comment on a pull request: a failing run posts the pass-rate move, the significance flag, and the regressed cases"
+    sources={{
+      light: '/img/eval-gate-pr-comment-light.png',
+      dark: '/img/eval-gate-pr-comment-dark.png',
+    }}
+  />
+</div>
 
 **Not on GitHub?** A failing `mvn test` is the gate on every runner: GitLab, Jenkins, Gradle, local. The verdict JSON lands under `target/dokimos`, one file per baseline (named for the baseline stem), if you want to render it yourself.
 

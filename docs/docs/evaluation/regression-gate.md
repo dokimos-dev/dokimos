@@ -245,6 +245,7 @@ eval-gate:
   runs-on: ubuntu-latest
   if: github.event_name == 'pull_request'
   permissions:
+    contents: read
     pull-requests: write
 
   steps:

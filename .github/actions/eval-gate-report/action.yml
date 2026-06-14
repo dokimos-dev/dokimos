@@ -42,7 +42,11 @@ runs:
           exit 1
         fi
 
-        renderer="$GITHUB_WORKSPACE/.github/actions/eval-gate/render-comment.sh"
+        # Resolve the renderer from the action's own checkout, not the consumer's workspace. When this
+        # action is used remotely (dokimos-dev/dokimos/.github/actions/eval-gate-report@v0), the whole
+        # repo is checked out under GITHUB_ACTION_PATH, so the sibling eval-gate script is reachable;
+        # GITHUB_WORKSPACE would point at the consumer's repo, which does not have the script.
+        renderer="$GITHUB_ACTION_PATH/../eval-gate/render-comment.sh"
         overall="NO_BASELINE"
         # gate-comment.md is CWD-relative; the comment step reads it from the same composite-step CWD.
         : > gate-comment.md

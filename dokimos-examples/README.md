@@ -219,6 +219,25 @@ mvn exec:java -pl dokimos-examples \
 
 See the [Cost and Pricing](https://dokimos.dev/evaluation/cost-and-pricing) guide for the `PriceTable` seam and the partial-coverage signal.
 
+### 11. Multi-Turn Tool-Call Evaluation
+
+**Location**: `dev.dokimos.examples.conversation.MultiTurnToolCallExample`
+
+Scores an agent's tool use across a multi-turn conversation, deterministically and with no API key:
+
+- Builds a `ConversationTrajectory` whose assistant turns carry a typed `List<ToolCall>`
+- Reads the calls back per turn with `toolCallsByTurn()` and scores each turn with the deterministic agent evaluators (validity, correctness, trajectory order, efficiency)
+- Shows the whole-conversation shortcut `toTestCase(tools)` and points to the `toTestCase(tools, tasks)` judge path
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.conversation.MultiTurnToolCallExample"
+```
+
+See the [Multi-Turn Conversations](https://dokimos.dev/evaluation/multi-turn-conversations) guide for the per-turn and judge paths.
+
 ## Building the Examples
 
 Build all examples:

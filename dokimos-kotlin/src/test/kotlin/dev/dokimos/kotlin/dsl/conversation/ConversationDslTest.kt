@@ -1,6 +1,7 @@
 package dev.dokimos.kotlin.dsl.conversation
 
 import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.conversation.AggregationStrategy
 import dev.dokimos.core.conversation.ConversationTrajectory
 import dev.dokimos.core.conversation.ConversationalApplication
@@ -53,6 +54,33 @@ class ConversationDslTest {
         assertThat(trajectory.messages()).containsExactly(user, assistant, system)
         assertThat(trajectory.scenario()).isEqualTo("s")
         assertThat(trajectory.metadata()["m"]).isEqualTo(true)
+    }
+
+    @Test
+    fun `assistantMessage carries tool calls and metadata independently`() {
+        val toolCall = ToolCall.of("search", mapOf("query" to "weather"))
+
+        val message = assistantMessage("looking it up", listOf(toolCall), mapOf("turn" to 1))
+
+        assertThat(message.role()).isEqualTo(Message.Role.ASSISTANT)
+        assertThat(message.content()).isEqualTo("looking it up")
+        assertThat(message.toolCalls()).containsExactly(toolCall)
+        assertThat(message.metadata()).containsEntry("turn", 1)
+        // metadata is independent of the tool calls
+        assertThat(message.metadata()).doesNotContainKey("toolCalls")
+    }
+
+    @Test
+    fun `conversation block exposes assistant tool calls on the trajectory`() {
+        val toolCall = ToolCall.of("lookup", mapOf("id" to 42))
+
+        val trajectory = trajectory {
+            user("find order 42")
+            assistant("here is order 42", listOf(toolCall))
+        }
+
+        assertThat(trajectory.toolCalls()).contains(toolCall)
+        assertThat(trajectory.toolCallsByTurn()).containsExactly(listOf(toolCall))
     }
 
     @Test

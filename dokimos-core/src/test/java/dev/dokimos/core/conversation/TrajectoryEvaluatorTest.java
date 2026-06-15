@@ -5,9 +5,11 @@ import static org.assertj.core.api.Assertions.*;
 import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
+import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class TrajectoryEvaluatorTest {
@@ -380,5 +382,60 @@ class TrajectoryEvaluatorTest {
         // A non-numeric score must surface as a parse failure, not a silent 0.0 judgment
         assertThat(result.score()).isEqualTo(0.0);
         assertThat(result.reason()).contains("Failed to parse evaluation");
+    }
+
+    @Test
+    void shouldNotRenderToolCallsInPromptByDefault() {
+        AtomicReference<String> capturedPrompt = new AtomicReference<>();
+        JudgeLM capturingJudge = prompt -> {
+            capturedPrompt.set(prompt);
+            return """
+                    {"score": 0.8, "reason": "Good"}
+                    """;
+        };
+
+        TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
+                .name("Test")
+                .judge(capturingJudge)
+                .criterion(TrajectoryEvaluationCriteria.userSatisfaction())
+                .build();
+
+        evaluator.evaluate(toolBearingTrajectoryTestCase());
+
+        // The default builder leaves tool calls off, so the judge sees no tool lines.
+        assertThat(capturedPrompt.get()).doesNotContain("[tool:");
+    }
+
+    @Test
+    void shouldRenderToolCallsInPromptWhenIncludeToolCallsEnabled() {
+        AtomicReference<String> capturedPrompt = new AtomicReference<>();
+        JudgeLM capturingJudge = prompt -> {
+            capturedPrompt.set(prompt);
+            return """
+                    {"score": 0.8, "reason": "Good"}
+                    """;
+        };
+
+        TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
+                .name("Test")
+                .judge(capturingJudge)
+                .criterion(TrajectoryEvaluationCriteria.userSatisfaction())
+                .includeToolCalls(true)
+                .build();
+
+        evaluator.evaluate(toolBearingTrajectoryTestCase());
+
+        // With tool calls enabled, the judge prompt carries the tool lines.
+        assertThat(capturedPrompt.get()).contains("[tool: get_weather(");
+    }
+
+    private static EvalTestCase toolBearingTrajectoryTestCase() {
+        ConversationTrajectory trajectory = ConversationTrajectory.builder()
+                .userMessage("What's the weather in Paris?")
+                .assistantMessage(
+                        "Let me check that for you.", List.of(ToolCall.of("get_weather", Map.of("city", "Paris"))))
+                .build();
+
+        return EvalTestCase.builder().actualOutput("trajectory", trajectory).build();
     }
 }

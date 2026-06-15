@@ -288,7 +288,9 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
             Map<String, Object> json = new HashMap<>();
             json.put("scenario", scenario);
             json.put("turnCount", turnCount());
-            json.put("messages", messages.stream().map(ConversationTrajectory::toJsonMessage).toList());
+            json.put(
+                    "messages",
+                    messages.stream().map(ConversationTrajectory::toJsonMessage).toList());
             json.put("metadata", metadata);
             return OBJECT_MAPPER.writeValueAsString(json);
         } catch (JsonProcessingException e) {

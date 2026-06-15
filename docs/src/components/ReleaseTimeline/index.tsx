@@ -7,6 +7,58 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.23.0",
+    date: "June 2026",
+    lead: "Tool calls on conversation turns: an assistant message now carries the tool calls it made, so a multi-turn conversation feeds the agent tool evaluators per turn — deterministic, no LLM — and the trajectory judge can reason over tool usage.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Tool calls on assistant turns",
+            body: (
+              <>
+                <code>Message</code> now carries a typed <code>List&lt;ToolCall&gt;</code>, set via{" "}
+                <code>Message.assistant(content, toolCalls)</code> or the builder's{" "}
+                <code>assistantMessage(content, toolCalls)</code> (and the Kotlin DSL's{" "}
+                <code>assistant(content, toolCalls)</code>). A tool-free turn is unchanged, and the
+                three-argument <code>Message</code> constructor still resolves, so existing code
+                compiles and runs as before.
+              </>
+            ),
+          },
+          {
+            title: "Per-turn tool evaluation",
+            body: (
+              <>
+                <code>ConversationTrajectory.toolCallsByTurn()</code> returns one tool-call list per
+                assistant turn (in order) to score each turn with the deterministic agent
+                evaluators, and <code>toolCalls()</code> flattens them into one list.{" "}
+                <code>toTestCase()</code>/<code>toTestCase(tools)</code> build a deterministic case
+                (input is the last user message), while <code>toTestCase(tools, tasks)</code> builds
+                the judge case for <code>TaskCompletionEvaluator</code> and{" "}
+                <code>ToolArgumentHallucinationEvaluator</code> over the full transcript. Also{" "}
+                <code>toAgentTrace()</code>/<code>toAgentOutputs()</code> for the standard agent
+                output map.
+              </>
+            ),
+          },
+          {
+            title: "Tool calls in the trajectory transcript",
+            body: (
+              <>
+                <code>toText()</code> and <code>toJson()</code> render each turn's tool calls, and{" "}
+                <code>TrajectoryEvaluator.includeToolCalls(true)</code> adds them to the judge
+                prompt. Both are off by default for tool-free conversations, whose rendered output
+                stays byte-identical to prior versions.
+              </>
+            ),
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.22.0",
     date: "June 2026",
     lead: "A server-free regression gate: commit a baseline next to your test and fail the build when quality drops, with the same verdict locally and in CI. No server, account, or API key for the gate itself.",

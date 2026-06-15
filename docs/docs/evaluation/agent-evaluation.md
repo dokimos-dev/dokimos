@@ -419,6 +419,10 @@ val withTools = trace.toTestCase("Find flights from NYC to Paris", tools)
   </TabItem>
 </Tabs>
 
+:::tip Multi-turn agents
+These evaluators score one set of tool calls. When tools are called across a back-and-forth conversation, attach the calls to each assistant turn and score the conversation per turn — same evaluators, no LLM. A `ConversationTrajectory` exposes `toolCallsByTurn()` for per-turn scoring and `toTestCase(tools)` / `toTestCase(tools, tasks)` for the whole-conversation deterministic and judge paths. See [Tool Calls on Turns](./multi-turn-conversations.md#tool-calls-on-turns).
+:::
+
 ## Extracting Traces from Your Framework
 
 The examples above assume you already have an `AgentTrace`. In practice your agent runs on a framework, and Dokimos ships extractors that turn a framework's own run result into an `AgentTrace`, so you don't hand-write the mapping. Each extractor captures the tool calls (name, parsed arguments, and result) and the final response.

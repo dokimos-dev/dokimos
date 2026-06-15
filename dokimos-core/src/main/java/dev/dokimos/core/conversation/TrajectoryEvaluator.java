@@ -6,6 +6,7 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
+import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
     private final AggregationStrategy aggregationStrategy;
     private final String trajectoryKey;
     private final boolean includePerCriterionScores;
+    private final boolean includeToolCalls;
 
     private TrajectoryEvaluator(Builder builder) {
         super(builder.name, builder.threshold, List.of());
@@ -61,6 +63,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         this.aggregationStrategy = builder.aggregationStrategy;
         this.trajectoryKey = builder.trajectoryKey;
         this.includePerCriterionScores = builder.includePerCriterionScores;
+        this.includeToolCalls = builder.includeToolCalls;
     }
 
     /**
@@ -195,10 +198,17 @@ public class TrajectoryEvaluator extends BaseEvaluator {
             sb.append("Scenario: ").append(trajectory.scenario()).append("\n\n");
         }
         for (Message message : trajectory.messages()) {
-            sb.append(message.role().name())
-                    .append(": ")
-                    .append(message.content())
-                    .append("\n\n");
+            sb.append(message.role().name()).append(": ").append(message.content());
+            if (includeToolCalls) {
+                for (ToolCall call : message.toolCalls()) {
+                    sb.append("\n  [tool: ")
+                            .append(call.name())
+                            .append("(")
+                            .append(call.arguments())
+                            .append(")]");
+                }
+            }
+            sb.append("\n\n");
         }
         return sb.toString().trim();
     }
@@ -248,6 +258,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         private AggregationStrategy aggregationStrategy = AggregationStrategy.MEAN;
         private String trajectoryKey = "trajectory";
         private boolean includePerCriterionScores = true;
+        private boolean includeToolCalls = false;
 
         /**
          * Sets the evaluator name.
@@ -338,6 +349,18 @@ public class TrajectoryEvaluator extends BaseEvaluator {
          */
         public Builder includePerCriterionScores(boolean include) {
             this.includePerCriterionScores = include;
+            return this;
+        }
+
+        /**
+         * Includes each turn's tool calls in the judge prompt. Off by default, so existing judge
+         * suites see byte-identical prompts; enable it to let the judge reason over tool usage.
+         *
+         * @param include whether to render tool calls in the conversation transcript
+         * @return this builder
+         */
+        public Builder includeToolCalls(boolean include) {
+            this.includeToolCalls = include;
             return this;
         }
 

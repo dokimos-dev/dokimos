@@ -79,9 +79,9 @@ class ConversationTrajectoryDsl {
         message(assistantMessage(content, metadata))
     }
 
-    /** Adds an assistant turn carrying the tool calls it made. */
-    fun assistant(content: String, toolCalls: List<ToolCall>) {
-        message(assistantMessage(content, toolCalls))
+    /** Adds an assistant turn carrying the tool calls it made; metadata is independent of the calls. */
+    fun assistant(content: String, toolCalls: List<ToolCall>, metadata: Map<String, Any> = emptyMap()) {
+        message(assistantMessage(content, toolCalls, metadata))
     }
 
     fun system(content: String, metadata: Map<String, Any> = emptyMap()) {

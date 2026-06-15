@@ -212,7 +212,15 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
      * @return a new test case
      */
     public EvalTestCase toTestCase(List<ToolDefinition> tools, List<String> tasks) {
-        return toAgentTrace().toTestCase(toText(), tools, tasks);
+        // The rendered transcript is already a role-labeled dialog, so it is passed as the input
+        // and no separate "output" is set. Otherwise TaskCompletionEvaluator.resolveDialog would
+        // wrap the whole transcript under a second "User:/Agent:" layer and duplicate the last turn.
+        return EvalTestCase.builder()
+                .input(toText())
+                .actualOutput("toolCalls", toolCalls())
+                .metadata("tools", tools)
+                .metadata("tasks", tasks)
+                .build();
     }
 
     private String lastUserContent() {
@@ -253,16 +261,21 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
         }
         for (Message message : messages) {
             sb.append(message.role().name()).append(": ").append(message.content());
-            for (ToolCall call : message.toolCalls()) {
-                sb.append("\n  [tool: ")
-                        .append(call.name())
-                        .append("(")
-                        .append(call.arguments())
-                        .append(")]");
-            }
+            appendToolLines(sb, message);
             sb.append("\n\n");
         }
         return sb.toString().trim();
+    }
+
+    /** Appends one compact {@code [tool: name(args)]} line per tool call on the message. */
+    static void appendToolLines(StringBuilder sb, Message message) {
+        for (ToolCall call : message.toolCalls()) {
+            sb.append("\n  [tool: ")
+                    .append(call.name())
+                    .append("(")
+                    .append(call.arguments())
+                    .append(")]");
+        }
     }
 
     /**

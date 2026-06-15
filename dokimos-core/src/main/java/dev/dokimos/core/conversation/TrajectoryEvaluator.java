@@ -6,7 +6,6 @@ import dev.dokimos.core.EvalResult;
 import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.LlmResponseUtils;
-import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.EvaluationException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -200,13 +199,7 @@ public class TrajectoryEvaluator extends BaseEvaluator {
         for (Message message : trajectory.messages()) {
             sb.append(message.role().name()).append(": ").append(message.content());
             if (includeToolCalls) {
-                for (ToolCall call : message.toolCalls()) {
-                    sb.append("\n  [tool: ")
-                            .append(call.name())
-                            .append("(")
-                            .append(call.arguments())
-                            .append(")]");
-                }
+                ConversationTrajectory.appendToolLines(sb, message);
             }
             sb.append("\n\n");
         }

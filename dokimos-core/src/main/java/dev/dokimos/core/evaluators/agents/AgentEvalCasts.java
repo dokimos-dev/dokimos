@@ -1,6 +1,7 @@
 package dev.dokimos.core.evaluators.agents;
 
 import dev.dokimos.core.agents.ToolCall;
+import dev.dokimos.core.agents.ToolCalls;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.EvaluationException;
 import java.util.List;
@@ -27,20 +28,13 @@ final class AgentEvalCasts {
      * @return the typed list, or an empty list when the input list is empty
      * @throws EvaluationException if the value is not a list of tool calls or maps
      */
-    @SuppressWarnings("unchecked")
     static List<ToolCall> toolCalls(Object raw, String key) {
-        if (raw instanceof List<?> list) {
-            if (list.isEmpty()) return List.of();
-            if (list.get(0) instanceof ToolCall) {
-                return (List<ToolCall>) raw;
-            }
-            if (list.get(0) instanceof Map) {
-                return list.stream()
-                        .map(item -> ToolCall.fromMap((Map<String, Object>) item))
-                        .toList();
-            }
+        try {
+            return ToolCalls.coerce(raw);
+        } catch (IllegalArgumentException e) {
+            throw new EvaluationException(
+                    "Expected a List of ToolCall objects for key '%s': %s".formatted(key, e.getMessage()));
         }
-        throw new EvaluationException("Expected a List of ToolCall objects for key '%s'".formatted(key));
     }
 
     /**

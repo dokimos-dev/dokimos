@@ -12,6 +12,7 @@ import dev.dokimos.core.conversation.ConversationTrajectory;
 import dev.dokimos.core.evaluators.agents.ArgMatchMode;
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher;
 import dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator;
+import dev.dokimos.core.evaluators.agents.ToolArgumentHallucinationEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolEfficiencyEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolErrorEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator;
@@ -202,6 +203,105 @@ class LangChain4jMultiTurnToolIT {
         assertThat(completion.score())
                 .as("judge sees all three tasks completed across the conversation")
                 .isEqualTo(1.0);
+    }
+
+    /**
+     * Runs a real two-turn conversation where the user dictates the exact text that becomes the tool
+     * arguments, then checks that {@link ToolArgumentHallucinationEvaluator} does not raise false
+     * positives on those grounded arguments. A fabricated-argument trajectory is scored alongside to
+     * show the judge discriminates rather than always answering "grounded".
+     */
+    @Test
+    @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")
+    void scoresLiveGroundedToolArgumentsWithoutFalsePositives() {
+        ChatModel chatModel = OpenAiChatModel.builder()
+                .apiKey(System.getenv("OPENAI_API_KEY"))
+                .modelName(OpenAiChatModelName.GPT_5_MINI)
+                .build();
+
+        TodoAssistant assistant = AiServices.builder(TodoAssistant.class)
+                .chatModel(chatModel)
+                .tools(new TaskStore())
+                .chatMemory(MessageWindowChatMemory.withMaxMessages(20))
+                .build();
+
+        // The user supplies the exact task text, so every tool argument is grounded in user input.
+        final String dentist = "Call the dentist at 555-0142";
+
+        ConversationTrajectory.Builder builder =
+                ConversationTrajectory.builder().scenario("Manage a to-do list");
+
+        String turn1 = "Add a task with this exact text: '" + dentist + "'.";
+        Result<String> r1 = assistant.chat(turn1);
+        AgentTrace t1 = LangChain4jSupport.toAgentTrace(r1);
+        String resp1 = t1.finalResponse() != null ? t1.finalResponse() : "";
+        builder.userMessage(turn1).assistantMessage(resp1, t1.toolCalls());
+
+        String turn2 = "Now mark the '" + dentist + "' task as done.";
+        Result<String> r2 = assistant.chat(turn2);
+        AgentTrace t2 = LangChain4jSupport.toAgentTrace(r2);
+        String resp2 = t2.finalResponse() != null ? t2.finalResponse() : "";
+        builder.userMessage(turn2).assistantMessage(resp2, t2.toolCalls());
+
+        ConversationTrajectory trajectory = builder.build();
+
+        List<List<ToolCall>> byTurn = trajectory.toolCallsByTurn();
+        assertThat(byTurn).as("two assistant turns").hasSize(2);
+        assertThat(toolNames(byTurn.get(0))).as("turn 1 adds the task").contains("addTask");
+        assertThat(toolNames(byTurn.get(1))).as("turn 2 completes the task").contains("completeTask");
+
+        EvalTestCase groundCase = trajectory.toTestCase(TOOLS, List.of("Add the dentist task", "Mark it done"));
+
+        // The user value is present in the grounding, but tool args are rendered name-only.
+        String grounding = groundCase.input();
+        assertThat(grounding)
+                .as("the user-supplied value stays in the grounding")
+                .contains(dentist);
+        assertThat(grounding).as("tool args are rendered name-only").doesNotContain("[tool: addTask(");
+        assertThat(grounding).as("tool line is rendered name-only").contains("[tool: addTask]");
+
+        JudgeLM judge = LangChain4jSupport.asJudge(chatModel);
+        var hallucination =
+                ToolArgumentHallucinationEvaluator.builder().judge(judge).build();
+        EvalResult grounded = hallucination.evaluate(groundCase);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> verdicts =
+                (List<Map<String, Object>>) grounded.metadata().get("verdicts");
+        // A judge parse failure scores 0.0 with no verdicts metadata; fail clearly instead of NPE-ing.
+        assertThat(verdicts)
+                .as("judge returned parseable verdicts. reason=%s", grounded.reason())
+                .isNotNull();
+
+        // The verbatim user-dictated addTask argument must not be flagged ungrounded.
+        boolean addTaskFalseFlagged = verdicts.stream()
+                .anyMatch(v -> "addTask".equals(v.get("toolName")) && Boolean.FALSE.equals(v.get("grounded")));
+        assertThat(addTaskFalseFlagged)
+                .as("the verbatim user-dictated addTask argument must not be flagged ungrounded. verdicts=%s", verdicts)
+                .isFalse();
+
+        // Soft aggregate guard against mass false positives; the per-call check above is primary.
+        assertThat(grounded.score())
+                .as("no mass false positives on user-grounded arguments. reason=%s", grounded.reason())
+                .isGreaterThanOrEqualTo(0.5);
+
+        // A fabricated argument the user never supplied must score below the grounded run.
+        ToolCall fabricated = ToolCall.builder()
+                .name("completeTask")
+                .argument("task", "Pay the electric bill")
+                .result("{\"error\": \"no such task: Pay the electric bill\"}")
+                .build();
+        ConversationTrajectory badTrajectory = ConversationTrajectory.builder()
+                .scenario("Manage a to-do list")
+                .userMessage("Mark the dentist task as done.")
+                .assistantMessage("Done.", List.of(fabricated))
+                .build();
+        EvalResult bad = hallucination.evaluate(badTrajectory.toTestCase(TOOLS, List.of("Mark a task done")));
+        assertThat(bad.score())
+                .as(
+                        "a fabricated argument scores below the grounded run. bad=%s grounded=%s",
+                        bad.reason(), grounded.reason())
+                .isLessThan(grounded.score());
     }
 
     private static List<String> toolNames(List<ToolCall> calls) {

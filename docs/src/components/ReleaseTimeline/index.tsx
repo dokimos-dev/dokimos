@@ -37,7 +37,9 @@ const RELEASES: Release[] = [
                 <code>toTestCase()</code>/<code>toTestCase(tools)</code> build a deterministic case
                 (input is the last user message), while <code>toTestCase(tools, tasks)</code> builds
                 the judge case for <code>TaskCompletionEvaluator</code> and{" "}
-                <code>ToolArgumentHallucinationEvaluator</code> over the full transcript. Also{" "}
+                <code>ToolArgumentHallucinationEvaluator</code> over the whole conversation, with tool
+                calls rendered name-only so their arguments stay out of the hallucination grounding.
+                Also{" "}
                 <code>toAgentTrace()</code>/<code>toAgentOutputs()</code> for the standard agent
                 output map.
               </>

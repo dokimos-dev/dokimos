@@ -420,7 +420,7 @@ val withTools = trace.toTestCase("Find flights from NYC to Paris", tools)
 </Tabs>
 
 :::tip Multi-turn agents
-These evaluators score one set of tool calls. When tools are called across a back-and-forth conversation, attach the calls to each assistant turn and score the conversation per turn — same evaluators, no LLM. A `ConversationTrajectory` exposes `toolCallsByTurn()` for per-turn scoring and `toTestCase(tools)` / `toTestCase(tools, tasks)` for the whole-conversation deterministic and judge paths. See [Tool Calls on Turns](./multi-turn-conversations.md#tool-calls-on-turns).
+These evaluators score one set of tool calls. When tools are called across a back-and-forth conversation, attach the calls to each assistant turn and score the conversation per turn, with the same evaluators and no LLM. A `ConversationTrajectory` exposes `toolCallsByTurn()` for per-turn scoring and `toTestCase(tools)` / `toTestCase(tools, tasks)` for the whole-conversation deterministic and judge paths. See [Tool Calls on Turns](./multi-turn-conversations.md#tool-calls-on-turns).
 :::
 
 ## Extracting Traces from Your Framework

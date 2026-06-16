@@ -9,7 +9,7 @@ const RELEASES: Release[] = [
   {
     version: "0.23.0",
     date: "June 2026",
-    lead: "Tool calls on conversation turns: an assistant message now carries the tool calls it made, so a multi-turn conversation feeds the agent tool evaluators per turn — deterministic, no LLM — and the trajectory judge can reason over tool usage.",
+    lead: "Tool calls on conversation turns: an assistant message now carries the tool calls it made, so a multi-turn conversation feeds the agent tool evaluators per turn, with no LLM. The trajectory judge can also reason over tool usage.",
     groups: [
       {
         label: "Added",

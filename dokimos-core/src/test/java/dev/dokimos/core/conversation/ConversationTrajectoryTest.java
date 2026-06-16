@@ -172,8 +172,6 @@ class ConversationTrajectoryTest {
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
-    // --- Multi-turn tool-call surface ---
-
     @Test
     void shouldFlattenToolCallsInChronologicalOrder() {
         ConversationTrajectory trajectory = ConversationTrajectory.builder()

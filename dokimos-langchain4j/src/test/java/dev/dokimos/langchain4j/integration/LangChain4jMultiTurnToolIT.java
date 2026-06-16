@@ -154,7 +154,6 @@ class LangChain4jMultiTurnToolIT {
         assertThat(toolNames(byTurn.get(0))).as("turn 1 adds the task").contains("addTask");
         assertThat(toolNames(byTurn.get(1))).as("turn 2 completes and lists").contains("completeTask", "listTasks");
 
-        // --- Per-turn deterministic scoring over toolCallsByTurn() ---
         var error = ToolErrorEvaluator.builder().build();
         var efficiency = ToolEfficiencyEvaluator.builder().build();
         // Compare on tool names and order only; the model chooses argument phrasing.
@@ -194,7 +193,6 @@ class LangChain4jMultiTurnToolIT {
                     .isGreaterThanOrEqualTo(0.5);
         }
 
-        // --- Judge TaskCompletion over the full transcript via toTestCase(tools, tasks) ---
         JudgeLM judge = LangChain4jSupport.asJudge(chatModel);
         var taskCompletion = TaskCompletionEvaluator.builder().judge(judge).build();
 

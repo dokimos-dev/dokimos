@@ -223,7 +223,7 @@ val trajectory = trajectory {
 
 #### Per-Turn Evaluation (Primary Path)
 
-This is the recommended way to grade tool use across a conversation. `toolCallsByTurn()` returns one tool-call list per assistant turn, in order. Pair each turn with the calls you expected and run the [deterministic agent evaluators](./agent-evaluation.md) — no LLM, no API key.
+This is the recommended way to grade tool use across a conversation. `toolCallsByTurn()` returns one tool-call list per assistant turn, in order. Pair each turn with the calls you expected and run the [deterministic agent evaluators](./agent-evaluation.md), with no LLM and no API key.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -290,10 +290,10 @@ See [`MultiTurnToolCallExample.java`](https://github.com/dokimos-dev/dokimos/blo
 
 When you want to assert over the whole conversation rather than per turn, build a test case straight from the trajectory.
 
-- `toolCalls()` — every turn's calls flattened into one list, in order.
-- `toTestCase()` and `toTestCase(tools)` — a **deterministic** test case. The flattened `toolCalls` go in the actual outputs, the input is the **last user message**, and `tools` (when given) go in metadata. Feed it to the rule-based evaluators (validity, correctness, trajectory, error, efficiency).
-- `toTestCase(tools, tasks)` — the **judge** test case for `TaskCompletionEvaluator` and `ToolArgumentHallucinationEvaluator`. Its input is the **full rendered transcript** (`toText()`), so the judge reasons over the whole conversation; no separate output is set, so the transcript is not double-wrapped.
-- `toAgentTrace()` / `toAgentOutputs()` — collapse the conversation into a single `AgentTrace` (or its output map) for the standard agent data flow.
+- `toolCalls()`: every turn's calls flattened into one list, in order.
+- `toTestCase()` and `toTestCase(tools)`: a **deterministic** test case. The flattened `toolCalls` go in the actual outputs, the input is the **last user message**, and `tools` (when given) go in metadata. Feed it to the rule-based evaluators (validity, correctness, trajectory, error, efficiency).
+- `toTestCase(tools, tasks)`: the **judge** test case for `TaskCompletionEvaluator` and `ToolArgumentHallucinationEvaluator`. Its input is the **full rendered transcript** (`toText()`), so the judge reasons over the whole conversation; no separate output is set, so the transcript is not double-wrapped.
+- `toAgentTrace()` / `toAgentOutputs()`: collapse the conversation into a single `AgentTrace` (or its output map) for the standard agent data flow.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">
@@ -326,7 +326,7 @@ val completion = TaskCompletionEvaluator.builder().judge(judgeLM).build().evalua
 
 #### Tool Calls in the Transcript
 
-`toText()` and `toJson()` render each turn's tool calls. `toText()` adds one compact `[tool: name(args)]` line per call under the message; `toJson()` adds a `toolCalls` array to a turn that has any. A tool-free conversation renders exactly as before — byte-identical output — so adding tool calls to one turn never reshapes the rest.
+`toText()` and `toJson()` render each turn's tool calls. `toText()` adds one compact `[tool: name(args)]` line per call under the message; `toJson()` adds a `toolCalls` array to a turn that has any. A tool-free conversation renders exactly as before, byte-identical, so adding tool calls to one turn never reshapes the rest.
 
 To let the trajectory judge reason over tool usage, turn it on with `includeToolCalls(true)`. It is off by default, so existing judge suites see an unchanged prompt.
 

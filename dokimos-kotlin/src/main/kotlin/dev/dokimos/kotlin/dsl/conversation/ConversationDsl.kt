@@ -1,6 +1,7 @@
 package dev.dokimos.kotlin.dsl.conversation
 
 import dev.dokimos.core.JudgeLM
+import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.conversation.AggregationStrategy
 import dev.dokimos.core.conversation.ConversationSimulator
 import dev.dokimos.core.conversation.ConversationTrajectory
@@ -38,6 +39,10 @@ fun userMessage(content: String, metadata: Map<String, Any> = emptyMap()): Messa
 fun assistantMessage(content: String, metadata: Map<String, Any> = emptyMap()): Message =
     message(Message.Role.ASSISTANT, content, metadata)
 
+/** Creates an assistant message carrying the tool calls it made on this turn. */
+fun assistantMessage(content: String, toolCalls: List<ToolCall>, metadata: Map<String, Any> = emptyMap()): Message =
+    Message(Message.Role.ASSISTANT, content, metadata, toolCalls)
+
 fun systemMessage(content: String, metadata: Map<String, Any> = emptyMap()): Message =
     message(Message.Role.SYSTEM, content, metadata)
 
@@ -72,6 +77,11 @@ class ConversationTrajectoryDsl {
 
     fun assistant(content: String, metadata: Map<String, Any> = emptyMap()) {
         message(assistantMessage(content, metadata))
+    }
+
+    /** Adds an assistant turn carrying the tool calls it made; metadata is independent of the calls. */
+    fun assistant(content: String, toolCalls: List<ToolCall>, metadata: Map<String, Any> = emptyMap()) {
+        message(assistantMessage(content, toolCalls, metadata))
     }
 
     fun system(content: String, metadata: Map<String, Any> = emptyMap()) {

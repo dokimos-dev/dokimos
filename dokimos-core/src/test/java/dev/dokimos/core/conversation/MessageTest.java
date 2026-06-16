@@ -2,6 +2,9 @@ package dev.dokimos.core.conversation;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.agents.ToolCall;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -81,5 +84,65 @@ class MessageTest {
 
         assertThatThrownBy(() -> message.metadata().put("key", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void shouldHaveFourRecordComponents() {
+        assertThat(Message.class.getRecordComponents()).hasSize(4);
+    }
+
+    @Test
+    void shouldTreatNullAndEmptyToolCallsAsNoToolCalls() {
+        Message plain = Message.assistant("Done");
+
+        assertThat(Message.assistant("Done", null)).isEqualTo(plain);
+        assertThat(Message.assistant("Done", List.of())).isEqualTo(plain);
+    }
+
+    @Test
+    void shouldTreatThreeArgConstructorAsEmptyToolCalls() {
+        Message threeArg = new Message(Message.Role.USER, "Hi", Map.of("k", "v"));
+        Message fourArg = new Message(Message.Role.USER, "Hi", Map.of("k", "v"), List.of());
+
+        assertThat(threeArg).isEqualTo(fourArg);
+    }
+
+    @Test
+    void shouldDefensivelyCopyToolCalls() {
+        ToolCall call = ToolCall.of("search", Map.of("query", "weather"));
+        List<ToolCall> input = new ArrayList<>(List.of(call));
+
+        Message message = Message.assistant("Looking it up", input);
+        input.clear();
+
+        assertThat(message.toolCalls()).containsExactly(call);
+    }
+
+    @Test
+    void shouldMakeToolCallsImmutable() {
+        Message message = Message.assistant("Looking it up", List.of(ToolCall.of("search", Map.of())));
+
+        assertThatThrownBy(() -> message.toolCalls().add(ToolCall.of("other", Map.of())))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void shouldReturnEmptyToolCallsForMessagesWithoutToolCalls() {
+        assertThat(Message.user("Hi").toolCalls()).isNotNull().isEmpty();
+        assertThat(Message.system("Be helpful").toolCalls()).isNotNull().isEmpty();
+        assertThat(Message.assistant("Hi there!").toolCalls()).isNotNull().isEmpty();
+
+        assertThat(Message.user("Hi").hasToolCalls()).isFalse();
+    }
+
+    @Test
+    void shouldStoreToolCallsInOrder() {
+        ToolCall first = ToolCall.of("search", Map.of("query", "weather"));
+        ToolCall second = ToolCall.of("fetch", Map.of("url", "example.com"));
+
+        Message message = Message.assistant("Working on it", List.of(first, second));
+
+        assertThat(message.toolCalls()).containsExactly(first, second);
+        assertThat(message.hasToolCalls()).isTrue();
     }
 }

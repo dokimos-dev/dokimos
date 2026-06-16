@@ -174,6 +174,190 @@ trajectory.toText()              // Plain text transcript
   </TabItem>
 </Tabs>
 
+### Tool Calls on Turns
+
+A real agent calls tools mid-conversation: it looks up the weather, searches flights, then books a hotel. An assistant turn can carry the tool calls it made, so you can score *what the agent did each turn*, not just what it said.
+
+Attach a typed `List<ToolCall>` to an assistant turn. A turn that called no tools needs no change.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ConversationTrajectory trajectory = ConversationTrajectory.builder()
+    .userMessage("What's the weather in Paris?")
+    .assistantMessage("It's 18C and sunny.", List.of(
+        ToolCall.builder().name("get_weather").argument("city", "Paris").result("18C, sunny").build()
+    ))
+    .userMessage("Book me a hotel there.")
+    .assistantMessage("Booked the Hotel Le Marais.", List.of(
+        ToolCall.of("book_hotel", Map.of("city", "Paris"))
+    ))
+    .userMessage("Thanks!")
+    .assistantMessage("You're all set!") // tool-free turn, unchanged
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val trajectory = trajectory {
+    user("What's the weather in Paris?")
+    assistant("It's 18C and sunny.", listOf(
+        ToolCall.builder().name("get_weather").argument("city", "Paris").result("18C, sunny").build()
+    ))
+    user("Book me a hotel there.")
+    assistant("Booked the Hotel Le Marais.", listOf(
+        ToolCall.of("book_hotel", mapOf("city" to "Paris"))
+    ))
+    user("Thanks!")
+    assistant("You're all set!") // tool-free turn, unchanged
+}
+```
+
+  </TabItem>
+</Tabs>
+
+`Message` carries the tool calls as a typed `List<ToolCall>`; an assistant message built without them returns an empty list. When your app produces a turn, attach the calls with `Message.assistant(content, toolCalls)`.
+
+#### Per-Turn Evaluation (Primary Path)
+
+This is the recommended way to grade tool use across a conversation. `toolCallsByTurn()` returns one tool-call list per assistant turn, in order. Pair each turn with the calls you expected and run the [deterministic agent evaluators](./agent-evaluation.md), with no LLM and no API key.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+List<List<ToolCall>> actualByTurn = trajectory.toolCallsByTurn();
+List<List<ToolCall>> expectedByTurn = List.of(
+    List.of(ToolCall.of("get_weather", Map.of())),
+    List.of(ToolCall.of("book_hotel", Map.of())),
+    List.of() // final turn calls no tools
+);
+
+var validity = ToolCallValidityEvaluator.builder().build();
+var correctness = ToolCorrectnessEvaluator.builder().build();
+
+for (int turn = 0; turn < actualByTurn.size(); turn++) {
+    EvalTestCase turnCase = EvalTestCase.builder()
+        .actualOutput("toolCalls", actualByTurn.get(turn))
+        .expectedOutput("toolCalls", expectedByTurn.get(turn))
+        .metadata("tools", tools)
+        .build();
+
+    EvalResult v = validity.evaluate(turnCase);
+    EvalResult c = correctness.evaluate(turnCase);
+}
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val actualByTurn = trajectory.toolCallsByTurn()
+val expectedByTurn = listOf(
+    listOf(ToolCall.of("get_weather", mapOf())),
+    listOf(ToolCall.of("book_hotel", mapOf())),
+    listOf<ToolCall>() // final turn calls no tools
+)
+
+val validity = ToolCallValidityEvaluator.builder().build()
+val correctness = ToolCorrectnessEvaluator.builder().build()
+
+actualByTurn.forEachIndexed { turn, calls ->
+    val turnCase = EvalTestCase.builder()
+        .actualOutput("toolCalls", calls)
+        .expectedOutput("toolCalls", expectedByTurn[turn])
+        .metadata("tools", tools)
+        .build()
+
+    val v = validity.evaluate(turnCase)
+    val c = correctness.evaluate(turnCase)
+}
+```
+
+  </TabItem>
+</Tabs>
+
+:::note
+`toolCallsByTurn()` groups by **assistant message**, which can differ from `turnCount()` (user/assistant pairs) when a conversation has consecutive or leading assistant messages. Each inner list lines up with `assistantMessages()`.
+:::
+
+See [`MultiTurnToolCallExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/conversation/MultiTurnToolCallExample.java) for a complete runnable version.
+
+#### Whole-Conversation Shortcuts
+
+When you want to assert over the whole conversation rather than per turn, build a test case straight from the trajectory.
+
+- `toolCalls()`: every turn's calls flattened into one list, in order.
+- `toTestCase()` and `toTestCase(tools)`: a **deterministic** test case. The flattened `toolCalls` go in the actual outputs, the input is the **last user message**, and `tools` (when given) go in metadata. As-is, it feeds the rule-based evaluators that read only actual outputs (validity, error, efficiency). `ToolCorrectnessEvaluator` and `ToolTrajectoryEvaluator` additionally need an expected list, which this path does not set; wire one in yourself (for example, `EvalTestCase.builder().expectedOutput("toolCalls", expected)`) or they throw an `EvaluationException`.
+- `toTestCase(tools, tasks)`: the **judge** test case for `TaskCompletionEvaluator` and `ToolArgumentHallucinationEvaluator`. Its input is the rendered transcript of the whole conversation, but tool calls are rendered **name-only** (`[tool: name]`, not `[tool: name(args)]`) so the argument values a hallucination judge assesses never appear in the grounding it reads; the arguments stay available through the actual outputs. No separate output is set, so the transcript is not double-wrapped.
+- `toAgentTrace()` / `toAgentOutputs()`: collapse the conversation into a single `AgentTrace` (or its output map) for the standard agent data flow.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+// Deterministic: input is the last user message, calls are flattened across turns
+EvalTestCase deterministic = trajectory.toTestCase(tools);
+EvalResult validity = ToolCallValidityEvaluator.builder().build().evaluate(deterministic);
+
+// Judge: input is the transcript (tool calls name-only), tasks listed in metadata
+EvalTestCase judgeCase = trajectory.toTestCase(tools, List.of("Check weather", "Book a hotel"));
+EvalResult completion = TaskCompletionEvaluator.builder().judge(judgeLM).build().evaluate(judgeCase);
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// Deterministic: input is the last user message, calls are flattened across turns
+val deterministic = trajectory.toTestCase(tools)
+val validity = ToolCallValidityEvaluator.builder().build().evaluate(deterministic)
+
+// Judge: input is the transcript (tool calls name-only), tasks listed in metadata
+val judgeCase = trajectory.toTestCase(tools, listOf("Check weather", "Book a hotel"))
+val completion = TaskCompletionEvaluator.builder().judge(judgeLM).build().evaluate(judgeCase)
+```
+
+  </TabItem>
+</Tabs>
+
+#### Tool Calls in the Transcript
+
+`toText()` and `toJson()` render each turn's tool calls. `toText()` adds one compact `[tool: name(args)]` line per call under the message; `toJson()` adds a `toolCalls` array to a turn that has any. A tool-free conversation renders exactly as before, byte-identical, so adding tool calls to one turn never reshapes the rest.
+
+To let the trajectory judge reason over tool usage, turn it on with `includeToolCalls(true)`. It is off by default, so existing judge suites see an unchanged prompt.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+TrajectoryEvaluator evaluator = TrajectoryEvaluator.builder()
+    .name("Support Quality")
+    .judge(judgeLM)
+    .criteria(List.of(TrajectoryEvaluationCriteria.goalCompletion()))
+    .includeToolCalls(true) // render each turn's tool calls in the judge prompt
+    .build();
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+// includeToolCalls is on the Java builder; call it directly from Kotlin
+val evaluator = TrajectoryEvaluator.builder()
+    .name("Support Quality")
+    .judge(judgeLM)
+    .criteria(listOf(TrajectoryEvaluationCriteria.goalCompletion()))
+    .includeToolCalls(true) // render each turn's tool calls in the judge prompt
+    .build()
+```
+
+  </TabItem>
+</Tabs>
+
 ### Simulated Users
 
 A simulated user types the user side of the chat. The `SimulatedUser` interface takes the conversation so far and returns the next user message.

@@ -2,6 +2,9 @@ package dev.dokimos.core.conversation;
 
 import static org.assertj.core.api.Assertions.*;
 
+import dev.dokimos.core.agents.ToolCall;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -202,6 +205,60 @@ class ConversationSimulatorTest {
         assertThat(trajectory.userMessages()).hasSize(1);
         assertThat(trajectory.userMessages().get(0).content()).isEqualTo("First user message");
         assertThat(trajectory.metadata()).containsEntry("errorSource", "simulatedUser");
+        assertThat(trajectory.metadata().get("error").toString()).contains("turn 2");
+    }
+
+    @Test
+    void shouldPassThroughPerTurnToolCallsIntoFlatTrajectory() {
+        ToolCall search = ToolCall.of("search", Map.of("q", "weather"));
+        ToolCall book = ToolCall.of("book", Map.of("id", "42"));
+
+        SimulatedUser user = trajectory -> Message.user("User message");
+
+        ConversationalApplication app = trajectory -> {
+            // Turn 1 calls one tool, turn 2 calls another.
+            List<ToolCall> calls = trajectory.assistantMessages().isEmpty() ? List.of(search) : List.of(book);
+            return Message.assistant("Assistant reply", calls);
+        };
+
+        ConversationSimulator simulator = ConversationSimulator.builder()
+                .simulatedUser(user)
+                .application(app)
+                .maxTurns(2)
+                .build();
+
+        ConversationTrajectory trajectory = simulator.simulate();
+
+        // toolCalls() is the chronological concatenation of every assistant turn's calls.
+        assertThat(trajectory.toolCalls()).containsExactly(search, book);
+        assertThat(trajectory.toolCallsByTurn()).containsExactly(List.of(search), List.of(book));
+    }
+
+    @Test
+    void shouldPreserveToolCallsGatheredSoFarWhenApplicationThrowsMidConversation() {
+        ToolCall search = ToolCall.of("search", Map.of("q", "weather"));
+
+        SimulatedUser user = trajectory -> Message.user("User message");
+
+        ConversationalApplication app = trajectory -> {
+            // First turn carries tool calls; the second turn blows up mid-conversation.
+            if (trajectory.assistantMessages().isEmpty()) {
+                return Message.assistant("Assistant reply", List.of(search));
+            }
+            throw new RuntimeException("application blew up on turn 2");
+        };
+
+        ConversationSimulator simulator = ConversationSimulator.builder()
+                .simulatedUser(user)
+                .application(app)
+                .maxTurns(5)
+                .build();
+
+        ConversationTrajectory trajectory = simulator.simulate();
+
+        // The partial trajectory still exposes the calls gathered before the failure.
+        assertThat(trajectory.toolCalls()).containsExactly(search);
+        assertThat(trajectory.metadata()).containsEntry("errorSource", "application");
         assertThat(trajectory.metadata().get("error").toString()).contains("turn 2");
     }
 

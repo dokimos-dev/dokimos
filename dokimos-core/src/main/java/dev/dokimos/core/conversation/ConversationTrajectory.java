@@ -3,8 +3,13 @@ package dev.dokimos.core.conversation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.dokimos.core.EvalTestCase;
+import dev.dokimos.core.agents.AgentTrace;
+import dev.dokimos.core.agents.ToolCall;
+import dev.dokimos.core.agents.ToolDefinition;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -121,6 +126,111 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
     }
 
     /**
+     * Flattens every assistant turn's tool calls into one list, in chronological order. This is the
+     * flat {@code List<ToolCall>} the agent tool-call evaluators read.
+     *
+     * @return all tool calls across the conversation, never null
+     */
+    public List<ToolCall> toolCalls() {
+        return messages.stream()
+                .filter(Message::isAssistant)
+                .flatMap(m -> m.toolCalls().stream())
+                .toList();
+    }
+
+    /**
+     * Groups tool calls per assistant turn, in order: one inner list per assistant message (each
+     * possibly empty). This is the per-turn view for scoring each turn against its own expected
+     * calls. The unit of grouping is an assistant message, which can differ from {@link #turnCount()}
+     * (which counts user/assistant pairs) when a conversation has consecutive or trailing assistant
+     * messages.
+     *
+     * @return tool calls grouped by assistant message, never null
+     */
+    public List<List<ToolCall>> toolCallsByTurn() {
+        return assistantMessages().stream().map(Message::toolCalls).toList();
+    }
+
+    /**
+     * Collapses the conversation into a single {@link AgentTrace}: the final response is the last
+     * assistant message's content (or empty), the tool calls are {@link #toolCalls()}, reasoning is
+     * empty, and metadata carries the scenario and turn count. Intended for deterministic, scripted
+     * conversations; for non-deterministic simulated runs, prefer per-turn evaluation over
+     * {@link #toolCallsByTurn()}.
+     *
+     * @return the collapsed agent trace
+     */
+    public AgentTrace toAgentTrace() {
+        Message last = lastAssistantMessage();
+        return AgentTrace.builder()
+                .finalResponse(last != null ? last.content() : "")
+                .toolCalls(toolCalls())
+                .metadata("scenario", scenario)
+                .metadata("turnCount", turnCount())
+                .build();
+    }
+
+    /**
+     * Builds the actual-outputs map the agent evaluators read, identical in shape to
+     * {@link AgentTrace#toOutputMap()}.
+     *
+     * @return the actual outputs map
+     */
+    public Map<String, Object> toAgentOutputs() {
+        return toAgentTrace().toOutputMap();
+    }
+
+    /**
+     * Builds a test case for the deterministic tool-call evaluators, using the last user message as
+     * input.
+     *
+     * @return a new test case
+     */
+    public EvalTestCase toTestCase() {
+        return toAgentTrace().toTestCase(lastUserContent());
+    }
+
+    /**
+     * Builds a test case for the deterministic tool-call and tool-definition evaluators, adding the
+     * tools the agent could call.
+     *
+     * @param tools the available tool definitions
+     * @return a new test case
+     */
+    public EvalTestCase toTestCase(List<ToolDefinition> tools) {
+        return toAgentTrace().toTestCase(lastUserContent(), tools);
+    }
+
+    /**
+     * Builds a test case for the judge-based evaluators ({@code TaskCompletionEvaluator},
+     * {@code ToolArgumentHallucinationEvaluator}). The input is the full rendered transcript so the
+     * judge reasons over the whole conversation, but tool calls are rendered name-only
+     * ({@code [tool: name]}, not {@code [tool: name(args)]}): the hallucination evaluator grounds
+     * against this input, so the argument values under test must not appear in it. The arguments stay
+     * available through {@code actualOutputs["toolCalls"]}.
+     *
+     * @param tools the available tool definitions
+     * @param tasks the tasks the user asked the agent to complete
+     * @return a new test case
+     */
+    public EvalTestCase toTestCase(List<ToolDefinition> tools, List<String> tasks) {
+        // The rendered transcript is already a role-labeled dialog, so it is passed as the input
+        // and no separate "output" is set. Otherwise TaskCompletionEvaluator.resolveDialog would
+        // wrap the whole transcript under a second "User:/Agent:" layer and duplicate the last turn.
+        return EvalTestCase.builder()
+                .input(toGroundingText())
+                .actualOutput("toolCalls", toolCalls())
+                .metadata("tools", tools)
+                .metadata("tasks", tasks)
+                .build();
+    }
+
+    private String lastUserContent() {
+        Message user = lastUserMessage();
+        return user != null ? user.content() : null;
+    }
+
+    /**
      * Creates a new trajectory with an additional message appended.
      *
      * @param message the message to append
@@ -147,17 +257,48 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
      * @return the conversation as text
      */
     public String toText() {
+        return renderTranscript(true);
+    }
+
+    /**
+     * Renders the transcript for the judge-path grounding input, with tool calls shown name-only
+     * ({@code [tool: name]}) so the arguments under test never leak into the grounding source the
+     * hallucination evaluator reads.
+     */
+    private String toGroundingText() {
+        return renderTranscript(false);
+    }
+
+    private String renderTranscript(boolean includeArgs) {
         StringBuilder sb = new StringBuilder();
         if (!scenario.isEmpty()) {
             sb.append("Scenario: ").append(scenario).append("\n\n");
         }
         for (Message message : messages) {
-            sb.append(message.role().name())
-                    .append(": ")
-                    .append(message.content())
-                    .append("\n\n");
+            sb.append(message.role().name()).append(": ").append(message.content());
+            appendToolLines(sb, message, includeArgs);
+            sb.append("\n\n");
         }
         return sb.toString().trim();
+    }
+
+    /** Appends one compact {@code [tool: name(args)]} line per tool call on the message. */
+    static void appendToolLines(StringBuilder sb, Message message) {
+        appendToolLines(sb, message, true);
+    }
+
+    /**
+     * Appends one compact line per tool call on the message: {@code [tool: name(args)]} when
+     * {@code includeArgs} is true, or the arguments-omitted {@code [tool: name]} when false.
+     */
+    static void appendToolLines(StringBuilder sb, Message message, boolean includeArgs) {
+        for (ToolCall call : message.toolCalls()) {
+            sb.append("\n  [tool: ").append(call.name());
+            if (includeArgs) {
+                sb.append("(").append(call.arguments()).append(")");
+            }
+            sb.append("]");
+        }
     }
 
     /**
@@ -172,17 +313,25 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
             json.put("turnCount", turnCount());
             json.put(
                     "messages",
-                    messages.stream()
-                            .map(m -> Map.of(
-                                    "role", m.role().name().toLowerCase(),
-                                    "content", m.content(),
-                                    "metadata", m.metadata()))
-                            .toList());
+                    messages.stream().map(ConversationTrajectory::toJsonMessage).toList());
             json.put("metadata", metadata);
             return OBJECT_MAPPER.writeValueAsString(json);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize trajectory to JSON", e);
         }
+    }
+
+    private static Object toJsonMessage(Message m) {
+        // Tool-free messages keep the exact pre-feature shape so their JSON stays byte-identical.
+        if (!m.hasToolCalls()) {
+            return Map.of("role", m.role().name().toLowerCase(), "content", m.content(), "metadata", m.metadata());
+        }
+        Map<String, Object> json = new LinkedHashMap<>();
+        json.put("role", m.role().name().toLowerCase());
+        json.put("content", m.content());
+        json.put("metadata", m.metadata());
+        json.put("toolCalls", m.toolCalls());
+        return json;
     }
 
     /**
@@ -233,6 +382,17 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
          */
         public Builder assistantMessage(String content) {
             return message(Message.assistant(content));
+        }
+
+        /**
+         * Adds an assistant message carrying the tool calls it made.
+         *
+         * @param content   the message content
+         * @param toolCalls the tool calls made on this turn
+         * @return this builder
+         */
+        public Builder assistantMessage(String content, List<ToolCall> toolCalls) {
+            return message(Message.assistant(content, toolCalls));
         }
 
         /**

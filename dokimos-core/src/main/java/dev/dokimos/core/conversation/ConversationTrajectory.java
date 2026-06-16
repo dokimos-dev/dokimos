@@ -203,9 +203,11 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
 
     /**
      * Builds a test case for the judge-based evaluators ({@code TaskCompletionEvaluator},
-     * {@code ToolArgumentHallucinationEvaluator}). Unlike the deterministic overloads, the input is
-     * the full rendered transcript ({@link #toText()}) so the judge reasons over the whole
-     * conversation rather than only the last turn.
+     * {@code ToolArgumentHallucinationEvaluator}). The input is the full rendered transcript so the
+     * judge reasons over the whole conversation, but tool calls are rendered name-only
+     * ({@code [tool: name]}, not {@code [tool: name(args)]}): the hallucination evaluator grounds
+     * against this input, so the argument values under test must not appear in it. The arguments stay
+     * available through {@code actualOutputs["toolCalls"]}.
      *
      * @param tools the available tool definitions
      * @param tasks the tasks the user asked the agent to complete
@@ -216,7 +218,7 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
         // and no separate "output" is set. Otherwise TaskCompletionEvaluator.resolveDialog would
         // wrap the whole transcript under a second "User:/Agent:" layer and duplicate the last turn.
         return EvalTestCase.builder()
-                .input(toText())
+                .input(toGroundingText())
                 .actualOutput("toolCalls", toolCalls())
                 .metadata("tools", tools)
                 .metadata("tasks", tasks)
@@ -255,13 +257,26 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
      * @return the conversation as text
      */
     public String toText() {
+        return renderTranscript(true);
+    }
+
+    /**
+     * Renders the transcript for the judge-path grounding input, with tool calls shown name-only
+     * ({@code [tool: name]}) so the arguments under test never leak into the grounding source the
+     * hallucination evaluator reads.
+     */
+    private String toGroundingText() {
+        return renderTranscript(false);
+    }
+
+    private String renderTranscript(boolean includeArgs) {
         StringBuilder sb = new StringBuilder();
         if (!scenario.isEmpty()) {
             sb.append("Scenario: ").append(scenario).append("\n\n");
         }
         for (Message message : messages) {
             sb.append(message.role().name()).append(": ").append(message.content());
-            appendToolLines(sb, message);
+            appendToolLines(sb, message, includeArgs);
             sb.append("\n\n");
         }
         return sb.toString().trim();
@@ -269,12 +284,20 @@ public record ConversationTrajectory(List<Message> messages, String scenario, Ma
 
     /** Appends one compact {@code [tool: name(args)]} line per tool call on the message. */
     static void appendToolLines(StringBuilder sb, Message message) {
+        appendToolLines(sb, message, true);
+    }
+
+    /**
+     * Appends one compact line per tool call on the message: {@code [tool: name(args)]} when
+     * {@code includeArgs} is true, or the arguments-omitted {@code [tool: name]} when false.
+     */
+    static void appendToolLines(StringBuilder sb, Message message, boolean includeArgs) {
         for (ToolCall call : message.toolCalls()) {
-            sb.append("\n  [tool: ")
-                    .append(call.name())
-                    .append("(")
-                    .append(call.arguments())
-                    .append(")]");
+            sb.append("\n  [tool: ").append(call.name());
+            if (includeArgs) {
+                sb.append("(").append(call.arguments()).append(")");
+            }
+            sb.append("]");
         }
     }
 

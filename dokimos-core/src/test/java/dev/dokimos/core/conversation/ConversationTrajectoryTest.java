@@ -348,8 +348,10 @@ class ConversationTrajectoryTest {
 
         // The judge path reasons over the whole conversation: input is the full rendered transcript,
         // not just the last user message, so the transcript is not re-wrapped/duplicated downstream.
-        assertThat(judge.input()).isEqualTo(trajectory.toText());
         assertThat(judge.input()).contains("First question").contains("Second question");
+        // The grounding transcript names the tool calls but omits their arguments, so the args under
+        // test never leak into the hallucination evaluator's grounding source.
+        assertThat(judge.input()).contains("[tool: search]").doesNotContain("[tool: search(");
         // No separate output is set on the judge case (the transcript is the input).
         assertThat(judge.actualOutput()).isNull();
     }

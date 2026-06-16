@@ -291,7 +291,7 @@ See [`MultiTurnToolCallExample.java`](https://github.com/dokimos-dev/dokimos/blo
 When you want to assert over the whole conversation rather than per turn, build a test case straight from the trajectory.
 
 - `toolCalls()`: every turn's calls flattened into one list, in order.
-- `toTestCase()` and `toTestCase(tools)`: a **deterministic** test case. The flattened `toolCalls` go in the actual outputs, the input is the **last user message**, and `tools` (when given) go in metadata. Feed it to the rule-based evaluators (validity, correctness, trajectory, error, efficiency).
+- `toTestCase()` and `toTestCase(tools)`: a **deterministic** test case. The flattened `toolCalls` go in the actual outputs, the input is the **last user message**, and `tools` (when given) go in metadata. As-is, it feeds the rule-based evaluators that read only actual outputs (validity, error, efficiency). `ToolCorrectnessEvaluator` and `ToolTrajectoryEvaluator` additionally need an expected list, which this path does not set; wire one in yourself (for example, `EvalTestCase.builder().expectedOutput("toolCalls", expected)`) or they throw an `EvaluationException`.
 - `toTestCase(tools, tasks)`: the **judge** test case for `TaskCompletionEvaluator` and `ToolArgumentHallucinationEvaluator`. Its input is the **full rendered transcript** (`toText()`), so the judge reasons over the whole conversation; no separate output is set, so the transcript is not double-wrapped.
 - `toAgentTrace()` / `toAgentOutputs()`: collapse the conversation into a single `AgentTrace` (or its output map) for the standard agent data flow.
 

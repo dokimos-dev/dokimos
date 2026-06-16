@@ -7,6 +7,7 @@ import dev.dokimos.core.EvalTestCase;
 import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator;
+import dev.dokimos.core.evaluators.agents.ToolArgumentHallucinationEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolEfficiencyEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolErrorEvaluator;
 import dev.dokimos.core.evaluators.agents.ToolTrajectoryEvaluator;
@@ -206,12 +207,14 @@ class ConversationToolEvaluationTest {
             };
 
             var evaluator = TaskCompletionEvaluator.builder().judge(judge).build();
-            var result = evaluator.evaluate(trajectory.toTestCase(List.of(), List.of("Book a flight to Paris")));
+            EvalTestCase testCase = trajectory.toTestCase(List.of(), List.of("Book a flight to Paris"));
+            var result = evaluator.evaluate(testCase);
 
             assertThat(result.score()).isEqualTo(1.0);
 
             String prompt = captured.get();
-            String transcript = trajectory.toText();
+            // The judge sees the grounding transcript (tool calls name-only), not args-inclusive toText().
+            String transcript = testCase.input();
 
             // The transcript appears verbatim inside the prompt exactly once.
             assertThat(prompt).contains(transcript);
@@ -229,12 +232,15 @@ class ConversationToolEvaluationTest {
         }
 
         @Test
-        @DisplayName("toTestCase(tools, tasks) puts the transcript in input and leaves no separate output")
+        @DisplayName("toTestCase(tools, tasks) puts the grounding transcript in input and leaves no separate output")
         void noSeparateOutput() {
             var trajectory = trajectory();
             EvalTestCase testCase = trajectory.toTestCase(List.of(), List.of("Book a flight to Paris"));
 
-            assertThat(testCase.input()).isEqualTo(trajectory.toText());
+            // Tool calls are rendered name-only, never the args-inclusive form that toText() emits.
+            assertThat(testCase.input()).contains("[tool: search_flights]").contains("[tool: book_flight]");
+            assertThat(testCase.input()).doesNotContain("[tool: search_flights(");
+            assertThat(testCase.input()).isNotEqualTo(trajectory.toText());
             // No "output" key -> resolveDialog returns the input alone instead of "User: .. Agent: ..".
             assertThat(testCase.actualOutput()).isNull();
         }
@@ -248,6 +254,46 @@ class ConversationToolEvaluationTest {
                 from = idx + needle.length();
             }
             return count;
+        }
+    }
+
+    @Nested
+    @DisplayName("hallucination judge grounding")
+    class HallucinationGrounding {
+
+        @Test
+        @DisplayName("the fabricated argument under test never leaks into the grounding transcript")
+        void argumentUnderTestIsAbsentFromGrounding() {
+            // The user asks to book a flight but never names a flight id; the assistant fabricates one.
+            ToolCall fabricated = ToolCall.builder()
+                    .name("book_flight")
+                    .argument("id", "ZZ999")
+                    .result("confirmed: ZZ999")
+                    .build();
+
+            var trajectory = ConversationTrajectory.builder()
+                    .scenario("Book a flight to Paris")
+                    .userMessage("Book me a flight to Paris")
+                    .assistantMessage("Booked it.", List.of(fabricated))
+                    .build();
+
+            var captured = new AtomicReference<String>();
+            JudgeLM judge = prompt -> {
+                captured.set(prompt);
+                return "[{\"toolName\": \"book_flight\", \"grounded\": false, \"reason\": \"id not in input\"}]";
+            };
+
+            var evaluator =
+                    ToolArgumentHallucinationEvaluator.builder().judge(judge).build();
+            evaluator.evaluate(trajectory.toTestCase(List.of(), List.of("Book a flight to Paris")));
+
+            String prompt = captured.get();
+            String groundingInput = trajectory.toTestCase(List.of(), List.of()).input();
+
+            // The grounding the judge reads must not contain the fabricated argument value.
+            assertThat(groundingInput).doesNotContain("ZZ999");
+            // The judge still receives it via the separate tool-calls section, so it can flag it.
+            assertThat(prompt).contains("ZZ999");
         }
     }
 }

@@ -515,17 +515,15 @@ EvalTestCase testCase = trace.toTestCase(userInput, tools);
   </TabItem>
   <TabItem value="openai" label="OpenAI">
 
-The OpenAI Java SDK has no published Dokimos module, so a small reusable bridge lives in the examples module (copy it into your project). It turns the SDK's tool calls into Dokimos `ToolCall`s as your tool-calling loop runs.
+A `ChatCompletionMessage` carries the function tool calls the model made. Pass it to `OpenAiSupport.toAgentTrace` with a lookup that maps each tool-call id to the result you got from executing it, and convert the tools the agent was given with `toToolDefinitions`.
 
 ```java
-AgentTrace.Builder trace = AgentTrace.builder();
-for (var toolCall : message.toolCalls().orElse(List.of())) {
-    String result = myApp.execute(toolCall);
-    trace.addToolCall(OpenAiAgentTraces.toToolCall(toolCall, result));
-}
-trace.finalResponse(finalMessage.content().orElse(""));
+import dev.dokimos.openai.OpenAiSupport;
 
-EvalTestCase testCase = trace.build().toTestCase(userMessage, tools);
+AgentTrace trace = OpenAiSupport.toAgentTrace(message, id -> myApp.resultFor(id));
+List<ToolDefinition> tools = OpenAiSupport.toToolDefinitions(chatCompletionTools);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
 ```
 
   </TabItem>

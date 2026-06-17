@@ -9,22 +9,24 @@ Set up Dokimos agent evaluation for an agent built directly on the OpenAI Java S
 
 ## Where things live
 
-- **OpenAI trace bridge**: `dokimos-examples/src/main/java/dev/dokimos/examples/basic/OpenAiAgentTraces.java`
+- **OpenAI support utilities**: `dev.dokimos:dokimos-openai` (`dev.dokimos.openai.OpenAiSupport`)
 - **Runnable example**: `dokimos-examples/src/main/java/dev/dokimos/examples/basic/OpenAIAgentEvaluationExample.java`
 - **Agent data model and evaluators**: `dokimos-core/src/main/java/dev/dokimos/core/agents/` and `.../evaluators/agents/`
 
-There is no published `dokimos-openai` module. The OpenAI bridge is example code: copy `OpenAiAgentTraces` into your project (it depends only on the OpenAI SDK and `dokimos-core`). Everything else comes from `dev.dokimos:dokimos-core`.
+Add the `dev.dokimos:dokimos-openai` dependency (it brings in `dokimos-core`). It expects you to supply your own `com.openai:openai-java` version.
 
-## The bridge
+## The support class
 
-`OpenAiAgentTraces` converts the SDK's tool calls into Dokimos `ToolCall`s:
+`OpenAiSupport` converts the SDK's tool calls into Dokimos `ToolCall`s and tool definitions:
 
-- **`toToolCall(ChatCompletionMessageToolCall toolCall, String result)`** — one function tool call plus the result you got from executing it.
-- **`toToolCalls(ChatCompletionMessage message, Function<String,String> resultLookup)`** — all function tool calls on a message; `resultLookup` maps a tool-call id to its result. Non-function (custom) tool calls are skipped.
+- **`toAgentTrace(ChatCompletionMessage message, Function<String,String> resultLookup)`**: a full trace from a message; `resultLookup` maps a tool-call id to its result. Non-function (custom) tool calls are skipped.
+- **`toToolCall(ChatCompletionMessageToolCall toolCall, String result)`**: one function tool call plus the result you got from executing it.
+- **`toToolCalls(ChatCompletionMessage message, Function<String,String> resultLookup)`**: all function tool calls on a message.
+- **`toToolDefinitions(List<ChatCompletionTool> tools)`**: the tools the agent was given, so the validity and reliability evaluators can run.
 
 Arguments are parsed from the model's JSON; if they cannot be parsed they default to an empty map rather than failing the trace.
 
-## Pattern — capture the trace in your tool-calling loop
+## Pattern: capture the trace in your tool-calling loop
 
 ```java
 AgentTrace.Builder trace = AgentTrace.builder();
@@ -38,7 +40,7 @@ for (int i = 0; i < MAX_TURNS; i++) {
     }
     for (var toolCall : toolCalls) {
         String result = executeTool(toolCall.asFunction().function().name());
-        trace.addToolCall(OpenAiAgentTraces.toToolCall(toolCall, result));
+        trace.addToolCall(OpenAiSupport.toToolCall(toolCall, result));
         // feed the result back to the model as a tool message, then continue the loop
     }
 }
@@ -65,8 +67,8 @@ var correctness = ToolCorrectnessEvaluator.builder().build().evaluate(testCase);
 ## Steps
 
 1. Understand from `$ARGUMENTS` what the agent does and which tools (functions) it exposes.
-2. Copy `OpenAiAgentTraces` into the user's project if it is not already there.
-3. In the tool-calling loop, capture each executed tool call with `OpenAiAgentTraces.toToolCall(...)` and set the final response.
+2. Add the `dev.dokimos:dokimos-openai` dependency if it is not already present.
+3. In the tool-calling loop, capture each executed tool call with `OpenAiSupport.toToolCall(...)` and set the final response.
 4. Define a `ToolDefinition` for each function (JSON Schema with `"type"`, `"properties"`, `"required"`) so the validity and reliability evaluators can run.
 5. Build the test case with `trace.toTestCase(input, tools)` and run the agent evaluators. Start with the deterministic ones (validity, correctness), then add LLM-based ones.
 6. For the full agent evaluator set and the Experiment-across-a-dataset pattern, use the `evaluate-agent` skill.

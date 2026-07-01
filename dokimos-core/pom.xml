@@ -36,6 +36,9 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <!-- Kept explicit (and matched to the Spring Boot managed jackson-bom) so the resolved
+                 version is visible to dependency scanning; a bare BOM-managed version reads as absent. -->
+            <version>2.19.4</version>
         </dependency>
 
         <dependency>

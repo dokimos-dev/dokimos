@@ -36,30 +36,14 @@ import java.util.function.Function;
  */
 public final class OpenAiSupport {
 
-    /**
-     * Default model used by the no-arg {@link #asJudge(OpenAIClient)} judge.
-     */
-    public static final ChatModel DEFAULT_JUDGE_MODEL = ChatModel.GPT_5_NANO;
-
     private OpenAiSupport() {}
-
-    /**
-     * Creates a {@link JudgeLM} from an OpenAI {@link OpenAIClient} using the
-     * {@link #DEFAULT_JUDGE_MODEL default judge model}.
-     *
-     * <p>Use this to create judges for LLM-based evaluators like {@code LLMJudgeEvaluator},
-     * {@code TaskCompletionEvaluator}, etc.
-     *
-     * @param client the OpenAI client to use as judge
-     * @return a JudgeLM that delegates to the client
-     */
-    public static JudgeLM asJudge(OpenAIClient client) {
-        return asJudge(client, DEFAULT_JUDGE_MODEL);
-    }
 
     /**
      * Creates a {@link JudgeLM} from an OpenAI {@link OpenAIClient} and a specific
      * {@link ChatModel}.
+     *
+     * <p>Use this to create judges for LLM-based evaluators like {@code LLMJudgeEvaluator},
+     * {@code TaskCompletionEvaluator}, etc.
      *
      * @param client the OpenAI client to use as judge
      * @param model  the chat model the judge uses

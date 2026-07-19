@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.openai.client.OpenAIClient;
 import com.openai.core.JsonValue;
+import com.openai.models.ChatModel;
 import com.openai.models.FunctionDefinition;
 import com.openai.models.FunctionParameters;
 import com.openai.models.chat.completions.ChatCompletion;
@@ -221,7 +222,7 @@ class OpenAiAgentTraceTest {
     void asJudgeDelegates() {
         OpenAIClient client = clientReturning("Judge response");
 
-        String response = OpenAiSupport.asJudge(client).generate("Test prompt");
+        String response = OpenAiSupport.asJudge(client, ChatModel.GPT_5_NANO).generate("Test prompt");
 
         assertThat(response).isEqualTo("Judge response");
     }
@@ -231,7 +232,8 @@ class OpenAiAgentTraceTest {
     void asJudgeThrowsWhenContentAbsent() {
         OpenAIClient client = clientReturning(null);
 
-        assertThatThrownBy(() -> OpenAiSupport.asJudge(client).generate("Test prompt"))
+        assertThatThrownBy(() ->
+                        OpenAiSupport.asJudge(client, ChatModel.GPT_5_NANO).generate("Test prompt"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Judge response content was null");
     }

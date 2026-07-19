@@ -4,7 +4,7 @@
 
 Dokimos is an LLM evaluation framework for Java and Kotlin. It provides tools for evaluating LLM application responses, tracking quality over time, catching regressions, and running evaluations as part of test suites and CI/CD pipelines.
 
-Current version: **0.24.0-SNAPSHOT** (latest release: 0.20.0) | License: MIT | Published to Maven Central under `dev.dokimos`.
+Current version: **0.25.0-SNAPSHOT** (latest release: 0.20.0) | License: MIT | Published to Maven Central under `dev.dokimos`.
 
 ## Project Structure
 

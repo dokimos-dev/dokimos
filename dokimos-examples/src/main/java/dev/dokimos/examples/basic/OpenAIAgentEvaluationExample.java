@@ -14,6 +14,7 @@ import dev.dokimos.core.agents.AgentTrace;
 import dev.dokimos.core.agents.ToolCall;
 import dev.dokimos.core.agents.ToolDefinition;
 import dev.dokimos.core.evaluators.agents.*;
+import dev.dokimos.openai.OpenAiSupport;
 import java.util.List;
 import java.util.Map;
 
@@ -166,7 +167,7 @@ public class OpenAIAgentEvaluationExample {
                 String name = funcToolCall.function().name();
                 String result = executeToolFunction(name);
 
-                ToolCall captured = OpenAiAgentTraces.toToolCall(toolCall, result);
+                ToolCall captured = OpenAiSupport.toToolCall(toolCall, result);
                 System.out.printf("  Tool call: %s(%s) -> %s%n", captured.name(), captured.arguments(), result);
                 traceBuilder.addToolCall(captured);
 

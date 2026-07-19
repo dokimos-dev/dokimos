@@ -74,6 +74,11 @@
             <artifactId>dokimos-spring-ai-alibaba</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>dev.dokimos</groupId>
+            <artifactId>dokimos-openai</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- LangChain4j dependencies -->
         <dependency>

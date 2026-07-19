@@ -50,7 +50,7 @@ Do not hand-build `AgentTrace` if the agent runs on a supported framework. Each 
 - **LangChain4j** (`dokimos-langchain4j`): `LangChain4jSupport.toAgentTrace(result)` from an `AiServices` `Result<T>`; `toToolDefinitions(specs)` for the tools.
 - **Spring AI** (`dokimos-spring-ai`): `SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages)` (results matched by tool-call id); `toToolDefinitions(defs)`.
 - **Koog** (`dokimos-koog`): install a `KoogTraceCollector` via `collectAgentTrace(collector)` in the event handler, run the agent, then `collector.toAgentTrace(response)`.
-- **OpenAI Java SDK**: copy the `OpenAiAgentTraces` bridge from `dokimos-examples` (not a published module) and build the trace as the tool-calling loop runs.
+- **OpenAI Java SDK** (`dokimos-openai`): `OpenAiSupport.toAgentTrace(message, resultLookup)` from a `ChatCompletionMessage`; `toToolDefinitions(tools)` for the tools.
 
 See the agent-evaluation guide for the full extractor reference: https://dokimos.dev/evaluation/agent-evaluation
 

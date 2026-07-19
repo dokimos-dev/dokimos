@@ -515,17 +515,15 @@ EvalTestCase testCase = trace.toTestCase(userInput, tools);
   </TabItem>
   <TabItem value="openai" label="OpenAI">
 
-The OpenAI Java SDK has no published Dokimos module, so a small reusable bridge lives in the examples module (copy it into your project). It turns the SDK's tool calls into Dokimos `ToolCall`s as your tool-calling loop runs.
+A `ChatCompletionMessage` carries the function tool calls the model made. Pass it to `OpenAiSupport.toAgentTrace` with a lookup that maps each tool-call id to the result you got from executing it, and convert the tools the agent was given with `toToolDefinitions`.
 
 ```java
-AgentTrace.Builder trace = AgentTrace.builder();
-for (var toolCall : message.toolCalls().orElse(List.of())) {
-    String result = myApp.execute(toolCall);
-    trace.addToolCall(OpenAiAgentTraces.toToolCall(toolCall, result));
-}
-trace.finalResponse(finalMessage.content().orElse(""));
+import dev.dokimos.openai.OpenAiSupport;
 
-EvalTestCase testCase = trace.build().toTestCase(userMessage, tools);
+AgentTrace trace = OpenAiSupport.toAgentTrace(message, id -> myApp.resultFor(id));
+List<ToolDefinition> tools = OpenAiSupport.toToolDefinitions(chatCompletionTools);
+
+EvalTestCase testCase = trace.toTestCase(userMessage, tools);
 ```
 
   </TabItem>
@@ -691,11 +689,7 @@ val result = experiment {
 
 ## OpenAI Integration
 
-Here is a full example that captures tool calls from an OpenAI agent and evaluates them. There are three bridge points:
-
-1. Convert your `ToolDefinition` to OpenAI's `ChatCompletionTool` format.
-2. Extract tool call names and arguments from the OpenAI response.
-3. Build an `AgentTrace` from the captured execution.
+Here is a full example that captures tool calls from an OpenAI agent and evaluates them. You define your tools once as `ToolDefinition`s (shared with the evaluators), convert them to OpenAI's format for the API call, and capture each tool call with `OpenAiSupport.toToolCall` from the `dokimos-openai` module as the loop runs.
 
 ```java
 import com.openai.client.OpenAIClient;
@@ -704,6 +698,7 @@ import com.openai.core.JsonValue;
 import com.openai.models.*;
 import com.openai.models.chat.completions.*;
 import dev.dokimos.core.agents.*;
+import dev.dokimos.openai.OpenAiSupport;
 
 OpenAIClient client = OpenAIOkHttpClient.fromEnv();
 
@@ -749,14 +744,10 @@ for (int i = 0; i < 10; i++) {
 
     for (var toolCall : toolCalls) {
         var func = toolCall.asFunction();
-        var function = func.function();
-        String result = yourApp.executeTool(function.name(), function.arguments(Map.class));
+        String result = yourApp.executeTool(func.function().name(), func.function().arguments(Map.class));
 
-        traceBuilder.addToolCall(ToolCall.builder()
-            .name(function.name())
-            .arguments(function.arguments(Map.class))
-            .result(result)
-            .build());
+        // OpenAiSupport captures the tool call (name + parsed arguments) as a Dokimos ToolCall
+        traceBuilder.addToolCall(OpenAiSupport.toToolCall(toolCall, result));
 
         paramsBuilder.addMessage(ChatCompletionToolMessageParam.builder()
             .toolCallId(func.id())

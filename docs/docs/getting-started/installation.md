@@ -66,6 +66,7 @@ Dokimos ships separate dependencies for the tools you already use. Add one only 
 | ------------------ | --------------------------- | ------------------------------------------------------------------ |
 | JUnit 5 / 6        | `dokimos-junit`             | [JUnit Integration](../integrations/junit)                         |
 | LangChain4j        | `dokimos-langchain4j`       | [LangChain4j Integration](../integrations/langchain4j)             |
+| OpenAI Java SDK    | `dokimos-openai`            | [OpenAI Integration](../integrations/openai)                       |
 | Spring AI          | `dokimos-spring-ai`         | [Spring AI Integration](../integrations/spring-ai)                 |
 | Spring AI Alibaba  | `dokimos-spring-ai-alibaba` | [Spring AI Alibaba Integration](../integrations/spring-ai-alibaba) |
 | Koog               | `dokimos-koog`              | [Koog Integration](../integrations/koog)                           |

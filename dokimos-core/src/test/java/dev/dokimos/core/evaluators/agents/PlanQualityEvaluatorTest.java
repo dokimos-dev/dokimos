@@ -94,6 +94,21 @@ class PlanQualityEvaluatorTest {
     }
 
     @Test
+    void shouldThrowWhenReasoningStepsIsNotAList() {
+        var evaluator = PlanQualityEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .input("Do something")
+                .actualOutput("reasoningSteps", "not a list")
+                .build();
+
+        assertThatThrownBy(() -> evaluator.evaluate(testCase))
+                .isInstanceOf(EvaluationException.class)
+                .hasMessageContaining("reasoningSteps")
+                .hasMessageContaining("String");
+    }
+
+    @Test
     void shouldReturnZeroOnMalformedJudgeJson() {
         var evaluator =
                 PlanQualityEvaluator.builder().judge(prompt -> "not json").build();

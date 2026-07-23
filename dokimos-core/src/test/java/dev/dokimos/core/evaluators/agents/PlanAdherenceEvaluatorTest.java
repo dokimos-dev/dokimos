@@ -87,6 +87,21 @@ class PlanAdherenceEvaluatorTest {
     }
 
     @Test
+    void shouldThrowWhenReasoningStepsIsNotAList() {
+        var evaluator = PlanAdherenceEvaluator.builder().build();
+
+        var testCase = EvalTestCase.builder()
+                .actualOutput("reasoningSteps", "not a list")
+                .actualOutput("toolCalls", CALLS)
+                .build();
+
+        assertThatThrownBy(() -> evaluator.evaluate(testCase))
+                .isInstanceOf(EvaluationException.class)
+                .hasMessageContaining("reasoningSteps")
+                .hasMessageContaining("String");
+    }
+
+    @Test
     void shouldFlagMissingPlanInRuleMode() {
         var evaluator = PlanAdherenceEvaluator.builder().build();
 

@@ -118,7 +118,8 @@ public class PlanQualityEvaluator extends BaseEvaluator {
         if (raw instanceof List<?> list) {
             return list.stream().map(String::valueOf).toList();
         }
-        return List.of();
+        throw new EvaluationException("PlanQualityEvaluator requires a List for '%s' in actualOutputs, got %s"
+                .formatted(reasoningStepsKey, raw.getClass().getName()));
     }
 
     /**

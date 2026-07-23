@@ -145,10 +145,14 @@ public class PlanAdherenceEvaluator extends BaseEvaluator {
     }
 
     private List<String> readPlan(Object raw) {
+        if (raw == null) {
+            return List.of();
+        }
         if (raw instanceof List<?> list) {
             return list.stream().map(String::valueOf).toList();
         }
-        return List.of();
+        throw new EvaluationException("PlanAdherenceEvaluator requires a List for '%s' in actualOutputs, got %s"
+                .formatted(reasoningStepsKey, raw.getClass().getName()));
     }
 
     /**

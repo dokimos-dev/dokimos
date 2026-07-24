@@ -175,3 +175,25 @@ jobs:
 
       - name: Test ${{ matrix.module }} against ${{ matrix.property }}=${{ matrix.version }}
         run: mvn -B -U test -pl ${{ matrix.module }} -am -D${{ matrix.property }}=${{ matrix.version }} ${{ matrix.profiles }}
+
+  dockerfile-modules:
+    name: Dockerfile module list
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The release Docker builds copy every reactor module POM by hand. A module added to the
+      # parent <modules> without a matching COPY line breaks the image builds at release time.
+      - name: Check Dockerfiles copy every module POM
+        run: |
+          modules=$(awk '/<modules>/{f=1;next} /<\/modules>/{exit} f' pom.xml | sed -n 's/.*<module>\(.*\)<\/module>.*/\1/p')
+          status=0
+          for dockerfile in dokimos-server/Dockerfile dokimos-mcp-server/Dockerfile; do
+            for module in $modules; do
+              if ! grep -q "COPY $module/pom.xml" "$dockerfile"; then
+                echo "$dockerfile is missing: COPY $module/pom.xml"
+                status=1
+              fi
+            done
+          done
+          exit $status

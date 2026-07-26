@@ -526,9 +526,10 @@ See the [server documentation](https://dokimos.dev/server/overview) for deployme
 
 ## Roadmap
 
-- More built in evaluators: misuse detection
-- CLI for running evaluations outside of tests
-- Server-side Dataset versioning and management
+- More built-in evaluators: misuse detection and more
+- Test data generation: LLM-generated synthetic datasets for evaluation
+- SPI (Service Provider Interface): plug in custom storage, metrics, and reporting
+- CLI for running experiments, managing datasets, and generating reports
 
 See the [full roadmap](https://dokimos.dev/overview/#whats-next) on the docs site.
 

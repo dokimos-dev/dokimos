@@ -13,6 +13,8 @@ import dev.dokimos.core.evaluators.PrecisionEvaluator
 import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
+import dev.dokimos.core.evaluators.agents.PlanAdherenceEvaluator
+import dev.dokimos.core.evaluators.agents.PlanQualityEvaluator
 import dev.dokimos.core.evaluators.agents.TaskCompletionEvaluator
 import dev.dokimos.core.evaluators.agents.ToolArgumentHallucinationEvaluator
 import dev.dokimos.core.evaluators.agents.ToolCallValidityEvaluator
@@ -95,6 +97,14 @@ class EvaluatorsDsl {
 
     fun toolEfficiency(block: ToolEfficiencyEvaluatorDsl.() -> Unit = {}) {
         evaluators += ToolEfficiencyEvaluatorDsl().apply(block).build()
+    }
+
+    fun planQuality(block: PlanQualityEvaluatorDsl.() -> Unit = {}) {
+        evaluators += PlanQualityEvaluatorDsl().apply(block).build()
+    }
+
+    fun planAdherence(block: PlanAdherenceEvaluatorDsl.() -> Unit = {}) {
+        evaluators += PlanAdherenceEvaluatorDsl().apply(block).build()
     }
 
     fun evaluator(evaluator: Evaluator) {
@@ -500,6 +510,54 @@ class ToolEfficiencyEvaluatorDsl {
             .threshold(threshold)
             .toolCallsKey(toolCallsKey)
         argumentMatcher?.let { builder.argumentMatcher(it) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class PlanQualityEvaluatorDsl {
+    var name: String = "Plan Quality"
+    var threshold: Double = 0.5
+    var reasoningStepsKey: String = "reasoningSteps"
+    var judge: JudgeLM? = null
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): PlanQualityEvaluator {
+        val builder = PlanQualityEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .reasoningStepsKey(reasoningStepsKey)
+            .evaluationParams(evaluationParams)
+        judge?.let { builder.judge(it) }
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class PlanAdherenceEvaluatorDsl {
+    var name: String = "Plan Adherence"
+    var threshold: Double = 0.5
+    var reasoningStepsKey: String = "reasoningSteps"
+    var toolCallsKey: String = "toolCalls"
+    var judge: JudgeLM? = null
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): PlanAdherenceEvaluator {
+        val builder = PlanAdherenceEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .reasoningStepsKey(reasoningStepsKey)
+            .toolCallsKey(toolCallsKey)
+            .evaluationParams(evaluationParams)
+        judge?.let { builder.judge(it) }
         return builder.build()
     }
 }

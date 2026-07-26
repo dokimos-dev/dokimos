@@ -71,6 +71,12 @@ fun toolDescriptionReliability(
     },
 ): ToolDescriptionReliabilityEvaluator = ToolDescriptionReliabilityEvaluatorDsl().apply(block).build()
 
+fun planQuality(block: PlanQualityEvaluatorDsl.() -> Unit = {}): PlanQualityEvaluator =
+    PlanQualityEvaluatorDsl().apply(block).build()
+
+fun planAdherence(block: PlanAdherenceEvaluatorDsl.() -> Unit = {}): PlanAdherenceEvaluator =
+    PlanAdherenceEvaluatorDsl().apply(block).build()
+
 // Experiment, dataset, example, task DSLs remain in root for familiarity
 fun experiment(block: ExperimentDsl.() -> Unit): Experiment = ExperimentDsl().apply(block).build()
 

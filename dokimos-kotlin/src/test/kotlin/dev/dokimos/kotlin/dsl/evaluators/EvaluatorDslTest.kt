@@ -18,6 +18,8 @@ import dev.dokimos.kotlin.dsl.evaluators
 import dev.dokimos.kotlin.dsl.faithfulness
 import dev.dokimos.kotlin.dsl.hallucination
 import dev.dokimos.kotlin.dsl.llmJudge
+import dev.dokimos.kotlin.dsl.planAdherence
+import dev.dokimos.kotlin.dsl.planQuality
 import dev.dokimos.kotlin.dsl.precision
 import dev.dokimos.kotlin.dsl.recall
 import dev.dokimos.kotlin.dsl.toolCallValidity
@@ -258,10 +260,18 @@ class EvaluatorDslTest {
                 name = "DescReliab"
                 threshold = 0.8
             }
+            planQuality {
+                name = "PlanQual"
+                threshold = 0.5
+            }
+            planAdherence {
+                name = "PlanAdher"
+                threshold = 0.5
+            }
             evaluator(customEvaluator)
         }
 
-        assertThat(evaluators).hasSize(15)
+        assertThat(evaluators).hasSize(17)
         assertThat(evaluators.map { it.name() }).containsExactly(
             "Exact",
             "Regex",
@@ -277,6 +287,8 @@ class EvaluatorDslTest {
             "ArgHalluc",
             "NameReliab",
             "DescReliab",
+            "PlanQual",
+            "PlanAdher",
             "Custom Eval",
         )
     }
@@ -451,5 +463,46 @@ class EvaluatorDslTest {
         val result = evaluator.evaluate(testCase)
 
         assertThat(result.score()).isEqualTo(0.5)
+    }
+
+    @Test
+    fun `planQuality standalone DSL wires judge and reasoning steps key`() {
+        val coherentJudge = JudgeLM { _ -> """{"quality": true}""" }
+
+        val evaluator = planQuality {
+            reasoningStepsKey = "plan"
+            judge = coherentJudge
+        }
+
+        val testCase = EvalTestCase.builder()
+            .input("Book a flight")
+            .actualOutput("plan", listOf("Search flights", "Book the cheapest"))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(1.0)
+        assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `planAdherence standalone DSL wires judge and keys`() {
+        val followedJudge = JudgeLM { _ -> """{"plan_followed": true}""" }
+
+        val evaluator = planAdherence {
+            reasoningStepsKey = "plan"
+            toolCallsKey = "calls"
+            judge = followedJudge
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("plan", listOf("Search flights", "Book the flight"))
+            .actualOutput("calls", listOf(ToolCall.of("search_flights", mapOf("to" to "Paris"))))
+            .build()
+
+        val result = evaluator.evaluate(testCase)
+
+        assertThat(result.score()).isEqualTo(1.0)
+        assertThat(result.success()).isTrue()
     }
 }

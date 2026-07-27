@@ -161,4 +161,88 @@ class ConversationDslTest {
         assertThat(result.score()).isEqualTo(0.9)
         assertThat(result.success()).isTrue()
     }
+
+    @Test
+    fun `golden generator DSL builds a dataset from scripted seeds`() {
+        val application = ConversationalApplication { traj ->
+            assistantMessage("reply to ${traj.lastUserMessage().content()}")
+        }
+
+        val dataset = goldenGenerator {
+            this.application = application
+            name = "support-goldens"
+            seed {
+                scenario = "return request"
+                userTurns(listOf("I want a refund", "order #123"))
+                metadata("suite", "support")
+            }
+            seed(
+                scenarioSeed {
+                    scenario = "greeting"
+                    userTurn("hello")
+                    expectedOutcome = "The agent greets back"
+                    expectedOutput("output", "canonical greeting")
+                },
+            )
+        }.generate()
+
+        assertThat(dataset.name()).isEqualTo("support-goldens")
+        assertThat(dataset.size()).isEqualTo(2)
+        assertThat(dataset.examples()[0].input()).contains("order #123")
+        assertThat(dataset.examples()[0].metadata())
+            .containsEntry("suite", "support")
+            .containsEntry("turnCount", 2)
+        assertThat(dataset.examples()[1].expectedOutput()).isEqualTo("canonical greeting")
+        assertThat(dataset.examples()[1].metadata()).containsEntry("expectedOutcome", "The agent greets back")
+    }
+
+    @Test
+    fun `golden generator DSL seeds replaces the seeds added so far`() {
+        val application = ConversationalApplication { traj ->
+            assistantMessage("reply to ${traj.lastUserMessage().content()}")
+        }
+
+        val dataset = goldenGenerator {
+            this.application = application
+            seed {
+                scenario = "discarded"
+                userTurn("dropped")
+            }
+            seeds(
+                listOf(
+                    scenarioSeed {
+                        scenario = "kept"
+                        userTurn("hello")
+                    },
+                ),
+            )
+        }.generate()
+
+        assertThat(dataset.size()).isEqualTo(1)
+        assertThat(dataset.examples()[0].metadata()).containsEntry("scenario", "kept")
+    }
+
+    @Test
+    fun `scenario seed DSL applies the persona factory with the generator judge`() {
+        val judge = JudgeLM { "persona reply" }
+        val application = ConversationalApplication { traj ->
+            assistantMessage("reply to ${traj.lastUserMessage().content()}")
+        }
+
+        val dataset = goldenGenerator {
+            this.application = application
+            this.judge = judge
+            maxTurns = 2
+            seed {
+                scenario = "curious user"
+                initialMessage = "hi there"
+                personaFactory = { judgeLM -> SimulatedUser { userMessage(judgeLM.generate("next")) } }
+            }
+        }.generate()
+
+        assertThat(dataset.size()).isEqualTo(1)
+        assertThat(dataset.examples()[0].input()).contains("hi there").contains("persona reply")
+        // a persona-driven seed gets no default golden answer
+        assertThat(dataset.examples()[0].expectedOutputs()).doesNotContainKey("output")
+    }
 }

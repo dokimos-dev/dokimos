@@ -238,6 +238,25 @@ mvn exec:java -pl dokimos-examples \
 
 See the [Multi-Turn Conversations](https://dokimos.dev/evaluation/multi-turn-conversations) guide for the per-turn and judge paths.
 
+### 12. Multi-Turn Golden Generation
+
+**Location**: `dev.dokimos.examples.conversation.MultiTurnGoldenGenerationExample`
+
+Synthesizes a multi-turn dataset from scenario seeds, with no API key:
+
+- Builds scripted `ScenarioSeed`s whose user turns are replayed verbatim
+- Runs them through `GoldenGenerator` against the application under test
+- Writes JSON and JSONL files and loads them back with `Dataset`, the shape `@DatasetSource` reads
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.conversation.MultiTurnGoldenGenerationExample"
+```
+
+See the [Multi-Turn Conversations](https://dokimos.dev/evaluation/multi-turn-conversations) guide for persona-driven seeds.
+
 ## Building the Examples
 
 Build all examples:

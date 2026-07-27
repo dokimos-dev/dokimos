@@ -229,9 +229,6 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
-                <configuration>
-                    <mainClass>dev.dokimos.examples.basic.BasicEvaluationExample</mainClass>
-                </configuration>
             </plugin>
 
             <plugin>

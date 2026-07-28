@@ -7,6 +7,58 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.25.0",
+    date: "July 2026",
+    lead: "Plan-level agent evaluation: two judge-based evaluators score whether the agent's reasoning plan holds up and whether the executed tool calls actually followed it, extending the agent evaluator set to the reasoning layer.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Plan quality and plan adherence evaluators",
+            body: (
+              <>
+                <code>PlanQualityEvaluator</code> judges whether the plan in{" "}
+                <code>reasoningSteps</code> is coherent and goal-directed for the task, and{" "}
+                <code>PlanAdherenceEvaluator</code> judges whether the executed tool calls carried
+                that plan out. Both run their rule-based checks on their own and add the LLM check
+                only when a <code>JudgeLM</code> is supplied, like the tool reliability evaluators,
+                and both are available in the Kotlin DSL via <code>planQuality</code> and{" "}
+                <code>planAdherence</code>.
+              </>
+            ),
+          },
+        ],
+      }
+    ],
+  },
+  {
+    version: "0.24.0",
+    date: "July 2026",
+    lead: "An official OpenAI integration: evaluate agents built directly on the OpenAI Java SDK, with no bridge code to copy.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "OpenAI integration module",
+            body: (
+              <>
+                The new <code>dokimos-openai</code> module ships <code>OpenAiSupport</code>:{" "}
+                <code>asJudge(client, model)</code> turns an <code>OpenAIClient</code> into a judge
+                for the LLM-based evaluators, and <code>toAgentTrace</code>,{" "}
+                <code>toToolCalls</code>, and <code>toToolDefinitions</code> capture a chat
+                completion's tool calls as the agent types the evaluators understand. The SDK
+                dependency is provided scope, so projects bring their own <code>openai-java</code>{" "}
+                version.
+              </>
+            ),
+          },
+        ],
+      }
+    ],
+  },
+  {
     version: "0.23.0",
     date: "June 2026",
     lead: "Tool calls on conversation turns: an assistant message now carries the tool calls it made, so a multi-turn conversation feeds the agent tool evaluators per turn, with no LLM. The trajectory judge can also reason over tool usage.",

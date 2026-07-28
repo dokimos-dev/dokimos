@@ -1,0 +1,45 @@
+{
+  "name" : "support-goldens",
+  "description" : "Synthetic multi-turn support conversations recorded against SupportDesk",
+  "examples" : [ {
+    "inputs" : {
+      "input" : "Scenario: Refund for a blender that arrived cracked\n\nUSER: My blender arrived with a cracked jug and I want my money back\n\nASSISTANT: I'm sorry to hear that your blender arrived damaged. Please provide your order number so I can initiate the refund process for your return, as we accept returns within 30 days of delivery.\n\nUSER: The order number is KW-4471, it was delivered last Tuesday\n\nASSISTANT: Thank you for providing your order number, KW-4471. Since it was delivered last Tuesday, you are within our 30-day return policy, and I will process your refund for the returned blender. Please make sure to initiate the return as we cannot change an order that has already shipped."
+    },
+    "expectedOutputs" : {
+      "output" : "Thank you for providing your order number, KW-4471. Since it was delivered last Tuesday, you are within our 30-day return policy, and I will process your refund for the returned blender. Please make sure to initiate the return as we cannot change an order that has already shipped."
+    },
+    "metadata" : {
+      "expectedOutcome" : "The agent asks for the order number and then confirms the refund is being processed",
+      "scenario" : "Refund for a blender that arrived cracked",
+      "suite" : "support",
+      "turnCount" : 2
+    },
+    "id" : "golden-0"
+  }, {
+    "inputs" : {
+      "input" : "Scenario: Delivery and shipping cost before ordering\n\nUSER: How long does delivery take if I order a kettle today?\n\nASSISTANT: Delivery typically takes 5 to 7 business days.\n\nUSER: Do I pay for shipping on a 60 dollar order?\n\nASSISTANT: No, shipping is free on orders above 50 USD, so you won't pay for shipping on your 60 dollar order."
+    },
+    "expectedOutputs" : {
+      "output" : "No, shipping is free on orders above 50 USD, so you won't pay for shipping on your 60 dollar order."
+    },
+    "metadata" : {
+      "expectedOutcome" : "The agent states the 5 to 7 business day delivery window and says shipping is free on orders above 50 USD",
+      "scenario" : "Delivery and shipping cost before ordering",
+      "suite" : "support",
+      "turnCount" : 2
+    },
+    "id" : "golden-1"
+  }, {
+    "inputs" : {
+      "input" : "Scenario: Confused customer wants to send an item back\n\nUSER: I think I have to send something back but I have no idea where to start\n\nASSISTANT: To initiate a return, please provide your order number, as returns are accepted within 30 days of delivery. Once I have the order number, I can guide you through the return process.\n\nUSER: Uh, okay. I think my order number is 123456. What do I do now?\n\nASSISTANT: Thank you for providing your order number. Since returns are accepted within 30 days of delivery, please ensure your request is within that timeframe. If you're eligible, you can package the item securely and ship it back to us; we will issue a refund once we receive the returned item.\n\nUSER: Wait, I'm a bit confused. How do I package the item? And like, where do I send it? Can you tell me that step-by-step?\n\nASSISTANT: Certainly! Here’s a step-by-step guide for returning your item:\n\n1. **Repackage the Item**: Securely pack the item in its original packaging if possible, including all accessories, manuals, and any free gifts received.\n\n2. **Create a Return Label**: Depending on our return policy, we may provide a return label. Please check our returns page or contact customer support for further assistance on obtaining the return label.\n\n3. **Ship the Package**: Once you have the return label, attach it to the package and drop it off at the designated shipping carrier's location. If you’re unsure where to send it, I can provide the address if you confirm it.\n\nAfter the item is shipped back, let us know the tracking number so we can process your refund once it arrives."
+    },
+    "expectedOutputs" : { },
+    "metadata" : {
+      "expectedOutcome" : "The agent explains the 30 day return window and tells the customer what to do next",
+      "scenario" : "Confused customer wants to send an item back",
+      "suite" : "support",
+      "turnCount" : 3
+    },
+    "id" : "golden-2"
+  } ]
+}

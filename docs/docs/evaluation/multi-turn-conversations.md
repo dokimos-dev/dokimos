@@ -1152,7 +1152,7 @@ Two details worth knowing: a scripted seed stops at its last user turn even when
 
 ### Replaying the Goldens
 
-`toJson()` and `toJsonl()` emit the same dataset shape `Dataset` parses, so a generated file feeds `@DatasetSource` directly. Grade the recorded conversation as it stands: `inputs["input"]` is the whole transcript, assistant replies included, so feeding it back to your application as a prompt would hand the model the answer it is being graded on. `expectedOutcome` rides along in metadata for exactly this, as a task for a judge:
+`toJson()` and `toJsonl()` emit the same dataset shape `Dataset` parses, so a generated file feeds `@DatasetSource` directly. Never send `inputs["input"]` back to your application as a prompt: it is the whole transcript, assistant replies included, so you would be handing the model the answer it is being graded on. Grading the transcript as it stands checks the recording, with `expectedOutcome` riding along in metadata as the task for a judge:
 
 ```java
 @ParameterizedTest
@@ -1167,7 +1167,9 @@ void replaysGoldens(Example example) {
 }
 ```
 
-Generation is stateless: every call to `generate()`, including the one inside `write(...)`, re-runs the seeds, so persona-driven seeds produce a fresh conversation each time. Write the file once and commit it when you want a stable suite. Key order in the written file is stable, so regenerating an unchanged scripted suite leaves no diff.
+To gate your application rather than the recording, replay the transcript's `USER:` turns through `ConversationSimulator` and grade the conversation that comes back. [Generate conversation test data](../tutorials/generate-conversation-test-data) walks through that end to end.
+
+Generation is stateless: every call to `generate()`, including the one inside `write(...)`, re-runs the seeds, so persona-driven seeds produce a fresh conversation each time. Write the file once and commit it when you want a stable suite. Key order in the written file is stable, so a regenerated file diffs only where the text itself changed, and the scripted user turns never do.
 
 See [`MultiTurnGoldenGenerationExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/conversation/MultiTurnGoldenGenerationExample.java) for a complete runnable version.
 

@@ -55,22 +55,7 @@ const RELEASES: Release[] = [
             ),
           },
         ],
-      },
-      {
-        label: "Changed",
-        items: [
-          {
-            title: "Jackson resolves through the Spring Boot BOM",
-            body: (
-              <>
-                The hard-pinned <code>jackson-databind</code> version was dropped in favor of the
-                Spring Boot managed <code>jackson-bom</code>, so databind, core, and annotations
-                always resolve to one aligned version.
-              </>
-            ),
-          },
-        ],
-      },
+      }
     ],
   },
   {

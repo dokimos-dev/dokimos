@@ -29,23 +29,7 @@ const RELEASES: Release[] = [
             ),
           },
         ],
-      },
-      {
-        label: "Fixed",
-        items: [
-          {
-            title: "Release Docker images",
-            body: (
-              <>
-                The server and MCP server image builds failed on the 0.24.0 release because the
-                Dockerfiles did not copy the new module POM. Both Dockerfiles are fixed, and a CI
-                check now fails a pull request when the parent module list and the Dockerfiles
-                drift apart.
-              </>
-            ),
-          },
-        ],
-      },
+      }
     ],
   },
   {

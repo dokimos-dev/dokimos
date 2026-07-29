@@ -32,6 +32,11 @@ import org.junit.jupiter.params.ParameterizedTest;
  * <p>Only the user side is replayed. The whole transcript holds the desk's own replies, so sending
  * it back as a prompt would hand the model the answer it is being graded on.
  *
+ * <p>The user turns are recovered by splitting the rendered transcript on its {@code USER: },
+ * {@code ASSISTANT: } and {@code SYSTEM: } line prefixes. That is good enough for a support desk, but
+ * it is not a parser: a reply that itself begins a line with one of those prefixes would be read as a
+ * new turn. Keep the recorded turns somewhere structured if your application can emit them.
+ *
  * <p>This test is skipped by default. Run with:
  *
  * <pre>

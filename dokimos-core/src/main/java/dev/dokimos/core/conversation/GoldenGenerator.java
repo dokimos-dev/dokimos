@@ -69,8 +69,10 @@ public class GoldenGenerator {
     /**
      * Runs every seed and collects the resulting conversations into a dataset.
      * <p>
-     * A failing seed still produces its example: the simulator preserves the turns gathered so far and
-     * records {@code error} and {@code errorSource} in the example metadata.
+     * A failing seed still produces its example, so one bad seed never costs you the others. A
+     * simulation that fails keeps the turns gathered so far, and a seed that fails before the
+     * conversation starts, such as a persona factory that throws, yields an example with no turns.
+     * Either way {@code error} and {@code errorSource} land in the example metadata.
      *
      * @return the generated dataset, one example per seed, in seed order
      * @throws IllegalStateException if a persona-driven seed is present and no judge was supplied
@@ -83,7 +85,15 @@ public class GoldenGenerator {
 
         for (int i = 0; i < seeds.size(); i++) {
             ScenarioSeed seed = seeds.get(i);
-            ConversationTrajectory trajectory = ConversationSimulator.builder()
+            dataset.addExample(toExample(seed, runSeed(seed), i));
+        }
+
+        return dataset.build();
+    }
+
+    private ConversationTrajectory runSeed(ScenarioSeed seed) {
+        try {
+            return ConversationSimulator.builder()
                     .simulatedUser(resolveUser(seed))
                     .application(application)
                     .scenario(seed.scenario())
@@ -91,10 +101,15 @@ public class GoldenGenerator {
                     .maxTurns(effectiveMaxTurns(seed))
                     .build()
                     .simulate();
-            dataset.addExample(toExample(seed, trajectory, i));
+        } catch (RuntimeException e) {
+            // The simulator reports its own failures. This covers the ones before it starts, so a
+            // seed that cannot even be set up does not discard the seeds that already ran.
+            return ConversationTrajectory.builder()
+                    .scenario(seed.scenario())
+                    .metadata("error", e.getMessage() != null ? e.getMessage() : e.toString())
+                    .metadata("errorSource", "seed")
+                    .build();
         }
-
-        return dataset.build();
     }
 
     /**
@@ -216,13 +231,25 @@ public class GoldenGenerator {
         Map<String, Object> map = new LinkedHashMap<>();
         // Sorted views, because Example holds immutable copies whose iteration order varies between
         // JVM runs. Regenerating a committed golden file has to produce the same bytes.
-        map.put("inputs", new TreeMap<>(example.inputs()));
-        map.put("expectedOutputs", new TreeMap<>(example.expectedOutputs()));
-        map.put("metadata", new TreeMap<>(example.metadata()));
+        map.put("inputs", sortedDeep(example.inputs()));
+        map.put("expectedOutputs", sortedDeep(example.expectedOutputs()));
+        map.put("metadata", sortedDeep(example.metadata()));
         if (example.datasetItemId() != null) {
             map.put("id", example.datasetItemId());
         }
         return map;
+    }
+
+    private static Object sortedDeep(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> sorted = new TreeMap<>();
+            map.forEach((key, nested) -> sorted.put(String.valueOf(key), sortedDeep(nested)));
+            return sorted;
+        }
+        if (value instanceof List<?> list) {
+            return list.stream().map(GoldenGenerator::sortedDeep).toList();
+        }
+        return value;
     }
 
     private static void writeToFile(Path path, String content) {

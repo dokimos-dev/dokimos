@@ -1074,7 +1074,7 @@ object CustomerServiceEvaluation {
 
 Writing multi-turn test data by hand is slow. `GoldenGenerator` runs a set of scenario seeds through the simulator and turns each resulting conversation into a dataset example, so you can generate a suite once, commit it, and replay it in CI.
 
-A seed is one conversation to synthesize. It is either **scripted** (a fixed list of user turns, replayed verbatim, no LLM anywhere) or **persona-driven** (a factory that receives the generator's `JudgeLM` and returns a simulated user). Scripted seeds are deterministic and need no API key.
+A seed is one conversation to synthesize. It is either **scripted** (a fixed list of user turns, replayed verbatim, with no LLM on the user side) or **persona-driven** (a factory that receives the generator's `JudgeLM` and returns a simulated user). A scripted seed needs no judge, so what it costs comes down to your application: a deterministic stub keeps the whole run offline and repeatable, while an LLM-backed application still answers every turn and still bills you for it.
 
 <Tabs groupId="lang" defaultValue="java">
   <TabItem value="java" label="Java">

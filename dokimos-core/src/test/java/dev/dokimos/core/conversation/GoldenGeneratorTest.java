@@ -9,6 +9,7 @@ import dev.dokimos.core.JudgeLM;
 import dev.dokimos.core.internal.Json;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -341,5 +342,52 @@ class GoldenGeneratorTest {
         Map<String, Object> raw = Json.read(line, new TypeReference<Map<String, Object>>() {});
 
         assertThat(raw.keySet()).containsExactlyInAnyOrder("inputs", "expectedOutputs", "metadata", "id");
+    }
+
+    @Test
+    void shouldSortNestedMapKeysSoRegeneratingLeavesNoDiff() {
+        // A HashMap nested in seed metadata: its own iteration order is not the insertion order, so
+        // serializing it unsorted would move keys around between runs.
+        Map<String, Object> labels = new HashMap<>();
+        labels.put("zone", "eu");
+        labels.put("alpha", 1);
+        labels.put("mid", true);
+
+        String json = GoldenGenerator.builder()
+                .application(ECHO_APP)
+                .seed(ScenarioSeed.builder()
+                        .scenario("nested metadata")
+                        .userTurn("hello")
+                        .metadata("labels", labels)
+                        .metadata("rows", List.of(labels))
+                        .build())
+                .build()
+                .toJson();
+
+        assertThat(json.indexOf("\"alpha\"")).isLessThan(json.indexOf("\"mid\""));
+        assertThat(json.indexOf("\"mid\"")).isLessThan(json.indexOf("\"zone\""));
+    }
+
+    @Test
+    void shouldRecordASeedThatFailsBeforeTheConversationStarts() {
+        Dataset dataset = GoldenGenerator.builder()
+                .application(ECHO_APP)
+                .judge(prompt -> "irrelevant")
+                .seed(ScenarioSeed.scripted("healthy", List.of("hello")))
+                .seed(ScenarioSeed.persona("broken factory", "hi", judge -> {
+                    throw new IllegalStateException("persona unavailable");
+                }))
+                .build()
+                .generate();
+
+        assertThat(dataset.examples())
+                .as("a failing seed does not cost the healthy one")
+                .hasSize(2);
+        assertThat(dataset.examples().get(0).metadata()).doesNotContainKey("error");
+
+        Example failed = dataset.examples().get(1);
+        assertThat(failed.metadata()).containsEntry("errorSource", "seed");
+        assertThat(failed.metadata().get("error").toString()).contains("persona unavailable");
+        assertThat(failed.expectedOutputs()).doesNotContainKey("output");
     }
 }

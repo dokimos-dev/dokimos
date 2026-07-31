@@ -1,0 +1,13 @@
+{
+  "name": "generate-goldens",
+  "version": "0.1.0",
+  "description": "Generate multi-turn conversation goldens for the Dokimos LLM evaluation framework. Turns scenario seeds into a committed dataset that JUnit replays, using scripted or persona-driven simulated users.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/tutorials/generate-conversation-test-data",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": ["dokimos", "goldens", "llm-evaluation", "multi-turn", "conversation", "test-data"]
+}

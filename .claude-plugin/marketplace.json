@@ -37,6 +37,14 @@
       "tags": ["experiment", "scaffold", "java"]
     },
     {
+      "name": "generate-goldens",
+      "source": "./plugins/generate-goldens",
+      "description": "Generate multi-turn conversation goldens from scenario seeds with GoldenGenerator",
+      "version": "0.1.0",
+      "category": "scaffolding",
+      "tags": ["goldens", "multi-turn", "test-data"]
+    },
+    {
       "name": "evaluate-agent",
       "source": "./plugins/evaluate-agent",
       "description": "Set up evaluation of AI agents with tool call validation, correctness checks, and task completion using Dokimos",

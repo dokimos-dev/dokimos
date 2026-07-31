@@ -9,11 +9,12 @@ import TabItem from '@theme/TabItem';
 
 This page shows you how to test a chat assistant across a full back-and-forth conversation, not just one prompt and reply.
 
-Single-turn tests check one answer. Real users keep talking. They follow up, change their mind, and get frustrated. To test that, you need to drive a whole conversation and then judge how it went. Dokimos gives you three pieces to do that:
+Single-turn tests check one answer. Real users keep talking. They follow up, change their mind, and get frustrated. To test that, you need to drive a whole conversation and then judge how it went. Dokimos gives you four pieces to do that:
 
 - **Simulated users**: an LLM that plays a role and types like a real person (an angry customer, a confused user, a technical expert).
 - **Conversation simulator**: takes turns between your app and the simulated user until the chat ends.
 - **Trajectory evaluator**: scores the whole conversation with an LLM as the judge.
+- **Golden generator**: turns scenario seeds into a reusable conversation dataset for your test suite.
 
 ## Quick Example
 
@@ -1068,6 +1069,109 @@ object CustomerServiceEvaluation {
 
   </TabItem>
 </Tabs>
+
+## Generating Conversation Goldens
+
+Writing multi-turn test data by hand is slow. `GoldenGenerator` runs a set of scenario seeds through the simulator and turns each resulting conversation into a dataset example, so you can generate a suite once, commit it, and replay it in CI.
+
+A seed is one conversation to synthesize. It is either **scripted** (a fixed list of user turns, replayed verbatim, with no LLM on the user side) or **persona-driven** (a factory that receives the generator's `JudgeLM` and returns a simulated user). A scripted seed needs no judge, so what it costs comes down to your application: a deterministic stub keeps the whole run offline and repeatable, while an LLM-backed application still answers every turn and still bills you for it.
+
+<Tabs groupId="lang" defaultValue="java">
+  <TabItem value="java" label="Java">
+
+```java
+ScenarioSeed refund = ScenarioSeed.builder()
+    .scenario("Refund for a broken product")
+    .userTurns(List.of("My blender arrived broken and I want a refund", "The order number is #123"))
+    .expectedOutcome("The agent asks for the order number and then issues a refund")
+    .build();
+
+ScenarioSeed escalation = ScenarioSeed.builder()
+    .scenario("Angry customer escalates")
+    .initialMessage("This product broke on day one!")
+    .personaFactory(UserPersonas::aggressiveCustomer)
+    .maxTurns(6)
+    .build();
+
+GoldenGenerator generator = GoldenGenerator.builder()
+    .application(app)
+    .judge(judgeLM)          // only needed for persona-driven seeds
+    .name("support-goldens")
+    .seed(refund)
+    .seed(escalation)
+    .build();
+
+generator.write(Path.of("src/test/resources/datasets/support-goldens.json"));
+```
+
+  </TabItem>
+  <TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val generator = goldenGenerator {
+    application = app
+    judge = judgeLM          // only needed for persona-driven seeds
+    name = "support-goldens"
+
+    seed {
+        scenario = "Refund for a broken product"
+        userTurns(listOf("My blender arrived broken and I want a refund", "The order number is #123"))
+        expectedOutcome = "The agent asks for the order number and then issues a refund"
+    }
+
+    seed {
+        scenario = "Angry customer escalates"
+        initialMessage = "This product broke on day one!"
+        personaFactory = UserPersonas::aggressiveCustomer
+        maxTurns = 6
+    }
+}
+
+generator.write(Path.of("src/test/resources/datasets/support-goldens.json"))
+```
+
+  </TabItem>
+</Tabs>
+
+### What a Golden Looks Like
+
+Each seed produces one example, in seed order:
+
+| Field | Value |
+| --- | --- |
+| `inputs["input"]` | the rendered transcript of the whole conversation |
+| `expectedOutputs["output"]` | the application's last reply, **for scripted seeds only**, when the run produced one |
+| `metadata` | `scenario`, `turnCount`, `expectedOutcome` when set, your own seed metadata, and `error` plus `errorSource` if the run failed |
+| `id` | `golden-0`, `golden-1`, and so on |
+
+A scripted seed records a baseline of what your application says today, so the default golden answer is useful. A persona-driven seed gets **no** default `output`: grading an application against its own reply proves nothing. Set the reference answer yourself with `expectedOutput("output", ...)` on the seed, which also overrides the scripted default.
+
+`expectedOutcome` is a natural-language completion criterion. It never stops the simulation; it rides along in metadata so a judge (for example `TaskCompletionEvaluator`) or a human reviewer can check whether the conversation actually got there.
+
+Two details worth knowing: a scripted seed stops at its last user turn even when `maxTurns` is higher, and setting `initialMessage` on a scripted seed replaces its first turn, so `userTurns.get(0)` is never sent.
+
+### Replaying the Goldens
+
+`toJson()` and `toJsonl()` emit the same dataset shape `Dataset` parses, so a generated file feeds `@DatasetSource` directly. Never send `inputs["input"]` back to your application as a prompt: it is the whole transcript, assistant replies included, so you would be handing the model the answer it is being graded on. Grading the transcript as it stands checks the recording, with `expectedOutcome` riding along in metadata as the task for a judge:
+
+```java
+@ParameterizedTest
+@DatasetSource("classpath:datasets/support-goldens.json")
+void replaysGoldens(Example example) {
+    EvalTestCase testCase = EvalTestCase.builder()
+        .input(example.input())
+        .metadata("tasks", List.of(example.metadata().get("expectedOutcome")))
+        .build();
+
+    Assertions.assertEval(testCase, TaskCompletionEvaluator.builder().judge(judgeLM).build());
+}
+```
+
+To gate your application rather than the recording, replay the transcript's `USER:` turns through `ConversationSimulator` and grade the conversation that comes back. [Generate conversation test data](../tutorials/generate-conversation-test-data) walks through that end to end.
+
+Generation is stateless: every call to `generate()`, including the one inside `write(...)`, re-runs the seeds, so persona-driven seeds produce a fresh conversation each time. Write the file once and commit it when you want a stable suite. Key order in the written file is stable, so a regenerated file diffs only where the text itself changed, and the scripted user turns never do.
+
+See [`MultiTurnGoldenGenerationExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/conversation/MultiTurnGoldenGenerationExample.java) for a complete runnable version.
 
 ## Best Practices
 

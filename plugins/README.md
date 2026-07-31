@@ -12,6 +12,7 @@ Official Claude Code plugins for the Dokimos LLM evaluation framework.
 | [create-dataset](./create-dataset/) | Create evaluation datasets (JSON/CSV/JSONL) |
 | [create-tests](./create-tests/) | Scaffold eval-driven tests using dokimos-junit |
 | [create-experiment](./create-experiment/) | Scaffold an Experiment with dataset, task, and evaluators |
+| [generate-goldens](./generate-goldens/) | Generate multi-turn conversation goldens from scenario seeds |
 
 ### Integration
 

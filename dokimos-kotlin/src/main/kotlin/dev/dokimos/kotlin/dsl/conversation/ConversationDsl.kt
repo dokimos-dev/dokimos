@@ -7,11 +7,14 @@ import dev.dokimos.core.conversation.ConversationSimulator
 import dev.dokimos.core.conversation.ConversationTrajectory
 import dev.dokimos.core.conversation.ConversationalApplication
 import dev.dokimos.core.conversation.EvaluationCriterion
+import dev.dokimos.core.conversation.GoldenGenerator
 import dev.dokimos.core.conversation.LLMSimulatedUser
 import dev.dokimos.core.conversation.Message
+import dev.dokimos.core.conversation.ScenarioSeed
 import dev.dokimos.core.conversation.SimulatedUser
 import dev.dokimos.core.conversation.TrajectoryEvaluator
 import dev.dokimos.kotlin.dsl.DokimosDsl
+import java.util.function.Function
 import java.util.function.Predicate
 
 /**
@@ -28,6 +31,10 @@ fun llmUser(judge: JudgeLM, block: LlmsimulatedUserDsl.() -> Unit = {}): LLMSimu
 
 fun trajectoryEvaluator(judge: JudgeLM, block: TrajectoryEvaluatorDsl.() -> Unit): TrajectoryEvaluator =
     TrajectoryEvaluatorDsl(judge).apply(block).build()
+
+fun scenarioSeed(block: ScenarioSeedDsl.() -> Unit): ScenarioSeed = ScenarioSeedDsl().apply(block).build()
+
+fun goldenGenerator(block: GoldenGeneratorDsl.() -> Unit): GoldenGenerator = GoldenGeneratorDsl().apply(block).build()
 
 /** Convenience builders outside DSL blocks. */
 fun message(role: Message.Role, content: String, metadata: Map<String, Any> = emptyMap()): Message =
@@ -189,4 +196,100 @@ class TrajectoryEvaluatorDsl(private val judge: JudgeLM) {
         .trajectoryKey(trajectoryKey)
         .includePerCriterionScores(includePerCriterionScores)
         .build()
+}
+
+@DokimosDsl
+class ScenarioSeedDsl {
+    var scenario: String = ""
+    var initialMessage: String = ""
+    var expectedOutcome: String? = null
+    var maxTurns: Int? = null
+
+    /** Builds the simulated user from the generator's judge. Leave null for a scripted seed. */
+    var personaFactory: ((JudgeLM) -> SimulatedUser)? = null
+
+    private val userTurns: MutableList<String> = mutableListOf()
+    private val expectedOutputs: MutableMap<String, Any> = mutableMapOf()
+    private val metadata: MutableMap<String, Any> = mutableMapOf()
+
+    fun userTurn(turn: String) {
+        userTurns += turn
+    }
+
+    fun userTurns(values: List<String>) {
+        userTurns.clear()
+        userTurns.addAll(values)
+    }
+
+    fun expectedOutput(key: String, value: Any) {
+        expectedOutputs[key] = value
+    }
+
+    fun expectedOutputs(values: Map<String, Any>) {
+        expectedOutputs.putAll(values)
+    }
+
+    fun metadata(key: String, value: Any) {
+        metadata[key] = value
+    }
+
+    fun metadata(values: Map<String, Any>) {
+        metadata.putAll(values)
+    }
+
+    fun build(): ScenarioSeed {
+        val builder = ScenarioSeed.builder()
+            .scenario(scenario)
+            .initialMessage(initialMessage)
+            .userTurns(userTurns)
+            .expectedOutputs(expectedOutputs)
+            .metadata(metadata)
+
+        expectedOutcome?.let { builder.expectedOutcome(it) }
+        maxTurns?.let { builder.maxTurns(it) }
+        personaFactory?.let { factory ->
+            builder.personaFactory(Function { factory(it) })
+        }
+
+        return builder.build()
+    }
+}
+
+@DokimosDsl
+class GoldenGeneratorDsl {
+    var application: ConversationalApplication? = null
+    var judge: JudgeLM? = null
+    var maxTurns: Int = 10
+    var name: String = ""
+    var description: String = ""
+
+    private val seeds: MutableList<ScenarioSeed> = mutableListOf()
+
+    fun seed(seed: ScenarioSeed) {
+        seeds += seed
+    }
+
+    fun seed(block: ScenarioSeedDsl.() -> Unit) {
+        seeds += ScenarioSeedDsl().apply(block).build()
+    }
+
+    fun seeds(values: List<ScenarioSeed>) {
+        seeds.clear()
+        seeds.addAll(values)
+    }
+
+    fun build(): GoldenGenerator {
+        val selectedApplication = application ?: error("application must be set")
+
+        val builder = GoldenGenerator.builder()
+            .application(selectedApplication)
+            .maxTurns(maxTurns)
+            .name(name)
+            .description(description)
+            .seeds(seeds)
+
+        judge?.let { builder.judge(it) }
+
+        return builder.build()
+    }
 }

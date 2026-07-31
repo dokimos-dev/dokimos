@@ -7,6 +7,59 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.26.0",
+    date: "July 2026",
+    lead: "Synthetic multi-turn goldens: describe the conversations you want as scenario seeds, run them through the simulator, and get back a dataset your tests can replay. Scripted seeds need no LLM at all.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Golden generation from scenario seeds",
+            body: (
+              <>
+                <code>GoldenGenerator</code> runs each <code>ScenarioSeed</code> through{" "}
+                <code>ConversationSimulator</code> against your application and collects one dataset
+                example per seed: the transcript under <code>inputs["input"]</code>, plus the
+                scenario, turn count, and your own metadata. A seed is either scripted (a fixed list
+                of user turns, replayed verbatim with no judge) or persona-driven (a factory that
+                receives the generator's <code>JudgeLM</code>, so{" "}
+                <code>UserPersonas::aggressiveCustomer</code> can be passed as a method reference).
+                Generation is stateless, so <code>generate()</code> re-runs the seeds every call.
+              </>
+            ),
+          },
+          {
+            title: "Goldens that feed @DatasetSource",
+            body: (
+              <>
+                <code>toJson()</code>/<code>toJsonl()</code> and <code>write(path)</code>/
+                <code>writeJsonl(path)</code> emit the same dataset shape <code>Dataset</code>{" "}
+                parses, so a generated file drops straight into <code>@DatasetSource</code>. A
+                scripted seed records the application's own last reply as the golden answer; a
+                persona-driven seed gets no default, since grading an application against its own
+                reply proves nothing. Set <code>expectedOutput("output", ...)</code> on the seed to
+                supply the reference answer, and <code>expectedOutcome(...)</code> to carry a
+                natural-language completion criterion into the example metadata for a judge to
+                check.
+              </>
+            ),
+          },
+          {
+            title: "Kotlin DSL for golden generation",
+            body: (
+              <>
+                <code>goldenGenerator {"{ ... }"}</code> and <code>scenarioSeed {"{ ... }"}</code>{" "}
+                mirror the existing conversation DSL, with a nested <code>seed {"{ ... }"}</code>{" "}
+                block and a <code>personaFactory</code> that takes a plain Kotlin lambda.
+              </>
+            ),
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.25.0",
     date: "July 2026",
     lead: "Plan-level agent evaluation: two judge-based evaluators score whether the agent's reasoning plan holds up and whether the executed tool calls actually followed it, extending the agent evaluator set to the reasoning layer.",

@@ -238,6 +238,44 @@ mvn exec:java -pl dokimos-examples \
 
 See the [Multi-Turn Conversations](https://dokimos.dev/evaluation/multi-turn-conversations) guide for the per-turn and judge paths.
 
+### 12. Multi-Turn Golden Generation
+
+**Location**: `dev.dokimos.examples.conversation.MultiTurnGoldenGenerationExample`
+
+Synthesizes a multi-turn dataset from scenario seeds, with no API key:
+
+- Builds scripted `ScenarioSeed`s whose user turns are replayed verbatim
+- Runs them through `GoldenGenerator` against the application under test
+- Writes JSON and JSONL files and loads them back with `Dataset`, the shape `@DatasetSource` reads
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.conversation.MultiTurnGoldenGenerationExample"
+```
+
+See the [Multi-Turn Conversations](https://dokimos.dev/evaluation/multi-turn-conversations) guide for persona-driven seeds.
+
+### 13. Generated Conversation Test Data
+
+**Location**: `dev.dokimos.examples.conversation.goldens.GenerateSupportGoldens`
+
+Records a committed multi-turn regression suite against a support desk that runs on a real chat model (requires `OPENAI_API_KEY`):
+
+- Describes two scripted seeds and one persona-driven seed, each carrying an `expectedOutcome`
+- Runs them through `GoldenGenerator` and writes `src/test/resources/datasets/support-goldens.json`
+- Replays each recorded conversation in `SupportGoldenReplayTest`, feeding the user turns back to the desk and grading the fresh answers with `TaskCompletionEvaluator`
+
+**Run**:
+
+```bash
+mvn exec:java -pl dokimos-examples \
+  -Dexec.mainClass="dev.dokimos.examples.conversation.goldens.GenerateSupportGoldens"
+```
+
+See the [Generate Conversation Test Data](https://dokimos.dev/tutorials/generate-conversation-test-data) tutorial for the walkthrough from seeds to a CI-gated suite.
+
 ## Building the Examples
 
 Build all examples:

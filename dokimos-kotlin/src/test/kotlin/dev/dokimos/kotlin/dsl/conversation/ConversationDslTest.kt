@@ -242,7 +242,6 @@ class ConversationDslTest {
 
         assertThat(dataset.size()).isEqualTo(1)
         assertThat(dataset.examples()[0].input()).contains("hi there").contains("persona reply")
-        // a persona-driven seed gets no default golden answer
         assertThat(dataset.examples()[0].expectedOutputs()).doesNotContainKey("output")
     }
 }

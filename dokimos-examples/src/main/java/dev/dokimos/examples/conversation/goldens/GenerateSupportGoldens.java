@@ -23,7 +23,7 @@ import java.util.List;
  * {@code SupportGoldenReplayTest} picks it up.
  *
  * <p>Every seed carries an {@code expectedOutcome}: the natural-language criterion the replay test
- * grades each conversation against. It never stops the simulation, it rides along in metadata.
+ * grades each conversation against. It rides along in metadata and never stops the simulation.
  *
  * <p>Prerequisites: {@code export OPENAI_API_KEY='your-key'}
  *
@@ -56,7 +56,7 @@ public class GenerateSupportGoldens {
                 .modelName(SupportDesk.MODEL_ID)
                 .build());
 
-        // 1. Scripted seeds: fixed user turns, no LLM on the user side.
+        // Scripted seeds: fixed user turns, no LLM on the user side
         ScenarioSeed refund = ScenarioSeed.builder()
                 .scenario("Refund for a blender that arrived cracked")
                 .userTurns(List.of(
@@ -76,7 +76,7 @@ public class GenerateSupportGoldens {
                 .metadata("suite", "support")
                 .build();
 
-        // 2. Persona-driven seed: the judge writes each user turn against the desk's answers.
+        // Persona-driven seed: the judge writes each user turn
         ScenarioSeed confusedReturn = ScenarioSeed.builder()
                 .scenario("Confused customer wants to send an item back")
                 .initialMessage("I think I have to send something back but I have no idea where to start")
@@ -96,7 +96,7 @@ public class GenerateSupportGoldens {
                 .seed(confusedReturn)
                 .build();
 
-        // 3. Generation is stateless, so write once and read the file back for the summary.
+        // Generation is stateless, so write once and read the file back for the summary
         Path output = args.length > 0 ? Path.of(args[0]) : resolveOutputFile();
         System.out.println("Generating goldens against " + SupportDesk.MODEL_ID + "...\n");
         generator.write(output);

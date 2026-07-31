@@ -18,14 +18,11 @@ import java.util.List;
  *
  * <p>It is a {@link ConversationalApplication}, so {@code GoldenGenerator} and
  * {@code ConversationSimulator} can drive it turn by turn. Every call replays the whole trajectory
- * to the model, which keeps the desk stateless and lets the same instance answer several
- * conversations.
+ * to the model, so the desk holds no per-conversation state.
  */
 public class SupportDesk implements ConversationalApplication {
 
-    /**
-     * The OpenAI model that answers, and the model the generator and the replay test use as a judge.
-     */
+    /** The model that answers, and the judge model used by the generator and the replay test. */
     public static final String MODEL_ID = "gpt-4o-mini";
 
     private static final String SYSTEM_PROMPT = """

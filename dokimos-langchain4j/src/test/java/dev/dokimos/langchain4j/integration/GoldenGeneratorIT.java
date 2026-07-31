@@ -46,7 +46,7 @@ class GoldenGeneratorIT {
                 .build();
         JudgeLM judge = LangChain4jSupport.asJudge(chatModel);
 
-        // Deterministic scripted application: the live part of this test is the simulated user.
+        // Deterministic application: the live part of this test is the simulated user
         ConversationalApplication app = trajectory -> Message.assistant(
                 "Support reply " + trajectory.userMessages().size() + ": please check the account page.");
 
@@ -68,7 +68,6 @@ class GoldenGeneratorIT {
                 .seed(persona)
                 .build();
 
-        // Exactly one live generation; every assertion below works off this JSONL text.
         String jsonl = generator.toJsonl();
 
         Dataset dataset = Dataset.fromJsonl(jsonl);
@@ -90,7 +89,7 @@ class GoldenGeneratorIT {
                 .as("the expected outcome lands in metadata for judges")
                 .containsEntry("expectedOutcome", "The user learns where to check the order status");
 
-        // File round-trip without a second generation: write the captured text, reload it.
+        // Round-trip the captured text rather than generating a second time
         Path file = tempDir.resolve("live-goldens.jsonl");
         Files.writeString(file, jsonl, StandardCharsets.UTF_8);
         Dataset reloaded = Dataset.fromJsonl(Files.readString(file, StandardCharsets.UTF_8));

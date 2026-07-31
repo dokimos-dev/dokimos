@@ -56,7 +56,7 @@ class GoldenGeneratorTest {
         assertThat(reloaded.size()).isEqualTo(generated.size());
         assertThat(reloaded.get(0).inputs()).isEqualTo(generated.get(0).inputs());
         assertThat(reloaded.get(0).expectedOutputs()).isEqualTo(generated.get(0).expectedOutputs());
-        // Jackson parses the turn count back as an Integer, which equals the boxed primitive.
+        // Jackson round-trips turnCount as Integer, so map equality holds.
         assertThat(reloaded.get(0).metadata()).isEqualTo(generated.get(0).metadata());
         assertThat(reloaded.get(0).datasetItemId()).isEqualTo("golden-0");
     }
@@ -346,8 +346,7 @@ class GoldenGeneratorTest {
 
     @Test
     void shouldSortNestedMapKeysSoRegeneratingLeavesNoDiff() {
-        // A HashMap nested in seed metadata: its own iteration order is not the insertion order, so
-        // serializing it unsorted would move keys around between runs.
+        // A HashMap's iteration order is not its insertion order, so unsorted output would drift.
         Map<String, Object> labels = new HashMap<>();
         labels.put("zone", "eu");
         labels.put("alpha", 1);

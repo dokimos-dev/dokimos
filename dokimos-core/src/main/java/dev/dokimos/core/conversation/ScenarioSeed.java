@@ -12,9 +12,8 @@ import java.util.function.Function;
  * <p>
  * A seed is either <em>scripted</em> (a fixed list of user turns, no LLM involved) or
  * <em>persona-driven</em> (a factory that receives the generator's {@code JudgeLM} and returns a
- * {@link SimulatedUser}), never both and never neither. The factory is stored as a plain
- * {@code Function} and is only applied inside {@link GoldenGenerator#generate()}, so a method
- * reference such as {@code UserPersonas::confusedUser} can be passed without a judge in scope.
+ * {@link SimulatedUser}), never both and never neither. The factory is applied at generation time,
+ * so a method reference such as {@code UserPersonas::confusedUser} works without a judge in scope.
  * <p>
  * Turn semantics: {@link ConversationSimulator} consumes {@code initialMessage} as turn 0 and only
  * then starts asking the simulated user for messages. A scripted seed that sets both
@@ -58,7 +57,10 @@ public record ScenarioSeed(
         Map<String, Object> metadata) {
 
     /**
-     * Compact constructor ensuring immutability and the exactly-one-of user source invariant.
+     * Normalizes nulls, copies the collections defensively, and enforces the user source invariant.
+     *
+     * @throws IllegalArgumentException if the seed sets both or neither of {@code userTurns} and
+     *                                  {@code personaFactory}
      */
     public ScenarioSeed {
         scenario = scenario != null ? scenario : "";
@@ -88,7 +90,7 @@ public record ScenarioSeed(
 
     /**
      * Creates a persona-driven seed. The factory is applied to the generator's judge at generation
-     * time, so it is never invoked while the seed is constructed.
+     * time, not when the seed is built.
      *
      * @param scenario       the scenario description
      * @param initialMessage the first user message, or empty to let the persona open
@@ -158,8 +160,8 @@ public record ScenarioSeed(
 
         /**
          * Sets the natural-language completion criterion stored under {@code "expectedOutcome"} in the
-         * generated example's metadata. It documents what a good conversation achieves and can be fed
-         * to a judge, but it never stops the simulation.
+         * generated example's metadata, for a judge to grade the conversation against. It is never
+         * used as a stopping condition.
          *
          * @param expectedOutcome the expected outcome
          * @return this builder

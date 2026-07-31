@@ -69,10 +69,9 @@ public class GoldenGenerator {
     /**
      * Runs every seed and collects the resulting conversations into a dataset.
      * <p>
-     * A failing seed still produces its example, so one bad seed never costs you the others. A
-     * simulation that fails keeps the turns gathered so far, and a seed that fails before the
-     * conversation starts, such as a persona factory that throws, yields an example with no turns.
-     * Either way {@code error} and {@code errorSource} land in the example metadata.
+     * A seed that fails still yields an example, carrying {@code error} and {@code errorSource} in
+     * its metadata. A failure during the conversation keeps the turns gathered so far; a failure
+     * before it starts yields an example with no turns.
      *
      * @return the generated dataset, one example per seed, in seed order
      * @throws IllegalStateException if a persona-driven seed is present and no judge was supplied
@@ -102,8 +101,7 @@ public class GoldenGenerator {
                     .build()
                     .simulate();
         } catch (RuntimeException e) {
-            // The simulator reports its own failures. This covers the ones before it starts, so a
-            // seed that cannot even be set up does not discard the seeds that already ran.
+            // Covers failures before the simulator starts; it reports its own.
             return ConversationTrajectory.builder()
                     .scenario(seed.scenario())
                     .metadata("error", e.getMessage() != null ? e.getMessage() : e.toString())
@@ -157,8 +155,7 @@ public class GoldenGenerator {
         if (seed.isDynamic()) {
             return limit;
         }
-        // A script has nothing to say past its last turn, so stop there instead of padding the
-        // transcript with empty user messages. An initial message stands in for the first turn.
+        // A script has nothing to say past its last turn; an initial message stands in for the first.
         return Math.min(limit, seed.userTurns().size());
     }
 
@@ -192,9 +189,7 @@ public class GoldenGenerator {
         Map<String, Object> expectedOutputs = new LinkedHashMap<>();
         Message last = trajectory.lastAssistantMessage();
         if (!seed.isDynamic() && last != null) {
-            // A scripted seed records a baseline of the application's own replies. A persona-driven
-            // seed gets no default, so the app is never graded against whatever it happened to say.
-            // A run that failed before any reply gets none either, rather than an empty answer.
+            // Scripted seeds only: grading an application against its own reply proves nothing.
             expectedOutputs.put("output", last.content());
         }
         expectedOutputs.putAll(seed.expectedOutputs());
@@ -206,7 +201,7 @@ public class GoldenGenerator {
         if (seed.expectedOutcome() != null) {
             metadata.put("expectedOutcome", seed.expectedOutcome());
         }
-        // Last, so the simulator's error and errorSource always survive a failed or partial run.
+        // Last, so error and errorSource are never overwritten by seed metadata.
         metadata.putAll(trajectory.metadata());
 
         return Example.builder()
@@ -229,8 +224,7 @@ public class GoldenGenerator {
 
     private static Map<String, Object> exampleToMap(Example example) {
         Map<String, Object> map = new LinkedHashMap<>();
-        // Sorted views, because Example holds immutable copies whose iteration order varies between
-        // JVM runs. Regenerating a committed golden file has to produce the same bytes.
+        // Sorted: Example holds immutable copies whose iteration order varies between JVM runs.
         map.put("inputs", sortedDeep(example.inputs()));
         map.put("expectedOutputs", sortedDeep(example.expectedOutputs()));
         map.put("metadata", sortedDeep(example.metadata()));

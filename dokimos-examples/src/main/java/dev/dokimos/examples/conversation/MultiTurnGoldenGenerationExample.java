@@ -33,7 +33,7 @@ import java.util.List;
  */
 public class MultiTurnGoldenGenerationExample {
 
-    // A deterministic support desk stands in for the application under test.
+    // A deterministic stand-in for the application under test
     private static final ConversationalApplication SUPPORT_DESK = trajectory -> {
         String lastUserMessage = trajectory.lastUserMessage().content().toLowerCase();
         if (lastUserMessage.contains("#")) {
@@ -48,7 +48,7 @@ public class MultiTurnGoldenGenerationExample {
     public static void main(String[] args) throws IOException {
         System.out.println("=== Dokimos Multi-Turn Golden Generation Example ===\n");
 
-        // 1. Describe the conversations to synthesize. A scripted seed needs no LLM at all.
+        // Describe the conversations to synthesize
         ScenarioSeed refund = ScenarioSeed.builder()
                 .scenario("Refund for a broken product")
                 .userTurns(List.of("My blender arrived broken and I want a refund", "The order number is #123"))
@@ -56,14 +56,14 @@ public class MultiTurnGoldenGenerationExample {
                 .metadata("suite", "support")
                 .build();
 
-        // The override wins over the recorded reply, so the golden carries the curated answer.
+        // An explicit expected output replaces the recorded reply
         ScenarioSeed greeting = ScenarioSeed.builder()
                 .scenario("Vague opening question")
                 .userTurn("Hi, I have a question")
                 .expectedOutput("output", "A helpful greeting that invites the user to describe their problem")
                 .build();
 
-        // 2. Run every seed against the application and collect the goldens.
+        // Run every seed and collect the goldens
         GoldenGenerator generator = GoldenGenerator.builder()
                 .application(SUPPORT_DESK)
                 .name("support-goldens")
@@ -83,7 +83,7 @@ public class MultiTurnGoldenGenerationExample {
             System.out.println();
         }
 
-        // 3. Write the goldens out and load them back the way a test would.
+        // Write the goldens out and load them back
         Path outputDir = Path.of("target", "goldens");
         Path jsonPath = outputDir.resolve("support-goldens.json");
         Path jsonlPath = outputDir.resolve("support-goldens.jsonl");

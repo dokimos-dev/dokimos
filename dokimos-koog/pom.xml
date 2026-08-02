@@ -53,6 +53,7 @@
             <groupId>ai.koog</groupId>
             <artifactId>koog-agents-jvm</artifactId>
             <version>${koog.version}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>

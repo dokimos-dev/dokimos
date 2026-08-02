@@ -145,6 +145,10 @@ jobs:
             property: koog.version
             version: '1.0.0'
             profiles: '-P!koog-live-it'
+          - module: dokimos-koog
+            property: koog.version
+            version: '1.1.1'
+            profiles: '-P!koog-live-it'
           # spring-ai-alibaba is not source-compatible across releases (1.0.0.4 added a checked
           # exception on CompiledGraph.invoke; 1.1.x relocated the agent types and changed the
           # ReactAgent builder), so we track the one supported version on the current 1.1.x line.

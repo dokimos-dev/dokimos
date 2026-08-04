@@ -91,11 +91,14 @@ class LangChain4jPlanEvaluatorIT {
                 "Pick the cheapest matching flight.",
                 "Book the selected flight.");
 
+        // One tool call per plan step. Leaving the "pick the cheapest" step without a matching call
+        // makes adherence a judgement call, and a strict judge reads it as not followed.
         AgentTrace followed = AgentTrace.builder()
                 .finalResponse("Booked.")
                 .reasoningSteps(plan)
                 .toolCalls(List.of(
                         ToolCall.of("search_flights", Map.of("from", "New York", "to", "Paris")),
+                        ToolCall.of("select_cheapest_flight", Map.of("flightId", "AF123", "price", "412.00")),
                         ToolCall.of("book_flight", Map.of("flightId", "AF123"))))
                 .build();
         EvalTestCase followedCase =

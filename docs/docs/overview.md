@@ -60,9 +60,8 @@ Task task = example -> {
     return Map.of("output", answer);
 };
 
-// 3. Wrap the model that grades the answers. JudgeLM is one method, so any model fits,
-//    and the integrations ship adapters like LangChain4jSupport.asJudge(chatModel).
-JudgeLM judge = prompt -> yourChatModel.chat(prompt);
+// 3. Wrap the model that grades the answers.
+JudgeLM judge = prompt -> judgeModel.chat(prompt);
 
 // 4. Pick evaluators.
 List<Evaluator> evaluators = List.of(
@@ -124,7 +123,7 @@ val task = task { example ->
 }
 
 // 3. Wrap the model that grades the answers.
-val judge = JudgeLM { prompt -> yourChatModel.chat(prompt) }
+val judge = JudgeLM { prompt -> judgeModel.chat(prompt) }
 
 // 4. Run the experiment with an LLM judge.
 val result = experiment {

@@ -60,9 +60,8 @@ Task task = example -> {
     return Map.of("output", answer);
 };
 
-// 3. Wrap the model that grades the answers. JudgeLM is a single method,
-//    String generate(String prompt), so any model you already use can fill it.
-//    The integrations ship adapters, for example LangChain4jSupport.asJudge(chatModel).
+// 3. Wrap the model that grades the answers. JudgeLM is one method, so any model fits,
+//    and the integrations ship adapters like LangChain4jSupport.asJudge(chatModel).
 JudgeLM judge = prompt -> yourChatModel.chat(prompt);
 
 // 4. Pick evaluators.

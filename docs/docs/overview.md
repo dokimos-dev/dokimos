@@ -60,7 +60,12 @@ Task task = example -> {
     return Map.of("output", answer);
 };
 
-// 3. Pick evaluators.
+// 3. Wrap the model that grades the answers. JudgeLM is a single method,
+//    String generate(String prompt), so any model you already use can fill it.
+//    The integrations ship adapters, for example LangChain4jSupport.asJudge(chatModel).
+JudgeLM judge = prompt -> yourChatModel.chat(prompt);
+
+// 4. Pick evaluators.
 List<Evaluator> evaluators = List.of(
     LLMJudgeEvaluator.builder()
         .name("Answer Quality")
@@ -70,7 +75,7 @@ List<Evaluator> evaluators = List.of(
         .build()
 );
 
-// 4. Run the experiment.
+// 5. Run the experiment.
 ExperimentResult result = Experiment.builder()
     .name("QA Evaluation")
     .dataset(dataset)
@@ -79,7 +84,7 @@ ExperimentResult result = Experiment.builder()
     .build()
     .run();
 
-// 5. Read the results.
+// 6. Read the results.
 System.out.println("Pass rate: " + String.format("%.2f%%", result.passRate() * 100));
 System.out.println("Total examples: " + result.totalCount());
 System.out.println("Passed: " + result.passCount());
@@ -90,6 +95,7 @@ System.out.println("Failed: " + result.failCount());
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
+import dev.dokimos.core.JudgeLM
 import dev.dokimos.kotlin.dsl.dataset
 import dev.dokimos.kotlin.dsl.experiment
 import dev.dokimos.kotlin.dsl.llmJudge
@@ -118,7 +124,10 @@ val task = task { example ->
     mapOf("output" to answer)
 }
 
-// 3. Run the experiment with an LLM judge.
+// 3. Wrap the model that grades the answers.
+val judge = JudgeLM { prompt -> yourChatModel.chat(prompt) }
+
+// 4. Run the experiment with an LLM judge.
 val result = experiment {
     name = "QA Evaluation"
     dataset(dataset)
@@ -132,7 +141,7 @@ val result = experiment {
     }
 }.run()
 
-// 4. Read the results.
+// 5. Read the results.
 println("Pass rate: %.2f%%".format(result.passRate() * 100))
 println("Total examples: ${result.totalCount()}")
 println("Passed: ${result.passCount()}")

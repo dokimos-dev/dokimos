@@ -7,6 +7,7 @@ import dev.dokimos.core.ItemResult
 import dev.dokimos.core.RunResult
 import dev.dokimos.core.gate.BaselineStore
 import dev.dokimos.core.gate.GateConfig
+import dev.dokimos.kotlin.dsl.gate.gateConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.Test
@@ -53,5 +54,62 @@ class GateExtTest {
         val unnamed = ExperimentResult("unnamed", "", emptyMap(), emptyList())
 
         assertThrows<IllegalArgumentException> { unnamed.assertNoRegression() }
+    }
+
+    @Test
+    fun `gateConfig DSL starts from the core defaults and overrides only what is set`() {
+        val defaults = GateConfig.defaults()
+
+        val config = gateConfig {
+            alpha = 0.01
+            severityMargin = 0.25
+            pairing = GateConfig.Pairing.DATASET_ITEM_ID
+            onRemovedEvaluator = GateConfig.RemovedEvaluatorPolicy.WARN
+            bootstrapPasses = false
+        }
+
+        assertThat(config.alpha()).isEqualTo(0.01)
+        assertThat(config.severityMargin()).isEqualTo(0.25)
+        assertThat(config.pairing()).isEqualTo(GateConfig.Pairing.DATASET_ITEM_ID)
+        assertThat(config.onRemovedEvaluator()).isEqualTo(GateConfig.RemovedEvaluatorPolicy.WARN)
+        assertThat(config.bootstrapPasses()).isFalse()
+
+        // untouched knobs keep the core defaults
+        assertThat(config.seed()).isEqualTo(defaults.seed())
+        assertThat(config.permutationIterations()).isEqualTo(defaults.permutationIterations())
+        assertThat(config.bootstrapIterations()).isEqualTo(defaults.bootstrapIterations())
+        assertThat(config.failOnRegression()).isEqualTo(defaults.failOnRegression())
+        assertThat(config.failOnRemovedItems()).isEqualTo(defaults.failOnRemovedItems())
+        assertThat(config.updateBaseline()).isEqualTo(defaults.updateBaseline())
+    }
+
+    @Test
+    fun `empty gateConfig equals the core defaults`() {
+        val defaults = GateConfig.defaults()
+        val config = gateConfig()
+
+        assertThat(config.alpha()).isEqualTo(defaults.alpha())
+        assertThat(config.seed()).isEqualTo(defaults.seed())
+        assertThat(config.severityMargin()).isEqualTo(defaults.severityMargin())
+        assertThat(config.pairing()).isEqualTo(defaults.pairing())
+        assertThat(config.bootstrapPasses()).isEqualTo(defaults.bootstrapPasses())
+    }
+
+    @Test
+    fun `path overload takes an inline gate config block`(@TempDir dir: Path) {
+        val path = dir.resolve("baseline.json")
+        BaselineStore.write(path, resultWithScore(1.0), GateConfig.defaults())
+
+        val regressed = resultWithScore(0.0)
+
+        // failOnRegression=false downgrades the compare-path failure to a pass
+        assertThatCode {
+            regressed.assertNoRegression(path) { failOnRegression = false }
+        }.doesNotThrowAnyException()
+
+        val error = assertThrows<AssertionError> {
+            regressed.assertNoRegression(path) { failOnRegression = true }
+        }
+        assertThat(error).hasMessageContaining("Eval gate FAILED")
     }
 }

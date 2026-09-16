@@ -81,7 +81,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldConvertExpectedSideArrivingAsRawMap() {
-        // The Experiment case: a JSON/CSV-loaded golden is a Map, not the record.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Category")
                 .extracting(Output::category)
@@ -214,7 +213,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldLeaveExpectedSlotEmptyWhenExpectedEntryAbsent() {
-        // RegexEvaluator only reads the actual output, so an absent golden must not fail the row.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Summary regex")
                 .extracting(Output::summary)
@@ -248,6 +246,140 @@ class TypedEvaluatorTest {
     }
 
     @Test
+    void shouldFailWithoutInvokingDelegateWhenActualGetterThrows() {
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(Output.class)
+                .name("Title")
+                .extracting(output -> {
+                    throw new IllegalStateException("actual getter failed");
+                })
+                .evaluateWith(delegate);
+
+        var result = evaluator.evaluate(
+                EvalTestCase.builder().actualOutput("output", ACTUAL).build());
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.name()).isEqualTo("Title");
+        assertThat(result.threshold()).isEqualTo(delegate.threshold());
+        assertThat(result.reason())
+                .contains("actual slot 'output' threw", "IllegalStateException", "actual getter failed");
+        assertThat(delegate.captured).isNull();
+    }
+
+    @Test
+    void shouldFailWithoutInvokingDelegateWhenMirroredExpectedGetterThrows() {
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(Output.class)
+                .name("Title")
+                .extracting(output -> {
+                    if (output.category() == Category.TECH) {
+                        throw new IllegalStateException("golden getter failed");
+                    }
+                    return output.title();
+                })
+                .evaluateWith(delegate);
+        var testCase = EvalTestCase.builder()
+                .actualOutput("output", ACTUAL)
+                .expectedOutput("output", new Output("Golden", "summary", Category.TECH, List.of()))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.name()).isEqualTo("Title");
+        assertThat(result.threshold()).isEqualTo(delegate.threshold());
+        assertThat(result.reason())
+                .contains("expected slot 'output' threw", "IllegalStateException", "golden getter failed");
+        assertThat(delegate.captured).isNull();
+    }
+
+    @Test
+    void shouldFailWithoutInvokingDelegateWhenExplicitExpectedGetterThrows() {
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(Output.class)
+                .name("Title")
+                .extracting(Output::title)
+                .expecting(Golden.class, golden -> {
+                    throw new IllegalStateException("explicit getter failed");
+                })
+                .evaluateWith(delegate);
+        var testCase = EvalTestCase.builder()
+                .actualOutput("output", ACTUAL)
+                .expectedOutput("output", new Golden("Golden", List.of()))
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.name()).isEqualTo("Title");
+        assertThat(result.threshold()).isEqualTo(delegate.threshold());
+        assertThat(result.reason())
+                .contains("expected slot 'output' threw", "IllegalStateException", "explicit getter failed");
+        assertThat(delegate.captured).isNull();
+    }
+
+    @Test
+    void shouldFailWithoutInvokingDelegateWhenExplicitExpectedConversionThrows() {
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(Output.class)
+                .name("Title")
+                .extracting(Output::title)
+                .expecting(Golden.class, Golden::headline)
+                .evaluateWith(delegate);
+        var testCase = EvalTestCase.builder()
+                .actualOutput("output", ACTUAL)
+                .expectedOutput("not a structured golden")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.name()).isEqualTo("Title");
+        assertThat(result.threshold()).isEqualTo(delegate.threshold());
+        assertThat(result.reason())
+                .contains("expected output for slot 'output' could not be converted", Golden.class.getName());
+        assertThat(delegate.captured).isNull();
+    }
+
+    @Test
+    void shouldNotMirrorOrConvertUnrelatedGoldenForNamedOnlyExtraction() {
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(Output.class)
+                .extracting("retrieved", Output::sources)
+                .evaluateWith(delegate);
+        var testCase = EvalTestCase.builder()
+                .actualOutput("output", ACTUAL)
+                .expectedOutput("an unrelated scalar golden")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.success()).isTrue();
+        assertThat(delegate.captured.actualOutputs()).isEqualTo(Map.of("retrieved", ACTUAL.sources()));
+        assertThat(delegate.captured.expectedOutputs()).isEmpty();
+    }
+
+    @Test
+    void shouldAcceptSupertypeAccessorsForActualAndExpected() {
+        Function<CharSequence, Integer> length = CharSequence::length;
+        var delegate = new CapturingEvaluator();
+        var evaluator = TypedEvaluator.of(String.class)
+                .extracting(length)
+                .expecting(String.class, length)
+                .evaluateWith(delegate);
+        var testCase = EvalTestCase.builder()
+                .actualOutput("actual")
+                .expectedOutput("golden")
+                .build();
+
+        var result = evaluator.evaluate(testCase);
+
+        assertThat(result.success()).isTrue();
+        assertThat(delegate.captured.actualOutputs()).isEqualTo(Map.of("output", 6));
+        assertThat(delegate.captured.expectedOutputs()).isEqualTo(Map.of("output", 6));
+    }
+
+    @Test
     void shouldReturnFailedResultWhenActualConversionFails() {
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Category")
@@ -267,8 +399,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldFailDirectlyWhenMirroredExpectedConversionFails() {
-        // A scalar golden cannot convert to the actual type, which means the experiment setup is
-        // mismatched rather than merely missing an expected slot.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Category")
                 .extracting(Output::category)
@@ -289,8 +419,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldFailExpectedBlindDelegateWhenMirroredExpectedConversionFails() {
-        // A present golden with the wrong shape is a setup error, even when the delegate itself does
-        // not read the expected side.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Summary regex")
                 .extracting(Output::summary)
@@ -453,8 +581,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldCarryDelegateThresholdOnSyntheticFailures() {
-        // Synthetic extraction failures and delegate results form one series per name, so they
-        // must report the same threshold.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Title")
                 .extracting(Output::title)
@@ -526,8 +652,6 @@ class TypedEvaluatorTest {
 
     @Test
     void shouldNotThrowWhenDelegateWouldSeeMalformedRowInExperiment() {
-        // One malformed row yields a failed result, not an exception, so sibling
-        // evaluators' results for the item survive.
         var evaluator = TypedEvaluator.of(Output.class)
                 .name("Title")
                 .extracting(Output::title)

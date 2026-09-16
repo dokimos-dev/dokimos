@@ -11,37 +11,19 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * Wraps a delegate evaluator so it sees selected fields of a structured task output instead of the
- * whole output.
+ * Evaluates selected fields of a structured task output with an existing evaluator.
  *
- * <p>Extractions fill the conventional slots of a derived {@link EvalTestCase} handed to the
- * delegate: {@link Builder#extracting(Function)} fills the {@code "output"} slot, the keyed
- * overload fills a named slot such as {@code "retrievalContext"}. The original inputs and metadata
- * pass through untouched, so delegates that require the input keep working. The delegate's
- * actual-output map contains only the declared extractions.
+ * <p>The delegate receives only the declared actual-output extractions, with the original inputs
+ * and metadata. Results use the delegate's name unless {@link Builder#name(String)} overrides it.
  *
- * <p>When the {@code "output"} expected slot has no {@code expecting(...)} projection, the
- * {@code "output"} extractor is also applied to the expected side, read as the actual output type.
- * This covers goldens that share the task output's shape, whether they arrive as the record itself
- * or as a map loaded from JSON or CSV. Declare {@code expecting(...)} when the golden has a
- * different shape. A golden that is entirely absent leaves the slot empty, so delegates that do
- * not read the expected side still run. A golden that is present but cannot be converted, or
- * whose conversion returns {@code null}, fails the evaluation result.
+ * <p>The primary extractor is mirrored onto the golden using the actual type. Use
+ * {@code expecting(...)} for a different golden type. An absent golden leaves the expected slot
+ * empty; a present golden that cannot convert or converts to {@code null} fails evaluation.
  *
- * <p>A missing actual output, a conversion failure, or an extractor that throws a
- * {@link RuntimeException} or returns {@code null} produces a failed {@link EvalResult} carrying the reason;
- * {@link #evaluate(EvalTestCase)} never throws for those projection failures. Exceptions thrown
- * by the delegate, including required-parameter validation failures, propagate unchanged.
+ * <p>Missing actual outputs, conversion failures, and extractors returning {@code null} or throwing
+ * {@link RuntimeException} produce failed results with a reason. Delegate exceptions propagate unchanged.
  *
- * <p>Pair scalar fields (String, enums, numbers) with evaluators that compare string forms, such
- * as {@link ExactMatchEvaluator}. Pair a nested record or list field with
- * {@link StructuralMatchEvaluator} instead: string-form comparison of a structured value depends
- * on its {@code toString()} formatting and is not stable.
- *
- * <p>By default, emitted results keep the delegate's name. Call {@link Builder#name(String)} to
- * give projected fields distinct report names.
- *
- * <p>Example:
+ * <p>Use {@link ExactMatchEvaluator} for scalars and {@link StructuralMatchEvaluator} for records or lists.
  *
  * <pre>{@code
  * record Output(String title, String summary, Category category) {}
@@ -75,9 +57,7 @@ public final class TypedEvaluator implements Evaluator {
     }
 
     /**
-     * Starts a builder for task outputs convertible to the given class. Conversion uses
-     * {@link EvalTestCase#actualOutputAs(Class)}, so it works whether the runtime value is the
-     * record itself or a map loaded from JSON or CSV.
+     * Starts a builder using {@link EvalTestCase#actualOutputAs(Class)} to convert the task output.
      *
      * @param actualType the type the actual output is converted to before extraction
      * @param <A> the actual output type
@@ -250,8 +230,7 @@ public final class TypedEvaluator implements Evaluator {
         }
 
         /**
-         * Sets the name stamped on emitted results. If omitted, the delegate evaluator's name is
-         * used.
+         * Overrides the delegate's name in emitted results.
          *
          * @param name the result name
          * @return this builder
@@ -277,11 +256,8 @@ public final class TypedEvaluator implements Evaluator {
         }
 
         /**
-         * Extracts a value into the named actual-output slot, for delegates that read a custom
-         * key such as {@code ContextualRelevanceEvaluator}'s {@code "retrievalContext"}. Slots
-         * other than {@code "output"} are not mirrored to the expected side. Passing
-         * {@code "output"} here is equivalent to {@link #extracting(Function)} and participates
-         * in mirroring.
+         * Extracts into a named actual-output slot, such as {@code "retrievalContext"}.
+         * Only {@code "output"} is mirrored, as with {@link #extracting(Function)}.
          *
          * @param key the actual-output slot to fill
          * @param getter reads the field from the converted actual output

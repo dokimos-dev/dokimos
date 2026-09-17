@@ -7,6 +7,68 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.28.0",
+    date: "September 2026",
+    lead: "Score individual fields of a structured task output with existing evaluators.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "TypedEvaluator",
+            body: (
+              <>
+                <code>TypedEvaluator.of(Output.class)</code> selects fields with{" "}
+                <code>extracting(...)</code> and passes them to an existing evaluator through{" "}
+                <code>evaluateWith(...)</code>. The primary extractor also reads a golden with the
+                same shape; <code>expecting(...)</code> supplies a separate type and getter when
+                the golden differs. Inputs and metadata pass through unchanged, and{" "}
+                <code>name(...)</code> gives each field a distinct name in the report.
+              </>
+            ),
+          },
+        ],
+      },
+      {
+        label: "Changed",
+        items: [
+          {
+            title: "Dependency updates",
+            body: "Updated dependencies in the documentation site and server frontend.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.27.0",
+    date: "August 2026",
+    groups: [
+      {
+        label: "Changed",
+        items: [
+          {
+            title: "Koog dependency scope",
+            body: "The Koog dependency is now provided-scope, so applications supply their own version.",
+          },
+          {
+            title: "Dependency updates",
+            body: "Updated dependencies in the documentation site and server frontend.",
+          },
+        ],
+      },
+      {
+        label: "Fixed",
+        items: [
+          {
+            title: "Plan adherence test and overview example",
+            body: "Fixed the flaky plan adherence integration test and added the missing judge definition to the overview example.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.26.0",
     date: "July 2026",
     lead: "Synthetic multi-turn goldens: describe the conversations you want as scenario seeds, run them through the simulator, and get back a dataset your tests can replay. Scripted seeds need no LLM at all.",

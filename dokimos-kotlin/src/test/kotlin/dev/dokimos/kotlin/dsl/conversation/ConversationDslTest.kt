@@ -244,4 +244,30 @@ class ConversationDslTest {
         assertThat(dataset.examples()[0].input()).contains("hi there").contains("persona reply")
         assertThat(dataset.examples()[0].expectedOutputs()).doesNotContainKey("output")
     }
+
+    @Test
+    fun `criterion helpers build criteria inline`() {
+        val standalone = criterion("Helpfulness", "Was the assistant helpful?", weight = 2.0)
+
+        assertThat(standalone.name()).isEqualTo("Helpfulness")
+        assertThat(standalone.description()).isEqualTo("Was the assistant helpful?")
+        assertThat(standalone.weight()).isEqualTo(2.0)
+
+        val prompts = mutableListOf<String>()
+        val judge = JudgeLM { prompt ->
+            prompts += prompt
+            """{"score":0.9,"reason":"good"}"""
+        }
+        val evaluator = trajectoryEvaluator(judge) {
+            criterion("Helpfulness", "Was the assistant helpful?")
+            criterion("Tone", "Was the tone appropriate?", weight = 0.5)
+        }
+
+        val trajectory = conversation(userMessage("hi"), assistantMessage("hello"))
+        evaluator.evaluate(EvalTestCase(input = "q", actualOutputs = mapOf("trajectory" to trajectory)))
+
+        assertThat(prompts).hasSize(2)
+        assertThat(prompts[0]).contains("Helpfulness", "Was the assistant helpful?")
+        assertThat(prompts[1]).contains("Tone", "Was the tone appropriate?")
+    }
 }

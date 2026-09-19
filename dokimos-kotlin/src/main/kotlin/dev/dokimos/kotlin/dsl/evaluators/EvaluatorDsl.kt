@@ -12,6 +12,8 @@ import dev.dokimos.core.evaluators.LLMJudgeEvaluator
 import dev.dokimos.core.evaluators.PrecisionEvaluator
 import dev.dokimos.core.evaluators.RecallEvaluator
 import dev.dokimos.core.evaluators.RegexEvaluator
+import dev.dokimos.core.evaluators.StructuralMatchEvaluator
+import dev.dokimos.core.evaluators.StructuralMatchMode
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.PlanAdherenceEvaluator
 import dev.dokimos.core.evaluators.agents.PlanQualityEvaluator
@@ -57,6 +59,10 @@ class EvaluatorsDsl {
 
     fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}) {
         evaluators += PrecisionEvaluatorDsl().apply(block).build()
+    }
+
+    fun structuralMatch(block: StructuralMatchEvaluatorDsl.() -> Unit = {}) {
+        evaluators += StructuralMatchEvaluatorDsl().apply(block).build()
     }
 
     fun recall(block: RecallEvaluatorDsl.() -> Unit = {}) {
@@ -132,6 +138,33 @@ class ExactMatchEvaluatorDsl {
         .threshold(threshold)
         .evaluationParams(evaluationParams)
         .build()
+}
+
+@DokimosDsl
+class StructuralMatchEvaluatorDsl {
+    var name: String = "Structural Match"
+    var threshold: Double = 1.0
+    var outputKey: String = "output"
+    var mode: StructuralMatchMode = StructuralMatchMode.STRICT
+
+    /** Scores 1.0 or 0.0 instead of the fraction of matching fields. */
+    var binary: Boolean = false
+    var evaluationParams: List<EvalTestCaseParam> = listOf()
+
+    fun params(vararg params: EvalTestCaseParam) {
+        evaluationParams = params.toList()
+    }
+
+    fun build(): StructuralMatchEvaluator {
+        val builder = StructuralMatchEvaluator.builder()
+            .name(name)
+            .threshold(threshold)
+            .outputKey(outputKey)
+            .mode(mode)
+            .evaluationParams(evaluationParams)
+        if (binary) builder.binary()
+        return builder.build()
+    }
 }
 
 @DokimosDsl

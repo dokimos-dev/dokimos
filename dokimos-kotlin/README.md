@@ -39,7 +39,39 @@ val experiment = experiment {
 
 Key helpers:
 - `experiment { ... }`, `dataset { ... }`, `example { ... }`
-- `task { example -> mapOf("output" to ...) }`
-- Evaluators: `exactMatch {}`, `regex {}`, `llmJudge(judge) {}`
+- Tasks: `task { example -> mapOf("output" to ...) }`, `typedTask<T> { ... }`, `measuredTask { ... }` (adds `CallMetrics`), `suspendTask { ... }` (coroutines)
+- Evaluators: `exactMatch {}`, `regex {}`, `structuralMatch {}`, `llmJudge(judge) {}`, and the agent evaluators (`toolCallValidity {}`, `toolCorrectness {}`, `toolTrajectory {}`, `toolError {}`, `toolEfficiency {}`, `planQuality {}`, `planAdherence {}`, ...)
+- Conversations (`dev.dokimos.kotlin.dsl.conversation`): `trajectory {}`, `simulator {}`, `llmUser(judge) {}`, `trajectoryEvaluator(judge) {}`, `criterion(name, description, weight)`, `goldenGenerator {}`
+- Agents (`dev.dokimos.kotlin.dsl.agents`): `tools {}`, `toolDefinition(name) {}`, `toolCall(name) {}`, `toolCalls {}`, `agentTrace {}`, `agentTestCase {}`
+- Regression gate (`dev.dokimos.kotlin.dsl.gate` / `dev.dokimos.kotlin.core`): `gateConfig {}` builds a `GateConfig`; `ExperimentResult.assertNoRegression(baseline) { ... }` takes the config inline
+
+Agent evaluation without hand-written JSON schemas or output-map keys:
+
+```kotlin
+import dev.dokimos.kotlin.dsl.agents.*
+
+val tools = tools {
+    tool("search_flights") {
+        description = "Search for available flights"
+        parameters {
+            string("origin", "Origin airport IATA code", required = true)
+            string("destination", "Destination airport IATA code", required = true)
+        }
+    }
+}
+
+val testCase = agentTestCase {
+    input = "Find flights from NYC to Paris"
+    trace {
+        toolCall("search_flights", mapOf("origin" to "JFK", "destination" to "CDG"))
+        finalResponse = "Found your flights."
+    }
+    tools(tools)
+    expectedToolCall("search_flights", mapOf())
+    tasks("Search for flights")
+}
+
+val result = toolCallValidity().evaluate(testCase)
+```
 
 For advanced cases you can still pass fully constructed `Task`, `Dataset`, or `Evaluator` instances into the DSL blocks.

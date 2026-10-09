@@ -217,4 +217,53 @@ class TaskDslTest {
 
         assertThat(output.outputs()).containsEntry("output", "cba")
     }
+
+    @Test
+    fun `measuredTask carries call metrics through to the item result`() {
+        val result = experiment {
+            name = "measured"
+            dataset {
+                example {
+                    input = "hello"
+                    expected = "hello"
+                }
+            }
+            measuredTask { example ->
+                TaskResult(mapOf("output" to example.input()), CallMetrics(12, 34, 0.001, 250L))
+            }
+            evaluators {
+                exactMatch { }
+            }
+        }.run()
+
+        assertThat(result.passRate()).isEqualTo(1.0)
+        val metrics = result.itemResults().single().metrics()
+        assertThat(metrics.tokensIn()).isEqualTo(12)
+        assertThat(metrics.tokensOut()).isEqualTo(34)
+        assertThat(metrics.costUsd()).isEqualTo(0.001)
+        assertThat(metrics.latencyMs()).isEqualTo(250L)
+    }
+
+    @Test
+    fun `top-level measuredTask builds a MeasuredTask`() {
+        val task = measuredTask { example -> TaskResult(mapOf("output" to example.input()), null) }
+
+        val taskResult = task.run(exampleWith("abc"))
+
+        assertThat(taskResult.outputs()).containsEntry("output", "abc")
+        assertThat(taskResult.metrics()).isNull()
+    }
+
+    @Test
+    fun `experiment DSL rejects setting both task and measuredTask`() {
+        assertThatThrownBy {
+            experiment {
+                name = "conflict"
+                dataset { example { input = "hello" } }
+                task { mapOf("output" to "hello") }
+                measuredTask { TaskResult(mapOf("output" to "hello"), null) }
+                evaluators { exactMatch { } }
+            }
+        }.hasMessageContaining("not both")
+    }
 }

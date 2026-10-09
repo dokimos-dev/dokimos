@@ -8,6 +8,7 @@ import dev.dokimos.core.JudgeLM
 import dev.dokimos.core.MatchingStrategy
 import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
+import dev.dokimos.core.evaluators.StructuralMatchMode
 import dev.dokimos.core.evaluators.agents.ArgMatchMode
 import dev.dokimos.core.evaluators.agents.ArgumentMatcher
 import dev.dokimos.core.evaluators.agents.ToolCorrectnessEvaluator
@@ -22,6 +23,7 @@ import dev.dokimos.kotlin.dsl.planAdherence
 import dev.dokimos.kotlin.dsl.planQuality
 import dev.dokimos.kotlin.dsl.precision
 import dev.dokimos.kotlin.dsl.recall
+import dev.dokimos.kotlin.dsl.structuralMatch
 import dev.dokimos.kotlin.dsl.toolCallValidity
 import dev.dokimos.kotlin.dsl.toolCorrectness
 import dev.dokimos.kotlin.dsl.toolDescriptionReliability
@@ -504,5 +506,46 @@ class EvaluatorDslTest {
 
         assertThat(result.score()).isEqualTo(1.0)
         assertThat(result.success()).isTrue()
+    }
+
+    @Test
+    fun `structuralMatch DSL compares JSON structures`() {
+        val strict = structuralMatch {
+            outputKey = "payload"
+            mode = StructuralMatchMode.STRICT
+        }
+        val lenient = structuralMatch {
+            outputKey = "payload"
+            mode = StructuralMatchMode.LENIENT
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("payload", """{"name":"Lagavulin","age":16,"region":"Islay"}""")
+            .expectedOutput("payload", """{"name":"Lagavulin","age":16.0}""")
+            .build()
+
+        // LENIENT ignores the extra "region" field; STRICT penalizes it
+        assertThat(lenient.evaluate(testCase).score()).isEqualTo(1.0)
+        assertThat(strict.evaluate(testCase).score()).isLessThan(1.0)
+    }
+
+    @Test
+    fun `structuralMatch DSL supports binary scoring inside evaluators block`() {
+        val built = evaluators {
+            structuralMatch {
+                name = "Contract"
+                binary = true
+            }
+        }
+
+        val testCase = EvalTestCase.builder()
+            .actualOutput("output", """{"a":1,"b":2}""")
+            .expectedOutput("output", """{"a":1,"b":3}""")
+            .build()
+
+        val result = built.single().evaluate(testCase)
+
+        assertThat(result.name()).isEqualTo("Contract")
+        assertThat(result.score()).isEqualTo(0.0)
     }
 }

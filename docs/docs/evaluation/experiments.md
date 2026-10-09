@@ -307,6 +307,29 @@ ExperimentResult result = Experiment.builder()
 
 The plain `task(Task)` path still works the same. Use `measuredTask(MeasuredTask)` only when you want metrics on the results. The builder method has a separate name so a lambda passed to `task(...)` is never ambiguous between the two interfaces.
 
+In Kotlin, the DSL exposes the same path as `measuredTask { ... }`, either inside `experiment { }` or standalone:
+
+```kotlin
+val result = experiment {
+    name = "QA Evaluation"
+    dataset(dataset)
+    measuredTask { example ->
+        val start = System.currentTimeMillis()
+        val response = myLlmService.generate(example.input())
+        val metrics = CallMetrics(
+            response.promptTokens,
+            response.completionTokens,
+            response.costUsd,
+            System.currentTimeMillis() - start,
+        )
+        TaskResult(mapOf("output" to response.text), metrics)
+    }
+    evaluator(evaluators)
+}.run()
+```
+
+Setting both `task` and `measuredTask` on the same experiment fails fast, since they share one slot.
+
 ## Running against a dataset
 
 ### Load a dataset from a file

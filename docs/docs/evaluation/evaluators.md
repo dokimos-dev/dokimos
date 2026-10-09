@@ -267,10 +267,10 @@ EvalResult result = structural.evaluate(testCase);
 ```kotlin
 data class Invoice(val id: String, val total: Double, val items: List<String>)
 
-val structural: Evaluator = StructuralMatchEvaluator.builder()
-    .name("Invoice Match")
-    .threshold(1.0)
-    .build()  // STRICT mode, outputKey "output", partial scoring
+val structural: Evaluator = structuralMatch {
+    name = "Invoice Match"
+    threshold = 1.0
+}  // STRICT mode, outputKey "output", partial scoring
 
 val testCase = EvalTestCase.builder()
     .expectedOutput("output", Invoice("INV-1", 42.0, listOf("a", "b")))
@@ -306,11 +306,11 @@ Evaluator lenient = StructuralMatchEvaluator.builder()
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-val lenient: Evaluator = StructuralMatchEvaluator.builder()
-    .name("Extraction Match")
-    .mode(StructuralMatchMode.LENIENT)  // tolerate extra fields, ignore array order
-    .threshold(0.9)
-    .build()
+val lenient: Evaluator = structuralMatch {
+    name = "Extraction Match"
+    mode = StructuralMatchMode.LENIENT  // tolerate extra fields, ignore array order
+    threshold = 0.9
+}
 ```
 
   </TabItem>
@@ -337,11 +337,11 @@ Evaluator contract = StructuralMatchEvaluator.builder()
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-val contract: Evaluator = StructuralMatchEvaluator.builder()
-    .name("Schema Contract")
-    .binary()          // 1.0 if everything matches, 0.0 otherwise
-    .threshold(1.0)
-    .build()
+val contract: Evaluator = structuralMatch {
+    name = "Schema Contract"
+    binary = true      // 1.0 if everything matches, 0.0 otherwise
+    threshold = 1.0
+}
 ```
 
   </TabItem>

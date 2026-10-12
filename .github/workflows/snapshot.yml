@@ -24,6 +24,19 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      # The Central publishing plugin 0.9.0 stages Maven 3.10 local repository metadata,
+      # which Sonatype rejects. Keep publishing on the verified Maven version.
+      - name: Set up Maven 3.9.12 for publishing
+        shell: bash
+        run: |
+          publishing_maven_archive="$RUNNER_TEMP/apache-maven-3.9.12-bin.tar.gz"
+          publishing_maven_url="https://archive.apache.org/dist/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 "$publishing_maven_url" -o "$publishing_maven_archive"
+          publishing_maven_checksum=$(curl --fail --silent --show-error --location --retry 3 "$publishing_maven_url.sha512")
+          printf '%s  %s\n' "$publishing_maven_checksum" "$publishing_maven_archive" | sha512sum --check -
+          tar -xzf "$publishing_maven_archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/apache-maven-3.9.12/bin" >> "$GITHUB_PATH"
+
       - name: Deploy snapshot
         run: mvn -B -U -DskipTests -Dsign clean deploy
         env:

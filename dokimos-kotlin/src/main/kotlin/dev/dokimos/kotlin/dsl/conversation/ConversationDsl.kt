@@ -36,6 +36,10 @@ fun scenarioSeed(block: ScenarioSeedDsl.() -> Unit): ScenarioSeed = ScenarioSeed
 
 fun goldenGenerator(block: GoldenGeneratorDsl.() -> Unit): GoldenGenerator = GoldenGeneratorDsl().apply(block).build()
 
+/** Builds an [EvaluationCriterion]; [weight] defaults to the same 1.0 as [EvaluationCriterion.of]. */
+fun criterion(name: String, description: String, weight: Double = 1.0): EvaluationCriterion =
+    EvaluationCriterion(name, description, weight)
+
 /** Convenience builders outside DSL blocks. */
 fun message(role: Message.Role, content: String, metadata: Map<String, Any> = emptyMap()): Message =
     Message(role, content, metadata)
@@ -181,6 +185,10 @@ class TrajectoryEvaluatorDsl(private val judge: JudgeLM) {
 
     fun criterion(criterion: EvaluationCriterion) {
         criteria += criterion
+    }
+
+    fun criterion(name: String, description: String, weight: Double = 1.0) {
+        criteria += EvaluationCriterion(name, description, weight)
     }
 
     fun criteria(values: List<EvaluationCriterion>) {

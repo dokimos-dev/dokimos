@@ -1,0 +1,22 @@
+{
+  "name": "evaluate-adk",
+  "version": "0.1.0",
+  "description": "Set up evaluation of Google ADK (Agent Development Kit) agents in Java or Kotlin using Dokimos. Capture agent runs as AgentTraces, evaluate tool calls, RAG grounding, multi-turn conversations, and token/cost metrics.",
+  "author": {
+    "name": "Dokimos Contributors",
+    "url": "https://dokimos.dev"
+  },
+  "homepage": "https://dokimos.dev/integrations/adk",
+  "repository": "https://github.com/dokimos-dev/dokimos",
+  "license": "MIT",
+  "keywords": [
+    "dokimos",
+    "adk",
+    "google-adk",
+    "gemini",
+    "agent",
+    "tool-call",
+    "rag",
+    "llm-evaluation"
+  ]
+}

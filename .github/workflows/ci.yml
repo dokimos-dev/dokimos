@@ -98,6 +98,7 @@ jobs:
         run: mvn -B -U verify -Dgroups=integration
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v5

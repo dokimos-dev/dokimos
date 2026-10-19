@@ -99,6 +99,14 @@
       "version": "0.1.0",
       "category": "integration",
       "tags": ["spring-ai-alibaba", "graph", "agent", "evaluation"]
+    },
+    {
+      "name": "evaluate-adk",
+      "source": "./plugins/evaluate-adk",
+      "description": "Set up evaluation of Google ADK (Agent Development Kit) agents using Dokimos",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["adk", "google-adk", "gemini", "agent", "tool-call", "rag", "evaluation"]
     }
   ]
 }

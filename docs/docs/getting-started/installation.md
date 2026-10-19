@@ -69,8 +69,8 @@ Dokimos ships separate dependencies for the tools you already use. Add one only 
 | OpenAI Java SDK       | `dokimos-openai`            | [OpenAI Integration](../integrations/openai)                       |
 | Spring AI             | `dokimos-spring-ai`         | [Spring AI Integration](../integrations/spring-ai)                 |
 | Spring AI Alibaba     | `dokimos-spring-ai-alibaba` | [Spring AI Alibaba Integration](../integrations/spring-ai-alibaba) |
-| Google ADK for Java   | `dokimos-adk-java`          | [Google ADK for Java Integration](../integrations/adk-java)        |
-| Google ADK for Kotlin | `dokimos-adk-kotlin`        | [Google ADK for Kotlin Integration](../integrations/adk-kotlin)    |
+| Google ADK for Java   | `dokimos-adk-java`          | [Google ADK Integration](../integrations/adk)                      |
+| Google ADK for Kotlin | `dokimos-adk-kotlin`        | [Google ADK Integration](../integrations/adk)                      |
 | Koog                  | `dokimos-koog`              | [Koog Integration](../integrations/koog)                           |
 | Embabel (Java 21+)    | `dokimos-embabel`           | [Embabel Integration](../integrations/embabel)                     |
 
@@ -103,4 +103,4 @@ You are set up. Now write your first evaluation:
 
 - [Your first evaluation](./evaluation) covers the core concepts: datasets, evaluators, tasks, and experiments.
 - [JUnit Integration](../integrations/junit) walks through evaluating LLM output in a test.
-- Read the integration page that matches your stack: [LangChain4j](../integrations/langchain4j), [Spring AI](../integrations/spring-ai), [Spring AI Alibaba](../integrations/spring-ai-alibaba), [Google ADK for Java](../integrations/adk-java), [Google ADK for Kotlin](../integrations/adk-kotlin), [Koog](../integrations/koog), or [Embabel](../integrations/embabel).
+- Read the integration page that matches your stack: [LangChain4j](../integrations/langchain4j), [Spring AI](../integrations/spring-ai), [Spring AI Alibaba](../integrations/spring-ai-alibaba), [Google ADK](../integrations/adk), [Koog](../integrations/koog), or [Embabel](../integrations/embabel).

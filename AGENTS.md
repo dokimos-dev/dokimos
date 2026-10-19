@@ -17,7 +17,6 @@ dokimos/
 ├── dokimos-langchain4j/    # LangChain4j integration (RAG evaluators)
 ├── dokimos-spring-ai/      # Spring AI integration
 ├── dokimos-spring-ai-alibaba/ # Spring AI Alibaba graph-agent integration
-├── dokimos-openai/         # OpenAI Java SDK integration
 ├── dokimos-adk-java/       # Google ADK for Java integration
 ├── dokimos-adk-kotlin/     # Google ADK for Kotlin integration
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)

@@ -26,12 +26,12 @@
 
 Dokimos is an evaluation framework for LLM applications in Java and Kotlin. It helps you evaluate responses, track quality over time, and catch regressions before they reach production.
 
-It integrates with **JUnit**, **LangChain4j**, **Spring AI**, **Spring AI Alibaba**, **Google ADK (Java & Kotlin)**, **Koog**, **Embabel**, and **OpenAI Java SDK** so you can run evaluations as part of your existing test suite and CI/CD pipeline. It evaluates both LLM responses and agent behavior, including tool calls and execution traces.
+It integrates with **JUnit**, **LangChain4j**, **Spring AI**, **Spring AI Alibaba**, **Google ADK (Java & Kotlin)**, **Koog**, and **Embabel** so you can run evaluations as part of your existing test suite and CI/CD pipeline. It evaluates both LLM responses and agent behavior, including tool calls and execution traces.
 
 ## Why Dokimos?
 
 - **JUnit integration**: Run evaluations as parameterized tests in your existing test suite.
-- **Framework agnostic**: Works with LangChain4j, Spring AI, Spring AI Alibaba, Google ADK (Java & Kotlin), Koog, Embabel, and OpenAI Java SDK, or any LLM client. Powered by any LLM.
+- **Framework agnostic**: Works with LangChain4j, Spring AI, Spring AI Alibaba, Google ADK (Java & Kotlin), Koog, and Embabel, or any LLM client. Powered by any LLM.
 - **Built in evaluators**: Hallucination detection, faithfulness, contextual relevance, LLM as a judge, and more.
 - **Agent evaluation**: Evaluate AI agents with tool call validation, task completion, argument hallucination detection, and tool reliability checks.
 - **Cost & latency tracking**: Capture per-call tokens, cost, and latency across all adapters, with a pluggable `PriceTable` seam (you supply the prices) and per-run roll-ups.
@@ -244,7 +244,6 @@ Build custom evaluators by extending `BaseEvaluator`, or use `LLMJudgeEvaluator`
 | `dokimos-spring-ai-alibaba` | Spring AI Alibaba graph-agent integration: capture a run as a trace |
 | `dokimos-adk-java`      | Google ADK for Java integration (judges, tasks, RAG, agent traces)   |
 | `dokimos-adk-kotlin`    | Google ADK for Kotlin integration with coroutines and Kotlin DSL     |
-| `dokimos-openai`        | OpenAI Java SDK integration for judges, tasks, and tool-call traces  |
 | `dokimos-koog`          | Koog integration using `AIAgent` as judge.                           |
 | `dokimos-embabel`       | Embabel agent integration: capture a run as a trace (Java 21+)       |
 | `dokimos-server`        | Optional API and web UI for tracking experiments over time           |

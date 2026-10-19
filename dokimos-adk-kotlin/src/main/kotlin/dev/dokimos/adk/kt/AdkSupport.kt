@@ -37,16 +37,18 @@ import dev.dokimos.core.conversation.ConversationTrajectory
 import dev.dokimos.core.conversation.ConversationalApplication
 import dev.dokimos.core.conversation.Message
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.future.future
 import kotlinx.coroutines.runBlocking
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.UUID
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Utilities and adapters for integrating Dokimos with Google Agent Development Kit (ADK) for Kotlin
@@ -79,6 +81,7 @@ object AdkSupport {
     const val TASKS_KEY: String = "tasks"
 
     private const val DEFAULT_USER_ID: String = "dokimos-eval-user"
+    private val DEFAULT_ASYNC_SCOPE = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val MAPPER = ObjectMapper()
     private val ERROR_KEYS = setOf("error", "errorMessage", "error_message", "exception")
     private val CONTEXT_MAP_KEYS = listOf(
@@ -196,7 +199,7 @@ object AdkSupport {
 
     /**
      * Creates a synchronous [Task] from an ADK [Runner] that captures the full agent execution
-     * trace (`output`, `toolCalls`, `steps`, and `metadata`).
+     * trace (`output`, `toolCalls`, and `reasoningSteps`).
      *
      * @param runner the ADK [Runner] under test
      * @param inputKey the example input key (defaults to [INPUT_KEY])
@@ -219,7 +222,7 @@ object AdkSupport {
 
     /**
      * Creates a synchronous [Task] from an ADK [BaseAgent] that captures the full agent execution
-     * trace (`output`, `toolCalls`, `steps`, and `metadata`).
+     * trace (`output`, `toolCalls`, and `reasoningSteps`).
      *
      * @param agent the ADK [BaseAgent] under test
      * @param inputKey the example input key (defaults to [INPUT_KEY])
@@ -248,7 +251,7 @@ object AdkSupport {
      * @param contextKey the retrieved contexts output key (defaults to [CONTEXT_KEY])
      * @param retrievalToolNames optional names of tools whose responses should be extracted as
      *   retrieved context
-     * @return a [Task] producing `output`, `context`, `toolCalls`, `steps`, and `metadata`
+     * @return a [Task] producing `output`, `context`, `toolCalls`, and `reasoningSteps`
      */
     @JvmStatic
     @JvmOverloads
@@ -274,7 +277,7 @@ object AdkSupport {
      * @param contextKey the retrieved contexts output key (defaults to [CONTEXT_KEY])
      * @param retrievalToolNames optional names of tools whose responses should be extracted as
      *   retrieved context
-     * @return a [Task] producing `output`, `context`, `toolCalls`, `steps`, and `metadata`
+     * @return a [Task] producing `output`, `context`, `toolCalls`, and `reasoningSteps`
      */
     @JvmStatic
     @JvmOverloads
@@ -295,19 +298,18 @@ object AdkSupport {
      * @param model the ADK [Model] under test
      * @param inputKey the example input key (defaults to [INPUT_KEY])
      * @param outputKey the output map key (defaults to [OUTPUT_KEY])
-     * @param scope the coroutine scope used to launch each invocation (defaults to [GlobalScope])
+     * @param scope the coroutine scope used to launch each invocation
      * @return an [AsyncTask]
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncTask(
         model: Model,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
+        scope.future {
             val input = extractInput(example, inputKey)
             val result = generateTextFromModel(model, input)
             TaskResult.of(mapOf(outputKey to result.text))
@@ -317,19 +319,15 @@ object AdkSupport {
     /**
      * Creates an [AsyncTask] from an ADK [Model], running on the given [Executor].
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     fun asyncTask(
         model: Model,
         executor: Executor,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-    ): AsyncTask = AsyncTask { example ->
-        GlobalScope.future(executor.asCoroutineDispatcher()) {
-            val input = extractInput(example, inputKey)
-            val result = generateTextFromModel(model, input)
-            TaskResult.of(mapOf(outputKey to result.text))
-        }
+    ): AsyncTask {
+        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
+        return asyncTask(model, inputKey, outputKey, scope)
     }
 
     /**
@@ -338,19 +336,18 @@ object AdkSupport {
      * @param runner the ADK [Runner] under test
      * @param inputKey the example input key (defaults to [INPUT_KEY])
      * @param outputKey the output map key (defaults to [OUTPUT_KEY])
-     * @param scope the coroutine scope used to launch each invocation (defaults to [GlobalScope])
+     * @param scope the coroutine scope used to launch each invocation
      * @return an [AsyncTask]
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncTask(
         runner: Runner,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
+        scope.future {
             val input = extractInput(example, inputKey)
             val events = runRunnerSuspend(runner, input)
             TaskResult.of(mapOf(outputKey to extractFinalResponseText(events)))
@@ -361,32 +358,27 @@ object AdkSupport {
      * Creates an [AsyncTask] from an ADK [Runner] that captures only the final text response,
      * running on the given [Executor].
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     fun asyncTask(
         runner: Runner,
         executor: Executor,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-    ): AsyncTask = AsyncTask { example ->
-        GlobalScope.future(executor.asCoroutineDispatcher()) {
-            val input = extractInput(example, inputKey)
-            val events = runRunnerSuspend(runner, input)
-            TaskResult.of(mapOf(outputKey to extractFinalResponseText(events)))
-        }
+    ): AsyncTask {
+        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
+        return asyncTask(runner, inputKey, outputKey, scope)
     }
 
     /**
      * Creates an [AsyncTask] from an ADK [BaseAgent] that captures only the final text response.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncTask(
         agent: BaseAgent,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = asyncTask(InMemoryRunner(agent = agent), inputKey, outputKey, scope)
 
     /**
@@ -403,9 +395,8 @@ object AdkSupport {
 
     /**
      * Creates an [AsyncTask] from an ADK [Runner] that captures the full agent execution trace
-     * (`output`, `toolCalls`, `steps`, and `metadata`).
+     * (`output`, `toolCalls`, and `reasoningSteps`).
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncAgentTask(
@@ -413,9 +404,9 @@ object AdkSupport {
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
+        scope.future {
             val input = extractInput(example, inputKey)
             val events = runRunnerSuspend(runner, input)
             val trace = toAgentTrace(events)
@@ -427,7 +418,6 @@ object AdkSupport {
      * Creates an [AsyncTask] from an ADK [Runner] that captures the full agent execution trace,
      * running on the given [Executor].
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     fun asyncAgentTask(
         runner: Runner,
@@ -435,19 +425,14 @@ object AdkSupport {
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-    ): AsyncTask = AsyncTask { example ->
-        GlobalScope.future(executor.asCoroutineDispatcher()) {
-            val input = extractInput(example, inputKey)
-            val events = runRunnerSuspend(runner, input)
-            val trace = toAgentTrace(events)
-            TaskResult.of(traceToOutputMap(trace, outputKey, toolCallsKey))
-        }
+    ): AsyncTask {
+        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
+        return asyncAgentTask(runner, inputKey, outputKey, toolCallsKey, scope)
     }
 
     /**
      * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the full agent execution trace.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncAgentTask(
@@ -455,7 +440,7 @@ object AdkSupport {
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = asyncAgentTask(InMemoryRunner(agent = agent), inputKey, outputKey, toolCallsKey, scope)
 
     /**
@@ -475,7 +460,6 @@ object AdkSupport {
      * Creates an [AsyncTask] from an ADK [Runner] that captures the agent trace plus retrieved
      * context strings under [contextKey].
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncRagTask(
@@ -484,9 +468,9 @@ object AdkSupport {
         outputKey: String = OUTPUT_KEY,
         contextKey: String = CONTEXT_KEY,
         retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
+        scope.future {
             val input = extractInput(example, inputKey)
             val events = runRunnerSuspend(runner, input)
             TaskResult.of(eventsToRagOutputMap(events, outputKey, contextKey, retrievalToolNames))
@@ -497,7 +481,6 @@ object AdkSupport {
      * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the agent trace plus retrieved
      * context strings under [contextKey].
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun asyncRagTask(
@@ -506,7 +489,7 @@ object AdkSupport {
         outputKey: String = OUTPUT_KEY,
         contextKey: String = CONTEXT_KEY,
         retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask =
         asyncRagTask(InMemoryRunner(agent = agent), inputKey, outputKey, contextKey, retrievalToolNames, scope)
 
@@ -528,13 +511,10 @@ object AdkSupport {
         if (usage == null) {
             return CallMetrics(null, null, null, latencyMs)
         }
-        val rawIn = usage.promptTokenCount
-        val rawOut = usage.candidatesTokenCount
-        if ((rawIn == null || rawIn == 0) && (rawOut == null || rawOut == 0)) {
-            return CallMetrics(null, null, null, latencyMs)
-        }
-        val tokensIn = if (rawIn != null && rawIn > 0) rawIn else null
-        val tokensOut = if (rawOut != null && rawOut > 0) rawOut else null
+        val p = usage.promptTokenCount ?: 0
+        val c = usage.candidatesTokenCount ?: 0
+        val tokensIn = if (p > 0 || c > 0) p else null
+        val tokensOut = if (p > 0 || c > 0) c else null
         val cost = if (priceTable != null && modelId != null && tokensIn != null && tokensOut != null) {
             priceTable.costUsd(modelId, tokensIn, tokensOut)
         } else {
@@ -544,7 +524,8 @@ object AdkSupport {
     }
 
     /**
-     * Aggregates token usage across all [Event]s in an agent run and computes [CallMetrics].
+     * Aggregates token usage across all non-partial [Event]s in an agent run and computes
+     * [CallMetrics].
      */
     @JvmStatic
     @JvmOverloads
@@ -554,29 +535,24 @@ object AdkSupport {
         modelId: String? = null,
         priceTable: PriceTable? = null,
     ): CallMetrics {
-        var totalIn = 0
-        var totalOut = 0
-        var hasIn = false
-        var hasOut = false
+        var pSum = 0
+        var cSum = 0
+        var detectedModelId: String? = null
 
-        for (event in events) {
+        for (event in nonPartialEvents(events)) {
+            if (detectedModelId == null && !event.modelVersion.isNullOrBlank()) {
+                detectedModelId = event.modelVersion
+            }
             val usage = event.usageMetadata ?: continue
-            val p = usage.promptTokenCount
-            if (p != null && p > 0) {
-                totalIn += p
-                hasIn = true
-            }
-            val c = usage.candidatesTokenCount
-            if (c != null && c > 0) {
-                totalOut += c
-                hasOut = true
-            }
+            pSum += usage.promptTokenCount ?: 0
+            cSum += usage.candidatesTokenCount ?: 0
         }
 
-        val tokensIn = if (hasIn) totalIn else null
-        val tokensOut = if (hasOut) totalOut else null
-        val cost = if (priceTable != null && modelId != null && tokensIn != null && tokensOut != null) {
-            priceTable.costUsd(modelId, tokensIn, tokensOut)
+        val tokensIn = if (pSum > 0 || cSum > 0) pSum else null
+        val tokensOut = if (pSum > 0 || cSum > 0) cSum else null
+        val effectiveModelId = if (!modelId.isNullOrBlank()) modelId else detectedModelId
+        val cost = if (priceTable != null && effectiveModelId != null && tokensIn != null && tokensOut != null) {
+            priceTable.costUsd(effectiveModelId, tokensIn, tokensOut)
         } else {
             null
         }
@@ -733,7 +709,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [Model], capturing token counts, latency, and
      * optional USD cost asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncTask(
@@ -742,7 +717,7 @@ object AdkSupport {
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future(Dispatchers.IO) {
             val input = extractInput(example, inputKey)
@@ -759,7 +734,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [Runner], capturing the final text response and
      * [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncTask(
@@ -768,7 +742,7 @@ object AdkSupport {
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future(Dispatchers.IO) {
             val input = extractInput(example, inputKey)
@@ -785,7 +759,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing the final text response and
      * [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncTask(
@@ -794,14 +767,13 @@ object AdkSupport {
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = measuredAsyncTask(InMemoryRunner(agent = agent), modelId, priceTable, inputKey, outputKey, scope)
 
     /**
      * Creates a measured [AsyncTask] from an ADK [Runner], capturing both the full agent trace and
      * [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncAgentTask(
@@ -811,7 +783,7 @@ object AdkSupport {
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future(Dispatchers.IO) {
             val input = extractInput(example, inputKey)
@@ -829,7 +801,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing both the full agent trace
      * and [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncAgentTask(
@@ -839,7 +810,7 @@ object AdkSupport {
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = measuredAsyncAgentTask(
         InMemoryRunner(agent = agent),
         modelId,
@@ -854,7 +825,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [Runner], capturing the agent trace, retrieved RAG
      * contexts under [contextKey], and [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncRagTask(
@@ -865,7 +835,7 @@ object AdkSupport {
         outputKey: String = OUTPUT_KEY,
         contextKey: String = CONTEXT_KEY,
         retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future(Dispatchers.IO) {
             val input = extractInput(example, inputKey)
@@ -882,7 +852,6 @@ object AdkSupport {
      * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing the agent trace, retrieved
      * RAG contexts under [contextKey], and [CallMetrics] asynchronously.
      */
-    @OptIn(DelicateCoroutinesApi::class)
     @JvmStatic
     @JvmOverloads
     fun measuredAsyncRagTask(
@@ -893,7 +862,7 @@ object AdkSupport {
         outputKey: String = OUTPUT_KEY,
         contextKey: String = CONTEXT_KEY,
         retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = GlobalScope,
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = measuredAsyncRagTask(
         InMemoryRunner(agent = agent),
         modelId,
@@ -946,7 +915,7 @@ object AdkSupport {
     fun toToolCalls(events: List<Event>): List<ToolCall> {
         if (events.isEmpty()) return emptyList()
 
-        val cleanEvents = events.filter { !it.partial }
+        val cleanEvents = nonPartialEvents(events)
         val result = ArrayList<ToolCall>()
 
         for (i in cleanEvents.indices) {
@@ -1060,20 +1029,35 @@ object AdkSupport {
     // ==================== Tool Definitions & Schema Conversion ====================
 
     /**
-     * Extracts [ToolDefinition]s from an ADK [LlmAgent], including tools from its sub-agents.
+     * Extracts [ToolDefinition]s from an ADK [BaseAgent], including tools from its sub-agents.
      */
     @JvmStatic
-    fun toToolDefinitions(agent: LlmAgent): List<ToolDefinition> {
+    fun toToolDefinitions(agent: BaseAgent): List<ToolDefinition> {
         val tools = ArrayList<BaseTool>()
-        collectAgentTools(agent, tools)
+        collectAgentTools(agent, tools, Collections.newSetFromMap(IdentityHashMap()))
         return toToolDefinitions(tools)
     }
 
     /**
-     * Converts a list of ADK [BaseTool]s into Dokimos [ToolDefinition]s.
+     * Extracts [ToolDefinition]s from an ADK [LlmAgent], including tools from its sub-agents.
      */
     @JvmStatic
-    fun toToolDefinitions(tools: List<BaseTool>): List<ToolDefinition> = tools.map { toToolDefinition(it) }
+    fun toToolDefinitions(agent: LlmAgent): List<ToolDefinition> = toToolDefinitions(agent as BaseAgent)
+
+    /**
+     * Converts a list of ADK [BaseTool]s into Dokimos [ToolDefinition]s, deduplicating by tool
+     * name while preserving declaration order.
+     */
+    @JvmStatic
+    fun toToolDefinitions(tools: List<BaseTool>): List<ToolDefinition> {
+        if (tools.isEmpty()) return emptyList()
+        val defsByName = LinkedHashMap<String, ToolDefinition>()
+        for (tool in tools) {
+            val def = toToolDefinition(tool)
+            defsByName.putIfAbsent(def.name(), def)
+        }
+        return defsByName.values.toList()
+    }
 
     /**
      * Extracts [ToolDefinition]s from an [AdkTraceCollector] that observed an agent run.
@@ -1120,7 +1104,11 @@ object AdkSupport {
         val typeName = schema.type?.name
         if (!typeName.isNullOrBlank() && typeName != "TYPE_UNSPECIFIED") {
             map["type"] = typeName.lowercase()
-        } else {
+        } else if (!schema.properties.isNullOrEmpty()) {
+            map["type"] = "object"
+        } else if (schema.items != null) {
+            map["type"] = "array"
+        } else if (schema.anyOf.isNullOrEmpty()) {
             map["type"] = "object"
         }
 
@@ -1209,8 +1197,7 @@ object AdkSupport {
         if (events.isEmpty()) return emptyList()
         val filterNames = retrievalToolNames.filter { it.isNotBlank() }.toSet()
         val contexts = ArrayList<String>()
-        for (event in events) {
-            if (event.partial) continue
+        for (event in nonPartialEvents(events)) {
             contexts.addAll(extractTexts(event.groundingMetadata))
             for (fr in event.functionResponses()) {
                 val explicitTool = filterNames.isNotEmpty() && fr.name in filterNames
@@ -1279,7 +1266,7 @@ object AdkSupport {
         if (events.isEmpty()) {
             return builder.build()
         }
-        val cleanEvents = events.filter { !it.partial }
+        val cleanEvents = nonPartialEvents(events)
         val currentAssistantTurnEvents = ArrayList<Event>()
 
         for (event in cleanEvents) {
@@ -1318,20 +1305,32 @@ object AdkSupport {
         userId: String = DEFAULT_USER_ID,
         sessionId: String = UUID.randomUUID().toString(),
     ): ConversationalApplication {
+        val activeSessionId = AtomicReference(sessionId)
         val processedUserMessages = AtomicInteger(0)
+        val firstUserMessageRef = AtomicReference<String?>(null)
         return ConversationalApplication { trajectory ->
             val userMessages = trajectory?.userMessages().orEmpty()
             if (userMessages.isEmpty()) {
                 return@ConversationalApplication Message.assistant("")
             }
-            var startIndex = processedUserMessages.get()
-            if (startIndex >= userMessages.size) {
-                startIndex = userMessages.size - 1
+            val firstContent = userMessages[0].content()
+            val prevProcessed = processedUserMessages.get()
+            if (userMessages.size <= prevProcessed ||
+                (prevProcessed > 0 && firstUserMessageRef.get() != firstContent)
+            ) {
+                processedUserMessages.set(0)
+                activeSessionId.set(UUID.randomUUID().toString())
+                firstUserMessageRef.set(firstContent)
+            } else if (prevProcessed == 0) {
+                firstUserMessageRef.set(firstContent)
             }
+
+            val startIndex = processedUserMessages.get()
+            val currentSessionId = activeSessionId.get()
             var lastTurnEvents: List<Event> = emptyList()
             for (i in startIndex until userMessages.size) {
                 lastTurnEvents = runBlocking {
-                    runRunnerInSessionSuspend(runner, userId, sessionId, userMessages[i].content())
+                    runRunnerInSessionSuspend(runner, userId, currentSessionId, userMessages[i].content())
                 }
                 processedUserMessages.set(i + 1)
             }
@@ -1402,11 +1401,16 @@ object AdkSupport {
         return ModelCallResult(sb.toString().trim(), lastUsage)
     }
 
-    private fun buildAgentTrace(events: List<Event>, latencyMs: Long?): AgentTrace {
+    private fun nonPartialEvents(events: List<Event>): List<Event> {
+        val nonPartial = events.filter { !it.partial }
+        return nonPartial.ifEmpty { events }
+    }
+
+    internal fun buildAgentTrace(events: List<Event>, latencyMs: Long?): AgentTrace {
         if (events.isEmpty()) {
             return AgentTrace.builder().finalResponse("").build()
         }
-        val cleanEvents = events.filter { !it.partial }
+        val cleanEvents = nonPartialEvents(events)
         val toolCalls = toToolCalls(cleanEvents)
         val builder = AgentTrace.builder().toolCalls(toolCalls)
         var modelId: String? = null
@@ -1421,14 +1425,17 @@ object AdkSupport {
             }
             event.usageMetadata?.let { u ->
                 val p = u.promptTokenCount
-                if (p != null && p > 0) {
-                    totalIn += p
-                    hasIn = true
-                }
                 val c = u.candidatesTokenCount
-                if (c != null && c > 0) {
-                    totalOut += c
-                    hasOut = true
+                val anyPositive = (p != null && p > 0) || (c != null && c > 0)
+                if (anyPositive) {
+                    if (p != null) {
+                        totalIn += p
+                        hasIn = true
+                    }
+                    if (c != null) {
+                        totalOut += c
+                        hasOut = true
+                    }
                 }
             }
 
@@ -1513,7 +1520,10 @@ object AdkSupport {
     }
 
     private fun extractInput(example: Example, inputKey: String): String {
-        val raw = example.inputs()[inputKey] ?: example.input()
+        var raw = example.inputs()[inputKey]
+        if (raw == null && inputKey == INPUT_KEY) {
+            raw = example.input()
+        }
         require(raw != null) { "Input key '$inputKey' not found in Example inputs: ${example.inputs().keys}" }
         return raw.toString()
     }
@@ -1554,7 +1564,7 @@ object AdkSupport {
         ) {
             return true
         }
-        for (key in listOf("context", "contexts", "documents", "chunks", "passages")) {
+        for (key in listOf("context", "contexts", "documents", "chunks", "results", "passages")) {
             if (response.containsKey(key)) return true
         }
         return false
@@ -1580,34 +1590,34 @@ object AdkSupport {
         }
     }
 
-    private fun collectAgentTools(agent: BaseAgent, sink: MutableList<BaseTool>) {
+    private fun collectAgentTools(agent: BaseAgent, sink: MutableList<BaseTool>, visited: MutableSet<BaseAgent>) {
+        if (!visited.add(agent)) return
         if (agent is LlmAgent) {
             sink.addAll(agent.tools)
         }
         for (sub in agent.subAgents) {
-            collectAgentTools(sub, sink)
+            collectAgentTools(sub, sink, visited)
         }
     }
 
-    internal fun resolveModelId(agent: BaseAgent): String? {
+    internal fun resolveModelId(agent: BaseAgent): String? =
+        resolveModelId(agent, Collections.newSetFromMap(IdentityHashMap()))
+
+    private fun resolveModelId(agent: BaseAgent, visited: MutableSet<BaseAgent>): String? {
+        if (!visited.add(agent)) return null
         if (agent is LlmAgent && agent.model.name.isNotBlank()) {
             return agent.model.name
         }
         for (sub in agent.subAgents) {
-            resolveModelId(sub)?.let { return it }
+            resolveModelId(sub, visited)?.let { return it }
         }
         return null
     }
 
+    @Suppress("UNCHECKED_CAST")
     internal fun nonNullMap(map: Map<String, Any?>?): Map<String, Any> {
         if (map.isNullOrEmpty()) return emptyMap()
-        val copy = LinkedHashMap<String, Any>()
-        for ((k, v) in map) {
-            if (v != null) {
-                copy[k] = v
-            }
-        }
-        return copy.toMap()
+        return Collections.unmodifiableMap(LinkedHashMap(map)) as Map<String, Any>
     }
 
     internal fun isErrorMap(map: Map<String, Any?>?): Boolean {
@@ -1656,8 +1666,10 @@ fun Runner.toAgentTrace(input: String): AgentTrace = AdkSupport.toAgentTrace(thi
 
 /** Suspending variant that runs this [Runner] on [input] and returns the [AgentTrace]. */
 suspend fun Runner.runTrace(input: String): AgentTrace {
+    val start = System.nanoTime()
     val events = AdkSupport.runRunnerSuspend(this, input)
-    return AdkSupport.toAgentTrace(events)
+    val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+    return AdkSupport.buildAgentTrace(events, latencyMs)
 }
 
 /** Converts this ADK [Session]'s event history into a Dokimos [AgentTrace]. */
@@ -1665,6 +1677,9 @@ fun Session.toAgentTrace(): AgentTrace = AdkSupport.toAgentTrace(this)
 
 /** Converts this list of ADK [Event]s into a Dokimos [AgentTrace]. */
 fun List<Event>.toAgentTrace(): AgentTrace = AdkSupport.toAgentTrace(this)
+
+/** Extracts [ToolDefinition]s from this [BaseAgent] and its sub-agents. */
+fun BaseAgent.toToolDefinitions(): List<ToolDefinition> = AdkSupport.toToolDefinitions(this)
 
 /** Extracts [ToolDefinition]s from this [LlmAgent] and its sub-agents. */
 fun LlmAgent.toToolDefinitions(): List<ToolDefinition> = AdkSupport.toToolDefinitions(this)

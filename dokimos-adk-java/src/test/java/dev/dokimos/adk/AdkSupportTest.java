@@ -195,23 +195,24 @@ class AdkSupportTest {
                 .instruction("Be helpful")
                 .build();
 
-        MeasuredTask measuredAgent = AdkSupport.measuredAgentTask(agent, "gemini-3.8-flash", prices);
+        MeasuredTask measuredAgent = AdkSupport.measuredAgentTask(agent, prices);
         TaskResult agentResult = measuredAgent.run(Example.of("prompt", "expected"));
         assertThat(agentResult.outputs()).containsEntry("output", "Measured output");
         assertThat(agentResult.metrics().tokensIn()).isEqualTo(1_000);
         assertThat(agentResult.metrics().tokensOut()).isEqualTo(500);
+        assertThat(agentResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9));
 
-        AsyncTask measuredAsync =
-                AdkSupport.measuredAsyncAgentTask(new InMemoryRunner(agent), "gemini-3.8-flash", prices);
+        AsyncTask measuredAsync = AdkSupport.measuredAsyncAgentTask(new InMemoryRunner(agent), prices);
         TaskResult asyncResult =
                 measuredAsync.run(Example.of("prompt", "expected")).join();
         assertThat(asyncResult.outputs()).containsEntry("output", "Measured output");
         assertThat(asyncResult.metrics().tokensIn()).isEqualTo(1_000);
         assertThat(asyncResult.metrics().tokensOut()).isEqualTo(500);
+        assertThat(asyncResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9));
     }
 
     @Test
-    void toCallMetricsHandlesNullAndZeroUsage() {
+    void toCallMetricsHandlesNullZeroAndPartialEventUsage() {
         CallMetrics nullMetrics =
                 AdkSupport.toCallMetrics((GenerateContentResponseUsageMetadata) null, 42L, "gemini-3.8-flash", null);
         assertThat(nullMetrics.latencyMs()).isEqualTo(42L);
@@ -226,6 +227,42 @@ class AdkSupportTest {
         CallMetrics zeroMetrics = AdkSupport.toCallMetrics(zeroUsage, 15L, "gemini-3.8-flash", null);
         assertThat(zeroMetrics.tokensIn()).isNull();
         assertThat(zeroMetrics.tokensOut()).isNull();
+
+        // Zero candidatesTokenCount with positive promptTokenCount preserves 0 and computes cost
+        GenerateContentResponseUsageMetadata promptOnlyUsage = GenerateContentResponseUsageMetadata.builder()
+                .promptTokenCount(100)
+                .candidatesTokenCount(0)
+                .build();
+        PriceTable prices = (m, in, out) -> in * 0.001 + out * 0.002;
+        CallMetrics promptOnlyMetrics = AdkSupport.toCallMetrics(promptOnlyUsage, 10L, "gemini-3.8-flash", prices);
+        assertThat(promptOnlyMetrics.tokensIn()).isEqualTo(100);
+        assertThat(promptOnlyMetrics.tokensOut()).isEqualTo(0);
+        assertThat(promptOnlyMetrics.costUsd()).isCloseTo(0.1, within(1e-9));
+
+        // Partial streaming events should not double-count tokens when non-partial events exist
+        Event partialEvent = Event.builder()
+                .id("p1")
+                .author("agent")
+                .partial(true)
+                .usageMetadata(GenerateContentResponseUsageMetadata.builder()
+                        .promptTokenCount(50)
+                        .candidatesTokenCount(10)
+                        .build())
+                .build();
+        Event finalEvent = Event.builder()
+                .id("f1")
+                .author("agent")
+                .partial(false)
+                .modelVersion("gemini-3.8-flash")
+                .usageMetadata(GenerateContentResponseUsageMetadata.builder()
+                        .promptTokenCount(50)
+                        .candidatesTokenCount(20)
+                        .build())
+                .build();
+        CallMetrics eventMetrics = AdkSupport.toCallMetrics(List.of(partialEvent, finalEvent), 25L, null, prices);
+        assertThat(eventMetrics.tokensIn()).isEqualTo(50);
+        assertThat(eventMetrics.tokensOut()).isEqualTo(20);
+        assertThat(eventMetrics.costUsd()).isCloseTo(0.09, within(1e-9));
     }
 
     @Test
@@ -295,7 +332,7 @@ class AdkSupportTest {
     }
 
     @Test
-    void asConversationalAppSupportsMultiTurnConversationSimulation() {
+    void asConversationalAppSupportsMultiTurnConversationSimulationAndRotatesSessionOnNewTrajectory() {
         AtomicInteger turn = new AtomicInteger(0);
         BaseLlm multiTurnLlm = new BaseLlm("fake-gemini") {
             @Override
@@ -331,6 +368,12 @@ class AdkSupportTest {
         ConversationTrajectory t2 = t1.withMessage(r1).withMessage(Message.user("Follow-up question"));
         Message r2 = app.respond(t2);
         assertThat(r2.content()).isEqualTo("Reply for turn 2");
+
+        // Starting a new simulation trajectory resets turn state and rotates session
+        ConversationTrajectory freshTrajectory =
+                ConversationTrajectory.builder().userMessage("New conversation").build();
+        Message r3 = app.respond(freshTrajectory);
+        assertThat(r3.content()).isEqualTo("Reply for turn 3");
     }
 
     @Test

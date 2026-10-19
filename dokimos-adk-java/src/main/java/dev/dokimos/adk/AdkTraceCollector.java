@@ -1,6 +1,7 @@
 package dev.dokimos.adk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.adk.agents.BaseAgent;
 import com.google.adk.agents.CallbackContext;
 import com.google.adk.agents.InvocationContext;
 import com.google.adk.events.Event;
@@ -19,12 +20,14 @@ import dev.dokimos.core.conversation.ConversationTrajectory;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Maybe;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -66,15 +69,16 @@ public final class AdkTraceCollector extends BasePlugin {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private final List<Event> events = new ArrayList<>();
-    private final List<LlmResponse> llmResponses = new ArrayList<>();
-    private final List<ToolCall> callbackToolCalls = new ArrayList<>();
-    private final Map<String, BaseTool> observedTools = new LinkedHashMap<>();
-    private final Set<String> observedToolNames = new LinkedHashSet<>();
+    private final List<Event> events = new CopyOnWriteArrayList<>();
+    private final List<LlmResponse> llmResponses = new CopyOnWriteArrayList<>();
+    private final List<ToolCall> callbackToolCalls = new CopyOnWriteArrayList<>();
+    private final Map<String, BaseTool> observedTools = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final Set<String> observedToolNames = Collections.synchronizedSet(new LinkedHashSet<>());
 
-    private Long runStartNanos;
-    private Long totalLatencyMs;
-    private boolean hasObservedActivity;
+    private volatile Long runStartNanos;
+    private volatile Long totalLatencyMs;
+    private volatile boolean hasObservedActivity;
+    private volatile String observedModelId;
 
     /**
      * Creates a new trace collector plugin with the {@link #DEFAULT_PLUGIN_NAME}.
@@ -114,16 +118,29 @@ public final class AdkTraceCollector extends BasePlugin {
     public Maybe<Content> beforeRunCallback(InvocationContext invocationContext) {
         hasObservedActivity = true;
         runStartNanos = System.nanoTime();
-        if (invocationContext != null && invocationContext.userContent().isPresent()) {
-            Content userContent = invocationContext.userContent().get();
-            String invocationId = invocationContext.invocationId() != null ? invocationContext.invocationId() : "";
-            if (!hasMatchingTrailingUserEvent(invocationId)) {
-                events.add(Event.builder()
-                        .id(Event.generateEventId())
-                        .invocationId(invocationId)
-                        .author("user")
-                        .content(userContent)
-                        .build());
+        if (invocationContext != null) {
+            BaseAgent agent = invocationContext.agent();
+            if (agent != null) {
+                for (BaseTool tool : AdkSupport.collectTools(agent)) {
+                    if (tool != null && tool.name() != null && !tool.name().isBlank()) {
+                        observedTools.putIfAbsent(tool.name(), tool);
+                    }
+                }
+                if (observedModelId == null) {
+                    observedModelId = AdkSupport.resolveModelId(agent);
+                }
+            }
+            if (invocationContext.userContent().isPresent()) {
+                Content userContent = invocationContext.userContent().get();
+                String invocationId = invocationContext.invocationId() != null ? invocationContext.invocationId() : "";
+                if (!hasMatchingTrailingUserEvent(invocationId)) {
+                    events.add(Event.builder()
+                            .id(Event.generateEventId())
+                            .invocationId(invocationId)
+                            .author("user")
+                            .content(userContent)
+                            .build());
+                }
             }
         }
         return Maybe.empty();
@@ -135,6 +152,11 @@ public final class AdkTraceCollector extends BasePlugin {
             hasObservedActivity = true;
             if (!isDuplicateUserEvent(event)) {
                 events.add(event);
+            }
+            if (observedModelId == null
+                    && event.modelVersion().isPresent()
+                    && !event.modelVersion().get().isBlank()) {
+                observedModelId = event.modelVersion().get();
             }
             if (event.functionCalls() != null) {
                 event.functionCalls().forEach(call -> {
@@ -155,6 +177,11 @@ public final class AdkTraceCollector extends BasePlugin {
         if (llmResponse != null) {
             hasObservedActivity = true;
             llmResponses.add(llmResponse);
+            if (observedModelId == null
+                    && llmResponse.modelVersion().isPresent()
+                    && !llmResponse.modelVersion().get().isBlank()) {
+                observedModelId = llmResponse.modelVersion().get();
+            }
         }
         return Maybe.empty();
     }
@@ -173,10 +200,16 @@ public final class AdkTraceCollector extends BasePlugin {
         recordObservedTool(tool);
         if (tool != null && tool.name() != null && !tool.name().isBlank()) {
             ToolCall.Builder builder =
-                    ToolCall.builder().name(tool.name()).arguments(toolArgs != null ? Map.copyOf(toolArgs) : Map.of());
+                    ToolCall.builder().name(tool.name()).arguments(toolArgs != null ? toolArgs : Map.of());
             String serializedResult = serializeResultMap(result);
             if (serializedResult != null) {
                 builder.result(serializedResult);
+            }
+            builder.metadata("error", AdkSupport.isErrorMap(result));
+            if (toolContext != null
+                    && toolContext.functionCallId().isPresent()
+                    && !toolContext.functionCallId().get().isBlank()) {
+                builder.metadata("id", toolContext.functionCallId().get());
             }
             callbackToolCalls.add(builder.build());
         }
@@ -194,12 +227,20 @@ public final class AdkTraceCollector extends BasePlugin {
                             ? error.getMessage()
                             : error.getClass().getName())
                     : "unknown error";
-            ToolCall call = ToolCall.builder()
+            ToolCall.Builder builder = ToolCall.builder()
                     .name(tool.name())
-                    .arguments(toolArgs != null ? Map.copyOf(toolArgs) : Map.of())
-                    .metadata("error", errorMsg)
-                    .build();
-            callbackToolCalls.add(call);
+                    .arguments(toolArgs != null ? toolArgs : Map.of())
+                    .result(serializeResultMap(Map.of("error", errorMsg)))
+                    .metadata("error", true);
+            if (error != null) {
+                builder.metadata("exceptionType", error.getClass().getName());
+            }
+            if (toolContext != null
+                    && toolContext.functionCallId().isPresent()
+                    && !toolContext.functionCallId().get().isBlank()) {
+                builder.metadata("id", toolContext.functionCallId().get());
+            }
+            callbackToolCalls.add(builder.build());
         }
         return Maybe.empty();
     }
@@ -208,9 +249,11 @@ public final class AdkTraceCollector extends BasePlugin {
     public Completable afterRunCallback(InvocationContext invocationContext) {
         return Completable.fromAction(() -> {
             hasObservedActivity = true;
-            if (runStartNanos != null) {
-                long elapsedMs = Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - runStartNanos));
-                totalLatencyMs = (totalLatencyMs == null ? 0L : totalLatencyMs) + elapsedMs;
+            Long start = runStartNanos;
+            if (start != null) {
+                long elapsedMs = Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+                Long prev = totalLatencyMs;
+                totalLatencyMs = (prev == null ? 0L : prev) + elapsedMs;
                 runStartNanos = null;
             }
         });
@@ -229,42 +272,49 @@ public final class AdkTraceCollector extends BasePlugin {
      * Returns the {@link ToolCall}s captured so far, in execution order.
      * <p>
      * Extracts matched {@code FunctionCall}/{@code FunctionResponse} pairs from captured
-     * {@link Event}s when present, falling back to tool calls recorded directly via
-     * {@link #afterToolCallback} / {@link #onToolErrorCallback}.
+     * {@link Event}s when present, backfilling any missing results or error metadata from
+     * {@link #afterToolCallback} / {@link #onToolErrorCallback}, and falling back to callback
+     * tool calls when no tool-call events were emitted.
      *
      * @return an immutable list of captured tool calls
      */
     public List<ToolCall> toolCalls() {
-        List<ToolCall> fromEvents = AdkSupport.toToolCalls(events);
-        if (!fromEvents.isEmpty()) {
-            return fromEvents;
-        }
-        return List.copyOf(callbackToolCalls);
+        return mergeCallbackResults(AdkSupport.toToolCalls(events), callbackToolCalls);
     }
 
     /**
-     * Returns the distinct tool names observed during the run, in first-seen order.
+     * Returns the distinct tool names invoked during the run, in first-seen order.
      *
      * @return an immutable copy of the observed tool names
      */
     public List<String> observedToolNames() {
-        return List.copyOf(observedToolNames);
+        synchronized (observedToolNames) {
+            return List.copyOf(observedToolNames);
+        }
     }
 
     /**
-     * Returns {@link ToolDefinition}s for all tools observed during the run.
+     * Returns {@link ToolDefinition}s for all tools configured on the agent or observed during the run.
      * <p>
-     * For tools observed via {@link #beforeToolCallback}, {@link #afterToolCallback}, or
-     * {@link #onToolErrorCallback}, the full {@link BaseTool} declaration (description and
-     * JSON parameter schema) is converted via {@link AdkSupport#toToolDefinition(BaseTool)}.
-     * For tool names observed only on {@link Event}s without a {@link BaseTool} instance, a
-     * minimal {@link ToolDefinition} with an empty object schema is synthesized.
+     * For tools discovered on the agent in {@link #beforeRunCallback} or observed via
+     * {@link #beforeToolCallback}, {@link #afterToolCallback}, or {@link #onToolErrorCallback},
+     * the full {@link BaseTool} declaration (description and JSON parameter schema) is converted
+     * via {@link AdkSupport#toToolDefinition(BaseTool)}. For tool names observed only on
+     * {@link Event}s without a {@link BaseTool} instance, a minimal {@link ToolDefinition} with
+     * an empty object schema is synthesized.
      *
      * @return an immutable list of tool definitions in first-seen order
      */
     public List<ToolDefinition> toolDefinitions() {
-        List<ToolDefinition> definitions = new ArrayList<>();
-        for (String name : observedToolNames) {
+        Set<String> allNames = new LinkedHashSet<>();
+        synchronized (observedToolNames) {
+            allNames.addAll(observedToolNames);
+        }
+        synchronized (observedTools) {
+            allNames.addAll(observedTools.keySet());
+        }
+        List<ToolDefinition> definitions = new ArrayList<>(allNames.size());
+        for (String name : allNames) {
             BaseTool tool = observedTools.get(name);
             if (tool != null) {
                 definitions.add(AdkSupport.toToolDefinition(tool));
@@ -293,12 +343,12 @@ public final class AdkTraceCollector extends BasePlugin {
      */
     public AgentTrace trace() {
         AgentTrace fromEvents = AdkSupport.toAgentTrace(events);
-        if (!fromEvents.toolCalls().isEmpty() || callbackToolCalls.isEmpty()) {
+        List<ToolCall> mergedCalls = mergeCallbackResults(fromEvents.toolCalls(), callbackToolCalls);
+        if (mergedCalls.equals(fromEvents.toolCalls())) {
             return fromEvents;
         }
-        AgentTrace.Builder builder = AgentTrace.builder()
-                .toolCalls(List.copyOf(callbackToolCalls))
-                .finalResponse(fromEvents.finalResponse());
+        AgentTrace.Builder builder =
+                AgentTrace.builder().toolCalls(mergedCalls).finalResponse(fromEvents.finalResponse());
         fromEvents.reasoningSteps().forEach(builder::addReasoningStep);
         fromEvents.metadata().forEach(builder::metadata);
         return builder.build();
@@ -335,9 +385,22 @@ public final class AdkTraceCollector extends BasePlugin {
 
     /**
      * Returns the {@link CallMetrics} captured from the completed run, computing USD cost
+     * via the supplied {@link PriceTable} using the model identifier inferred from the agent
+     * or events.
+     *
+     * @param prices the price table for cost lookup (may be null)
+     * @return the captured call metrics, or {@code null} if no run activity was observed
+     */
+    public CallMetrics callMetrics(PriceTable prices) {
+        return callMetrics(null, prices);
+    }
+
+    /**
+     * Returns the {@link CallMetrics} captured from the completed run, computing USD cost
      * via the optional {@link PriceTable} when token usage was recorded.
      *
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; falls back to the model
+     *                observed on the agent or events)
      * @param prices  the price table for cost lookup (may be null)
      * @return the captured call metrics, or {@code null} if no run activity was observed
      */
@@ -345,8 +408,9 @@ public final class AdkTraceCollector extends BasePlugin {
         if (!hasObservedActivity) {
             return null;
         }
+        String effectiveModelId = (modelId != null && !modelId.isBlank()) ? modelId : observedModelId;
         long latency = totalLatencyMs != null ? totalLatencyMs : 0L;
-        CallMetrics fromEvents = AdkSupport.toCallMetrics(events, latency, modelId, prices);
+        CallMetrics fromEvents = AdkSupport.toCallMetrics(events, latency, effectiveModelId, prices);
         if (fromEvents.tokensIn() != null || fromEvents.tokensOut() != null || llmResponses.isEmpty()) {
             if (fromEvents.tokensIn() == null && fromEvents.tokensOut() == null && totalLatencyMs == null) {
                 return null;
@@ -372,8 +436,8 @@ public final class AdkTraceCollector extends BasePlugin {
         if (tokensIn == null && tokensOut == null && totalLatencyMs == null) {
             return null;
         }
-        Double costUsd = (prices != null && modelId != null && tokensIn != null && tokensOut != null)
-                ? prices.costUsd(modelId, tokensIn, tokensOut)
+        Double costUsd = (prices != null && effectiveModelId != null && tokensIn != null && tokensOut != null)
+                ? prices.costUsd(effectiveModelId, tokensIn, tokensOut)
                 : null;
         return new CallMetrics(tokensIn, tokensOut, costUsd, totalLatencyMs);
     }
@@ -391,6 +455,7 @@ public final class AdkTraceCollector extends BasePlugin {
         runStartNanos = null;
         totalLatencyMs = null;
         hasObservedActivity = false;
+        observedModelId = null;
     }
 
     private void recordObservedTool(BaseTool tool) {
@@ -398,6 +463,59 @@ public final class AdkTraceCollector extends BasePlugin {
             observedTools.putIfAbsent(tool.name(), tool);
             observedToolNames.add(tool.name());
         }
+    }
+
+    private static List<ToolCall> mergeCallbackResults(List<ToolCall> fromEvents, List<ToolCall> fromCallbacks) {
+        if (fromEvents.isEmpty()) {
+            return List.copyOf(fromCallbacks);
+        }
+        if (fromCallbacks.isEmpty()) {
+            return fromEvents;
+        }
+        List<ToolCall> callbacks = new ArrayList<>(fromCallbacks);
+        boolean[] usedCallback = new boolean[callbacks.size()];
+        List<ToolCall> merged = new ArrayList<>(fromEvents.size());
+        for (ToolCall eventCall : fromEvents) {
+            if (eventCall.result() != null) {
+                merged.add(eventCall);
+                continue;
+            }
+            ToolCall matchedCb = null;
+            Object callId = eventCall.metadata().get("id");
+            if (callId instanceof String idStr && !idStr.isBlank()) {
+                for (int i = 0; i < callbacks.size(); i++) {
+                    if (!usedCallback[i]
+                            && idStr.equals(callbacks.get(i).metadata().get("id"))) {
+                        matchedCb = callbacks.get(i);
+                        usedCallback[i] = true;
+                        break;
+                    }
+                }
+            }
+            if (matchedCb == null) {
+                for (int i = 0; i < callbacks.size(); i++) {
+                    if (!usedCallback[i]
+                            && eventCall.name().equals(callbacks.get(i).name())) {
+                        matchedCb = callbacks.get(i);
+                        usedCallback[i] = true;
+                        break;
+                    }
+                }
+            }
+            if (matchedCb != null) {
+                Map<String, Object> combinedMeta = new LinkedHashMap<>(eventCall.metadata());
+                combinedMeta.putAll(matchedCb.metadata());
+                merged.add(ToolCall.builder()
+                        .name(eventCall.name())
+                        .arguments(eventCall.arguments())
+                        .result(matchedCb.result())
+                        .metadata(combinedMeta)
+                        .build());
+            } else {
+                merged.add(eventCall);
+            }
+        }
+        return List.copyOf(merged);
     }
 
     private boolean hasMatchingTrailingUserEvent(String invocationId) {

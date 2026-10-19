@@ -9,6 +9,7 @@ import com.google.adk.events.Event;
 import com.google.adk.models.BaseLlm;
 import com.google.adk.models.LlmRequest;
 import com.google.adk.models.LlmResponse;
+import com.google.adk.models.Model;
 import com.google.adk.runner.InMemoryRunner;
 import com.google.adk.runner.Runner;
 import com.google.adk.sessions.Session;
@@ -44,7 +45,9 @@ import io.reactivex.rxjava3.core.Flowable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -58,6 +61,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Bridges Google Agent Development Kit (ADK) for Java types ({@link BaseAgent},
@@ -300,10 +304,7 @@ public final class AdkSupport {
         String[] toolNames = toToolNameArray(retrievalToolNames);
         return example -> {
             List<Event> events = runEvents(runner, extractInput(example, inputKey));
-            Map<String, Object> outputs = new LinkedHashMap<>();
-            outputs.put(outputKey, toAgentTrace(events).finalResponse());
-            outputs.put(contextKey, extractTexts(events, toolNames));
-            return Map.copyOf(outputs);
+            return buildRagOutputMap(events, outputKey, contextKey, toolNames);
         };
     }
 
@@ -604,12 +605,8 @@ public final class AdkSupport {
             return example -> CompletableFuture.supplyAsync(() -> TaskResult.of(sync.run(example)), executor);
         }
         return example -> runEventsAsync(runner, extractInput(example, inputKey))
-                .thenApply(events -> {
-                    Map<String, Object> outputs = new LinkedHashMap<>();
-                    outputs.put(outputKey, toAgentTrace(events).finalResponse());
-                    outputs.put(contextKey, extractTexts(events, retrievalToolNames));
-                    return TaskResult.of(Map.copyOf(outputs));
-                });
+                .thenApply(
+                        events -> TaskResult.of(buildRagOutputMap(events, outputKey, contextKey, retrievalToolNames)));
     }
 
     /**
@@ -665,17 +662,24 @@ public final class AdkSupport {
      *
      * @param events    the events emitted during an agent run (may be null)
      * @param latencyMs the measured wall-clock latency in milliseconds
-     * @param modelId   the model identifier for cost lookup (may be null)
+     * @param modelId   the model identifier for cost lookup (may be null; falls back to
+     *                  {@link Event#modelVersion()} when present on the events)
      * @param prices    the price table for cost lookup (may be null)
      * @return a populated CallMetrics
      */
     public static CallMetrics toCallMetrics(List<Event> events, long latencyMs, String modelId, PriceTable prices) {
         Integer tokensIn = null;
         Integer tokensOut = null;
+        String detectedModelId = null;
         if (events != null && !events.isEmpty()) {
             int pSum = 0;
             int cSum = 0;
             for (Event event : nonPartialEvents(events)) {
+                if (detectedModelId == null
+                        && event.modelVersion().isPresent()
+                        && !event.modelVersion().get().isBlank()) {
+                    detectedModelId = event.modelVersion().get();
+                }
                 if (event.usageMetadata().isPresent()) {
                     GenerateContentResponseUsageMetadata u =
                             event.usageMetadata().get();
@@ -688,10 +692,25 @@ public final class AdkSupport {
                 tokensOut = cSum;
             }
         }
-        Double costUsd = (prices != null && modelId != null && tokensIn != null && tokensOut != null)
-                ? prices.costUsd(modelId, tokensIn, tokensOut)
+        String effectiveModelId = (modelId != null && !modelId.isBlank()) ? modelId : detectedModelId;
+        Double costUsd = (prices != null && effectiveModelId != null && tokensIn != null && tokensOut != null)
+                ? prices.costUsd(effectiveModelId, tokensIn, tokensOut)
                 : null;
         return new CallMetrics(tokensIn, tokensOut, costUsd, latencyMs);
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} that calls an ADK {@link BaseLlm}, records latency,
+     * token usage, and cost (using {@link BaseLlm#model()} as the model identifier), and stores
+     * the text response under {@code output}.
+     *
+     * @param llm    the ADK LLM model (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return a MeasuredTask
+     */
+    public static MeasuredTask measuredTask(BaseLlm llm, PriceTable prices) {
+        Objects.requireNonNull(llm, "llm must not be null");
+        return measuredTask(llm, OUTPUT_KEY, llm.model(), prices);
     }
 
     /**
@@ -699,7 +718,7 @@ public final class AdkSupport {
      * token usage, and cost, and stores the text response under {@code output}.
      *
      * @param llm     the ADK LLM model (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; defaults to {@link BaseLlm#model()})
      * @param prices  the price table for cost lookup (may be null)
      * @return a MeasuredTask
      */
@@ -713,21 +732,35 @@ public final class AdkSupport {
      *
      * @param llm       the ADK LLM model (must not be null)
      * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
+     * @param modelId   the model identifier for cost lookup (may be null; defaults to {@link BaseLlm#model()})
      * @param prices    the price table for cost lookup (may be null)
      * @return a MeasuredTask
      */
     public static MeasuredTask measuredTask(BaseLlm llm, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(llm, "llm must not be null");
         Objects.requireNonNull(outputKey, "outputKey must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : llm.model();
         return example -> {
             long startNanos = System.nanoTime();
             List<LlmResponse> responses = generateResponses(llm, extractInput(example));
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             String text = extractTextFromLlmResponses(responses);
-            CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, modelId, prices);
+            CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, resolvedModelId, prices);
             return new TaskResult(Map.of(outputKey, text), metrics);
         };
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} that runs an ADK {@link Runner}, records latency,
+     * aggregated token usage across all emitted events, and cost (using the model identifier
+     * inferred from the agent or events), and stores the final response under {@code output}.
+     *
+     * @param runner the ADK runner (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return a MeasuredTask
+     */
+    public static MeasuredTask measuredTask(Runner runner, PriceTable prices) {
+        return measuredTask(runner, OUTPUT_KEY, null, prices);
     }
 
     /**
@@ -758,14 +791,29 @@ public final class AdkSupport {
     public static MeasuredTask measuredTask(Runner runner, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(runner, "runner must not be null");
         Objects.requireNonNull(outputKey, "outputKey must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             List<Event> events = runEvents(runner, extractInput(example));
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             String text = toAgentTrace(events).finalResponse();
-            CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
+            CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
             return new TaskResult(Map.of(outputKey, text), metrics);
         };
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} that runs an ADK {@link BaseAgent} via an
+     * {@link InMemoryRunner}, recording latency, aggregated token usage, and cost (using the
+     * model identifier inferred from the agent or events).
+     *
+     * @param agent  the ADK agent (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return a MeasuredTask
+     */
+    public static MeasuredTask measuredTask(BaseAgent agent, PriceTable prices) {
+        Objects.requireNonNull(agent, "agent must not be null");
+        return measuredTask(new InMemoryRunner(agent), OUTPUT_KEY, resolveModelId(agent), prices);
     }
 
     /**
@@ -785,6 +833,19 @@ public final class AdkSupport {
     /**
      * Creates a {@link MeasuredTask} for evaluating an ADK {@link Runner} with agent
      * evaluators while also capturing {@link CallMetrics} (latency, aggregated token usage,
+     * and cost).
+     *
+     * @param runner the ADK runner (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return a MeasuredTask producing the agent trace output map and call metrics
+     */
+    public static MeasuredTask measuredAgentTask(Runner runner, PriceTable prices) {
+        return measuredAgentTask(runner, null, prices);
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} for evaluating an ADK {@link Runner} with agent
+     * evaluators while also capturing {@link CallMetrics} (latency, aggregated token usage,
      * and cost). The task outputs {@link AgentTrace#toOutputMap()}.
      *
      * @param runner  the ADK runner (must not be null)
@@ -794,14 +855,28 @@ public final class AdkSupport {
      */
     public static MeasuredTask measuredAgentTask(Runner runner, String modelId, PriceTable prices) {
         Objects.requireNonNull(runner, "runner must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             List<Event> events = runEvents(runner, extractInput(example));
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             Map<String, Object> outputs = toAgentTrace(events).toOutputMap();
-            CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
+            CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
             return new TaskResult(outputs, metrics);
         };
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} for evaluating an ADK {@link BaseAgent} with agent
+     * evaluators via an {@link InMemoryRunner} while capturing {@link CallMetrics}.
+     *
+     * @param agent  the ADK agent (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return a MeasuredTask producing the agent trace output map and call metrics
+     */
+    public static MeasuredTask measuredAgentTask(BaseAgent agent, PriceTable prices) {
+        Objects.requireNonNull(agent, "agent must not be null");
+        return measuredAgentTask(new InMemoryRunner(agent), resolveModelId(agent), prices);
     }
 
     /**
@@ -816,6 +891,19 @@ public final class AdkSupport {
     public static MeasuredTask measuredAgentTask(BaseAgent agent, String modelId, PriceTable prices) {
         Objects.requireNonNull(agent, "agent must not be null");
         return measuredAgentTask(new InMemoryRunner(agent), modelId, prices);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} backed by an ADK {@link BaseLlm}'s reactive stream,
+     * storing the text response under {@code output} and attaching {@link CallMetrics}.
+     *
+     * @param llm    the ADK LLM model (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return an AsyncTask carrying CallMetrics in its TaskResult
+     */
+    public static AsyncTask measuredAsyncTask(BaseLlm llm, PriceTable prices) {
+        Objects.requireNonNull(llm, "llm must not be null");
+        return measuredAsyncTask(llm, OUTPUT_KEY, llm.model(), prices);
     }
 
     /**
@@ -844,12 +932,13 @@ public final class AdkSupport {
     public static AsyncTask measuredAsyncTask(BaseLlm llm, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(llm, "llm must not be null");
         Objects.requireNonNull(outputKey, "outputKey must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : llm.model();
         return example -> {
             long startNanos = System.nanoTime();
             return generateResponsesAsync(llm, extractInput(example)).thenApply(responses -> {
                 long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 String text = extractTextFromLlmResponses(responses);
-                CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, modelId, prices);
+                CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, resolvedModelId, prices);
                 return new TaskResult(Map.of(outputKey, text), metrics);
             });
         };
@@ -880,6 +969,18 @@ public final class AdkSupport {
      * Creates a measured {@link AsyncTask} backed by an ADK {@link Runner}'s reactive stream,
      * storing the final response under {@code output} and attaching {@link CallMetrics}.
      *
+     * @param runner the ADK runner (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return an AsyncTask carrying CallMetrics in its TaskResult
+     */
+    public static AsyncTask measuredAsyncTask(Runner runner, PriceTable prices) {
+        return measuredAsyncTask(runner, OUTPUT_KEY, null, prices);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} backed by an ADK {@link Runner}'s reactive stream,
+     * storing the final response under {@code output} and attaching {@link CallMetrics}.
+     *
      * @param runner  the ADK runner (must not be null)
      * @param modelId the model identifier for cost lookup (may be null)
      * @param prices  the price table for cost lookup (may be null)
@@ -902,12 +1003,13 @@ public final class AdkSupport {
     public static AsyncTask measuredAsyncTask(Runner runner, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(runner, "runner must not be null");
         Objects.requireNonNull(outputKey, "outputKey must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
                 long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 String text = toAgentTrace(events).finalResponse();
-                CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
+                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
                 return new TaskResult(Map.of(outputKey, text), metrics);
             });
         };
@@ -938,6 +1040,18 @@ public final class AdkSupport {
      * Creates a measured {@link AsyncTask} for evaluating an ADK {@link Runner} with agent
      * evaluators while capturing {@link CallMetrics}.
      *
+     * @param runner the ADK runner (must not be null)
+     * @param prices the price table for cost lookup (may be null)
+     * @return an AsyncTask producing the agent trace output map and call metrics
+     */
+    public static AsyncTask measuredAsyncAgentTask(Runner runner, PriceTable prices) {
+        return measuredAsyncAgentTask(runner, null, prices);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} for evaluating an ADK {@link Runner} with agent
+     * evaluators while capturing {@link CallMetrics}.
+     *
      * @param runner  the ADK runner (must not be null)
      * @param modelId the model identifier for cost lookup (may be null)
      * @param prices  the price table for cost lookup (may be null)
@@ -945,15 +1059,30 @@ public final class AdkSupport {
      */
     public static AsyncTask measuredAsyncAgentTask(Runner runner, String modelId, PriceTable prices) {
         Objects.requireNonNull(runner, "runner must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
                 long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
                 Map<String, Object> outputs = toAgentTrace(events).toOutputMap();
-                CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
+                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
                 return new TaskResult(outputs, metrics);
             });
         };
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} for RAG evaluation that runs an ADK {@link Runner},
+     * populates {@code output} and {@code context}, and captures {@link CallMetrics}.
+     *
+     * @param runner             the ADK runner (must not be null)
+     * @param prices             the price table for cost lookup (may be null)
+     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
+     *                           carry retrieved context
+     * @return a MeasuredTask suitable for RAG evaluation
+     */
+    public static MeasuredTask measuredRagTask(Runner runner, PriceTable prices, String... retrievalToolNames) {
+        return measuredRagTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, null, prices, retrievalToolNames);
     }
 
     /**
@@ -998,16 +1127,31 @@ public final class AdkSupport {
         Objects.requireNonNull(inputKey, "inputKey must not be null");
         Objects.requireNonNull(outputKey, "outputKey must not be null");
         Objects.requireNonNull(contextKey, "contextKey must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             List<Event> events = runEvents(runner, extractInput(example, inputKey));
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            Map<String, Object> outputs = new LinkedHashMap<>();
-            outputs.put(outputKey, toAgentTrace(events).finalResponse());
-            outputs.put(contextKey, extractTexts(events, retrievalToolNames));
-            CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
-            return new TaskResult(Map.copyOf(outputs), metrics);
+            Map<String, Object> outputs = buildRagOutputMap(events, outputKey, contextKey, retrievalToolNames);
+            CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
+            return new TaskResult(outputs, metrics);
         };
+    }
+
+    /**
+     * Creates a {@link MeasuredTask} for RAG evaluation that runs an ADK {@link BaseAgent}
+     * via an {@link InMemoryRunner}, populating {@code output}, {@code context}, and
+     * {@link CallMetrics}.
+     *
+     * @param agent              the ADK agent (must not be null)
+     * @param prices             the price table for cost lookup (may be null)
+     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
+     *                           carry retrieved context
+     * @return a MeasuredTask suitable for RAG evaluation
+     */
+    public static MeasuredTask measuredRagTask(BaseAgent agent, PriceTable prices, String... retrievalToolNames) {
+        Objects.requireNonNull(agent, "agent must not be null");
+        return measuredRagTask(new InMemoryRunner(agent), resolveModelId(agent), prices, retrievalToolNames);
     }
 
     /**
@@ -1033,6 +1177,20 @@ public final class AdkSupport {
      * reactive stream, populating {@code output}, {@code context}, and {@link CallMetrics}.
      *
      * @param runner             the ADK runner (must not be null)
+     * @param prices             the price table for cost lookup (may be null)
+     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
+     *                           carry retrieved context
+     * @return an AsyncTask carrying RAG outputs and CallMetrics
+     */
+    public static AsyncTask measuredAsyncRagTask(Runner runner, PriceTable prices, String... retrievalToolNames) {
+        return measuredAsyncRagTask(runner, null, prices, retrievalToolNames);
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link Runner}'s
+     * reactive stream, populating {@code output}, {@code context}, and {@link CallMetrics}.
+     *
+     * @param runner             the ADK runner (must not be null)
      * @param modelId            the model identifier for cost lookup (may be null)
      * @param prices             the price table for cost lookup (may be null)
      * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
@@ -1042,17 +1200,31 @@ public final class AdkSupport {
     public static AsyncTask measuredAsyncRagTask(
             Runner runner, String modelId, PriceTable prices, String... retrievalToolNames) {
         Objects.requireNonNull(runner, "runner must not be null");
+        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
             return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
                 long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                Map<String, Object> outputs = new LinkedHashMap<>();
-                outputs.put(OUTPUT_KEY, toAgentTrace(events).finalResponse());
-                outputs.put(CONTEXT_KEY, extractTexts(events, retrievalToolNames));
-                CallMetrics metrics = toCallMetrics(events, latencyMs, modelId, prices);
-                return new TaskResult(Map.copyOf(outputs), metrics);
+                Map<String, Object> outputs = buildRagOutputMap(events, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
+                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
+                return new TaskResult(outputs, metrics);
             });
         };
+    }
+
+    /**
+     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link BaseAgent}
+     * via an {@link InMemoryRunner}.
+     *
+     * @param agent              the ADK agent (must not be null)
+     * @param prices             the price table for cost lookup (may be null)
+     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
+     *                           carry retrieved context
+     * @return an AsyncTask carrying RAG outputs and CallMetrics
+     */
+    public static AsyncTask measuredAsyncRagTask(BaseAgent agent, PriceTable prices, String... retrievalToolNames) {
+        Objects.requireNonNull(agent, "agent must not be null");
+        return measuredAsyncRagTask(new InMemoryRunner(agent), resolveModelId(agent), prices, retrievalToolNames);
     }
 
     /**
@@ -1176,8 +1348,9 @@ public final class AdkSupport {
                     continue;
                 }
                 Map<String, Object> responseMap = response.response().get();
-                List<String> extracted =
-                        extractContextStringsFromMap(responseMap, hasExplicitToolFilter || !hadGroundingChunks);
+                boolean fallbackToWholeMap =
+                        hasExplicitToolFilter || (!hadGroundingChunks && isImplicitRagToolName(toolName));
+                List<String> extracted = extractContextStringsFromMap(responseMap, fallbackToWholeMap);
                 contexts.addAll(extracted);
             }
         }
@@ -1246,7 +1419,16 @@ public final class AdkSupport {
     public static AgentTrace toAgentTrace(Runner runner, String input) {
         Objects.requireNonNull(runner, "runner must not be null");
         Objects.requireNonNull(input, "input must not be null");
-        return toAgentTrace(runEvents(runner, input));
+        long startNanos = System.nanoTime();
+        List<Event> events = runEvents(runner, input);
+        long latencyMs = Math.max(0L, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
+        AgentTrace base = toAgentTrace(events);
+        AgentTrace.Builder builder =
+                AgentTrace.builder().toolCalls(base.toolCalls()).finalResponse(base.finalResponse());
+        base.reasoningSteps().forEach(builder::addReasoningStep);
+        base.metadata().forEach(builder::metadata);
+        builder.metadata("latencyMs", latencyMs);
+        return builder.build();
     }
 
     /**
@@ -1293,10 +1475,34 @@ public final class AdkSupport {
         List<Event> cleanEvents = nonPartialEvents(events);
         AgentTrace.Builder builder = AgentTrace.builder().toolCalls(toToolCalls(cleanEvents));
 
+        String modelVersion = null;
+        int promptTokens = 0;
+        int candidatesTokens = 0;
+
         for (Event event : cleanEvents) {
             for (String thought : extractThoughtTexts(event)) {
                 builder.addReasoningStep(thought);
             }
+            if (modelVersion == null
+                    && event.modelVersion().isPresent()
+                    && !event.modelVersion().get().isBlank()) {
+                modelVersion = event.modelVersion().get();
+            }
+            if (event.usageMetadata().isPresent()) {
+                GenerateContentResponseUsageMetadata u = event.usageMetadata().get();
+                promptTokens += u.promptTokenCount().orElse(0);
+                candidatesTokens += u.candidatesTokenCount().orElse(0);
+            }
+        }
+
+        if (modelVersion != null) {
+            builder.metadata("modelVersion", modelVersion);
+        }
+        if (promptTokens > 0) {
+            builder.metadata("promptTokenCount", promptTokens);
+        }
+        if (candidatesTokens > 0) {
+            builder.metadata("candidatesTokenCount", candidatesTokens);
         }
 
         String finalResponse = extractFinalResponse(cleanEvents);
@@ -1347,7 +1553,7 @@ public final class AdkSupport {
                 }
             }
 
-            result.addAll(matchCallsToResponses(calls, turnResponses));
+            result.addAll(matchCallsToResponses(event, calls, turnResponses));
         }
 
         return List.copyOf(result);
@@ -1368,8 +1574,7 @@ public final class AdkSupport {
      */
     public static ToolCall toToolCall(FunctionCall call, FunctionResponse response) {
         Objects.requireNonNull(call, "call must not be null");
-        String result = serializeFunctionResponse(response);
-        return toToolCall(call, result);
+        return toToolCall(call, response, null);
     }
 
     /**
@@ -1384,7 +1589,11 @@ public final class AdkSupport {
         Objects.requireNonNull(call, "call must not be null");
         String name = call.name().orElse("");
         Map<String, Object> args = call.args().orElse(Map.of());
-        return ToolCall.builder().name(name).arguments(args).result(result).build();
+        ToolCall.Builder builder = ToolCall.builder().name(name).arguments(args).result(result);
+        if (call.id().isPresent() && !call.id().get().isBlank()) {
+            builder.metadata("id", call.id().get());
+        }
+        return builder.build();
     }
 
     // -------------------------------------------------------------------------
@@ -1392,21 +1601,33 @@ public final class AdkSupport {
     // -------------------------------------------------------------------------
 
     /**
-     * Extracts {@link ToolDefinition}s from an ADK {@link LlmAgent}'s configured tools.
+     * Extracts {@link ToolDefinition}s from an ADK {@link BaseAgent} and any sub-agents,
+     * deduplicating by tool name while preserving first-seen order.
+     *
+     * @param agent the ADK agent (may be null)
+     * @return the Dokimos tool definitions, or an empty list
+     */
+    public static List<ToolDefinition> toToolDefinitions(BaseAgent agent) {
+        if (agent == null) {
+            return List.of();
+        }
+        return toToolDefinitions(collectTools(agent));
+    }
+
+    /**
+     * Extracts {@link ToolDefinition}s from an ADK {@link LlmAgent}'s configured tools
+     * (including any sub-agents).
      *
      * @param agent the ADK LlmAgent (may be null)
      * @return the Dokimos tool definitions, or an empty list
      */
     public static List<ToolDefinition> toToolDefinitions(LlmAgent agent) {
-        if (agent == null) {
-            return List.of();
-        }
-        List<BaseTool> tools = agent.tools().blockingGet();
-        return toToolDefinitions(tools);
+        return toToolDefinitions((BaseAgent) agent);
     }
 
     /**
-     * Converts a list of ADK {@link BaseTool}s into Dokimos {@link ToolDefinition}s.
+     * Converts a list of ADK {@link BaseTool}s into Dokimos {@link ToolDefinition}s,
+     * deduplicating by tool name while preserving first-seen order.
      *
      * @param tools the ADK tools (may be null or empty)
      * @return the Dokimos tool definitions, or an empty list
@@ -1415,10 +1636,14 @@ public final class AdkSupport {
         if (tools == null || tools.isEmpty()) {
             return List.of();
         }
-        return tools.stream()
-                .filter(Objects::nonNull)
-                .map(AdkSupport::toToolDefinition)
-                .toList();
+        Map<String, ToolDefinition> byName = new LinkedHashMap<>();
+        for (BaseTool tool : tools) {
+            if (tool != null) {
+                ToolDefinition def = toToolDefinition(tool);
+                byName.putIfAbsent(def.name(), def);
+            }
+        }
+        return List.copyOf(byName.values());
     }
 
     /**
@@ -1481,6 +1706,10 @@ public final class AdkSupport {
             }
         }
 
+        if (schema.title().isPresent() && !schema.title().get().isBlank()) {
+            map.put("title", schema.title().get());
+        }
+
         if (schema.description().isPresent() && !schema.description().get().isBlank()) {
             map.put("description", schema.description().get());
         }
@@ -1489,8 +1718,52 @@ public final class AdkSupport {
             map.put("format", schema.format().get());
         }
 
+        if (schema.pattern().isPresent() && !schema.pattern().get().isBlank()) {
+            map.put("pattern", schema.pattern().get());
+        }
+
+        if (schema.nullable().isPresent()) {
+            map.put("nullable", schema.nullable().get());
+        }
+
+        if (schema.default_().isPresent()) {
+            map.put("default", schema.default_().get());
+        }
+
         if (schema.enum_().isPresent() && !schema.enum_().get().isEmpty()) {
             map.put("enum", List.copyOf(schema.enum_().get()));
+        }
+
+        if (schema.minimum().isPresent()) {
+            map.put("minimum", schema.minimum().get());
+        }
+
+        if (schema.maximum().isPresent()) {
+            map.put("maximum", schema.maximum().get());
+        }
+
+        if (schema.minItems().isPresent()) {
+            map.put("minItems", schema.minItems().get());
+        }
+
+        if (schema.maxItems().isPresent()) {
+            map.put("maxItems", schema.maxItems().get());
+        }
+
+        if (schema.minLength().isPresent()) {
+            map.put("minLength", schema.minLength().get());
+        }
+
+        if (schema.maxLength().isPresent()) {
+            map.put("maxLength", schema.maxLength().get());
+        }
+
+        if (schema.minProperties().isPresent()) {
+            map.put("minProperties", schema.minProperties().get());
+        }
+
+        if (schema.maxProperties().isPresent()) {
+            map.put("maxProperties", schema.maxProperties().get());
         }
 
         if (schema.properties().isPresent() && !schema.properties().get().isEmpty()) {
@@ -1616,28 +1889,45 @@ public final class AdkSupport {
      * Each call to {@link ConversationalApplication#respond(ConversationTrajectory)} sends
      * the new user message(s) from the trajectory to a session managed by the runner and
      * returns a {@link Message#assistant(String, List)} containing both the assistant's text
-     * response and any {@link ToolCall}s executed on that turn.
+     * response and any {@link ToolCall}s executed on that turn. When a new trajectory is
+     * started on the same {@link ConversationalApplication} instance, a fresh ADK session ID
+     * is automatically allocated.
      *
      * @param runner the ADK runner (must not be null)
      * @return a ConversationalApplication backed by the runner
      */
     public static ConversationalApplication asConversationalApp(Runner runner) {
         Objects.requireNonNull(runner, "runner must not be null");
-        String sessionId = UUID.randomUUID().toString();
+        AtomicReference<String> sessionIdRef =
+                new AtomicReference<>(UUID.randomUUID().toString());
         AtomicInteger processedUserMessages = new AtomicInteger(0);
+        AtomicReference<String> firstUserMessageRef = new AtomicReference<>(null);
         return trajectory -> {
             if (trajectory == null || trajectory.userMessages().isEmpty()) {
                 return Message.assistant("");
             }
             List<Message> userMessages = trajectory.userMessages();
+            String firstContent = userMessages.get(0).content();
+            int prevProcessed = processedUserMessages.get();
+            if (prevProcessed > 0
+                    && (userMessages.size() <= prevProcessed
+                            || !Objects.equals(firstUserMessageRef.get(), firstContent))) {
+                sessionIdRef.set(UUID.randomUUID().toString());
+                processedUserMessages.set(0);
+            }
+            firstUserMessageRef.set(firstContent);
             int startIndex = processedUserMessages.get();
             if (startIndex >= userMessages.size()) {
                 startIndex = userMessages.size() - 1;
             }
+            String activeSessionId = sessionIdRef.get();
             List<Event> lastTurnEvents = List.of();
             for (int i = startIndex; i < userMessages.size(); i++) {
                 lastTurnEvents = runEventsInSession(
-                        runner, DEFAULT_USER_ID, sessionId, userMessages.get(i).content());
+                        runner,
+                        DEFAULT_USER_ID,
+                        activeSessionId,
+                        userMessages.get(i).content());
                 processedUserMessages.set(i + 1);
             }
             AgentTrace trace = toAgentTrace(lastTurnEvents);
@@ -1663,6 +1953,110 @@ public final class AdkSupport {
 
     private static final List<String> RECOGNIZED_CONTEXT_KEYS =
             List.of("response", "context", "contexts", "documents", "chunks", "results", "text", "content");
+
+    private static Map<String, Object> buildRagOutputMap(
+            List<Event> events, String outputKey, String contextKey, String... retrievalToolNames) {
+        AgentTrace trace = toAgentTrace(events);
+        Map<String, Object> outputs = new LinkedHashMap<>(trace.toOutputMap());
+        if (!OUTPUT_KEY.equals(outputKey)) {
+            outputs.remove(OUTPUT_KEY);
+        }
+        outputs.put(outputKey, trace.finalResponse());
+        outputs.put(contextKey, extractTexts(events, retrievalToolNames));
+        return Map.copyOf(outputs);
+    }
+
+    private static boolean isImplicitRagToolName(String toolName) {
+        if (toolName == null || toolName.isBlank()) {
+            return false;
+        }
+        String lower = toolName.toLowerCase(Locale.ROOT);
+        return lower.contains("rag")
+                || lower.contains("retriev")
+                || lower.contains("search")
+                || lower.contains("knowledge")
+                || lower.contains("doc");
+    }
+
+    static boolean isErrorMap(Map<String, Object> map) {
+        if (map == null || map.isEmpty()) {
+            return false;
+        }
+        Object err = map.get("error");
+        if (err != null && !err.toString().isBlank()) {
+            return true;
+        }
+        Object status = map.get("status");
+        return status != null && "error".equalsIgnoreCase(status.toString());
+    }
+
+    static List<BaseTool> collectTools(BaseAgent agent) {
+        if (agent == null) {
+            return List.of();
+        }
+        Map<String, BaseTool> byName = new LinkedHashMap<>();
+        Set<BaseAgent> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        collectToolsRecursive(agent, byName, visited);
+        return List.copyOf(byName.values());
+    }
+
+    private static void collectToolsRecursive(BaseAgent agent, Map<String, BaseTool> byName, Set<BaseAgent> visited) {
+        if (agent == null || !visited.add(agent)) {
+            return;
+        }
+        if (agent instanceof LlmAgent llmAgent) {
+            try {
+                List<BaseTool> tools = llmAgent.tools().blockingGet();
+                if (tools != null) {
+                    for (BaseTool tool : tools) {
+                        if (tool != null && tool.name() != null && !tool.name().isBlank()) {
+                            byName.putIfAbsent(tool.name(), tool);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+                // Best-effort extraction
+            }
+        }
+        if (agent.subAgents() != null) {
+            for (BaseAgent sub : agent.subAgents()) {
+                collectToolsRecursive(sub, byName, visited);
+            }
+        }
+    }
+
+    static String resolveModelId(BaseAgent agent) {
+        return resolveModelIdRecursive(agent, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private static String resolveModelIdRecursive(BaseAgent agent, Set<BaseAgent> visited) {
+        if (agent == null || !visited.add(agent)) {
+            return null;
+        }
+        if (agent instanceof LlmAgent llmAgent) {
+            Optional<Model> modelOpt = llmAgent.model();
+            if (modelOpt.isPresent()) {
+                Model m = modelOpt.get();
+                if (m.modelName().isPresent() && !m.modelName().get().isBlank()) {
+                    return m.modelName().get();
+                }
+                if (m.model().isPresent()
+                        && m.model().get().model() != null
+                        && !m.model().get().model().isBlank()) {
+                    return m.model().get().model();
+                }
+            }
+        }
+        if (agent.subAgents() != null) {
+            for (BaseAgent sub : agent.subAgents()) {
+                String subModel = resolveModelIdRecursive(sub, visited);
+                if (subModel != null) {
+                    return subModel;
+                }
+            }
+        }
+        return null;
+    }
 
     private static String[] toToolNameArray(List<String> retrievalToolNames) {
         if (retrievalToolNames == null || retrievalToolNames.isEmpty()) {
@@ -1816,17 +2210,23 @@ public final class AdkSupport {
             List<LlmResponse> responses, long latencyMs, String modelId, PriceTable prices) {
         Integer tokensIn = null;
         Integer tokensOut = null;
+        String detectedModelId = null;
         if (responses != null && !responses.isEmpty()) {
             int pSum = 0;
             int cSum = 0;
             for (LlmResponse response : responses) {
-                if (response != null
-                        && !response.partial().orElse(false)
-                        && response.usageMetadata().isPresent()) {
-                    GenerateContentResponseUsageMetadata u =
-                            response.usageMetadata().get();
-                    pSum += u.promptTokenCount().orElse(0);
-                    cSum += u.candidatesTokenCount().orElse(0);
+                if (response != null && !response.partial().orElse(false)) {
+                    if (detectedModelId == null
+                            && response.modelVersion().isPresent()
+                            && !response.modelVersion().get().isBlank()) {
+                        detectedModelId = response.modelVersion().get();
+                    }
+                    if (response.usageMetadata().isPresent()) {
+                        GenerateContentResponseUsageMetadata u =
+                                response.usageMetadata().get();
+                        pSum += u.promptTokenCount().orElse(0);
+                        cSum += u.candidatesTokenCount().orElse(0);
+                    }
                 }
             }
             if (pSum > 0 || cSum > 0) {
@@ -1834,8 +2234,9 @@ public final class AdkSupport {
                 tokensOut = cSum;
             }
         }
-        Double costUsd = (prices != null && modelId != null && tokensIn != null && tokensOut != null)
-                ? prices.costUsd(modelId, tokensIn, tokensOut)
+        String effectiveModelId = (modelId != null && !modelId.isBlank()) ? modelId : detectedModelId;
+        Double costUsd = (prices != null && effectiveModelId != null && tokensIn != null && tokensOut != null)
+                ? prices.costUsd(effectiveModelId, tokensIn, tokensOut)
                 : null;
         return new CallMetrics(tokensIn, tokensOut, costUsd, latencyMs);
     }
@@ -1887,7 +2288,7 @@ public final class AdkSupport {
     }
 
     private static List<ToolCall> matchCallsToResponses(
-            List<FunctionCall> calls, List<FunctionResponse> turnResponses) {
+            Event callEvent, List<FunctionCall> calls, List<FunctionResponse> turnResponses) {
         List<ToolCall> matched = new ArrayList<>();
         boolean[] usedResponse = new boolean[turnResponses.size()];
 
@@ -1931,10 +2332,36 @@ public final class AdkSupport {
                 }
             }
 
-            matched.add(toToolCall(call, matchedResponse));
+            matched.add(toToolCall(call, matchedResponse, callEvent));
         }
 
         return matched;
+    }
+
+    private static ToolCall toToolCall(FunctionCall call, FunctionResponse response, Event callEvent) {
+        String name = call.name().orElse("");
+        Map<String, Object> args = call.args().orElse(Map.of());
+        String result = serializeFunctionResponse(response);
+        ToolCall.Builder builder = ToolCall.builder().name(name).arguments(args).result(result);
+        if (call.id().isPresent() && !call.id().get().isBlank()) {
+            builder.metadata("id", call.id().get());
+        } else if (response != null
+                && response.id().isPresent()
+                && !response.id().get().isBlank()) {
+            builder.metadata("id", response.id().get());
+        }
+        if (response != null && response.response().isPresent()) {
+            builder.metadata("error", isErrorMap(response.response().get()));
+        }
+        if (callEvent != null) {
+            if (callEvent.author() != null && !callEvent.author().isBlank()) {
+                builder.metadata("author", callEvent.author());
+            }
+            if (callEvent.branch().isPresent() && !callEvent.branch().get().isBlank()) {
+                builder.metadata("branch", callEvent.branch().get());
+            }
+        }
+        return builder.build();
     }
 
     private static String serializeFunctionResponse(FunctionResponse response) {
@@ -1991,6 +2418,21 @@ public final class AdkSupport {
     }
 
     private static String extractFinalResponse(List<Event> cleanEvents) {
+        for (int i = cleanEvents.size() - 1; i >= 0; i--) {
+            Event event = cleanEvents.get(i);
+            if (isUserTextEvent(event)) {
+                continue;
+            }
+            if (event.functionResponses() != null && !event.functionResponses().isEmpty()) {
+                continue;
+            }
+            if (event.finalResponse()) {
+                String text = extractNonThoughtText(event);
+                if (!text.isEmpty()) {
+                    return text;
+                }
+            }
+        }
         for (int i = cleanEvents.size() - 1; i >= 0; i--) {
             Event event = cleanEvents.get(i);
             if (isUserTextEvent(event)) {

@@ -214,7 +214,7 @@ class AdkSupportTest {
     }
 
     @Test
-    fun `toCallMetrics handles null and zero usage`() {
+    fun `toCallMetrics handles null, zero, and partial event usage`() {
         val nullMetrics = AdkSupport.toCallMetrics(null as UsageMetadata?, 42L, "gemini-3.8-flash", null)
         assertThat(nullMetrics.latencyMs()).isEqualTo(42L)
         assertThat(nullMetrics.tokensIn() as Any?).isNull()
@@ -225,6 +225,31 @@ class AdkSupportTest {
         val zeroMetrics = AdkSupport.toCallMetrics(zeroUsage, 15L, "gemini-3.8-flash", null)
         assertThat(zeroMetrics.tokensIn() as Any?).isNull()
         assertThat(zeroMetrics.tokensOut() as Any?).isNull()
+
+        val promptOnlyUsage = UsageMetadata(promptTokenCount = 100, candidatesTokenCount = 0)
+        val prices = PriceTable { _, tokensIn, tokensOut -> tokensIn * 0.001 + tokensOut * 0.002 }
+        val promptOnlyMetrics = AdkSupport.toCallMetrics(promptOnlyUsage, 10L, "gemini-3.8-flash", prices)
+        assertThat(promptOnlyMetrics.tokensIn()).isEqualTo(100)
+        assertThat(promptOnlyMetrics.tokensOut()).isEqualTo(0)
+        assertThat(promptOnlyMetrics.costUsd()).isCloseTo(0.1, within(1e-9))
+
+        val partialEvent = Event(
+            id = "p1",
+            author = "agent",
+            partial = true,
+            usageMetadata = UsageMetadata(promptTokenCount = 50, candidatesTokenCount = 10),
+        )
+        val finalEvent = Event(
+            id = "f1",
+            author = "agent",
+            partial = false,
+            modelVersion = "gemini-3.8-flash",
+            usageMetadata = UsageMetadata(promptTokenCount = 50, candidatesTokenCount = 20),
+        )
+        val eventMetrics = AdkSupport.toCallMetrics(listOf(partialEvent, finalEvent), 25L, null, prices)
+        assertThat(eventMetrics.tokensIn()).isEqualTo(50)
+        assertThat(eventMetrics.tokensOut()).isEqualTo(20)
+        assertThat(eventMetrics.costUsd()).isCloseTo(0.09, within(1e-9))
     }
 
     @Test
@@ -303,7 +328,7 @@ class AdkSupportTest {
     }
 
     @Test
-    fun `asConversationalApp supports multi-turn conversation simulation`() {
+    fun `asConversationalApp supports multi-turn conversation simulation and rotates session on new trajectory`() {
         val turn = AtomicInteger(0)
         val multiTurnModel = object : Model {
             override val name: String = "fake-gemini"
@@ -333,6 +358,10 @@ class AdkSupportTest {
         val t2 = t1.withMessage(r1).withMessage(Message.user("Follow-up question"))
         val r2 = app.respond(t2)
         assertThat(r2.content()).isEqualTo("Reply for turn 2")
+
+        val freshTrajectory = ConversationTrajectory.builder().userMessage("New conversation").build()
+        val r3 = app.respond(freshTrajectory)
+        assertThat(r3.content()).isEqualTo("Reply for turn 3")
     }
 
     @Test

@@ -185,9 +185,19 @@ class AdkTraceCollectorTest {
     @Test
     @Suppress("OPT_IN_USAGE")
     fun `attach works with InMemoryRunner Builder and App Builder`() = runTest {
+        val textModel = object : Model {
+            override val name: String = "gemini-3.8-flash"
+
+            override fun generateContent(request: LlmRequest, stream: Boolean): Flow<LlmResponse> = flowOf(
+                LlmResponse(
+                    content = Content.fromText(Role.MODEL, "Hello there!"),
+                    usageMetadata = UsageMetadata(promptTokenCount = 10, candidatesTokenCount = 5),
+                ),
+            )
+        }
         val agent = LlmAgent(
             name = "app_agent",
-            model = toolCallingFakeModel(),
+            model = textModel,
             instruction = Instruction("Be helpful."),
         )
 
@@ -211,5 +221,48 @@ class AdkTraceCollectorTest {
         ).collect()
 
         assertThat(collector.events()).isNotEmpty()
+    }
+
+    @Test
+    fun `handles null tool argument values and tool errors for ToolErrorEvaluator`() = runTest {
+        val collector = AdkTraceCollector()
+        val weatherTool = object : FunctionTool(
+            name = "get_weather",
+            description = "Get the current weather for a city",
+        ) {
+            override fun declaration(): FunctionDeclaration? = null
+
+            override suspend fun execute(context: ToolContext, args: Map<String, Any?>): Any = emptyMap<String, Any>()
+        }
+
+        val argsWithNull = mapOf<String, Any?>("city" to null)
+        val dummyContext = com.google.adk.kt.tools.ToolContext(
+            invocationContext = io.mockk.mockk(relaxed = true),
+            functionCallId = "err-call-1",
+        )
+
+        collector.onToolError(
+            tool = weatherTool,
+            args = argsWithNull,
+            context = dummyContext,
+            error = IllegalStateException("Weather API timeout"),
+        )
+
+        assertThat(collector.observedToolNames()).containsExactly("get_weather")
+        val calls = collector.toolCalls()
+        assertThat(calls).hasSize(1)
+        val errorCall = calls[0]
+        assertThat(errorCall.name()).isEqualTo("get_weather")
+        assertThat(errorCall.arguments()).containsKey("city")
+        assertThat(errorCall.arguments()["city"]).isNull()
+        assertThat(errorCall.metadata()).containsEntry("error", true)
+
+        val errorCase = EvalTestCase.builder()
+            .input("What is the weather?")
+            .actualOutput("toolCalls", calls)
+            .build()
+        val errorEval = dev.dokimos.core.evaluators.agents.ToolErrorEvaluator.builder().build().evaluate(errorCase)
+        assertThat(errorEval.success()).isFalse()
+        assertThat(errorEval.score()).isEqualTo(0.0)
     }
 }

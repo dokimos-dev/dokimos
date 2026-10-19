@@ -13,13 +13,12 @@
     <properties>
         <kotlin.version>2.3.10</kotlin.version>
         <kotlinx.coroutines.version>1.11.0</kotlinx.coroutines.version>
-        <kotlinx.serialization.version>1.8.1</kotlinx.serialization.version>
         <mockk.version>1.14.6</mockk.version>
         <maven.javadoc.skip>true</maven.javadoc.skip>
     </properties>
 
     <artifactId>dokimos-adk-kotlin</artifactId>
-    <name>Dokimos ADK for Kotlin</name>
+    <name>Dokimos :: Integration :: ADK Kotlin</name>
     <description>Google Agent Development Kit (ADK) for Kotlin integration for Dokimos</description>
 
     <dependencyManagement>
@@ -35,13 +34,6 @@
                 <groupId>org.jetbrains.kotlinx</groupId>
                 <artifactId>kotlinx-coroutines-bom</artifactId>
                 <version>${kotlinx.coroutines.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-serialization-bom</artifactId>
-                <version>${kotlinx.serialization.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

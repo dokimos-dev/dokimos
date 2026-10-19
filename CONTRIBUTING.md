@@ -33,6 +33,8 @@ This compiles the code, runs tests, and installs artifacts to your local Maven r
 - **dokimos-langchain4j**: [LangChain4j](https://docs.langchain4j.dev/) integration
 - **dokimos-spring-ai**: [Spring-AI](https://spring.io/projects/spring-ai) integration
 - **dokimos-spring-ai-alibaba**: [Spring AI Alibaba](https://github.com/alibaba/spring-ai-alibaba) graph-agent integration
+- **dokimos-adk-java**: [Google ADK for Java](https://google.github.io/adk-docs/) integration
+- **dokimos-adk-kotlin**: [Google ADK for Kotlin](https://google.github.io/adk-docs/) integration
 - **dokimos-koog**: [Koog](https://docs.koog.ai/) integration
 - **dokimos-embabel**: [Embabel](https://github.com/embabel/embabel-agent) agent integration (Java 21+)
 - **dokimos-kotlin**: Kotlin DSL for creating experiments
@@ -55,6 +57,8 @@ dokimos/
 ├── dokimos-langchain4j/    # LangChain4j integration
 ├── dokimos-spring-ai/      # Spring AI integration
 ├── dokimos-spring-ai-alibaba/ # Spring AI Alibaba graph-agent integration
+├── dokimos-adk-java/       # Google ADK for Java integration
+├── dokimos-adk-kotlin/     # Google ADK for Kotlin integration
 ├── dokimos-koog/           # Koog integration
 ├── dokimos-embabel/        # Embabel agent integration (Java 21+)
 ├── dokimos-kotlin/         # Kotlin DSL for creating experiments

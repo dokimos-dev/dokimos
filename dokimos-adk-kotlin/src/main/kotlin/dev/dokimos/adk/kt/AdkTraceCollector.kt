@@ -20,7 +20,6 @@ import dev.dokimos.core.agents.ToolCall
 import dev.dokimos.core.agents.ToolDefinition
 import dev.dokimos.core.conversation.ConversationTrajectory
 import java.util.Collections
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
@@ -54,17 +53,21 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     private val events = CopyOnWriteArrayList<Event>()
     private val callbackToolCalls = CopyOnWriteArrayList<ToolCall>()
     private val modelUsages = CopyOnWriteArrayList<UsageMetadata>()
-    private val observedTools = ConcurrentHashMap<String, BaseTool>()
+    private val observedTools = Collections.synchronizedMap(LinkedHashMap<String, BaseTool>())
     private val observedToolNames = Collections.synchronizedSet(LinkedHashSet<String>())
     private val runStartNanos = AtomicLong(0L)
 
     @Volatile
-    private var lastLatencyMs: Long = 0L
+    private var totalLatencyMs: Long? = null
+
+    @Volatile
+    private var hasObservedActivity: Boolean = false
 
     @Volatile
     private var observedModelId: String? = null
 
     override suspend fun onUserMessage(invocationContext: InvocationContext, userMessage: Content): Content {
+        hasObservedActivity = true
         events.add(
             Event(
                 invocationId = invocationContext.invocationId,
@@ -76,13 +79,17 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     }
 
     override suspend fun beforeRun(invocationContext: InvocationContext): CallbackChoice<Unit, Content> {
+        hasObservedActivity = true
         runStartNanos.set(System.nanoTime())
         recordAgentHierarchy(invocationContext.agent)
         val sessionEvents = invocationContext.session.events
-        if (events.isEmpty() && sessionEvents.isNotEmpty()) {
+        if (sessionEvents.isNotEmpty()) {
             val last = sessionEvents.last()
-            if (Role.USER.equals(last.author, ignoreCase = true) ||
-                Role.USER.equals(last.content?.role, ignoreCase = true)
+            if ((
+                    Role.USER.equals(last.author, ignoreCase = true) ||
+                        Role.USER.equals(last.content?.role, ignoreCase = true)
+                    ) &&
+                !hasMatchingTrailingUserEvent(last)
             ) {
                 events.add(last)
             }
@@ -91,13 +98,25 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     }
 
     override suspend fun onEvent(invocationContext: InvocationContext, event: Event): Event {
+        hasObservedActivity = true
         if (!event.partial) {
-            events.add(event)
+            if (!isDuplicateUserEvent(event)) {
+                events.add(event)
+            }
+            if (observedModelId == null && !event.modelVersion.isNullOrBlank()) {
+                observedModelId = event.modelVersion
+            }
+            for (call in event.functionCalls()) {
+                if (call.name.isNotBlank()) {
+                    observedToolNames.add(call.name)
+                }
+            }
         }
         return event
     }
 
     override suspend fun afterModel(context: CallbackContext, response: LlmResponse): LlmResponse {
+        hasObservedActivity = true
         if (!response.partial) {
             response.usageMetadata?.let { modelUsages.add(it) }
             if (observedModelId == null && !response.modelVersion.isNullOrBlank()) {
@@ -122,6 +141,7 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
         args: Map<String, Any?>,
         result: Map<String, Any?>,
     ): Map<String, Any?> {
+        hasObservedActivity = true
         recordTool(tool)
         val metadata = LinkedHashMap<String, Any>()
         metadata["error"] = AdkSupport.isErrorMap(result)
@@ -143,7 +163,9 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
         args: Map<String, Any?>,
         error: Throwable,
     ): CallbackChoice<Unit, Map<String, Any?>> {
+        hasObservedActivity = true
         recordTool(tool)
+        val errorMsg = error.message ?: error.toString()
         val metadata = LinkedHashMap<String, Any>()
         metadata["error"] = true
         metadata["exceptionType"] = error.javaClass.name
@@ -152,7 +174,7 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
             ToolCall.builder()
                 .name(tool.name)
                 .arguments(AdkSupport.nonNullMap(args))
-                .result(error.message ?: error.toString())
+                .result(AdkSupport.serializeResult(mapOf("error" to errorMsg)))
                 .metadata(metadata)
                 .build(),
         )
@@ -160,9 +182,11 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     }
 
     override suspend fun afterRun(invocationContext: InvocationContext) {
-        val start = runStartNanos.get()
+        hasObservedActivity = true
+        val start = runStartNanos.getAndSet(0L)
         if (start > 0L) {
-            lastLatencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+            val elapsedMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+            totalLatencyMs = (totalLatencyMs ?: 0L) + elapsedMs
         }
     }
 
@@ -174,7 +198,8 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
         observedTools.clear()
         observedToolNames.clear()
         runStartNanos.set(0L)
-        lastLatencyMs = 0L
+        totalLatencyMs = null
+        hasObservedActivity = false
         observedModelId = null
     }
 
@@ -182,15 +207,13 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     fun events(): List<Event> = events.toList()
 
     /**
-     * Returns the [ToolCall]s observed so far. Prefers calls extracted from [events] (which include
-     * model-emitted function calls and responses in turn order), falling back to tool callbacks.
+     * Returns the [ToolCall]s observed so far. Extracts matched calls/responses from [events] in
+     * turn order, backfilling any missing results or error metadata from tool callbacks, and
+     * falling back to tool callbacks when no tool-call events were emitted.
      */
-    fun toolCalls(): List<ToolCall> {
-        val fromEvents = AdkSupport.toToolCalls(events)
-        return if (fromEvents.isNotEmpty()) fromEvents else callbackToolCalls.toList()
-    }
+    fun toolCalls(): List<ToolCall> = mergeCallbackResults(AdkSupport.toToolCalls(events), callbackToolCalls)
 
-    /** Returns the distinct tool names observed during execution in encounter order. */
+    /** Returns the distinct tool names invoked during execution in encounter order. */
     fun observedToolNames(): List<String> {
         synchronized(observedToolNames) {
             return observedToolNames.toList()
@@ -198,8 +221,8 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
     }
 
     /**
-     * Returns [ToolDefinition]s for all tools observed during execution, preserving full
-     * descriptions and JSON parameter schemas from the [BaseTool] instances.
+     * Returns [ToolDefinition]s for all tools configured on the agent or observed during execution,
+     * preserving full descriptions and JSON parameter schemas from the [BaseTool] instances.
      */
     fun toolDefinitions(): List<ToolDefinition> {
         val definitions = ArrayList<ToolDefinition>()
@@ -210,14 +233,24 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
                 definitions.add(AdkSupport.toToolDefinition(tool))
             }
         }
-        for ((key, tool) in observedTools) {
+        val snapshot = synchronized(observedTools) { LinkedHashMap(observedTools) }
+        for ((key, tool) in snapshot) {
             if (seen.add(key)) {
                 definitions.add(AdkSupport.toToolDefinition(tool))
             }
         }
         for (call in toolCalls()) {
             if (seen.add(call.name())) {
-                definitions.add(ToolDefinition.of(call.name(), "", mapOf("type" to "object")))
+                definitions.add(
+                    ToolDefinition.of(
+                        call.name(),
+                        "",
+                        mapOf(
+                            "type" to "object",
+                            "properties" to emptyMap<String, Any>(),
+                        ),
+                    ),
+                )
             }
         }
         return definitions.toList()
@@ -240,20 +273,22 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
      * @return the constructed [AgentTrace]
      */
     fun trace(): AgentTrace {
+        val latency = totalLatencyMs
         if (events.isNotEmpty()) {
             val eventTrace = AdkSupport.toAgentTrace(events)
-            if (eventTrace.toolCalls().isNotEmpty() || callbackToolCalls.isEmpty()) {
+            val mergedCalls = mergeCallbackResults(eventTrace.toolCalls(), callbackToolCalls)
+            if (mergedCalls == eventTrace.toolCalls() && latency == null) {
                 return eventTrace
             }
             return AgentTrace.builder()
                 .finalResponse(eventTrace.finalResponse())
-                .toolCalls(callbackToolCalls.toList())
+                .toolCalls(mergedCalls)
                 .reasoningSteps(eventTrace.reasoningSteps())
                 .metadata(
                     buildMap {
                         putAll(eventTrace.metadata())
-                        if (lastLatencyMs > 0L) {
-                            put("latencyMs", lastLatencyMs)
+                        if (latency != null) {
+                            put("latencyMs", latency)
                         }
                     },
                 )
@@ -262,7 +297,7 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
         return AgentTrace.builder()
             .finalResponse("")
             .toolCalls(callbackToolCalls.toList())
-            .metadata(if (lastLatencyMs > 0L) mapOf("latencyMs" to lastLatencyMs) else emptyMap())
+            .metadata(if (latency != null) mapOf("latencyMs" to latency) else emptyMap())
             .build()
     }
 
@@ -287,45 +322,42 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
      */
     @JvmOverloads
     fun callMetrics(modelId: String? = observedModelId, priceTable: PriceTable? = null): CallMetrics? {
-        if (events.isEmpty() && modelUsages.isEmpty() && lastLatencyMs == 0L) {
+        if (!hasObservedActivity && events.isEmpty() && modelUsages.isEmpty() && totalLatencyMs == null) {
             return null
         }
         val effectiveModelId = modelId ?: observedModelId
+        val latency = totalLatencyMs ?: 0L
         if (events.isNotEmpty()) {
-            val fromEvents = AdkSupport.toCallMetrics(events, lastLatencyMs, effectiveModelId, priceTable)
+            val fromEvents = AdkSupport.toCallMetrics(events, latency, effectiveModelId, priceTable)
             if (fromEvents.tokensIn() != null || fromEvents.tokensOut() != null || modelUsages.isEmpty()) {
-                return fromEvents
+                if (fromEvents.tokensIn() == null && fromEvents.tokensOut() == null && totalLatencyMs == null) {
+                    return null
+                }
+                return CallMetrics(fromEvents.tokensIn(), fromEvents.tokensOut(), fromEvents.costUsd(), totalLatencyMs)
             }
         }
-        var totalIn = 0
-        var totalOut = 0
-        var hasIn = false
-        var hasOut = false
+        var pSum = 0
+        var cSum = 0
         for (usage in modelUsages) {
-            val promptTokens = usage.promptTokenCount
-            if (promptTokens != null && promptTokens > 0) {
-                totalIn += promptTokens
-                hasIn = true
-            }
-            val candidateTokens = usage.candidatesTokenCount
-            if (candidateTokens != null && candidateTokens > 0) {
-                totalOut += candidateTokens
-                hasOut = true
-            }
+            pSum += usage.promptTokenCount ?: 0
+            cSum += usage.candidatesTokenCount ?: 0
         }
-        val tokensIn = if (hasIn) totalIn else null
-        val tokensOut = if (hasOut) totalOut else null
+        val tokensIn = if (pSum > 0 || cSum > 0) pSum else null
+        val tokensOut = if (pSum > 0 || cSum > 0) cSum else null
+        if (tokensIn == null && tokensOut == null && totalLatencyMs == null) {
+            return null
+        }
         val cost = if (priceTable != null && effectiveModelId != null && tokensIn != null && tokensOut != null) {
             priceTable.costUsd(effectiveModelId, tokensIn, tokensOut)
         } else {
             null
         }
-        return CallMetrics(tokensIn, tokensOut, cost, lastLatencyMs)
+        return CallMetrics(tokensIn, tokensOut, cost, totalLatencyMs)
     }
 
     private fun recordTool(tool: BaseTool) {
         if (tool.name.isNotBlank()) {
-            observedTools[tool.name] = tool
+            observedTools.putIfAbsent(tool.name, tool)
             observedToolNames.add(tool.name)
         }
     }
@@ -336,12 +368,78 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
                 observedModelId = agent.model.name
             }
             for (tool in agent.tools) {
-                recordTool(tool)
+                if (tool.name.isNotBlank()) {
+                    observedTools.putIfAbsent(tool.name, tool)
+                }
             }
         }
         for (sub in agent.subAgents) {
             recordAgentHierarchy(sub)
         }
+    }
+
+    private fun hasMatchingTrailingUserEvent(candidate: Event): Boolean {
+        val last = events.lastOrNull() ?: return false
+        val isLastUser = Role.USER.equals(last.author, ignoreCase = true) ||
+            Role.USER.equals(last.content?.role, ignoreCase = true)
+        if (!isLastUser) return false
+        return last.invocationId == candidate.invocationId && last.content == candidate.content
+    }
+
+    private fun isDuplicateUserEvent(candidate: Event): Boolean {
+        val isCandidateUser = Role.USER.equals(candidate.author, ignoreCase = true) ||
+            Role.USER.equals(candidate.content?.role, ignoreCase = true)
+        if (!isCandidateUser) return false
+        return hasMatchingTrailingUserEvent(candidate)
+    }
+
+    private fun mergeCallbackResults(fromEvents: List<ToolCall>, fromCallbacks: List<ToolCall>): List<ToolCall> {
+        if (fromEvents.isEmpty()) return fromCallbacks.toList()
+        if (fromCallbacks.isEmpty()) return fromEvents
+        val callbacks = fromCallbacks.toList()
+        val usedCallback = BooleanArray(callbacks.size)
+        val merged = ArrayList<ToolCall>(fromEvents.size)
+        for (eventCall in fromEvents) {
+            if (eventCall.result() != null) {
+                merged.add(eventCall)
+                continue
+            }
+            var matchedCb: ToolCall? = null
+            val callId = eventCall.metadata()["id"] as? String
+            if (!callId.isNullOrBlank()) {
+                for (i in callbacks.indices) {
+                    if (!usedCallback[i] && callId == callbacks[i].metadata()["id"]) {
+                        matchedCb = callbacks[i]
+                        usedCallback[i] = true
+                        break
+                    }
+                }
+            }
+            if (matchedCb == null) {
+                for (i in callbacks.indices) {
+                    if (!usedCallback[i] && eventCall.name() == callbacks[i].name()) {
+                        matchedCb = callbacks[i]
+                        usedCallback[i] = true
+                        break
+                    }
+                }
+            }
+            if (matchedCb != null) {
+                val combinedMeta = LinkedHashMap<String, Any>(eventCall.metadata())
+                combinedMeta.putAll(matchedCb.metadata())
+                merged.add(
+                    ToolCall.builder()
+                        .name(eventCall.name())
+                        .arguments(eventCall.arguments())
+                        .result(matchedCb.result())
+                        .metadata(combinedMeta)
+                        .build(),
+                )
+            } else {
+                merged.add(eventCall)
+            }
+        }
+        return merged.toList()
     }
 
     companion object {

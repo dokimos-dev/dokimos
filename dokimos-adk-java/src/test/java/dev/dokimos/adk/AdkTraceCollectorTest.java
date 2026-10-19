@@ -166,9 +166,10 @@ class AdkTraceCollectorTest {
         assertThat(trajectory.assistantMessages().get(0).content()).isEqualTo("The weather in Paris is 22C and sunny.");
         assertThat(trajectory.assistantMessages().get(0).toolCalls()).hasSize(1);
 
-        // 5. CallMetrics aggregates tokens across both model turns and computes cost
+        // 5. CallMetrics aggregates tokens across both model turns and computes cost (including PriceTable-only
+        // overload)
         PriceTable prices = (model, in, out) -> (in * 0.001) + (out * 0.002);
-        CallMetrics metrics = collector.callMetrics("gemini-3.8-flash", prices);
+        CallMetrics metrics = collector.callMetrics(prices);
         assertThat(metrics).isNotNull();
         assertThat(metrics.tokensIn()).isEqualTo(75); // 30 + 45
         assertThat(metrics.tokensOut()).isEqualTo(25); // 10 + 15
@@ -181,5 +182,38 @@ class AdkTraceCollectorTest {
         assertThat(collector.toolCalls()).isEmpty();
         assertThat(collector.toolDefinitions()).isEmpty();
         assertThat(collector.callMetrics()).isNull();
+    }
+
+    @Test
+    void handlesNullToolArgumentValuesAndToolErrorsForToolErrorEvaluator() {
+        AdkTraceCollector collector = new AdkTraceCollector();
+        FunctionTool weatherTool = FunctionTool.create(WeatherToolSet.class, "getWeather");
+
+        java.util.Map<String, Object> argsWithNull = new java.util.LinkedHashMap<>();
+        argsWithNull.put("city", null);
+
+        // Should not throw NPE when toolArgs contains a null value
+        collector
+                .onToolErrorCallback(weatherTool, argsWithNull, null, new IllegalStateException("Weather API timeout"))
+                .blockingGet();
+
+        assertThat(collector.observedToolNames()).containsExactly("get_weather");
+        List<ToolCall> calls = collector.toolCalls();
+        assertThat(calls).hasSize(1);
+        ToolCall errorCall = calls.get(0);
+        assertThat(errorCall.name()).isEqualTo("get_weather");
+        assertThat(errorCall.arguments()).containsKey("city");
+        assertThat(errorCall.arguments().get("city")).isNull();
+        assertThat(errorCall.metadata()).containsEntry("error", true);
+
+        EvalTestCase errorCase = EvalTestCase.builder()
+                .input("What is the weather?")
+                .actualOutput("toolCalls", calls)
+                .build();
+        EvalResult errorEval = dev.dokimos.core.evaluators.agents.ToolErrorEvaluator.builder()
+                .build()
+                .evaluate(errorCase);
+        assertThat(errorEval.success()).isFalse();
+        assertThat(errorEval.score()).isEqualTo(0.0);
     }
 }

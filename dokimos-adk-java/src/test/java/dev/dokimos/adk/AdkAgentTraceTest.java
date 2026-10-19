@@ -432,4 +432,25 @@ class AdkAgentTraceTest {
         assertThatThrownBy(() -> AdkSupport.toToolCall(null, (FunctionResponse) null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void extractsAndDeduplicatesToolDefinitionsAcrossSubAgents() {
+        FunctionTool weatherTool = FunctionTool.create(WeatherTools.class, "getWeather");
+        BaseTool pingTool = new BaseTool("custom_ping", "Pings a host") {};
+
+        LlmAgent subAgent = LlmAgent.builder()
+                .name("sub_agent")
+                .description("Sub-agent")
+                .tools(weatherTool, pingTool)
+                .build();
+        LlmAgent rootAgent = LlmAgent.builder()
+                .name("root_agent")
+                .description("Root agent")
+                .tools(weatherTool)
+                .subAgents(subAgent)
+                .build();
+
+        List<ToolDefinition> defs = AdkSupport.toToolDefinitions((com.google.adk.agents.BaseAgent) rootAgent);
+        assertThat(defs).extracting(ToolDefinition::name).containsExactly("get_weather", "custom_ping");
+    }
 }

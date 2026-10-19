@@ -14,7 +14,7 @@
     <artifactId>dokimos-adk-java</artifactId>
     <packaging>jar</packaging>
 
-    <name>Dokimos ADK for Java</name>
+    <name>Dokimos :: Integration :: ADK Java</name>
     <description>Google Agent Development Kit (ADK) for Java integration and adapters for Dokimos</description>
 
     <dependencies>

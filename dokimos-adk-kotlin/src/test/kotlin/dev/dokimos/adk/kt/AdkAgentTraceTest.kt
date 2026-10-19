@@ -436,4 +436,41 @@ class AdkAgentTraceTest {
         assertThat(def.description()).isEqualTo("Pings a host")
         assertThat(def.inputSchema()).containsEntry("type", "object")
     }
+
+    @Test
+    fun `extracts and deduplicates ToolDefinitions across sub-agents and preserves null tool arguments`() {
+        val pingTool = object : BaseTool(name = "custom_ping", description = "Pings a host") {
+            override fun declaration(): FunctionDeclaration? = null
+            override suspend fun run(context: ToolContext, args: Map<String, Any?>): Any = emptyMap<String, Any>()
+        }
+        val pongTool = object : BaseTool(name = "custom_pong", description = "Pongs a host") {
+            override fun declaration(): FunctionDeclaration? = null
+            override suspend fun run(context: ToolContext, args: Map<String, Any?>): Any = emptyMap<String, Any>()
+        }
+        val dummyModel = object : Model {
+            override val name: String = "gemini-3.8-flash"
+            override fun generateContent(request: LlmRequest, stream: Boolean): Flow<LlmResponse> = flowOf()
+        }
+
+        val subAgent = LlmAgent(
+            name = "sub_agent",
+            model = dummyModel,
+            tools = listOf(pingTool, pongTool),
+        )
+        val rootAgent: com.google.adk.kt.agents.BaseAgent = LlmAgent(
+            name = "root_agent",
+            model = dummyModel,
+            tools = listOf(pingTool),
+            subAgents = listOf(subAgent),
+        )
+
+        val defs = rootAgent.toToolDefinitions()
+        assertThat(defs).extracting<String> { it.name() }.containsExactly("custom_ping", "custom_pong")
+
+        // Verify null argument values are preserved in FunctionCall -> ToolCall conversion
+        val fcWithNull = FunctionCall(id = "c1", name = "custom_ping", args = mapOf("host" to null))
+        val tc = AdkSupport.toToolCall(fcWithNull)
+        assertThat(tc.arguments()).containsKey("host")
+        assertThat(tc.arguments()["host"]).isNull()
+    }
 }

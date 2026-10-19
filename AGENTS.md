@@ -17,6 +17,9 @@ dokimos/
 ├── dokimos-langchain4j/    # LangChain4j integration (RAG evaluators)
 ├── dokimos-spring-ai/      # Spring AI integration
 ├── dokimos-spring-ai-alibaba/ # Spring AI Alibaba graph-agent integration
+├── dokimos-openai/         # OpenAI Java SDK integration
+├── dokimos-adk-java/       # Google ADK for Java integration
+├── dokimos-adk-kotlin/     # Google ADK for Kotlin integration
 ├── dokimos-koog/           # Koog AI agent integration (Kotlin)
 ├── dokimos-embabel/        # Embabel agent integration (Java 21+, built via a JDK-21 profile)
 ├── dokimos-kotlin/         # Kotlin DSL for experiment builders
@@ -31,7 +34,7 @@ dokimos/
 ## Tech Stack
 
 - **Java 17+** (minimum, tested on 17, 21, and 25)
-- **Kotlin 2.3.10** (for `dokimos-kotlin` and `dokimos-koog`)
+- **Kotlin 2.3.10** (for `dokimos-kotlin`, `dokimos-koog`, and `dokimos-adk-kotlin`)
 - **Maven 3.6+** (build tool)
 - **Spring Boot 3.5.10** (server module)
 - **JUnit 6** (testing framework, compatible with JUnit 5.10.3+)
@@ -148,7 +151,7 @@ When working on the core framework, understand these central types in `dokimos-c
 
 ## Dependencies
 
-- LangChain4j, Spring AI, Spring AI Alibaba, Koog, and Embabel are **provided-scope** dependencies — users bring their own version. Embabel ships Java 21 bytecode, so `dokimos-embabel` is built only on JDK 21+ (via an `embabel` profile in the parent POM).
+- LangChain4j, Spring AI, Spring AI Alibaba, Google ADK for Java, Google ADK for Kotlin, Koog, and Embabel are **provided-scope** dependencies — users bring their own version. Embabel ships Java 21 bytecode, so `dokimos-embabel` is built only on JDK 21+ (via an `embabel` profile in the parent POM).
 - All dependency versions are managed in the **parent POM** (`pom.xml` at repo root).
 - Do not add dependencies to individual module POMs without declaring them in the parent's `<dependencyManagement>`.
 

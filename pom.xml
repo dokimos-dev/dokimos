@@ -42,6 +42,8 @@
         <module>dokimos-spring-ai</module>
         <module>dokimos-spring-ai-alibaba</module>
         <module>dokimos-openai</module>
+        <module>dokimos-adk-java</module>
+        <module>dokimos-adk-kotlin</module>
         <module>dokimos-koog</module>
         <module>dokimos-kotlin</module>
         <module>dokimos-server-client</module>
@@ -63,6 +65,8 @@
         <!-- Matches the reactor-core managed by Spring Boot 3.5.10 (reactor-bom 2024.0.14). -->
         <reactor.version>3.7.15</reactor.version>
         <embabel.version>0.4.0</embabel.version>
+        <google-adk.version>1.12.0</google-adk.version>
+        <google-adk-kotlin.version>1.4.0</google-adk-kotlin.version>
     </properties>
 
     <dependencyManagement>
@@ -159,6 +163,18 @@
                 <groupId>com.embabel.agent</groupId>
                 <artifactId>embabel-agent-api</artifactId>
                 <version>${embabel.version}</version>
+            </dependency>
+            <!-- Google ADK for Java (provided scope in dokimos-adk-java). -->
+            <dependency>
+                <groupId>com.google.adk</groupId>
+                <artifactId>google-adk</artifactId>
+                <version>${google-adk.version}</version>
+            </dependency>
+            <!-- Google ADK for Kotlin (provided scope in dokimos-adk-kotlin). -->
+            <dependency>
+                <groupId>com.google.adk</groupId>
+                <artifactId>google-adk-kotlin-core-jvm</artifactId>
+                <version>${google-adk-kotlin.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

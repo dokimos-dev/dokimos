@@ -24,6 +24,7 @@ Official Claude Code plugins for the Dokimos LLM evaluation framework.
 | [evaluate-spring-ai](./evaluate-spring-ai/) | Evaluate Spring AI applications |
 | [evaluate-spring-ai-alibaba](./evaluate-spring-ai-alibaba/) | Evaluate Spring AI Alibaba graph agents |
 | [evaluate-embabel](./evaluate-embabel/) | Evaluate Embabel agents (Java 21+) |
+| [evaluate-adk](./evaluate-adk/) | Evaluate Google ADK (Agent Development Kit) agents |
 
 ## Installation
 

@@ -498,7 +498,9 @@ object AdkSupport {
     /**
      * Converts an ADK [UsageMetadata] and wall-clock latency into a Dokimos [CallMetrics] record.
      *
-     * All-zero token counts are treated as unreported (`null`) to match the other Dokimos adapters.
+     * `tokensOut` is computed as `candidatesTokenCount + thoughtsTokenCount` because thinking
+     * tokens are billed at the output token rate. All-zero token counts are treated as unreported
+     * (`null`) to match the other Dokimos adapters.
      */
     @JvmStatic
     @JvmOverloads
@@ -512,7 +514,7 @@ object AdkSupport {
             return CallMetrics(null, null, null, latencyMs)
         }
         val p = usage.promptTokenCount ?: 0
-        val c = usage.candidatesTokenCount ?: 0
+        val c = (usage.candidatesTokenCount ?: 0) + (usage.thoughtsTokenCount ?: 0)
         val tokensIn = if (p > 0 || c > 0) p else null
         val tokensOut = if (p > 0 || c > 0) c else null
         val cost = if (priceTable != null && modelId != null && tokensIn != null && tokensOut != null) {
@@ -525,7 +527,8 @@ object AdkSupport {
 
     /**
      * Aggregates token usage across all non-partial [Event]s in an agent run and computes
-     * [CallMetrics].
+     * [CallMetrics], summing `promptTokenCount` for `tokensIn` and
+     * `candidatesTokenCount + thoughtsTokenCount` for `tokensOut`.
      */
     @JvmStatic
     @JvmOverloads
@@ -545,7 +548,7 @@ object AdkSupport {
             }
             val usage = event.usageMetadata ?: continue
             pSum += usage.promptTokenCount ?: 0
-            cSum += usage.candidatesTokenCount ?: 0
+            cSum += (usage.candidatesTokenCount ?: 0) + (usage.thoughtsTokenCount ?: 0)
         }
 
         val tokensIn = if (pSum > 0 || cSum > 0) pSum else null
@@ -1416,8 +1419,10 @@ object AdkSupport {
         var modelId: String? = null
         var totalIn = 0
         var totalOut = 0
+        var totalThoughts = 0
         var hasIn = false
         var hasOut = false
+        var hasThoughts = false
 
         for (event in cleanEvents) {
             if (modelId == null && !event.modelVersion.isNullOrBlank()) {
@@ -1426,7 +1431,8 @@ object AdkSupport {
             event.usageMetadata?.let { u ->
                 val p = u.promptTokenCount
                 val c = u.candidatesTokenCount
-                val anyPositive = (p != null && p > 0) || (c != null && c > 0)
+                val t = u.thoughtsTokenCount
+                val anyPositive = (p != null && p > 0) || (c != null && c > 0) || (t != null && t > 0)
                 if (anyPositive) {
                     if (p != null) {
                         totalIn += p
@@ -1435,6 +1441,10 @@ object AdkSupport {
                     if (c != null) {
                         totalOut += c
                         hasOut = true
+                    }
+                    if (t != null && t > 0) {
+                        totalThoughts += t
+                        hasThoughts = true
                     }
                 }
             }
@@ -1452,6 +1462,7 @@ object AdkSupport {
         modelId?.let { metadata["modelVersion"] = it }
         if (hasIn) metadata["promptTokenCount"] = totalIn
         if (hasOut) metadata["candidatesTokenCount"] = totalOut
+        if (hasThoughts) metadata["thoughtsTokenCount"] = totalThoughts
 
         return builder
             .finalResponse(extractFinalResponseText(cleanEvents))

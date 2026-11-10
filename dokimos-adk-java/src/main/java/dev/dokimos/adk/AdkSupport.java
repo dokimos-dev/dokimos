@@ -629,6 +629,9 @@ public final class AdkSupport {
     /**
      * Converts ADK / GenAI {@link GenerateContentResponseUsageMetadata} into a Dokimos
      * {@link CallMetrics} record, computing cost via the optional {@link PriceTable}.
+     * <p>
+     * {@code tokensOut} is computed as {@code candidatesTokenCount + thoughtsTokenCount}
+     * because thinking tokens are billed at the output token rate.
      *
      * @param usage     the usage metadata (may be null)
      * @param latencyMs the measured wall-clock latency in milliseconds
@@ -642,7 +645,8 @@ public final class AdkSupport {
         Integer tokensOut = null;
         if (usage != null) {
             int p = usage.promptTokenCount().orElse(0);
-            int c = usage.candidatesTokenCount().orElse(0);
+            int c = usage.candidatesTokenCount().orElse(0)
+                    + usage.thoughtsTokenCount().orElse(0);
             if (p > 0 || c > 0) {
                 tokensIn = p;
                 tokensOut = c;
@@ -656,8 +660,9 @@ public final class AdkSupport {
 
     /**
      * Aggregates token usage across a list of ADK {@link Event}s into a single
-     * {@link CallMetrics} record, summing {@code promptTokenCount} and
-     * {@code candidatesTokenCount} across all non-partial events that carry usage metadata.
+     * {@link CallMetrics} record, summing {@code promptTokenCount} for {@code tokensIn} and
+     * {@code candidatesTokenCount + thoughtsTokenCount} for {@code tokensOut} across all
+     * non-partial events that carry usage metadata.
      *
      * @param events    the events emitted during an agent run (may be null)
      * @param latencyMs the measured wall-clock latency in milliseconds
@@ -683,7 +688,8 @@ public final class AdkSupport {
                     GenerateContentResponseUsageMetadata u =
                             event.usageMetadata().get();
                     pSum += u.promptTokenCount().orElse(0);
-                    cSum += u.candidatesTokenCount().orElse(0);
+                    cSum += u.candidatesTokenCount().orElse(0)
+                            + u.thoughtsTokenCount().orElse(0);
                 }
             }
             if (pSum > 0 || cSum > 0) {
@@ -1477,6 +1483,7 @@ public final class AdkSupport {
         String modelVersion = null;
         int promptTokens = 0;
         int candidatesTokens = 0;
+        int thoughtsTokens = 0;
 
         for (Event event : cleanEvents) {
             for (String thought : extractThoughtTexts(event)) {
@@ -1491,6 +1498,7 @@ public final class AdkSupport {
                 GenerateContentResponseUsageMetadata u = event.usageMetadata().get();
                 promptTokens += u.promptTokenCount().orElse(0);
                 candidatesTokens += u.candidatesTokenCount().orElse(0);
+                thoughtsTokens += u.thoughtsTokenCount().orElse(0);
             }
         }
 
@@ -1502,6 +1510,9 @@ public final class AdkSupport {
         }
         if (candidatesTokens > 0) {
             builder.metadata("candidatesTokenCount", candidatesTokens);
+        }
+        if (thoughtsTokens > 0) {
+            builder.metadata("thoughtsTokenCount", thoughtsTokens);
         }
 
         String finalResponse = extractFinalResponse(cleanEvents);
@@ -2224,7 +2235,8 @@ public final class AdkSupport {
                         GenerateContentResponseUsageMetadata u =
                                 response.usageMetadata().get();
                         pSum += u.promptTokenCount().orElse(0);
-                        cSum += u.candidatesTokenCount().orElse(0);
+                        cSum += u.candidatesTokenCount().orElse(0)
+                                + u.thoughtsTokenCount().orElse(0);
                     }
                 }
             }

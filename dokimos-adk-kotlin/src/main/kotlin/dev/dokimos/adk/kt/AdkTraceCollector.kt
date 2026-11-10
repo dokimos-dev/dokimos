@@ -340,7 +340,7 @@ class AdkTraceCollector(override val name: String = DEFAULT_NAME) : Plugin {
         var cSum = 0
         for (usage in modelUsages) {
             pSum += usage.promptTokenCount ?: 0
-            cSum += usage.candidatesTokenCount ?: 0
+            cSum += (usage.candidatesTokenCount ?: 0) + (usage.thoughtsTokenCount ?: 0)
         }
         val tokensIn = if (pSum > 0 || cSum > 0) pSum else null
         val tokensOut = if (pSum > 0 || cSum > 0) cSum else null

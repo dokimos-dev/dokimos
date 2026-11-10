@@ -428,7 +428,8 @@ public final class AdkTraceCollector extends BasePlugin {
                 GenerateContentResponseUsageMetadata u =
                         response.usageMetadata().get();
                 pSum += u.promptTokenCount().orElse(0);
-                cSum += u.candidatesTokenCount().orElse(0);
+                cSum += u.candidatesTokenCount().orElse(0)
+                        + u.thoughtsTokenCount().orElse(0);
             }
         }
         Integer tokensIn = (pSum > 0 || cSum > 0) ? pSum : null;

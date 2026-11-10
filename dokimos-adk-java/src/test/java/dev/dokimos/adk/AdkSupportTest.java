@@ -257,12 +257,23 @@ class AdkSupportTest {
                 .usageMetadata(GenerateContentResponseUsageMetadata.builder()
                         .promptTokenCount(50)
                         .candidatesTokenCount(20)
+                        .thoughtsTokenCount(10)
                         .build())
                 .build();
         CallMetrics eventMetrics = AdkSupport.toCallMetrics(List.of(partialEvent, finalEvent), 25L, null, prices);
         assertThat(eventMetrics.tokensIn()).isEqualTo(50);
-        assertThat(eventMetrics.tokensOut()).isEqualTo(20);
-        assertThat(eventMetrics.costUsd()).isCloseTo(0.09, within(1e-9));
+        assertThat(eventMetrics.tokensOut()).isEqualTo(30);
+        assertThat(eventMetrics.costUsd()).isCloseTo(0.11, within(1e-9));
+
+        GenerateContentResponseUsageMetadata thinkingUsage = GenerateContentResponseUsageMetadata.builder()
+                .promptTokenCount(100)
+                .candidatesTokenCount(40)
+                .thoughtsTokenCount(60)
+                .build();
+        CallMetrics thinkingMetrics = AdkSupport.toCallMetrics(thinkingUsage, 12L, "gemini-3.8-flash", prices);
+        assertThat(thinkingMetrics.tokensIn()).isEqualTo(100);
+        assertThat(thinkingMetrics.tokensOut()).isEqualTo(100);
+        assertThat(thinkingMetrics.costUsd()).isCloseTo(0.3, within(1e-9));
     }
 
     @Test

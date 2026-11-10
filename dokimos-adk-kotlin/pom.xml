@@ -65,6 +65,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.adk</groupId>
+            <artifactId>google-adk-kotlin-integrations-openai-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-coroutines-test</artifactId>
             <version>${kotlinx.coroutines.version}</version>

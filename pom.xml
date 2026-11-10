@@ -170,10 +170,25 @@
                 <artifactId>google-adk</artifactId>
                 <version>${google-adk.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.google.adk</groupId>
+                <artifactId>google-adk-langchain4j</artifactId>
+                <version>${google-adk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-open-ai</artifactId>
+                <version>1.12.2</version>
+            </dependency>
             <!-- Google ADK for Kotlin (provided scope in dokimos-adk-kotlin). -->
             <dependency>
                 <groupId>com.google.adk</groupId>
                 <artifactId>google-adk-kotlin-core-jvm</artifactId>
+                <version>${google-adk-kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.adk</groupId>
+                <artifactId>google-adk-kotlin-integrations-openai-jvm</artifactId>
                 <version>${google-adk-kotlin.version}</version>
             </dependency>
         </dependencies>

@@ -3,6 +3,8 @@ package dev.dokimos.adk.kt.integration
 import com.google.adk.kt.agents.Instruction
 import com.google.adk.kt.agents.LlmAgent
 import com.google.adk.kt.models.Gemini
+import com.google.adk.kt.models.Model
+import com.google.adk.kt.models.openai.ChatCompletions
 import com.google.adk.kt.runners.InMemoryRunner
 import com.google.adk.kt.tools.FunctionTool
 import com.google.adk.kt.tools.ToolContext
@@ -22,11 +24,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 
 /**
- * Live integration test that runs a real Gemini (`gemini-3.8-flash`) [LlmAgent] with a
- * [FunctionTool], captures its trace via [dev.dokimos.adk.kt.AdkTraceCollector] and
- * [AdkSupport.toAgentTrace], and scores tool calls with Dokimos agent evaluators.
+ * Live integration tests that run a real [LlmAgent] with a [FunctionTool], capture its trace via
+ * [dev.dokimos.adk.kt.AdkTraceCollector] and [AdkSupport.toAgentTrace], and score tool calls with
+ * Dokimos agent evaluators.
  *
- * Requires `GEMINI_API_KEY` in the environment.
+ * Supports two model backends so tests run in CI with `OPENAI_API_KEY` and locally (or in CI) when
+ * `GEMINI_API_KEY` is provided:
+ * - **Gemini** (`GEMINI_API_KEY`): native ADK Kotlin [Gemini] model (`gemini-3.8-flash`).
+ * - **OpenAI** (`OPENAI_API_KEY`): `gpt-4o-mini` wired through ADK Kotlin's first-party
+ *   `com.google.adk:google-adk-kotlin-integrations-openai-jvm` integration ([ChatCompletions]).
  */
 @Tag("integration")
 class AdkKotlinAgentIT {
@@ -34,6 +40,22 @@ class AdkKotlinAgentIT {
     @Test
     @EnabledIfEnvironmentVariable(named = "GEMINI_API_KEY", matches = ".+")
     fun `captures tool calls and metrics from live Gemini 3_8 Flash agent`() {
+        assertAgentTraceAndEvaluators(
+            model = Gemini(name = "gemini-3.8-flash"),
+            description = "Live Gemini 3.8 Flash agent should invoke get_weather",
+        )
+    }
+
+    @Test
+    @EnabledIfEnvironmentVariable(named = "OPENAI_API_KEY", matches = ".+")
+    fun `captures tool calls and metrics from live OpenAI agent via ChatCompletions integration`() {
+        assertAgentTraceAndEvaluators(
+            model = ChatCompletions(name = "gpt-4o-mini", apiKey = System.getenv("OPENAI_API_KEY")),
+            description = "Live OpenAI agent (via google-adk-kotlin-integrations-openai-jvm) should invoke get_weather",
+        )
+    }
+
+    private fun assertAgentTraceAndEvaluators(model: Model, description: String) {
         val declaration = FunctionDeclaration(
             name = "get_weather",
             description = "Get the current weather for a given city",
@@ -57,7 +79,7 @@ class AdkKotlinAgentIT {
 
         val agent = LlmAgent(
             name = "weather_agent",
-            model = Gemini(name = "gemini-3.8-flash"),
+            model = model,
             instruction = Instruction(
                 "You are a helpful weather assistant. Always call get_weather when asked about weather.",
             ),
@@ -75,7 +97,7 @@ class AdkKotlinAgentIT {
         val trace = runner.toAgentTrace(query)
 
         assertThat(trace.toolNames())
-            .describedAs("Live Gemini 3.8 Flash agent should invoke get_weather")
+            .describedAs(description)
             .contains("get_weather")
         assertThat(trace.finalResponse()).isNotBlank()
 

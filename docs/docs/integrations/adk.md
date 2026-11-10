@@ -78,6 +78,12 @@ implementation("com.google.adk:google-adk-kotlin-core-jvm:1.4.0")
   </TabItem>
 </Tabs>
 
+:::tip Third-party models (OpenAI, Anthropic, Ollama, etc.)
+Because Dokimos operates on ADK's `BaseLlm` / `Model`, `Runner`, `Event`, and `Plugin` abstractions, agents backed by non-Gemini models work out of the box:
+- **ADK for Java**: via `com.google.adk:google-adk-langchain4j` (`LangChain4j` wrapping any LangChain4j `ChatModel` such as `OpenAiChatModel`) or `com.google.adk:google-adk-spring-ai`, as well as built-in `Claude`.
+- **ADK for Kotlin**: via `com.google.adk:google-adk-kotlin-integrations-openai-jvm` (`ChatCompletions` for OpenAI and OpenAI-compatible APIs) or `com.google.adk:google-adk-kotlin-integrations-spring` (`SpringAi` / `SpringAiStreaming`).
+:::
+
 ## Use an ADK model or agent as a judge
 
 Pass a `BaseLlm` / `Model` (e.g., `Gemini`), `Runner`, or `BaseAgent` to `AdkSupport.asJudge(...)` (or use `.asJudge()` in Kotlin):

@@ -36,8 +36,6 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CompletionException
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class AdkSupportTest {
@@ -129,27 +127,6 @@ class AdkSupportTest {
     }
 
     @Test
-    fun `asyncTask runs on provided Executor`() {
-        val model = fakeModel("Executed on pool")
-        val usedCustomExecutor = AtomicBoolean(false)
-        val executor = Executors.newSingleThreadExecutor { r ->
-            Thread {
-                usedCustomExecutor.set(true)
-                r.run()
-            }
-        }
-
-        try {
-            val task = AdkSupport.asyncTask(model, executor)
-            val result = task.run(Example.of("hi", "hello")).join()
-            assertThat(result.outputs()).containsEntry("output", "Executed on pool")
-            assertThat(usedCustomExecutor.get()).isTrue()
-        } finally {
-            executor.shutdownNow()
-        }
-    }
-
-    @Test
     fun `asyncTask propagates errors cleanly with MockK`() {
         val failingRunner = mockk<Runner>()
         every {
@@ -205,12 +182,12 @@ class AdkSupportTest {
         assertThat(agentResult.metrics().tokensOut()).isEqualTo(500)
         assertThat(agentResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9))
 
-        val measuredAsync = AdkSupport.measuredAsyncAgentTask(InMemoryRunner(agent = agent), priceTable = prices)
-        val asyncResult = measuredAsync.run(Example.of("prompt", "expected")).join()
-        assertThat(asyncResult.outputs()).containsEntry("output", "Measured output")
-        assertThat(asyncResult.metrics().tokensIn()).isEqualTo(1_000)
-        assertThat(asyncResult.metrics().tokensOut()).isEqualTo(500)
-        assertThat(asyncResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9))
+        val measuredRunner = AdkSupport.measuredAgentTask(InMemoryRunner(agent = agent), priceTable = prices)
+        val runnerResult = measuredRunner.run(Example.of("prompt", "expected"))
+        assertThat(runnerResult.outputs()).containsEntry("output", "Measured output")
+        assertThat(runnerResult.metrics().tokensIn()).isEqualTo(1_000)
+        assertThat(runnerResult.metrics().tokensOut()).isEqualTo(500)
+        assertThat(runnerResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9))
     }
 
     @Test
@@ -498,11 +475,10 @@ class AdkSupportTest {
         assertThat(measuredResult.metrics().tokensIn()).isEqualTo(50)
         assertThat(measuredResult.metrics().tokensOut()).isEqualTo(25)
 
-        val asyncRag = AdkSupport.measuredAsyncRagTask(agent)
+        val asyncRag = AdkSupport.asyncRagTask(agent)
         val asyncResult = asyncRag.run(Example.of("What is the refund policy?", "30 days")).join()
         assertThat(asyncResult.outputs()["context"] as List<String>)
             .containsExactly("Full refunds within 30 days of purchase.")
-        assertThat(asyncResult.metrics().tokensIn()).isEqualTo(50)
     }
 
     @Test

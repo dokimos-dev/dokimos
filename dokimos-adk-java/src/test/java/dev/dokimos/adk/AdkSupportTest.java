@@ -43,8 +43,6 @@ import io.reactivex.rxjava3.core.Flowable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -94,9 +92,6 @@ class AdkSupportTest {
         Task llmTask = AdkSupport.simpleTask(llm);
         assertThat(llmTask.run(Example.of("Capital of France?", "Paris"))).containsEntry("output", "Paris");
 
-        Task customKeyTask = AdkSupport.simpleTask(llm, "answer");
-        assertThat(customKeyTask.run(Example.of("Capital of France?", "Paris"))).containsEntry("answer", "Paris");
-
         AsyncTask asyncLlmTask = AdkSupport.asyncTask(llm);
         assertThat(asyncLlmTask
                         .run(Example.of("Capital of France?", "Paris"))
@@ -129,25 +124,6 @@ class AdkSupportTest {
                 .containsEntry("output", "Paris")
                 .containsKey("toolCalls")
                 .containsKey("reasoningSteps");
-    }
-
-    @Test
-    void asyncTaskRunsOnProvidedExecutor() {
-        BaseLlm llm = fakeLlm("Executed on pool", null);
-        AtomicBoolean usedCustomExecutor = new AtomicBoolean(false);
-        var executor = Executors.newSingleThreadExecutor(r -> new Thread(() -> {
-            usedCustomExecutor.set(true);
-            r.run();
-        }));
-
-        try {
-            AsyncTask task = AdkSupport.asyncTask(llm, executor);
-            TaskResult result = task.run(Example.of("hi", "hello")).join();
-            assertThat(result.outputs()).containsEntry("output", "Executed on pool");
-            assertThat(usedCustomExecutor.get()).isTrue();
-        } finally {
-            executor.shutdownNow();
-        }
     }
 
     @Test
@@ -195,20 +171,19 @@ class AdkSupportTest {
                 .instruction("Be helpful")
                 .build();
 
-        MeasuredTask measuredAgent = AdkSupport.measuredAgentTask(agent, prices);
+        MeasuredTask measuredAgent = AdkSupport.measuredAgentTask(agent, null, prices);
         TaskResult agentResult = measuredAgent.run(Example.of("prompt", "expected"));
         assertThat(agentResult.outputs()).containsEntry("output", "Measured output");
         assertThat(agentResult.metrics().tokensIn()).isEqualTo(1_000);
         assertThat(agentResult.metrics().tokensOut()).isEqualTo(500);
         assertThat(agentResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9));
 
-        AsyncTask measuredAsync = AdkSupport.measuredAsyncAgentTask(new InMemoryRunner(agent), prices);
-        TaskResult asyncResult =
-                measuredAsync.run(Example.of("prompt", "expected")).join();
-        assertThat(asyncResult.outputs()).containsEntry("output", "Measured output");
-        assertThat(asyncResult.metrics().tokensIn()).isEqualTo(1_000);
-        assertThat(asyncResult.metrics().tokensOut()).isEqualTo(500);
-        assertThat(asyncResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9));
+        MeasuredTask measuredRunnerAgent = AdkSupport.measuredAgentTask(new InMemoryRunner(agent), null, prices);
+        TaskResult runnerResult = measuredRunnerAgent.run(Example.of("prompt", "expected"));
+        assertThat(runnerResult.outputs()).containsEntry("output", "Measured output");
+        assertThat(runnerResult.metrics().tokensIn()).isEqualTo(1_000);
+        assertThat(runnerResult.metrics().tokensOut()).isEqualTo(500);
+        assertThat(runnerResult.metrics().costUsd()).isCloseTo(0.00045, within(1e-9));
     }
 
     @Test
@@ -500,15 +475,6 @@ class AdkSupportTest {
         assertThat(syncOut.get("output")).isEqualTo("You can get a full refund within 30 days.");
         assertThat((List<String>) syncOut.get("context")).containsExactly("Full refunds within 30 days of purchase.");
 
-        // Custom keys ragTask
-        Task customKeyTask = AdkSupport.ragTask(agent, "question", "answer", "retrievedContext");
-        Map<String, Object> customOut = customKeyTask.run(Example.builder()
-                .input("question", "What is the refund policy?")
-                .build());
-        assertThat(customOut.get("answer")).isEqualTo("You can get a full refund within 30 days.");
-        assertThat((List<String>) customOut.get("retrievedContext"))
-                .containsExactly("Full refunds within 30 days of purchase.");
-
         // Async ragTask
         AsyncTask asyncRag = AdkSupport.asyncRagTask(agent);
         TaskResult asyncRes = asyncRag.run(Example.of("What is the refund policy?", "30 days"))
@@ -527,14 +493,6 @@ class AdkSupportTest {
         assertThat(measuredRes.metrics().tokensIn()).isEqualTo(50);
         assertThat(measuredRes.metrics().tokensOut()).isEqualTo(25);
         assertThat(measuredRes.metrics().costUsd()).isCloseTo(0.075, within(1e-6));
-
-        // Measured async ragTask
-        AsyncTask measuredAsyncRag = AdkSupport.measuredAsyncRagTask(agent, "gemini-3.8-flash", prices);
-        TaskResult measuredAsyncRes = measuredAsyncRag
-                .run(Example.of("What is the refund policy?", "30 days"))
-                .join();
-        assertThat(measuredAsyncRes.metrics().tokensIn()).isEqualTo(50);
-        assertThat(measuredAsyncRes.metrics().tokensOut()).isEqualTo(25);
     }
 
     @Test

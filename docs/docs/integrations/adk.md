@@ -363,7 +363,7 @@ import java.util.List;
 Task ragTask = AdkSupport.ragTask(ragAgent);
 
 // Or restrict FunctionResponse context extraction to specific retrieval tool names
-Task filteredRagTask = AdkSupport.ragTask(ragAgent, List.of("search_policy"));
+Task filteredRagTask = AdkSupport.ragTask(ragAgent, "search_policy");
 
 JudgeLM judge = AdkSupport.asJudge(gemini);
 
@@ -461,7 +461,7 @@ val trajectory = ConversationSimulator.builder()
 
 ## Cost, tokens, and latency
 
-ADK attaches `UsageMetadata` (`promptTokenCount` and `candidatesTokenCount`) to each model `Event`. `AdkSupport.measuredTask`, `measuredAgentTask`, `measuredRagTask`, and `AdkTraceCollector.callMetrics` sum token counts across all non-partial events in a run, measure wall-clock latency, and compute USD cost via a `PriceTable`.
+ADK attaches `UsageMetadata` (`promptTokenCount`, `candidatesTokenCount`, and `thoughtsTokenCount`) to each model `Event`. `AdkSupport.measuredTask`, `measuredAgentTask`, `measuredRagTask`, and `AdkTraceCollector.callMetrics` sum token counts across all non-partial events in a run (`tokensOut = candidatesTokenCount + thoughtsTokenCount`), measure wall-clock latency, and compute USD cost via a `PriceTable`.
 
 In `dokimos-adk-kotlin`, `LlmAgent.model.name` is exposed publicly so `modelId` is automatically inferred when omitted!
 
@@ -501,4 +501,4 @@ See [Cost and Pricing](../evaluation/cost-and-pricing) for details on `PriceTabl
 
 ## Complete examples
 
-See [`AdkAgentEvaluationExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/adk/AdkAgentEvaluationExample.java) and [`AdkKotlinAgentEvaluationExample.kt`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/kotlin/dev/dokimos/examples/adk/AdkKotlinAgentEvaluationExample.kt) in `dokimos-examples` for self-contained runnable examples demonstrating `AdkTraceCollector`, tool-call evaluation, and `measuredAgentTask` / `measuredAsyncAgentTask`.
+See [`AdkAgentEvaluationExample.java`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/java/dev/dokimos/examples/adk/AdkAgentEvaluationExample.java) and [`AdkKotlinAgentEvaluationExample.kt`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/kotlin/dev/dokimos/examples/adk/AdkKotlinAgentEvaluationExample.kt) in `dokimos-examples` for self-contained runnable examples demonstrating `AdkTraceCollector`, tool-call evaluation, and `measuredAgentTask` / `asyncAgentTask`.

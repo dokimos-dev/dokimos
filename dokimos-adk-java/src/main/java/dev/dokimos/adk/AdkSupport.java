@@ -57,7 +57,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -144,23 +143,10 @@ public final class AdkSupport {
      * @return a synchronous Task
      */
     public static Task simpleTask(BaseLlm llm) {
-        return simpleTask(llm, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates a simple {@link Task} that calls an ADK {@link BaseLlm} with the example's
-     * {@code input} and stores the text response under {@code outputKey}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return a synchronous Task
-     */
-    public static Task simpleTask(BaseLlm llm, String outputKey) {
         Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         return example -> {
             String response = generateText(llm, extractInput(example));
-            return Map.of(outputKey, response);
+            return Map.of(OUTPUT_KEY, response);
         };
     }
 
@@ -172,24 +158,11 @@ public final class AdkSupport {
      * @return a synchronous Task
      */
     public static Task simpleTask(Runner runner) {
-        return simpleTask(runner, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates a simple {@link Task} that runs an ADK {@link Runner} with the example's
-     * {@code input} and stores the final response under {@code outputKey}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return a synchronous Task
-     */
-    public static Task simpleTask(Runner runner, String outputKey) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         return example -> {
             List<Event> events = runEvents(runner, extractInput(example));
             String response = toAgentTrace(events).finalResponse();
-            return Map.of(outputKey, response);
+            return Map.of(OUTPUT_KEY, response);
         };
     }
 
@@ -201,21 +174,8 @@ public final class AdkSupport {
      * @return a synchronous Task
      */
     public static Task simpleTask(BaseAgent agent) {
-        return simpleTask(agent, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates a simple {@link Task} that runs an ADK {@link BaseAgent} via an
-     * {@link InMemoryRunner} and stores the final response under {@code outputKey}.
-     *
-     * @param agent     the ADK agent (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return a synchronous Task
-     */
-    public static Task simpleTask(BaseAgent agent, String outputKey) {
         Objects.requireNonNull(agent, "agent must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        return simpleTask(new InMemoryRunner(agent), outputKey);
+        return simpleTask(new InMemoryRunner(agent));
     }
 
     /**
@@ -250,60 +210,16 @@ public final class AdkSupport {
      * extracted via {@link #extractTexts(List, String...)} from {@link GroundingMetadata} and/or
      * tool responses).
      *
-     * @param runner the ADK runner (must not be null)
+     * @param runner             the ADK runner (must not be null)
+     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
+     *                           carry retrieved context
      * @return a Task suitable for RAG evaluation (e.g., with {@code FaithfulnessEvaluator})
      */
-    public static Task ragTask(Runner runner) {
-        return ragTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, List.of());
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} that runs an ADK {@link Runner} and extracts
-     * {@code context} from {@link GroundingMetadata} and the specified {@code retrievalToolNames}.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param retrievalToolNames names of retrieval tools whose {@link FunctionResponse}s carry context
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(Runner runner, List<String> retrievalToolNames) {
-        return ragTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} with custom input, output, and context keys.
-     *
-     * @param runner     the ADK runner (must not be null)
-     * @param inputKey   the dataset input key to read (must not be null)
-     * @param outputKey  the output map key for the response (must not be null)
-     * @param contextKey the output map key for the retrieved context list (must not be null)
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(Runner runner, String inputKey, String outputKey, String contextKey) {
-        return ragTask(runner, inputKey, outputKey, contextKey, List.of());
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} with custom input, output, and context keys and
-     * an explicit list of retrieval tool names.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param inputKey           the dataset input key to read (must not be null)
-     * @param outputKey          the output map key for the response (must not be null)
-     * @param contextKey         the output map key for the retrieved context list (must not be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context (may be null or empty)
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(
-            Runner runner, String inputKey, String outputKey, String contextKey, List<String> retrievalToolNames) {
+    public static Task ragTask(Runner runner, String... retrievalToolNames) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(inputKey, "inputKey must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(contextKey, "contextKey must not be null");
-        String[] toolNames = toToolNameArray(retrievalToolNames);
         return example -> {
-            List<Event> events = runEvents(runner, extractInput(example, inputKey));
-            return buildRagOutputMap(events, outputKey, contextKey, toolNames);
+            List<Event> events = runEvents(runner, extractInput(example));
+            return buildRagOutputMap(events, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
         };
     }
 
@@ -311,57 +227,14 @@ public final class AdkSupport {
      * Creates a RAG evaluation {@link Task} that runs an ADK {@link BaseAgent} via an
      * {@link InMemoryRunner} and populates both {@code output} and {@code context}.
      *
-     * @param agent the ADK agent (must not be null)
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(BaseAgent agent) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return ragTask(new InMemoryRunner(agent), INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, List.of());
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} that runs an ADK {@link BaseAgent} via an
-     * {@link InMemoryRunner} and extracts {@code context} from the specified {@code retrievalToolNames}.
-     *
      * @param agent              the ADK agent (must not be null)
-     * @param retrievalToolNames names of retrieval tools whose {@link FunctionResponse}s carry context
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(BaseAgent agent, List<String> retrievalToolNames) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return ragTask(new InMemoryRunner(agent), INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} for an ADK {@link BaseAgent} with custom key names.
-     *
-     * @param agent      the ADK agent (must not be null)
-     * @param inputKey   the dataset input key to read (must not be null)
-     * @param outputKey  the output map key for the response (must not be null)
-     * @param contextKey the output map key for the retrieved context list (must not be null)
-     * @return a Task suitable for RAG evaluation
-     */
-    public static Task ragTask(BaseAgent agent, String inputKey, String outputKey, String contextKey) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return ragTask(new InMemoryRunner(agent), inputKey, outputKey, contextKey, List.of());
-    }
-
-    /**
-     * Creates a RAG evaluation {@link Task} for an ADK {@link BaseAgent} with custom key names
-     * and an explicit list of retrieval tool names.
-     *
-     * @param agent              the ADK agent (must not be null)
-     * @param inputKey           the dataset input key to read (must not be null)
-     * @param outputKey          the output map key for the response (must not be null)
-     * @param contextKey         the output map key for the retrieved context list (must not be null)
      * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
      *                           carry retrieved context
      * @return a Task suitable for RAG evaluation
      */
-    public static Task ragTask(
-            BaseAgent agent, String inputKey, String outputKey, String contextKey, List<String> retrievalToolNames) {
+    public static Task ragTask(BaseAgent agent, String... retrievalToolNames) {
         Objects.requireNonNull(agent, "agent must not be null");
-        return ragTask(new InMemoryRunner(agent), inputKey, outputKey, contextKey, retrievalToolNames);
+        return ragTask(new InMemoryRunner(agent), retrievalToolNames);
     }
 
     // -------------------------------------------------------------------------
@@ -376,51 +249,9 @@ public final class AdkSupport {
      * @return an AsyncTask
      */
     public static AsyncTask asyncTask(BaseLlm llm) {
-        return asyncTask(llm, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} backed by an ADK {@link BaseLlm}'s reactive stream,
-     * storing the text response under {@code outputKey}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(BaseLlm llm, String outputKey) {
         Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         return example -> generateResponsesAsync(llm, extractInput(example))
-                .thenApply(responses -> TaskResult.of(Map.of(outputKey, extractTextFromLlmResponses(responses))));
-    }
-
-    /**
-     * Creates an {@link AsyncTask} that runs an ADK {@link BaseLlm} on the supplied
-     * {@link Executor}, storing the text response under {@code output}.
-     *
-     * @param llm      the ADK LLM model (must not be null)
-     * @param executor the executor to run calls on (must not be null)
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(BaseLlm llm, Executor executor) {
-        return asyncTask(llm, OUTPUT_KEY, executor);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} that runs an ADK {@link BaseLlm} on the supplied
-     * {@link Executor}, storing the text response under {@code outputKey}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param executor  the executor to run calls on (must not be null)
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(BaseLlm llm, String outputKey, Executor executor) {
-        Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
-        Task sync = simpleTask(llm, outputKey);
-        return example -> CompletableFuture.supplyAsync(() -> TaskResult.of(sync.run(example)), executor);
+                .thenApply(responses -> TaskResult.of(Map.of(OUTPUT_KEY, extractTextFromLlmResponses(responses))));
     }
 
     /**
@@ -431,52 +262,10 @@ public final class AdkSupport {
      * @return an AsyncTask
      */
     public static AsyncTask asyncTask(Runner runner) {
-        return asyncTask(runner, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} backed by an ADK {@link Runner}'s reactive
-     * {@link Runner#runAsync} stream, storing the final response under {@code outputKey}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(Runner runner, String outputKey) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         return example -> runEventsAsync(runner, extractInput(example))
                 .thenApply(events ->
-                        TaskResult.of(Map.of(outputKey, toAgentTrace(events).finalResponse())));
-    }
-
-    /**
-     * Creates an {@link AsyncTask} that runs an ADK {@link Runner} on the supplied
-     * {@link Executor}, storing the final response under {@code output}.
-     *
-     * @param runner   the ADK runner (must not be null)
-     * @param executor the executor to run calls on (must not be null)
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(Runner runner, Executor executor) {
-        return asyncTask(runner, OUTPUT_KEY, executor);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} that runs an ADK {@link Runner} on the supplied
-     * {@link Executor}, storing the final response under {@code outputKey}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param executor  the executor to run calls on (must not be null)
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(Runner runner, String outputKey, Executor executor) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
-        Task sync = simpleTask(runner, outputKey);
-        return example -> CompletableFuture.supplyAsync(() -> TaskResult.of(sync.run(example)), executor);
+                        TaskResult.of(Map.of(OUTPUT_KEY, toAgentTrace(events).finalResponse())));
     }
 
     /**
@@ -487,21 +276,8 @@ public final class AdkSupport {
      * @return an AsyncTask
      */
     public static AsyncTask asyncTask(BaseAgent agent) {
-        return asyncTask(agent, OUTPUT_KEY);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} backed by an ADK {@link BaseAgent} via an
-     * {@link InMemoryRunner}, storing the final response under {@code outputKey}.
-     *
-     * @param agent     the ADK agent (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @return an AsyncTask
-     */
-    public static AsyncTask asyncTask(BaseAgent agent, String outputKey) {
         Objects.requireNonNull(agent, "agent must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        return asyncTask(new InMemoryRunner(agent), outputKey);
+        return asyncTask(new InMemoryRunner(agent));
     }
 
     /**
@@ -516,21 +292,6 @@ public final class AdkSupport {
         Objects.requireNonNull(runner, "runner must not be null");
         return example -> runEventsAsync(runner, extractInput(example))
                 .thenApply(events -> TaskResult.of(toAgentTrace(events).toOutputMap()));
-    }
-
-    /**
-     * Creates an {@link AsyncTask} for evaluating an ADK {@link Runner} on the supplied
-     * {@link Executor}, producing {@link AgentTrace#toOutputMap()}.
-     *
-     * @param runner   the ADK runner (must not be null)
-     * @param executor the executor to run calls on (must not be null)
-     * @return an AsyncTask producing the agent trace output map
-     */
-    public static AsyncTask asyncAgentTask(Runner runner, Executor executor) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
-        Task sync = agentTask(runner);
-        return example -> CompletableFuture.supplyAsync(() -> TaskResult.of(sync.run(example)), executor);
     }
 
     /**
@@ -555,57 +316,10 @@ public final class AdkSupport {
      * @return an AsyncTask suitable for RAG evaluation
      */
     public static AsyncTask asyncRagTask(Runner runner, String... retrievalToolNames) {
-        return asyncRagTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, null, retrievalToolNames);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} for RAG evaluation that runs an ADK {@link Runner} on the
-     * supplied {@link Executor}, populating {@code output} and {@code context}.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param executor           the executor to run calls on (must not be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask suitable for RAG evaluation
-     */
-    public static AsyncTask asyncRagTask(Runner runner, Executor executor, String... retrievalToolNames) {
-        Objects.requireNonNull(executor, "executor must not be null");
-        return asyncRagTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, executor, retrievalToolNames);
-    }
-
-    /**
-     * Creates an {@link AsyncTask} for RAG evaluation with custom key names and an optional
-     * {@link Executor}. When {@code executor} is {@code null}, uses {@link Runner#runAsync}
-     * directly.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param inputKey           the dataset input key to read (must not be null)
-     * @param outputKey          the output map key for the response (must not be null)
-     * @param contextKey         the output map key for the retrieved context list (must not be null)
-     * @param executor           optional executor to run blocking calls on (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask suitable for RAG evaluation
-     */
-    public static AsyncTask asyncRagTask(
-            Runner runner,
-            String inputKey,
-            String outputKey,
-            String contextKey,
-            Executor executor,
-            String... retrievalToolNames) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(inputKey, "inputKey must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(contextKey, "contextKey must not be null");
-        if (executor != null) {
-            List<String> tools = retrievalToolNames != null ? Arrays.asList(retrievalToolNames) : List.of();
-            Task sync = ragTask(runner, inputKey, outputKey, contextKey, tools);
-            return example -> CompletableFuture.supplyAsync(() -> TaskResult.of(sync.run(example)), executor);
-        }
-        return example -> runEventsAsync(runner, extractInput(example, inputKey))
-                .thenApply(
-                        events -> TaskResult.of(buildRagOutputMap(events, outputKey, contextKey, retrievalToolNames)));
+        return example -> runEventsAsync(runner, extractInput(example))
+                .thenApply(events ->
+                        TaskResult.of(buildRagOutputMap(events, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames)));
     }
 
     /**
@@ -706,20 +420,6 @@ public final class AdkSupport {
 
     /**
      * Creates a {@link MeasuredTask} that calls an ADK {@link BaseLlm}, records latency,
-     * token usage, and cost (using {@link BaseLlm#model()} as the model identifier), and stores
-     * the text response under {@code output}.
-     *
-     * @param llm    the ADK LLM model (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return a MeasuredTask
-     */
-    public static MeasuredTask measuredTask(BaseLlm llm, PriceTable prices) {
-        Objects.requireNonNull(llm, "llm must not be null");
-        return measuredTask(llm, OUTPUT_KEY, llm.model(), prices);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} that calls an ADK {@link BaseLlm}, records latency,
      * token usage, and cost, and stores the text response under {@code output}.
      *
      * @param llm     the ADK LLM model (must not be null)
@@ -728,22 +428,7 @@ public final class AdkSupport {
      * @return a MeasuredTask
      */
     public static MeasuredTask measuredTask(BaseLlm llm, String modelId, PriceTable prices) {
-        return measuredTask(llm, OUTPUT_KEY, modelId, prices);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} that calls an ADK {@link BaseLlm}, records latency,
-     * token usage, and cost, and stores the text response under {@code outputKey}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null; defaults to {@link BaseLlm#model()})
-     * @param prices    the price table for cost lookup (may be null)
-     * @return a MeasuredTask
-     */
-    public static MeasuredTask measuredTask(BaseLlm llm, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : llm.model();
         return example -> {
             long startNanos = System.nanoTime();
@@ -751,21 +436,8 @@ public final class AdkSupport {
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             String text = extractTextFromLlmResponses(responses);
             CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, resolvedModelId, prices);
-            return new TaskResult(Map.of(outputKey, text), metrics);
+            return new TaskResult(Map.of(OUTPUT_KEY, text), metrics);
         };
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} that runs an ADK {@link Runner}, records latency,
-     * aggregated token usage across all emitted events, and cost (using the model identifier
-     * inferred from the agent or events), and stores the final response under {@code output}.
-     *
-     * @param runner the ADK runner (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return a MeasuredTask
-     */
-    public static MeasuredTask measuredTask(Runner runner, PriceTable prices) {
-        return measuredTask(runner, OUTPUT_KEY, null, prices);
     }
 
     /**
@@ -774,28 +446,12 @@ public final class AdkSupport {
      * response under {@code output}.
      *
      * @param runner  the ADK runner (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; falls back to the agent or event model)
      * @param prices  the price table for cost lookup (may be null)
      * @return a MeasuredTask
      */
     public static MeasuredTask measuredTask(Runner runner, String modelId, PriceTable prices) {
-        return measuredTask(runner, OUTPUT_KEY, modelId, prices);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} that runs an ADK {@link Runner}, records latency,
-     * aggregated token usage across all emitted events, and cost, and stores the final
-     * response under {@code outputKey}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
-     * @param prices    the price table for cost lookup (may be null)
-     * @return a MeasuredTask
-     */
-    public static MeasuredTask measuredTask(Runner runner, String outputKey, String modelId, PriceTable prices) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
         String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
@@ -803,22 +459,8 @@ public final class AdkSupport {
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             String text = toAgentTrace(events).finalResponse();
             CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
-            return new TaskResult(Map.of(outputKey, text), metrics);
+            return new TaskResult(Map.of(OUTPUT_KEY, text), metrics);
         };
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} that runs an ADK {@link BaseAgent} via an
-     * {@link InMemoryRunner}, recording latency, aggregated token usage, and cost (using the
-     * model identifier inferred from the agent or events).
-     *
-     * @param agent  the ADK agent (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return a MeasuredTask
-     */
-    public static MeasuredTask measuredTask(BaseAgent agent, PriceTable prices) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return measuredTask(new InMemoryRunner(agent), OUTPUT_KEY, resolveModelId(agent), prices);
     }
 
     /**
@@ -826,26 +468,13 @@ public final class AdkSupport {
      * {@link InMemoryRunner}, recording latency, aggregated token usage, and cost.
      *
      * @param agent   the ADK agent (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; falls back to the agent or event model)
      * @param prices  the price table for cost lookup (may be null)
      * @return a MeasuredTask
      */
     public static MeasuredTask measuredTask(BaseAgent agent, String modelId, PriceTable prices) {
         Objects.requireNonNull(agent, "agent must not be null");
-        return measuredTask(new InMemoryRunner(agent), OUTPUT_KEY, modelId, prices);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} for evaluating an ADK {@link Runner} with agent
-     * evaluators while also capturing {@link CallMetrics} (latency, aggregated token usage,
-     * and cost).
-     *
-     * @param runner the ADK runner (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return a MeasuredTask producing the agent trace output map and call metrics
-     */
-    public static MeasuredTask measuredAgentTask(Runner runner, PriceTable prices) {
-        return measuredAgentTask(runner, null, prices);
+        return measuredTask(new InMemoryRunner(agent), modelId, prices);
     }
 
     /**
@@ -854,7 +483,7 @@ public final class AdkSupport {
      * and cost). The task outputs {@link AgentTrace#toOutputMap()}.
      *
      * @param runner  the ADK runner (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; falls back to the agent or event model)
      * @param prices  the price table for cost lookup (may be null)
      * @return a MeasuredTask producing the agent trace output map and call metrics
      */
@@ -875,219 +504,14 @@ public final class AdkSupport {
      * Creates a {@link MeasuredTask} for evaluating an ADK {@link BaseAgent} with agent
      * evaluators via an {@link InMemoryRunner} while capturing {@link CallMetrics}.
      *
-     * @param agent  the ADK agent (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return a MeasuredTask producing the agent trace output map and call metrics
-     */
-    public static MeasuredTask measuredAgentTask(BaseAgent agent, PriceTable prices) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return measuredAgentTask(new InMemoryRunner(agent), resolveModelId(agent), prices);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} for evaluating an ADK {@link BaseAgent} with agent
-     * evaluators via an {@link InMemoryRunner} while capturing {@link CallMetrics}.
-     *
      * @param agent   the ADK agent (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
+     * @param modelId the model identifier for cost lookup (may be null; falls back to the agent or event model)
      * @param prices  the price table for cost lookup (may be null)
      * @return a MeasuredTask producing the agent trace output map and call metrics
      */
     public static MeasuredTask measuredAgentTask(BaseAgent agent, String modelId, PriceTable prices) {
         Objects.requireNonNull(agent, "agent must not be null");
         return measuredAgentTask(new InMemoryRunner(agent), modelId, prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link BaseLlm}'s reactive stream,
-     * storing the text response under {@code output} and attaching {@link CallMetrics}.
-     *
-     * @param llm    the ADK LLM model (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(BaseLlm llm, PriceTable prices) {
-        Objects.requireNonNull(llm, "llm must not be null");
-        return measuredAsyncTask(llm, OUTPUT_KEY, llm.model(), prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link BaseLlm}'s reactive stream,
-     * storing the text response under {@code output} and attaching {@link CallMetrics}.
-     *
-     * @param llm     the ADK LLM model (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
-     * @param prices  the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(BaseLlm llm, String modelId, PriceTable prices) {
-        return measuredAsyncTask(llm, OUTPUT_KEY, modelId, prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link BaseLlm}'s reactive stream,
-     * storing the text response under {@code outputKey} and attaching {@link CallMetrics}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
-     * @param prices    the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(BaseLlm llm, String outputKey, String modelId, PriceTable prices) {
-        Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : llm.model();
-        return example -> {
-            long startNanos = System.nanoTime();
-            return generateResponsesAsync(llm, extractInput(example)).thenApply(responses -> {
-                long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                String text = extractTextFromLlmResponses(responses);
-                CallMetrics metrics = toCallMetricsFromLlmResponses(responses, latencyMs, resolvedModelId, prices);
-                return new TaskResult(Map.of(outputKey, text), metrics);
-            });
-        };
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} that runs an ADK {@link BaseLlm} on the supplied
-     * {@link Executor}, storing the text response under {@code outputKey} and attaching
-     * {@link CallMetrics}.
-     *
-     * @param llm       the ADK LLM model (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
-     * @param prices    the price table for cost lookup (may be null)
-     * @param executor  the executor to run calls on (must not be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(
-            BaseLlm llm, String outputKey, String modelId, PriceTable prices, Executor executor) {
-        Objects.requireNonNull(llm, "llm must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
-        MeasuredTask sync = measuredTask(llm, outputKey, modelId, prices);
-        return example -> CompletableFuture.supplyAsync(() -> sync.run(example), executor);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link Runner}'s reactive stream,
-     * storing the final response under {@code output} and attaching {@link CallMetrics}.
-     *
-     * @param runner the ADK runner (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(Runner runner, PriceTable prices) {
-        return measuredAsyncTask(runner, OUTPUT_KEY, null, prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link Runner}'s reactive stream,
-     * storing the final response under {@code output} and attaching {@link CallMetrics}.
-     *
-     * @param runner  the ADK runner (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
-     * @param prices  the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(Runner runner, String modelId, PriceTable prices) {
-        return measuredAsyncTask(runner, OUTPUT_KEY, modelId, prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} backed by an ADK {@link Runner}'s reactive stream,
-     * storing the final response under {@code outputKey} and attaching {@link CallMetrics}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
-     * @param prices    the price table for cost lookup (may be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(Runner runner, String outputKey, String modelId, PriceTable prices) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
-        return example -> {
-            long startNanos = System.nanoTime();
-            return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
-                long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                String text = toAgentTrace(events).finalResponse();
-                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
-                return new TaskResult(Map.of(outputKey, text), metrics);
-            });
-        };
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} that runs an ADK {@link Runner} on the supplied
-     * {@link Executor}, storing the final response under {@code outputKey} and attaching
-     * {@link CallMetrics}.
-     *
-     * @param runner    the ADK runner (must not be null)
-     * @param outputKey the key under which the response is stored in the output map
-     * @param modelId   the model identifier for cost lookup (may be null)
-     * @param prices    the price table for cost lookup (may be null)
-     * @param executor  the executor to run calls on (must not be null)
-     * @return an AsyncTask carrying CallMetrics in its TaskResult
-     */
-    public static AsyncTask measuredAsyncTask(
-            Runner runner, String outputKey, String modelId, PriceTable prices, Executor executor) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(executor, "executor must not be null");
-        MeasuredTask sync = measuredTask(runner, outputKey, modelId, prices);
-        return example -> CompletableFuture.supplyAsync(() -> sync.run(example), executor);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for evaluating an ADK {@link Runner} with agent
-     * evaluators while capturing {@link CallMetrics}.
-     *
-     * @param runner the ADK runner (must not be null)
-     * @param prices the price table for cost lookup (may be null)
-     * @return an AsyncTask producing the agent trace output map and call metrics
-     */
-    public static AsyncTask measuredAsyncAgentTask(Runner runner, PriceTable prices) {
-        return measuredAsyncAgentTask(runner, null, prices);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for evaluating an ADK {@link Runner} with agent
-     * evaluators while capturing {@link CallMetrics}.
-     *
-     * @param runner  the ADK runner (must not be null)
-     * @param modelId the model identifier for cost lookup (may be null)
-     * @param prices  the price table for cost lookup (may be null)
-     * @return an AsyncTask producing the agent trace output map and call metrics
-     */
-    public static AsyncTask measuredAsyncAgentTask(Runner runner, String modelId, PriceTable prices) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
-        return example -> {
-            long startNanos = System.nanoTime();
-            return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
-                long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                Map<String, Object> outputs = toAgentTrace(events).toOutputMap();
-                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
-                return new TaskResult(outputs, metrics);
-            });
-        };
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} for RAG evaluation that runs an ADK {@link Runner},
-     * populates {@code output} and {@code context}, and captures {@link CallMetrics}.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return a MeasuredTask suitable for RAG evaluation
-     */
-    public static MeasuredTask measuredRagTask(Runner runner, PriceTable prices, String... retrievalToolNames) {
-        return measuredRagTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, null, prices, retrievalToolNames);
     }
 
     /**
@@ -1104,59 +528,16 @@ public final class AdkSupport {
      */
     public static MeasuredTask measuredRagTask(
             Runner runner, String modelId, PriceTable prices, String... retrievalToolNames) {
-        return measuredRagTask(runner, INPUT_KEY, OUTPUT_KEY, CONTEXT_KEY, modelId, prices, retrievalToolNames);
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} for RAG evaluation with custom key names.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param inputKey           the dataset input key to read (must not be null)
-     * @param outputKey          the output map key for the response (must not be null)
-     * @param contextKey         the output map key for the retrieved context list (must not be null)
-     * @param modelId            the model identifier for cost lookup (may be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return a MeasuredTask suitable for RAG evaluation
-     */
-    public static MeasuredTask measuredRagTask(
-            Runner runner,
-            String inputKey,
-            String outputKey,
-            String contextKey,
-            String modelId,
-            PriceTable prices,
-            String... retrievalToolNames) {
         Objects.requireNonNull(runner, "runner must not be null");
-        Objects.requireNonNull(inputKey, "inputKey must not be null");
-        Objects.requireNonNull(outputKey, "outputKey must not be null");
-        Objects.requireNonNull(contextKey, "contextKey must not be null");
         String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
         return example -> {
             long startNanos = System.nanoTime();
-            List<Event> events = runEvents(runner, extractInput(example, inputKey));
+            List<Event> events = runEvents(runner, extractInput(example));
             long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-            Map<String, Object> outputs = buildRagOutputMap(events, outputKey, contextKey, retrievalToolNames);
+            Map<String, Object> outputs = buildRagOutputMap(events, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
             CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
             return new TaskResult(outputs, metrics);
         };
-    }
-
-    /**
-     * Creates a {@link MeasuredTask} for RAG evaluation that runs an ADK {@link BaseAgent}
-     * via an {@link InMemoryRunner}, populating {@code output}, {@code context}, and
-     * {@link CallMetrics}.
-     *
-     * @param agent              the ADK agent (must not be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return a MeasuredTask suitable for RAG evaluation
-     */
-    public static MeasuredTask measuredRagTask(BaseAgent agent, PriceTable prices, String... retrievalToolNames) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return measuredRagTask(new InMemoryRunner(agent), resolveModelId(agent), prices, retrievalToolNames);
     }
 
     /**
@@ -1175,78 +556,6 @@ public final class AdkSupport {
             BaseAgent agent, String modelId, PriceTable prices, String... retrievalToolNames) {
         Objects.requireNonNull(agent, "agent must not be null");
         return measuredRagTask(new InMemoryRunner(agent), modelId, prices, retrievalToolNames);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link Runner}'s
-     * reactive stream, populating {@code output}, {@code context}, and {@link CallMetrics}.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask carrying RAG outputs and CallMetrics
-     */
-    public static AsyncTask measuredAsyncRagTask(Runner runner, PriceTable prices, String... retrievalToolNames) {
-        return measuredAsyncRagTask(runner, null, prices, retrievalToolNames);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link Runner}'s
-     * reactive stream, populating {@code output}, {@code context}, and {@link CallMetrics}.
-     *
-     * @param runner             the ADK runner (must not be null)
-     * @param modelId            the model identifier for cost lookup (may be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask carrying RAG outputs and CallMetrics
-     */
-    public static AsyncTask measuredAsyncRagTask(
-            Runner runner, String modelId, PriceTable prices, String... retrievalToolNames) {
-        Objects.requireNonNull(runner, "runner must not be null");
-        String resolvedModelId = (modelId != null && !modelId.isBlank()) ? modelId : resolveModelId(runner.agent());
-        return example -> {
-            long startNanos = System.nanoTime();
-            return runEventsAsync(runner, extractInput(example)).thenApply(events -> {
-                long latencyMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
-                Map<String, Object> outputs = buildRagOutputMap(events, OUTPUT_KEY, CONTEXT_KEY, retrievalToolNames);
-                CallMetrics metrics = toCallMetrics(events, latencyMs, resolvedModelId, prices);
-                return new TaskResult(outputs, metrics);
-            });
-        };
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link BaseAgent}
-     * via an {@link InMemoryRunner}.
-     *
-     * @param agent              the ADK agent (must not be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask carrying RAG outputs and CallMetrics
-     */
-    public static AsyncTask measuredAsyncRagTask(BaseAgent agent, PriceTable prices, String... retrievalToolNames) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return measuredAsyncRagTask(new InMemoryRunner(agent), resolveModelId(agent), prices, retrievalToolNames);
-    }
-
-    /**
-     * Creates a measured {@link AsyncTask} for RAG evaluation backed by an ADK {@link BaseAgent}
-     * via an {@link InMemoryRunner}.
-     *
-     * @param agent              the ADK agent (must not be null)
-     * @param modelId            the model identifier for cost lookup (may be null)
-     * @param prices             the price table for cost lookup (may be null)
-     * @param retrievalToolNames optional names of retrieval tools whose {@link FunctionResponse}s
-     *                           carry retrieved context
-     * @return an AsyncTask carrying RAG outputs and CallMetrics
-     */
-    public static AsyncTask measuredAsyncRagTask(
-            BaseAgent agent, String modelId, PriceTable prices, String... retrievalToolNames) {
-        Objects.requireNonNull(agent, "agent must not be null");
-        return measuredAsyncRagTask(new InMemoryRunner(agent), modelId, prices, retrievalToolNames);
     }
 
     // -------------------------------------------------------------------------
@@ -1587,25 +896,6 @@ public final class AdkSupport {
         return toToolCall(call, response, null);
     }
 
-    /**
-     * Converts a single ADK / GenAI {@link FunctionCall} and a serialized result string
-     * into a Dokimos {@link ToolCall}.
-     *
-     * @param call   the function call (must not be null)
-     * @param result the tool execution result string (may be null)
-     * @return the Dokimos ToolCall
-     */
-    public static ToolCall toToolCall(FunctionCall call, String result) {
-        Objects.requireNonNull(call, "call must not be null");
-        String name = call.name().orElse("");
-        Map<String, Object> args = call.args().orElse(Map.of());
-        ToolCall.Builder builder = ToolCall.builder().name(name).arguments(args).result(result);
-        if (call.id().isPresent() && !call.id().get().isBlank()) {
-            builder.metadata("id", call.id().get());
-        }
-        return builder.build();
-    }
-
     // -------------------------------------------------------------------------
     // Tool definitions
     // -------------------------------------------------------------------------
@@ -1622,17 +912,6 @@ public final class AdkSupport {
             return List.of();
         }
         return toToolDefinitions(collectTools(agent));
-    }
-
-    /**
-     * Extracts {@link ToolDefinition}s from an ADK {@link LlmAgent}'s configured tools
-     * (including any sub-agents).
-     *
-     * @param agent the ADK LlmAgent (may be null)
-     * @return the Dokimos tool definitions, or an empty list
-     */
-    public static List<ToolDefinition> toToolDefinitions(LlmAgent agent) {
-        return toToolDefinitions((BaseAgent) agent);
     }
 
     /**
@@ -2068,33 +1347,16 @@ public final class AdkSupport {
         return null;
     }
 
-    private static String[] toToolNameArray(List<String> retrievalToolNames) {
-        if (retrievalToolNames == null || retrievalToolNames.isEmpty()) {
-            return new String[0];
-        }
-        return retrievalToolNames.toArray(String[]::new);
-    }
-
     private static String extractInput(Example example) {
-        return extractInput(example, INPUT_KEY);
-    }
-
-    private static String extractInput(Example example, String inputKey) {
         if (example == null) {
             return "";
         }
-        String key = inputKey != null ? inputKey : INPUT_KEY;
-        Object raw = example.inputs().get(key);
+        Object raw = example.inputs().get(INPUT_KEY);
         if (raw != null) {
             return raw.toString();
         }
-        if (INPUT_KEY.equals(key)) {
-            String input = example.input();
-            if (input != null) {
-                return input;
-            }
-        }
-        return "";
+        String input = example.input();
+        return input != null ? input : "";
     }
 
     private static List<String> extractContextStringsFromMap(

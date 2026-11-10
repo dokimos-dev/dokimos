@@ -39,14 +39,12 @@ import dev.dokimos.core.conversation.Message
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.future.future
 import kotlinx.coroutines.runBlocking
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.UUID
-import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -159,7 +157,6 @@ object AdkSupport {
      * @return a [Task] returning `mapOf(outputKey to text)`
      */
     @JvmStatic
-    @JvmOverloads
     fun simpleTask(model: Model, inputKey: String = INPUT_KEY, outputKey: String = OUTPUT_KEY): Task = Task { example ->
         val input = extractInput(example, inputKey)
         val result = runBlocking { generateTextFromModel(model, input) }
@@ -175,7 +172,6 @@ object AdkSupport {
      * @return a [Task] returning `mapOf(outputKey to text)`
      */
     @JvmStatic
-    @JvmOverloads
     fun simpleTask(runner: Runner, inputKey: String = INPUT_KEY, outputKey: String = OUTPUT_KEY): Task =
         Task { example ->
             val input = extractInput(example, inputKey)
@@ -193,7 +189,6 @@ object AdkSupport {
      * @return a [Task] returning `mapOf(outputKey to text)`
      */
     @JvmStatic
-    @JvmOverloads
     fun simpleTask(agent: BaseAgent, inputKey: String = INPUT_KEY, outputKey: String = OUTPUT_KEY): Task =
         simpleTask(InMemoryRunner(agent = agent), inputKey, outputKey)
 
@@ -208,7 +203,6 @@ object AdkSupport {
      * @return a [Task] producing the agent trace map
      */
     @JvmStatic
-    @JvmOverloads
     fun agentTask(
         runner: Runner,
         inputKey: String = INPUT_KEY,
@@ -231,7 +225,6 @@ object AdkSupport {
      * @return a [Task] producing the agent trace map
      */
     @JvmStatic
-    @JvmOverloads
     fun agentTask(
         agent: BaseAgent,
         inputKey: String = INPUT_KEY,
@@ -254,7 +247,6 @@ object AdkSupport {
      * @return a [Task] producing `output`, `context`, `toolCalls`, and `reasoningSteps`
      */
     @JvmStatic
-    @JvmOverloads
     fun ragTask(
         runner: Runner,
         inputKey: String = INPUT_KEY,
@@ -280,7 +272,6 @@ object AdkSupport {
      * @return a [Task] producing `output`, `context`, `toolCalls`, and `reasoningSteps`
      */
     @JvmStatic
-    @JvmOverloads
     fun ragTask(
         agent: BaseAgent,
         inputKey: String = INPUT_KEY,
@@ -293,114 +284,92 @@ object AdkSupport {
 
     /**
      * Creates an [AsyncTask] from an ADK [Model], bridging its `Flow<LlmResponse>` to a
-     * [java.util.concurrent.CompletableFuture].
+     * [java.util.concurrent.CompletableFuture] and capturing [CallMetrics] (tokens, latency, and
+     * optional USD cost when [priceTable] is supplied).
      *
      * @param model the ADK [Model] under test
+     * @param modelId optional model identifier for cost lookup (defaults to `model.name`)
+     * @param priceTable optional [PriceTable] for USD cost calculation
      * @param inputKey the example input key (defaults to [INPUT_KEY])
      * @param outputKey the output map key (defaults to [OUTPUT_KEY])
      * @param scope the coroutine scope used to launch each invocation
      * @return an [AsyncTask]
      */
     @JvmStatic
-    @JvmOverloads
     fun asyncTask(
         model: Model,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future {
             val input = extractInput(example, inputKey)
+            val start = System.nanoTime()
             val result = generateTextFromModel(model, input)
-            TaskResult.of(mapOf(outputKey to result.text))
+            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+            val effectiveModelId = modelId ?: if (priceTable != null) model.name else null
+            val metrics = toCallMetrics(result.usage, latencyMs, effectiveModelId, priceTable)
+            TaskResult(mapOf(outputKey to result.text), metrics)
         }
     }
 
     /**
-     * Creates an [AsyncTask] from an ADK [Model], running on the given [Executor].
-     */
-    @JvmStatic
-    fun asyncTask(
-        model: Model,
-        executor: Executor,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-    ): AsyncTask {
-        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
-        return asyncTask(model, inputKey, outputKey, scope)
-    }
-
-    /**
-     * Creates an [AsyncTask] from an ADK [Runner] that captures only the final text response.
+     * Creates an [AsyncTask] from an ADK [Runner] that captures the final text response and
+     * [CallMetrics] (tokens, latency, and optional USD cost when [priceTable] is supplied).
      *
      * @param runner the ADK [Runner] under test
+     * @param modelId optional model identifier for cost lookup
+     * @param priceTable optional [PriceTable] for USD cost calculation
      * @param inputKey the example input key (defaults to [INPUT_KEY])
      * @param outputKey the output map key (defaults to [OUTPUT_KEY])
      * @param scope the coroutine scope used to launch each invocation
      * @return an [AsyncTask]
      */
     @JvmStatic
-    @JvmOverloads
     fun asyncTask(
         runner: Runner,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask = AsyncTask { example ->
         scope.future {
             val input = extractInput(example, inputKey)
+            val start = System.nanoTime()
             val events = runRunnerSuspend(runner, input)
-            TaskResult.of(mapOf(outputKey to extractFinalResponseText(events)))
+            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+            val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
+            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
+            TaskResult(mapOf(outputKey to extractFinalResponseText(events)), metrics)
         }
     }
 
     /**
-     * Creates an [AsyncTask] from an ADK [Runner] that captures only the final text response,
-     * running on the given [Executor].
+     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the final text response and
+     * [CallMetrics].
      */
     @JvmStatic
-    fun asyncTask(
-        runner: Runner,
-        executor: Executor,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-    ): AsyncTask {
-        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
-        return asyncTask(runner, inputKey, outputKey, scope)
-    }
-
-    /**
-     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures only the final text response.
-     */
-    @JvmStatic
-    @JvmOverloads
     fun asyncTask(
         agent: BaseAgent,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = asyncTask(InMemoryRunner(agent = agent), inputKey, outputKey, scope)
-
-    /**
-     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures only the final text response,
-     * running on the given [Executor].
-     */
-    @JvmStatic
-    fun asyncTask(
-        agent: BaseAgent,
-        executor: Executor,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-    ): AsyncTask = asyncTask(InMemoryRunner(agent = agent), executor, inputKey, outputKey)
+    ): AsyncTask = asyncTask(InMemoryRunner(agent = agent), modelId, priceTable, inputKey, outputKey, scope)
 
     /**
      * Creates an [AsyncTask] from an ADK [Runner] that captures the full agent execution trace
-     * (`output`, `toolCalls`, and `reasoningSteps`).
+     * (`output`, `toolCalls`, and `reasoningSteps`) and [CallMetrics].
      */
     @JvmStatic
-    @JvmOverloads
     fun asyncAgentTask(
         runner: Runner,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
@@ -408,90 +377,82 @@ object AdkSupport {
     ): AsyncTask = AsyncTask { example ->
         scope.future {
             val input = extractInput(example, inputKey)
+            val start = System.nanoTime()
             val events = runRunnerSuspend(runner, input)
+            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
             val trace = toAgentTrace(events)
-            TaskResult.of(traceToOutputMap(trace, outputKey, toolCallsKey))
+            val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
+            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
+            TaskResult(traceToOutputMap(trace, outputKey, toolCallsKey), metrics)
         }
     }
 
     /**
-     * Creates an [AsyncTask] from an ADK [Runner] that captures the full agent execution trace,
-     * running on the given [Executor].
-     */
-    @JvmStatic
-    fun asyncAgentTask(
-        runner: Runner,
-        executor: Executor,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        toolCallsKey: String = TOOL_CALLS_KEY,
-    ): AsyncTask {
-        val scope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
-        return asyncAgentTask(runner, inputKey, outputKey, toolCallsKey, scope)
-    }
-
-    /**
-     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the full agent execution trace.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun asyncAgentTask(
-        agent: BaseAgent,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = asyncAgentTask(InMemoryRunner(agent = agent), inputKey, outputKey, toolCallsKey, scope)
-
-    /**
-     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the full agent execution trace,
-     * running on the given [Executor].
+     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the full agent execution trace
+     * and [CallMetrics].
      */
     @JvmStatic
     fun asyncAgentTask(
         agent: BaseAgent,
-        executor: Executor,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
         toolCallsKey: String = TOOL_CALLS_KEY,
-    ): AsyncTask = asyncAgentTask(InMemoryRunner(agent = agent), executor, inputKey, outputKey, toolCallsKey)
-
-    /**
-     * Creates an [AsyncTask] from an ADK [Runner] that captures the agent trace plus retrieved
-     * context strings under [contextKey].
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun asyncRagTask(
-        runner: Runner,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        contextKey: String = CONTEXT_KEY,
-        retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = AsyncTask { example ->
-        scope.future {
-            val input = extractInput(example, inputKey)
-            val events = runRunnerSuspend(runner, input)
-            TaskResult.of(eventsToRagOutputMap(events, outputKey, contextKey, retrievalToolNames))
-        }
-    }
-
-    /**
-     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the agent trace plus retrieved
-     * context strings under [contextKey].
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun asyncRagTask(
-        agent: BaseAgent,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        contextKey: String = CONTEXT_KEY,
-        retrievalToolNames: List<String> = emptyList(),
         scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
     ): AsyncTask =
-        asyncRagTask(InMemoryRunner(agent = agent), inputKey, outputKey, contextKey, retrievalToolNames, scope)
+        asyncAgentTask(InMemoryRunner(agent = agent), modelId, priceTable, inputKey, outputKey, toolCallsKey, scope)
+
+    /**
+     * Creates an [AsyncTask] from an ADK [Runner] that captures the agent trace, retrieved
+     * context strings under [contextKey], and [CallMetrics].
+     */
+    @JvmStatic
+    fun asyncRagTask(
+        runner: Runner,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
+        inputKey: String = INPUT_KEY,
+        outputKey: String = OUTPUT_KEY,
+        contextKey: String = CONTEXT_KEY,
+        retrievalToolNames: List<String> = emptyList(),
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
+    ): AsyncTask = AsyncTask { example ->
+        scope.future {
+            val input = extractInput(example, inputKey)
+            val start = System.nanoTime()
+            val events = runRunnerSuspend(runner, input)
+            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
+            val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
+            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
+            TaskResult(eventsToRagOutputMap(events, outputKey, contextKey, retrievalToolNames), metrics)
+        }
+    }
+
+    /**
+     * Creates an [AsyncTask] from an ADK [BaseAgent] that captures the agent trace, retrieved
+     * context strings under [contextKey], and [CallMetrics].
+     */
+    @JvmStatic
+    fun asyncRagTask(
+        agent: BaseAgent,
+        modelId: String? = null,
+        priceTable: PriceTable? = null,
+        inputKey: String = INPUT_KEY,
+        outputKey: String = OUTPUT_KEY,
+        contextKey: String = CONTEXT_KEY,
+        retrievalToolNames: List<String> = emptyList(),
+        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
+    ): AsyncTask = asyncRagTask(
+        InMemoryRunner(agent = agent),
+        modelId,
+        priceTable,
+        inputKey,
+        outputKey,
+        contextKey,
+        retrievalToolNames,
+        scope,
+    )
 
     // ==================== Measured Tasks & CallMetrics ====================
 
@@ -503,7 +464,6 @@ object AdkSupport {
      * (`null`) to match the other Dokimos adapters.
      */
     @JvmStatic
-    @JvmOverloads
     fun toCallMetrics(
         usage: UsageMetadata?,
         latencyMs: Long,
@@ -531,7 +491,6 @@ object AdkSupport {
      * `candidatesTokenCount + thoughtsTokenCount` for `tokensOut`.
      */
     @JvmStatic
-    @JvmOverloads
     fun toCallMetrics(
         events: List<Event>,
         latencyMs: Long,
@@ -567,10 +526,9 @@ object AdkSupport {
      * USD cost.
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredTask(
         model: Model,
-        modelId: String? = model.name,
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -579,7 +537,7 @@ object AdkSupport {
         val start = System.nanoTime()
         val result = runBlocking { generateTextFromModel(model, input) }
         val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-        val effectiveModelId = modelId ?: model.name
+        val effectiveModelId = modelId ?: if (priceTable != null) model.name else null
         val metrics = toCallMetrics(result.usage, latencyMs, effectiveModelId, priceTable)
         TaskResult(mapOf(outputKey to result.text), metrics)
     }
@@ -589,10 +547,9 @@ object AdkSupport {
      * aggregated token counts, latency, and optional USD cost.
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredTask(
         runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -601,7 +558,7 @@ object AdkSupport {
         val start = System.nanoTime()
         val events = runBlocking { runRunnerSuspend(runner, input) }
         val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-        val effectiveModelId = modelId ?: resolveModelId(runner.agent)
+        val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
         val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
         TaskResult(mapOf(outputKey to extractFinalResponseText(events)), metrics)
     }
@@ -611,10 +568,9 @@ object AdkSupport {
      * with aggregated token counts, latency, and optional USD cost.
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredTask(
         agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -625,10 +581,9 @@ object AdkSupport {
      * (`output`, `toolCalls`, `steps`, `metadata`) and [CallMetrics].
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredAgentTask(
         runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -639,7 +594,7 @@ object AdkSupport {
         val events = runBlocking { runRunnerSuspend(runner, input) }
         val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
         val trace = toAgentTrace(events)
-        val effectiveModelId = modelId ?: resolveModelId(runner.agent)
+        val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
         val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
         TaskResult(traceToOutputMap(trace, outputKey, toolCallsKey), metrics)
     }
@@ -649,10 +604,9 @@ object AdkSupport {
      * [CallMetrics].
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredAgentTask(
         agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -665,10 +619,9 @@ object AdkSupport {
      * contexts under [contextKey], and [CallMetrics].
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredRagTask(
         runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -679,7 +632,7 @@ object AdkSupport {
         val start = System.nanoTime()
         val events = runBlocking { runRunnerSuspend(runner, input) }
         val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-        val effectiveModelId = modelId ?: resolveModelId(runner.agent)
+        val effectiveModelId = modelId ?: if (priceTable != null) resolveModelId(runner.agent) else null
         val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
         TaskResult(eventsToRagOutputMap(events, outputKey, contextKey, retrievalToolNames), metrics)
     }
@@ -689,10 +642,9 @@ object AdkSupport {
      * contexts under [contextKey], and [CallMetrics].
      */
     @JvmStatic
-    @JvmOverloads
     fun measuredRagTask(
         agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
+        modelId: String? = null,
         priceTable: PriceTable? = null,
         inputKey: String = INPUT_KEY,
         outputKey: String = OUTPUT_KEY,
@@ -706,175 +658,6 @@ object AdkSupport {
         outputKey,
         contextKey,
         retrievalToolNames,
-    )
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [Model], capturing token counts, latency, and
-     * optional USD cost asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncTask(
-        model: Model,
-        modelId: String? = model.name,
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
-            val input = extractInput(example, inputKey)
-            val start = System.nanoTime()
-            val result = generateTextFromModel(model, input)
-            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-            val effectiveModelId = modelId ?: model.name
-            val metrics = toCallMetrics(result.usage, latencyMs, effectiveModelId, priceTable)
-            TaskResult(mapOf(outputKey to result.text), metrics)
-        }
-    }
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [Runner], capturing the final text response and
-     * [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncTask(
-        runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
-            val input = extractInput(example, inputKey)
-            val start = System.nanoTime()
-            val events = runRunnerSuspend(runner, input)
-            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-            val effectiveModelId = modelId ?: resolveModelId(runner.agent)
-            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
-            TaskResult(mapOf(outputKey to extractFinalResponseText(events)), metrics)
-        }
-    }
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing the final text response and
-     * [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncTask(
-        agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = measuredAsyncTask(InMemoryRunner(agent = agent), modelId, priceTable, inputKey, outputKey, scope)
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [Runner], capturing both the full agent trace and
-     * [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncAgentTask(
-        runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
-            val input = extractInput(example, inputKey)
-            val start = System.nanoTime()
-            val events = runRunnerSuspend(runner, input)
-            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-            val trace = toAgentTrace(events)
-            val effectiveModelId = modelId ?: resolveModelId(runner.agent)
-            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
-            TaskResult(traceToOutputMap(trace, outputKey, toolCallsKey), metrics)
-        }
-    }
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing both the full agent trace
-     * and [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncAgentTask(
-        agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        toolCallsKey: String = TOOL_CALLS_KEY,
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = measuredAsyncAgentTask(
-        InMemoryRunner(agent = agent),
-        modelId,
-        priceTable,
-        inputKey,
-        outputKey,
-        toolCallsKey,
-        scope,
-    )
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [Runner], capturing the agent trace, retrieved RAG
-     * contexts under [contextKey], and [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncRagTask(
-        runner: Runner,
-        modelId: String? = resolveModelId(runner.agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        contextKey: String = CONTEXT_KEY,
-        retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = AsyncTask { example ->
-        scope.future(Dispatchers.IO) {
-            val input = extractInput(example, inputKey)
-            val start = System.nanoTime()
-            val events = runRunnerSuspend(runner, input)
-            val latencyMs = maxOf(0L, (System.nanoTime() - start) / 1_000_000L)
-            val effectiveModelId = modelId ?: resolveModelId(runner.agent)
-            val metrics = toCallMetrics(events, latencyMs, effectiveModelId, priceTable)
-            TaskResult(eventsToRagOutputMap(events, outputKey, contextKey, retrievalToolNames), metrics)
-        }
-    }
-
-    /**
-     * Creates a measured [AsyncTask] from an ADK [BaseAgent], capturing the agent trace, retrieved
-     * RAG contexts under [contextKey], and [CallMetrics] asynchronously.
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun measuredAsyncRagTask(
-        agent: BaseAgent,
-        modelId: String? = resolveModelId(agent),
-        priceTable: PriceTable? = null,
-        inputKey: String = INPUT_KEY,
-        outputKey: String = OUTPUT_KEY,
-        contextKey: String = CONTEXT_KEY,
-        retrievalToolNames: List<String> = emptyList(),
-        scope: CoroutineScope = DEFAULT_ASYNC_SCOPE,
-    ): AsyncTask = measuredAsyncRagTask(
-        InMemoryRunner(agent = agent),
-        modelId,
-        priceTable,
-        inputKey,
-        outputKey,
-        contextKey,
-        retrievalToolNames,
-        scope,
     )
 
     // ==================== AgentTrace & Tool Extraction ====================
@@ -983,7 +766,6 @@ object AdkSupport {
      * Converts an ADK [FunctionCall] and optional [FunctionResponse] into a Dokimos [ToolCall].
      */
     @JvmStatic
-    @JvmOverloads
     fun toToolCall(functionCall: FunctionCall, functionResponse: FunctionResponse? = null): ToolCall {
         val name = functionCall.name
         val args = nonNullMap(functionCall.args)
@@ -1012,23 +794,6 @@ object AdkSupport {
             .build()
     }
 
-    /**
-     * Converts an ADK [FunctionCall] and a serialized result string into a Dokimos [ToolCall].
-     */
-    @JvmStatic
-    fun toToolCall(functionCall: FunctionCall, result: String?): ToolCall {
-        val metadata = LinkedHashMap<String, Any>()
-        if (!functionCall.id.isNullOrBlank()) {
-            metadata["id"] = functionCall.id!!
-        }
-        return ToolCall.builder()
-            .name(functionCall.name)
-            .arguments(nonNullMap(functionCall.args))
-            .result(result)
-            .metadata(metadata)
-            .build()
-    }
-
     // ==================== Tool Definitions & Schema Conversion ====================
 
     /**
@@ -1040,12 +805,6 @@ object AdkSupport {
         collectAgentTools(agent, tools, Collections.newSetFromMap(IdentityHashMap()))
         return toToolDefinitions(tools)
     }
-
-    /**
-     * Extracts [ToolDefinition]s from an ADK [LlmAgent], including tools from its sub-agents.
-     */
-    @JvmStatic
-    fun toToolDefinitions(agent: LlmAgent): List<ToolDefinition> = toToolDefinitions(agent as BaseAgent)
 
     /**
      * Converts a list of ADK [BaseTool]s into Dokimos [ToolDefinition]s, deduplicating by tool
@@ -1149,14 +908,14 @@ object AdkSupport {
             for ((k, v) in schema.properties!!) {
                 props[k] = toSchemaMap(v)
             }
-            map["properties"] = props
+            map["properties"] = Collections.unmodifiableMap(props)
         }
         schema.items?.let { map["items"] = toSchemaMap(it) }
         if (!schema.anyOf.isNullOrEmpty()) {
             map["anyOf"] = schema.anyOf!!.map { toSchemaMap(it) }
         }
 
-        return map.toMap()
+        return Collections.unmodifiableMap(map)
     }
 
     // ==================== Plugin Attachment & RAG Context Extraction ====================
@@ -1165,7 +924,6 @@ object AdkSupport {
      * Creates and registers an [AdkTraceCollector] plugin on the given [InMemoryRunner.Builder].
      */
     @JvmStatic
-    @JvmOverloads
     fun attach(
         builder: InMemoryRunner.Builder,
         collector: AdkTraceCollector = AdkTraceCollector(),
@@ -1178,7 +936,6 @@ object AdkSupport {
      * Creates and registers an [AdkTraceCollector] plugin on the given [App.Builder].
      */
     @JvmStatic
-    @JvmOverloads
     fun attach(builder: App.Builder, collector: AdkTraceCollector = AdkTraceCollector()): AdkTraceCollector {
         builder.plugins(listOf(collector))
         return collector
@@ -1254,7 +1011,6 @@ object AdkSupport {
      * Converts an ADK [Session] into a Dokimos [ConversationTrajectory] for multi-turn evaluation.
      */
     @JvmStatic
-    @JvmOverloads
     fun toConversationTrajectory(session: Session, scenario: String = ""): ConversationTrajectory =
         toConversationTrajectory(session.events, scenario)
 
@@ -1263,7 +1019,6 @@ object AdkSupport {
      * and assistant turns (with their executed [ToolCall]s).
      */
     @JvmStatic
-    @JvmOverloads
     fun toConversationTrajectory(events: List<Event>, scenario: String = ""): ConversationTrajectory {
         val builder = ConversationTrajectory.builder().scenario(scenario)
         if (events.isEmpty()) {
@@ -1302,7 +1057,6 @@ object AdkSupport {
      * with `ConversationSimulator`.
      */
     @JvmStatic
-    @JvmOverloads
     fun asConversationalApp(
         runner: Runner,
         userId: String = DEFAULT_USER_ID,
@@ -1691,9 +1445,6 @@ fun List<Event>.toAgentTrace(): AgentTrace = AdkSupport.toAgentTrace(this)
 
 /** Extracts [ToolDefinition]s from this [BaseAgent] and its sub-agents. */
 fun BaseAgent.toToolDefinitions(): List<ToolDefinition> = AdkSupport.toToolDefinitions(this)
-
-/** Extracts [ToolDefinition]s from this [LlmAgent] and its sub-agents. */
-fun LlmAgent.toToolDefinitions(): List<ToolDefinition> = AdkSupport.toToolDefinitions(this)
 
 /** Converts this ADK [BaseTool] into a Dokimos [ToolDefinition]. */
 fun BaseTool.toToolDefinition(): ToolDefinition = AdkSupport.toToolDefinition(this)

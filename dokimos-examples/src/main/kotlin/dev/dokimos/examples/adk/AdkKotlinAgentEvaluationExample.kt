@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * - Passive trace and tool-schema collection via [AdkTraceCollector]
  * - Tool-call evaluation with [ToolCallValidityEvaluator], [ToolCorrectnessEvaluator], and
  *   [ToolEfficiencyEvaluator]
- * - Token, latency, and cost tracking via [AdkSupport.measuredAsyncAgentTask] and [PriceTable]
+ * - Token, latency, and cost tracking via [AdkSupport.asyncAgentTask] and [PriceTable]
  *   inside the Kotlin `experiment { ... }` DSL
  *
  * Uses live `gemini-3.8-flash` when `GOOGLE_API_KEY` or `GEMINI_API_KEY` is set in the
@@ -105,7 +105,7 @@ object AdkKotlinAgentEvaluationExample {
         }
 
         // ---------------------------------------------------------------------
-        // Part 2: Kotlin DSL Experiment with measuredAsyncAgentTask
+        // Part 2: Kotlin DSL Experiment with asyncAgentTask
         // ---------------------------------------------------------------------
         val expResult = experiment {
             name = "ADK Kotlin Weather Agent Evaluation"
@@ -117,7 +117,7 @@ object AdkKotlinAgentEvaluationExample {
                     metadata("tools", agent.toToolDefinitions())
                 }
             }
-            asyncTask(AdkSupport.measuredAsyncAgentTask(agent, priceTable = prices))
+            asyncTask(AdkSupport.asyncAgentTask(agent, priceTable = prices))
             evaluators {
                 toolCallValidity()
                 toolCorrectness()

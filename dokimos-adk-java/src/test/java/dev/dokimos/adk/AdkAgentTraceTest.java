@@ -3,6 +3,7 @@ package dev.dokimos.adk;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.google.adk.agents.BaseAgent;
 import com.google.adk.agents.LlmAgent;
 import com.google.adk.events.Event;
 import com.google.adk.models.BaseLlm;
@@ -427,7 +428,7 @@ class AdkAgentTraceTest {
         assertThat(AdkSupport.toToolCalls(new ArrayList<>(Arrays.asList(null, null))))
                 .isEmpty();
         assertThat(AdkSupport.toToolDefinitions((List<BaseTool>) null)).isEmpty();
-        assertThat(AdkSupport.toToolDefinitions((LlmAgent) null)).isEmpty();
+        assertThat(AdkSupport.toToolDefinitions((BaseAgent) null)).isEmpty();
         assertThat(AdkSupport.toSchemaMap(null)).isEmpty();
 
         assertThatThrownBy(() -> AdkSupport.toToolDefinition((BaseTool) null)).isInstanceOf(NullPointerException.class);
@@ -454,7 +455,7 @@ class AdkAgentTraceTest {
                 .subAgents(subAgent)
                 .build();
 
-        List<ToolDefinition> defs = AdkSupport.toToolDefinitions((com.google.adk.agents.BaseAgent) rootAgent);
+        List<ToolDefinition> defs = AdkSupport.toToolDefinitions(rootAgent);
         assertThat(defs).extracting(ToolDefinition::name).containsExactly("get_weather", "custom_ping");
     }
 }

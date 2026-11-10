@@ -46,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -1773,7 +1772,7 @@ public final class AdkSupport {
                     props.put(entry.getKey(), toSchemaMap(entry.getValue()));
                 }
             }
-            map.put("properties", props);
+            map.put("properties", Collections.unmodifiableMap(props));
             map.putIfAbsent("type", "object");
         }
 
@@ -1794,7 +1793,7 @@ public final class AdkSupport {
             map.put("anyOf", anyOfList);
         }
 
-        return Map.copyOf(map);
+        return Collections.unmodifiableMap(map);
     }
 
     // -------------------------------------------------------------------------
@@ -2488,18 +2487,19 @@ public final class AdkSupport {
         if (decl.parametersJsonSchema().isPresent()) {
             Object raw = decl.parametersJsonSchema().get();
             if (raw instanceof Map<?, ?> map) {
-                Map<String, Object> copy = new HashMap<>();
+                Map<String, Object> copy = new LinkedHashMap<>();
                 map.forEach((k, v) -> {
                     if (k != null) {
                         copy.put(k.toString(), v);
                     }
                 });
-                return Map.copyOf(copy);
+                return Collections.unmodifiableMap(copy);
             }
             try {
-                Map<String, Object> converted = OBJECT_MAPPER.convertValue(raw, new TypeReference<>() {});
+                Map<String, Object> converted =
+                        OBJECT_MAPPER.convertValue(raw, new TypeReference<LinkedHashMap<String, Object>>() {});
                 if (converted != null && !converted.isEmpty()) {
-                    return Map.copyOf(converted);
+                    return Collections.unmodifiableMap(converted);
                 }
             } catch (Exception ignored) {
                 // Fall through to default empty object schema

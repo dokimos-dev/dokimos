@@ -402,6 +402,10 @@ class AdkAgentTraceTest {
                 .containsEntry("enum", List.of("OPEN", "CLOSED"));
         assertThat(def.parameterSchema("limit")).containsEntry("type", "integer");
         assertThat(def.parameterSchema("tags")).containsEntry("type", "array");
+
+        Map<String, Object> schemaMap = AdkSupport.toSchemaMap(rootSchema);
+        assertThat(List.copyOf(schemaMap.keySet())).containsExactly("type", "properties", "required");
+        assertThatThrownBy(() -> schemaMap.put("extra", "value")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

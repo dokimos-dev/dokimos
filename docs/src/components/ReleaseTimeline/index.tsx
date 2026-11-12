@@ -7,6 +7,39 @@ type Release = { version: string; date: string; lead?: string; groups: Group[] }
 
 const RELEASES: Release[] = [
   {
+    version: "0.31.0",
+    date: "November 2026",
+    lead: "Evaluate agents built with Google's Agent Development Kit (ADK) for Java and Kotlin.",
+    groups: [
+      {
+        label: "Added",
+        items: [
+          {
+            title: "Google ADK for Java",
+            body: (
+              <>
+                The new <code>dokimos-adk-java</code> module adds <code>AdkTraceCollector</code>, an
+                ADK plugin that records tool calls, tool definitions, retrieved context,
+                conversations, tokens, and cost. <code>AdkSupport</code> turns an ADK model,
+                runner, or agent into a task or a judge.
+              </>
+            ),
+          },
+          {
+            title: "Google ADK for Kotlin",
+            body: (
+              <>
+                The new <code>dokimos-adk-kotlin</code> module offers the same features with
+                coroutine callbacks and extension functions, such as <code>agent.asJudge()</code>{" "}
+                and <code>runner.toAgentTrace(input)</code>.
+              </>
+            ),
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.28.0",
     date: "September 2026",
     lead: "Score individual fields of a structured task output with existing evaluators.",

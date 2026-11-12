@@ -49,6 +49,8 @@ Do not hand-build `AgentTrace` if the agent runs on a supported framework. Each 
 
 - **LangChain4j** (`dokimos-langchain4j`): `LangChain4jSupport.toAgentTrace(result)` from an `AiServices` `Result<T>`; `toToolDefinitions(specs)` for the tools.
 - **Spring AI** (`dokimos-spring-ai`): `SpringAiSupport.toAgentTrace(assistantMessage, toolResponseMessages)` (results matched by tool-call id); `toToolDefinitions(defs)`.
+- **Google ADK for Java** (`dokimos-adk-java`): `AdkSupport.toAgentTrace(agent, input)` (or `toAgentTrace(session)` / `toAgentTrace(events)`), or attach an `AdkTraceCollector` via `AdkSupport.attach(runnerBuilder)`; `AdkSupport.toToolDefinitions(agent)` for the tools.
+- **Google ADK for Kotlin** (`dokimos-adk-kotlin`): `agent.toAgentTrace(input)` / `agent.runTrace(input)` (or `session.toAgentTrace()` / `events.toAgentTrace()`), or attach an `AdkTraceCollector` via `AdkSupport.attach(runnerBuilder)`; `agent.toToolDefinitions()` for the tools.
 - **Koog** (`dokimos-koog`): install a `KoogTraceCollector` via `collectAgentTrace(collector)` in the event handler, run the agent, then `collector.toAgentTrace(response)`.
 - **OpenAI Java SDK** (`dokimos-openai`): `OpenAiSupport.toAgentTrace(message, resultLookup)` from a `ChatCompletionMessage`; `toToolDefinitions(tools)` for the tools.
 

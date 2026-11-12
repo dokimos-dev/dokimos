@@ -26,13 +26,13 @@ Before writing code, read the relevant `AdkSupport` and `AdkTraceCollector` file
 - **Q&A and Agent Tasks**:
   - Sync: `AdkSupport.simpleTask(...)`, `AdkSupport.agentTask(...)`
   - Async (`Flowable<Event>` or `Flow<Event>` -> `CompletableFuture`): `AdkSupport.asyncTask(...)`, `AdkSupport.asyncAgentTask(...)`
-  - Measured (`CallMetrics` with tokens, latency, and `PriceTable` cost): `AdkSupport.measuredTask(...)`, `AdkSupport.measuredAgentTask(...)`, `AdkSupport.measuredAsyncTask(...)`, `AdkSupport.measuredAsyncAgentTask(...)` (in Kotlin, `modelId` is automatically inferred from `LlmAgent.model.name` when omitted)
+  - Measured (`CallMetrics` with tokens, latency, and `PriceTable` cost): `AdkSupport.measuredTask(...)`, `AdkSupport.measuredAgentTask(...)`. In Kotlin, `asyncTask(...)` and `asyncAgentTask(...)` also capture `CallMetrics`; pass `priceTable` to add cost, and `modelId` is inferred from `LlmAgent.model.name` when omitted
 - **Tool-Call & AgentTrace Extraction**:
   - Direct: `AdkSupport.toAgentTrace(agent, input)`, `AdkSupport.toAgentTrace(runner, input)`, `AdkSupport.toAgentTrace(session)`, `AdkSupport.toAgentTrace(events)` (plus `.toAgentTrace(...)` and `suspend fun BaseAgent.runTrace(input)` in Kotlin)
   - Tool definitions (with full `Schema` -> JSON Schema conversion): `AdkSupport.toToolDefinitions(llmAgent)` / `agent.toToolDefinitions()`, `AdkSupport.toToolDefinitions(tools)`, `AdkSupport.toToolDefinitions(collector)` / `collector.toolDefinitions()`
   - Passive plugin: `AdkTraceCollector` (`BasePlugin` in Java, `com.google.adk.kt.plugins.Plugin` in Kotlin). Attach via `AdkSupport.attach(builder)` or `InMemoryRunner(agent = agent, plugins = listOf(collector))` to capture `collector.trace()`, `collector.toolDefinitions()`, `collector.trajectory()`, `collector.retrievedContexts()`, and `collector.callMetrics(...)`. Call `collector.reset()` between runs when reusing an instance.
 - **RAG Evaluation**:
-  - `AdkSupport.ragTask(...)`, `AdkSupport.asyncRagTask(...)`, `AdkSupport.measuredRagTask(...)`, `AdkSupport.measuredAsyncRagTask(...)`
+  - `AdkSupport.ragTask(...)`, `AdkSupport.asyncRagTask(...)`, `AdkSupport.measuredRagTask(...)`
   - `AdkSupport.extractTexts(events, retrievalToolNames...)` extracts `"context"` (`List<String>`) from `Event.groundingMetadata` chunks (`retrievedContext`, `ragChunk`, `web`) and/or retrieval tool `FunctionResponse`s (`VertexAiRagRetrieval` or custom search tools).
 - **Multi-Turn Conversations**:
   - `AdkSupport.toConversationTrajectory(session, scenario)` / `session.toConversationTrajectory(scenario)` and `AdkSupport.asConversationalApp(agent)` / `agent.asConversationalApp()` for `ConversationSimulator`.

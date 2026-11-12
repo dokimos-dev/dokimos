@@ -39,6 +39,9 @@ fun precision(block: PrecisionEvaluatorDsl.() -> Unit = {}): PrecisionEvaluator 
 
 fun recall(block: RecallEvaluatorDsl.() -> Unit = {}): RecallEvaluator = RecallEvaluatorDsl().apply(block).build()
 
+fun structuralMatch(block: StructuralMatchEvaluatorDsl.() -> Unit = {}): StructuralMatchEvaluator =
+    StructuralMatchEvaluatorDsl().apply(block).build()
+
 fun taskCompletion(judge: JudgeLM, block: TaskCompletionEvaluatorDsl.() -> Unit = {}): TaskCompletionEvaluator =
     TaskCompletionEvaluatorDsl(judge).apply(block).build()
 
@@ -85,6 +88,15 @@ fun dataset(block: DatasetDsl.() -> Unit): Dataset = DatasetDsl().apply(block).b
 fun example(block: ExampleDsl.() -> Unit): Example = ExampleDsl().apply(block).build()
 
 fun task(block: (Example) -> Map<String, Any>): Task = Task(block)
+
+/**
+ * Builds a [MeasuredTask] from a lambda returning a [TaskResult], so each item can carry
+ * [CallMetrics] (tokens, cost, latency) alongside its outputs.
+ *
+ * @param fn produces the [TaskResult] for an [Example]
+ * @return a [MeasuredTask] suitable for [Experiment.Builder.measuredTask]
+ */
+fun measuredTask(fn: (Example) -> TaskResult): MeasuredTask = MeasuredTask { example -> fn(example) }
 
 /**
  * Builds a [Task] that produces a single typed value and stores it under the conventional
@@ -139,10 +151,12 @@ class ExperimentDsl {
     var parallelism: Int = 1
     var runs: Int = 1
     var reporter: Reporter = NoOpReporter.INSTANCE
+    var autoCloseReporter: Boolean = false
 
     private var dataset: Dataset? = null
     private var task: Task? = null
     private var asyncTask: AsyncTask? = null
+    private var measuredTask: MeasuredTask? = null
     private val evaluators: MutableList<Evaluator> = mutableListOf()
     private val metadata: MutableMap<String, Any> = mutableMapOf()
 
@@ -168,6 +182,22 @@ class ExperimentDsl {
      */
     inline fun <reified T> typedTask(crossinline block: (Example) -> T) {
         task(Task.typed { example -> block(example) })
+    }
+
+    /**
+     * Sets a [MeasuredTask] that returns a [TaskResult] carrying optional [CallMetrics]
+     * (tokens, cost, latency) alongside the outputs.
+     */
+    fun measuredTask(value: MeasuredTask) {
+        measuredTask = value
+    }
+
+    /**
+     * Sets a measured task from a lambda returning a [TaskResult]. Use it when the task
+     * should report token counts, cost, or latency for each item.
+     */
+    fun measuredTask(block: (Example) -> TaskResult) {
+        measuredTask = MeasuredTask { example -> block(example) }
     }
 
     /**
@@ -219,14 +249,20 @@ class ExperimentDsl {
             .evaluators(evaluators)
             .metadata(metadata)
             .reporter(reporter)
+            .autoCloseReporter(autoCloseReporter)
             .parallelism(parallelism)
             .runs(runs)
 
+        if (task != null && measuredTask != null) {
+            error("set either task or measuredTask, not both")
+        }
+
         asyncTask?.let { builder.asyncTask(it) }
+        measuredTask?.let { builder.measuredTask(it) }
         task?.let { builder.task(it) }
 
-        if (task == null && asyncTask == null) {
-            error("task or asyncTask must be set")
+        if (task == null && asyncTask == null && measuredTask == null) {
+            error("task, measuredTask or asyncTask must be set")
         }
 
         return builder.build()

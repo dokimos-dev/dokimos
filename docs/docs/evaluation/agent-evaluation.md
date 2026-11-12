@@ -63,26 +63,75 @@ var results = List.of(
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
+// 1. List the tools your agent can use — the schema is declared inline
+val tools = tools {
+    tool("search_flights") {
+        description = "Search for available flights"
+        parameters {
+            string("origin", "Origin airport IATA code", required = true)
+            string("destination", "Destination airport IATA code", required = true)
+            string("date", "Travel date in YYYY-MM-DD format")
+        }
+    }
+    tool("book_hotel") {
+        description = "Book a hotel room"
+        parameters {
+            string("city", "City name", required = true)
+            integer("nights", "Number of nights")
+        }
+    }
+}
+
+// 2. Set up a judge LLM (needed for task completion and hallucination checks)
 val judge = JudgeLM { prompt -> openAiClient.generate(prompt) }
 
-val result = experiment {
-    name = "Travel Agent Evaluation"
-    dataset(dataset)
-    task { example ->
-        val trace = travelAgent.run(example.input())
-        trace.toOutputMap()
+// 3. Run your agent and capture its trace
+val trace = agentTrace {
+    toolCall("search_flights", mapOf("origin" to "JFK", "destination" to "CDG"))
+    toolCall("book_hotel", mapOf("city" to "Paris", "nights" to 5))
+    finalResponse = "Found flights and booked your hotel in Paris."
+}
+
+// 4. Build a test case
+val testCase = agentTestCase {
+    input = "Find flights from NYC to Paris and book a hotel for 5 nights"
+    trace(trace)
+    tools(tools)
+    expectedToolCalls {
+        call("search_flights", mapOf())
+        call("book_hotel", mapOf())
     }
-    evaluators {
-        toolCallValidity { }
-        toolCorrectness { }
-        taskCompletion(judge) { }
-        toolArgumentHallucination(judge) { }
-    }
-}.run()
+    tasks("Search for flights", "Book a hotel")
+}
+
+// 5. Pick the evaluators you need and run them
+val results = listOf(
+    toolCallValidity().evaluate(testCase),
+    toolCorrectness().evaluate(testCase),
+    taskCompletion(judge).evaluate(testCase),
+    toolArgumentHallucination(judge).evaluate(testCase),
+)
 ```
 
   </TabItem>
 </Tabs>
+
+:::tip Kotlin DSL
+The agent builders live in `dev.dokimos.kotlin.dsl.agents`:
+
+| Entry point                                  | Builds                                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `toolDefinition(name) { }` / `tools { }`     | `ToolDefinition`s, with a typed `parameters { }` JSON-schema builder                          |
+| `toolCall(name) { }` / `toolCalls { }`       | `ToolCall`s, including `resultJson(...)` for a serialized result                              |
+| `agentTrace { }`                             | an `AgentTrace` with tool calls, reasoning steps, and metadata                                 |
+| `agentTestCase { }`                          | an `EvalTestCase` wired for the agent evaluators                                              |
+
+`agentTestCase` delegates the shared slots to `AgentEvalCase` and adds the ones it does not cover:
+the final response, the `reasoningSteps` that `planQuality` and `planAdherence` read, and the
+`constraints` entry `taskCompletion` reads.
+
+> See [`AgentEvaluationKotlinExample.kt`](https://github.com/dokimos-dev/dokimos/blob/master/dokimos-examples/src/main/kotlin/dev/dokimos/examples/agents/AgentEvaluationKotlinExample.kt) for a runnable example.
+:::
 
 ## Evaluators
 

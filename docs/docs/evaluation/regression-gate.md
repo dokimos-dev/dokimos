@@ -194,17 +194,17 @@ Assertions.assertNoRegression(result, "rag", config);
   <TabItem value="kotlin" label="Kotlin">
 
 ```kotlin
-import dev.dokimos.core.gate.GateConfig
-
-val config = GateConfig.builder()
-    .severityMargin(0.10)
-    .build()
-
-result.assertNoRegression("rag", config)
+result.assertNoRegression("rag") {
+    severityMargin = 0.10                              // stricter single-item drop guard
+    pairing = GateConfig.Pairing.DATASET_ITEM_ID       // pair strictly by id
+    bootstrapPasses = false                            // fail once until the baseline is reviewed
+}
 ```
 
   </TabItem>
 </Tabs>
+
+The block overload builds a `GateConfig` inline via the `dev.dokimos.kotlin.dsl.gate.gateConfig` DSL, starting from `GateConfig.defaults()` so unset properties keep their core defaults. Use `dev.dokimos.kotlin.dsl.gate.gateConfig { ... }` directly when you want a standalone `GateConfig` — for example to reuse across several `assertNoRegression` calls, or to pass to `RegressionGate.evaluate(...)`.
 
 | Option | Default | What it controls |
 | --- | --- | --- |
